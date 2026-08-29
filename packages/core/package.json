@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "test:compiled": "node --test --test-isolation=none dist/tests/*.test.js"
+    "test:compiled": "node --test dist/tests/*.test.js"
   },
   "engines": {
     "node": ">=22"
