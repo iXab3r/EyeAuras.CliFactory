@@ -34,8 +34,15 @@ the runner, not once per command.
 ### Profiles own non-secret configuration
 
 A profile is a named JSON object containing values such as a base URL, tenant, project, or user
-name. One profile is active. Profile files contain no passwords, access tokens, refresh tokens,
-private keys, or cookies.
+name. One profile is the default. A default profile exists even before configuration is persisted,
+and the collection can never become empty. Profile files contain no passwords, access tokens,
+refresh tokens, private keys, or cookies.
+
+The standard lifecycle is explicit: `profile create <name>` creates, `profile set <name>` updates
+an existing profile, `profile set-default <name>` chooses the default, and `profile delete <name>`
+removes a non-default profile. The default profile cannot be deleted until another profile is made
+default; the final remaining profile cannot be deleted. Deletion also removes the integration's
+known stored authentication credential for that profile.
 
 Profile identity is part of the secret key. Switching from `uat` to `production` must never reuse
 the other profile's credential accidentally.

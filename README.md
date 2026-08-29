@@ -91,8 +91,10 @@ It also adds the common commands:
 
 ```text
 teamcity-cli profile list
-teamcity-cli profile set production --url https://teamcity.example.com
-teamcity-cli profile use production
+teamcity-cli profile create production --url https://teamcity.example.com
+teamcity-cli profile set production --url https://new-teamcity.example.com
+teamcity-cli profile set-default production
+teamcity-cli profile delete old-uat
 
 teamcity-cli auth login --token-stdin
 teamcity-cli auth status

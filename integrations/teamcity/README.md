@@ -34,12 +34,17 @@ The default profile points to `https://teamcity.example.com`. Create separate pr
 URLs or security realms differ:
 
 ```text
-teamcity-cli profile set uat --url https://teamcity-uat.example.com
-teamcity-cli profile set production --url https://teamcity.example.com
+teamcity-cli profile create uat --url https://teamcity-uat.example.com
+teamcity-cli profile create production --url https://teamcity.example.com
+teamcity-cli profile set-default production
 teamcity-cli auth login --profile uat --token-stdin
 teamcity-cli auth login --profile production --token-stdin
 teamcity-cli auth status --profile production --json
 ```
+
+Use `profile set <name> --url <url>` to update an existing profile. A default profile always
+exists. To remove one, make another profile default first and then run `profile delete <name>`;
+the final remaining profile cannot be deleted.
 
 `auth login` validates the token through the current-user REST endpoint before the common package
 stores it in the platform credential store. Tokens never enter profile JSON. For automation, pipe

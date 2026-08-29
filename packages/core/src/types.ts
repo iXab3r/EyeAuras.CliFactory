@@ -120,8 +120,10 @@ export interface CliDefinition {
 export interface ProfileStoreContract {
   get(name?: string): Promise<Profile>;
   list(): Promise<{ active: string; profiles: Profile[] }>;
+  create(name: string, values?: ProfileValues): Promise<Profile>;
   set(name: string, values: ProfileValues): Promise<Profile>;
-  use(name: string): Promise<Profile>;
+  setDefault(name: string): Promise<Profile>;
+  delete(name: string): Promise<{ deleted: string; default: string }>;
   getPermissions(name?: string): Promise<readonly string[] | undefined>;
   setPermissions(name: string, permissions: readonly string[]): Promise<readonly string[]>;
 }

@@ -206,7 +206,7 @@ export function createCli(definition: CliDefinition): CliApplication {
           async () => {
             const list = await profileStore.list();
             return list.profiles.map((profile) => ({
-              active: profile.name === list.active,
+              default: profile.name === list.active,
               name: profile.name,
               ...profile.values,
             }));
@@ -226,31 +226,82 @@ export function createCli(definition: CliDefinition): CliApplication {
         );
       });
 
-    const setProfile = profileCommand
-      .command("set <name>")
-      .description("Create or update a profile");
-    for (const field of profileDefinition.fields ?? []) {
-      setProfile.addOption(new Option(field.flags, field.description));
-    }
-    setProfile.action(async (name: string, options: Record<string, unknown>, command: Command) => {
-      const values = Object.fromEntries(
+    const addProfileFields = (target: Command): void => {
+      for (const field of profileDefinition.fields ?? []) {
+        target.addOption(new Option(field.flags, field.description));
+      }
+    };
+    const profileValues = (options: Record<string, unknown>) =>
+      Object.fromEntries(
         (profileDefinition.fields ?? [])
           .map((field) => [field.name, options[optionKey(field.flags)]])
           .filter((entry) => entry[1] !== undefined),
       );
-      await runHandler(async () => profileStore.set(name, values), command, {
+
+    const createProfile = profileCommand
+      .command("create <name>")
+      .description("Create a profile without changing the default");
+    addProfileFields(createProfile);
+    createProfile.action(
+      async (name: string, options: Record<string, unknown>, command: Command) => {
+        await runHandler(async () => profileStore.create(name, profileValues(options)), command, {
+          args: { name },
+          options,
+        });
+      },
+    );
+
+    const setProfile = profileCommand
+      .command("set <name>")
+      .description("Update an existing profile");
+    addProfileFields(setProfile);
+    setProfile.action(async (name: string, options: Record<string, unknown>, command: Command) => {
+      await runHandler(async () => profileStore.set(name, profileValues(options)), command, {
         args: { name },
         options,
       });
     });
     profileCommand
-      .command("use <name>")
-      .description("Switch the active profile")
+      .command("set-default <name>")
+      .description("Choose the default profile")
       .action(async (name: string, _options: unknown, command: Command) => {
-        await runHandler(async () => profileStore.use(name), command, {
+        await runHandler(async () => profileStore.setDefault(name), command, {
           args: { name },
           options: {},
         });
+      });
+    profileCommand
+      .command("delete <name>")
+      .description("Delete a non-default profile and its stored credential")
+      .action(async (name: string, _options: unknown, command: Command) => {
+        await runHandler(
+          async () => {
+            const list = await profileStore.list();
+            if (!list.profiles.some((profile) => profile.name === name)) {
+              throw new Error(`Profile '${name}' does not exist.`);
+            }
+            if (list.profiles.length === 1) {
+              throw new Error(
+                "Cannot delete the only profile. At least one default profile must exist.",
+              );
+            }
+            if (list.active === name) {
+              throw new Error(
+                `Cannot delete default profile '${name}'. ` +
+                  "Set another default with 'profile set-default <name>' first.",
+              );
+            }
+            if (definition.auth) {
+              const targetSecrets = new ProfileSecrets(secretStore, applicationId, name);
+              if ((await targetSecrets.get(definition.auth.secretName)) !== undefined) {
+                await targetSecrets.delete(definition.auth.secretName);
+              }
+            }
+            return profileStore.delete(name);
+          },
+          command,
+          { args: { name }, options: {} },
+        );
       });
     program.addCommand(profileCommand);
 

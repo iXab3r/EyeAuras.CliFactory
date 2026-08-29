@@ -130,8 +130,8 @@ profile owns non-secret connection values; its credentials and permission choice
 the same profile name.
 
 ```text
-acme-cli profile set uat --url https://uat.example.com
-acme-cli profile set production --url https://example.com
+acme-cli profile create uat --url https://uat.example.com
+acme-cli profile create production --url https://example.com
 acme-cli auth login --profile uat --token-stdin
 acme-cli auth login --profile production --token-stdin
 
@@ -139,9 +139,12 @@ acme-cli resources list --profile uat --json
 acme-cli resources list --profile production --json
 ```
 
-`profile use <name>` changes the default. `--profile <name>` selects one connection for only that
-invocation—or for one `cli.execute` request inside a persistent JSON-RPC session. This lets one
-long-lived process interleave UAT and Production commands without sharing config or credentials.
+`profile set <name>` updates an existing profile and `profile set-default <name>` changes the
+default. `profile delete <name>` removes a non-default profile and its stored authentication
+credential; the default and final remaining profile cannot be deleted. `--profile <name>` selects
+one connection for only that invocation—or for one `cli.execute` request inside a persistent
+JSON-RPC session. This lets one long-lived process interleave UAT and Production commands without
+sharing config or credentials.
 
 If the service can host multiple logical resources behind one login, do not automatically make
 each resource a profile. A profile represents a connection/security realm; ordinary command

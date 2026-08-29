@@ -89,12 +89,28 @@ export class ProfileStore implements ProfileStoreContract {
     };
   }
 
+  public async create(name: string, values: ProfileValues = {}): Promise<Profile> {
+    assertProfileName(name);
+    const document = await this.#load();
+    if (document.profiles[name]) {
+      throw new Error(`Profile '${name}' already exists.`);
+    }
+    const nextValues = { ...this.#defaults, ...values };
+    await this.#validate?.(nextValues);
+    document.profiles[name] = nextValues;
+    await this.#save(document);
+    return { name, values: structuredClone(nextValues) };
+  }
+
   public async set(name: string, values: ProfileValues): Promise<Profile> {
     assertProfileName(name);
     const document = await this.#load();
+    if (!document.profiles[name]) {
+      throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
+    }
     const nextValues = {
       ...this.#defaults,
-      ...(document.profiles[name] ?? {}),
+      ...document.profiles[name],
       ...values,
     };
     await this.#validate?.(nextValues);
@@ -103,17 +119,43 @@ export class ProfileStore implements ProfileStoreContract {
     return { name, values: structuredClone(nextValues) };
   }
 
-  public async use(name: string): Promise<Profile> {
+  public async setDefault(name: string): Promise<Profile> {
     assertProfileName(name);
     const document = await this.#load();
     const values = document.profiles[name];
     if (!values) {
-      throw new Error(`Profile '${name}' does not exist. Create it with 'profile set ${name}'.`);
+      throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
     }
 
     document.active = name;
     await this.#save(document);
     return { name, values: structuredClone(values) };
+  }
+
+  public async delete(name: string): Promise<{ deleted: string; default: string }> {
+    assertProfileName(name);
+    const document = await this.#load();
+    if (!document.profiles[name]) {
+      throw new Error(`Profile '${name}' does not exist.`);
+    }
+    if (Object.keys(document.profiles).length === 1) {
+      throw new Error("Cannot delete the only profile. At least one default profile must exist.");
+    }
+    if (document.active === name) {
+      throw new Error(
+        `Cannot delete default profile '${name}'. Set another default with 'profile set-default <name>' first.`,
+      );
+    }
+
+    delete document.profiles[name];
+    if (document.permissions) {
+      delete document.permissions[name];
+      if (Object.keys(document.permissions).length === 0) {
+        delete document.permissions;
+      }
+    }
+    await this.#save(document);
+    return { deleted: name, default: document.active };
   }
 
   public async getPermissions(name?: string): Promise<readonly string[] | undefined> {
@@ -151,6 +193,12 @@ export class ProfileStore implements ProfileStoreContract {
         typeof document.active !== "string" ||
         !document.profiles ||
         typeof document.profiles !== "object" ||
+        Array.isArray(document.profiles) ||
+        Object.keys(document.profiles).length === 0 ||
+        !Object.hasOwn(document.profiles, document.active) ||
+        Object.values(document.profiles).some(
+          (values) => values === null || typeof values !== "object" || Array.isArray(values),
+        ) ||
         (document.permissions !== undefined &&
           (document.permissions === null ||
             typeof document.permissions !== "object" ||

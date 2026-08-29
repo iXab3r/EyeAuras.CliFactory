@@ -6,6 +6,7 @@ import {
   createCli,
   MemorySecretStore,
   Permission,
+  tokenAuth,
   type Profile,
   type ProfileStoreContract,
 } from "../src/index.js";
@@ -28,15 +29,29 @@ class MemoryProfiles implements ProfileStoreContract {
       profiles: [...this.#profiles].map(([name, values]) => ({ name, values })),
     };
   }
+  public async create(name: string, values: Record<string, unknown> = {}): Promise<Profile> {
+    if (this.#profiles.has(name)) throw new Error(`Profile '${name}' already exists.`);
+    this.#profiles.set(name, values);
+    return { name, values };
+  }
   public async set(name: string, values: Record<string, unknown>): Promise<Profile> {
-    const merged = { ...(this.#profiles.get(name) ?? {}), ...values };
+    const current = this.#profiles.get(name);
+    if (!current) throw new Error(`Profile '${name}' does not exist.`);
+    const merged = { ...current, ...values };
     this.#profiles.set(name, merged);
     return { name, values: merged };
   }
-  public async use(name: string): Promise<Profile> {
+  public async setDefault(name: string): Promise<Profile> {
     const profile = await this.get(name);
     this.#active = name;
     return profile;
+  }
+  public async delete(name: string): Promise<{ deleted: string; default: string }> {
+    if (this.#profiles.size === 1) throw new Error("Cannot delete the only profile.");
+    if (name === this.#active) throw new Error("Cannot delete the default profile.");
+    if (!this.#profiles.delete(name)) throw new Error(`Profile '${name}' does not exist.`);
+    this.#permissions.delete(name);
+    return { deleted: name, default: this.#active };
   }
   public async getPermissions(name = this.#active): Promise<readonly string[] | undefined> {
     return this.#permissions.get(name);
@@ -84,6 +99,55 @@ test("running the root command without arguments shows help successfully", async
   assert.match(stdout.text(), /Usage: example-cli/);
   assert.match(stdout.text(), /ping/);
   assert.equal(stderr.text(), "");
+});
+
+test("profile commands create, update, select, and safely delete profiles", async () => {
+  const profiles = new MemoryProfiles();
+  const secrets = new MemorySecretStore();
+  const cli = createCli({
+    name: "profile-cli",
+    description: "Profile example",
+    profile: {
+      defaults: { url: "https://default.test" },
+      fields: [{ name: "url", flags: "--url <url>", description: "Service URL" }],
+    },
+    auth: tokenAuth({ env: "PROFILE_TOKEN" }),
+    commands: [],
+    runtime: {
+      input: Readable.from([]),
+      output: capture().stream,
+      error: capture().stream,
+      profileStore: profiles,
+      secretStore: secrets,
+    },
+  });
+
+  await assert.rejects(cli.execute(["profile", "create", "default"]), /already exists/);
+  await assert.rejects(cli.execute(["profile", "set", "missing"]), /does not exist/);
+  assert.deepEqual(
+    await cli.execute(["profile", "create", "uat", "--url", "https://uat.test"]),
+    { name: "uat", values: { url: "https://uat.test" } },
+  );
+  await cli.execute(["profile", "create", "retired", "--url", "https://retired.test"]);
+  await secrets.set("profile-cli", "retired:token", "retired-secret");
+  assert.deepEqual(await cli.execute(["profile", "delete", "retired"]), {
+    deleted: "retired",
+    default: "default",
+  });
+  assert.equal(await secrets.get("profile-cli", "retired:token"), undefined);
+
+  await assert.rejects(cli.execute(["profile", "delete", "default"]), /set-default/);
+  await cli.execute(["profile", "set-default", "uat"]);
+  await cli.execute(["profile", "set", "uat", "--url", "https://new-uat.test"]);
+  assert.deepEqual(await cli.execute(["profile", "list"]), [
+    { default: false, name: "default", url: "https://example.test" },
+    { default: true, name: "uat", url: "https://new-uat.test" },
+  ]);
+  assert.deepEqual(await cli.execute(["profile", "delete", "default"]), {
+    deleted: "default",
+    default: "uat",
+  });
+  await assert.rejects(cli.execute(["profile", "delete", "uat"]), /only profile/);
 });
 
 test("one command declaration serves JSON CLI and JSON-RPC execution", async () => {
@@ -155,7 +219,7 @@ test("JSON-RPC keeps accepting commands and emits protocol-only stdout", async (
 
 test("permission gates default to read-only and stay isolated by profile", async () => {
   const profiles = new MemoryProfiles();
-  await profiles.set("production", { url: "https://production.test" });
+  await profiles.create("production", { url: "https://production.test" });
   let writes = 0;
   const cli = createCli({
     name: "guarded-cli",

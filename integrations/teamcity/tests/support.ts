@@ -50,16 +50,42 @@ export class TestProfileStore implements ProfileStoreContract {
     };
   }
 
+  public async create(name: string, values: ProfileValues = {}): Promise<Profile> {
+    if (this.#profiles.has(name)) {
+      throw new Error(`Profile '${name}' already exists.`);
+    }
+    this.#profiles.set(name, structuredClone(values));
+    return { name, values: structuredClone(values) };
+  }
+
   public async set(name: string, values: ProfileValues): Promise<Profile> {
-    const next = { ...(this.#profiles.get(name) ?? {}), ...values };
+    const current = this.#profiles.get(name);
+    if (!current) {
+      throw new Error(`Profile '${name}' does not exist.`);
+    }
+    const next = { ...current, ...values };
     this.#profiles.set(name, next);
     return { name, values: structuredClone(next) };
   }
 
-  public async use(name: string): Promise<Profile> {
+  public async setDefault(name: string): Promise<Profile> {
     const profile = await this.get(name);
     this.#active = name;
     return profile;
+  }
+
+  public async delete(name: string): Promise<{ deleted: string; default: string }> {
+    if (this.#profiles.size === 1) {
+      throw new Error("Cannot delete the only profile.");
+    }
+    if (name === this.#active) {
+      throw new Error("Cannot delete the default profile.");
+    }
+    if (!this.#profiles.delete(name)) {
+      throw new Error(`Profile '${name}' does not exist.`);
+    }
+    this.#permissions.delete(name);
+    return { deleted: name, default: this.#active };
   }
 
   public async getPermissions(name = this.#active): Promise<readonly string[] | undefined> {
