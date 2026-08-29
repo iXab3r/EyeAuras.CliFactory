@@ -218,5 +218,6 @@ integrations differ, preserve the difference until their shared shape is demonst
 homogeneous operation, not forced homogeneity of unrelated service domains.
 
 The implementation path for new products is documented in [`integrations.md`](integrations.md).
-Phased integrations use the Reconciliation Lead practice in
-[`practices/workstreams.md`](practices/workstreams.md).
+Feature and bug scope enters the development loop through
+[`practices/github-issues.md`](practices/github-issues.md). Phased integrations use the
+Reconciliation Lead practice in [`practices/workstreams.md`](practices/workstreams.md).

@@ -11,6 +11,14 @@ Tracked coordination lives under `.workspace/workstreams/<id>/`. It is not produ
 and never overrides code, `docs/DESIGN.md`, practices, or role guides. Durable contracts and
 decisions graduate to `docs/`.
 
+## Relationship to GitHub Issues
+
+For product work, a linked GitHub Issue owns the feature or bug contract: outcome, bounded scope,
+behavioral decisions, and acceptance criteria. The workstream owns execution order, status, and
+evidence. Link them in both directions and point plan phases to Issue sections instead of copying
+endpoint inventories or command tables. Scope changes happen in the Issue first; the ledger records
+the resulting deviation and link. Full rules are in [`github-issues.md`](github-issues.md).
+
 ## Minimum contract
 
 Create two files:
@@ -44,7 +52,8 @@ A finding maps to an inventory item or records a census correction; it never exi
 The explicit lifecycle is `active`, `blocked`, `complete`, or `archived`. On pause, make the ledger
 resumable; add `handover.md` only when the ledger cannot carry the necessary commands and context.
 On completion, record delivered outcomes, the known-failure set, deferred candidates, final
-verification, and final status.
+verification, and final status. A linked Issue closes only after this close-out and its own
+acceptance checklist are complete.
 
 ## Phase design for integrations
 

@@ -133,7 +133,7 @@ state remain available for the whole session.
 | `docs/DESIGN.md` | Canonical architecture and invariants |
 | `docs/integrations.md` | How to build an in-repo or external integration |
 | `docs/testing.md` | Mock-first and opt-in integration-test workflow |
-| `docs/roles`, `docs/practices` | Reconciliation Lead and phased workstream practice |
+| `docs/roles`, `docs/practices` | GitHub Issues, Reconciliation Lead, and phased workstream practices |
 | `.workspace/workstreams` | Tracked resumable plans and ledgers |
 | `scripts/bootstrap.cs` | .NET 10 file-based bootstrap for submodules and npm dependencies |
 
@@ -169,8 +169,10 @@ On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login
 - Never store secrets in config, fixtures, logs, snapshots, or Git.
 - Make mock tests the default and real-service tests explicit and opt-in.
 - Prefer deletion and direct platform/library use over new abstraction layers.
+- Use GitHub Issues for feature/bug scope and acceptance; use workstreams for phased execution and evidence.
 - AI agents begin at [`AGENTS.md`](AGENTS.md) and treat [`docs/DESIGN.md`](docs/DESIGN.md) as the
   canonical specification.
 
 Start with [writing an integration](docs/integrations.md), then use [the design](docs/DESIGN.md)
-and [testing workflow](docs/testing.md) for the detailed contract.
+and [testing workflow](docs/testing.md) for the detailed contract. Planned work follows the
+[GitHub Issues practice](docs/practices/github-issues.md).

@@ -13,6 +13,7 @@ public API. If code and design disagree, stop and reconcile them explicitly.
 | `packages/core/**` | [`packages/core/AGENTS.md`](packages/core/AGENTS.md) | Service-agnostic CLI mechanisms |
 | `integrations/**` | [`integrations/AGENTS.md`](integrations/AGENTS.md) + [`docs/integrations.md`](docs/integrations.md) | Thin, service-shaped products |
 | tests or fixtures | [`docs/testing.md`](docs/testing.md) | Mock-first evidence and sanitization |
+| GitHub Issues or issue templates | [`docs/practices/github-issues.md`](docs/practices/github-issues.md) | Feature scope, bug evidence, and closure contract |
 | `scripts/**`, `.github/**`, docs | This file + relevant design section | Repository tooling and public contract |
 
 More specific `AGENTS.md` files override this router only inside their directory.
@@ -44,9 +45,10 @@ More specific `AGENTS.md` files override this router only inside their directory
 
 Use **Reconciliation Lead** when work has multiple useful phases, a declared inventory, or needs
 to be resumable by another agent. Read [`docs/roles/reconciliation-lead.md`](docs/roles/reconciliation-lead.md)
-and [`docs/practices/workstreams.md`](docs/practices/workstreams.md). The role owns plans and
-ledgers under `.workspace/workstreams/`; it composes with, but never replaces, the domain role
-that owns production code.
+and [`docs/practices/workstreams.md`](docs/practices/workstreams.md). When a GitHub Issue owns the
+feature scope, also read [`docs/practices/github-issues.md`](docs/practices/github-issues.md). The
+role owns plans and ledgers under `.workspace/workstreams/`; it composes with, but never replaces,
+the domain role that owns production code.
 
 ## Repository shape
 

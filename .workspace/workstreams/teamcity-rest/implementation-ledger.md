@@ -1,6 +1,7 @@
 # TeamCity REST expansion — implementation ledger
 
 **Lifecycle:** active
+**Feature spec:** [GitHub Issue #1](https://github.com/iXab3r/EyeAuras.CliFactory/issues/1)
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
@@ -30,5 +31,6 @@ all existing jobs leaves declare `ReadOnly`. Core evidence proves default read a
 
 ## Next action
 
-Before Phase 1 implementation, inventory the smallest project/build scenarios from current users,
-record selected command paths in this ledger, and move Phase 1 to `in progress`.
+Issue #1 has frozen the smallest operational command/API inventory. Before Phase 1 implementation,
+reconcile its target discovery assumptions against the authenticated server, record only sanitized
+evidence here, and move Phase 1 to `in progress`.

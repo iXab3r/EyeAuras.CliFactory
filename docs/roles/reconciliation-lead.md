@@ -18,8 +18,9 @@ factory-core maintainer or service integration author that owns every production
 
 ## Load-bearing invariants
 
-1. **Plan before broad code.** Open `implementation-plan.md` with phases and gates; census-style
-   work freezes its universe in `scope.toml` first.
+1. **Reconcile scope before broad code.** For product work, ensure the GitHub Issue has a bounded
+   outcome and acceptance contract. Open `implementation-plan.md` with phases and gates;
+   census-style work freezes its universe in `scope.toml` first.
 2. **Phase gates are evidence gates.** A phase closes only when its named verification exists and
    is recorded.
 3. **Status tables never lie.** Reconcile the ledger against actual code, tests, and external state
@@ -31,6 +32,8 @@ factory-core maintainer or service integration author that owns every production
    next concrete commands so a fresh agent can resume without rediscovery.
 7. **Durable knowledge graduates.** Product contracts go to `docs/`; temporary task state stays in
    `.workspace/`.
+8. **Issue, plan, and ledger agree.** The Issue owns feature scope, the plan orders it, and the
+   ledger proves it. Link all three without copying a second specification into the workstream.
 
 ## Required evidence
 

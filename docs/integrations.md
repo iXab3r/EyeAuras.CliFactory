@@ -217,8 +217,12 @@ recover configuration.
 ## Grow by useful phases
 
 Use the **Reconciliation Lead** function role when the useful path contains multiple phases or a
-large API surface. Open a tracked workstream before broad implementation; each phase needs a user
-outcome and an evidence gate. Do not use endpoint count as the ordering principle.
+large API surface. First make the GitHub feature Issue implementation-ready with its user outcome,
+selected REST inventory, CLI mapping, permission category per leaf, explicit exclusions, and
+acceptance criteria. Then open or reconcile a tracked workstream before broad implementation; each
+phase needs a user outcome and an evidence gate. The Issue owns scope while the workstream owns
+execution status. Do not use endpoint count as the ordering principle. See
+[`practices/github-issues.md`](practices/github-issues.md).
 
 A typical REST sequence is:
 
