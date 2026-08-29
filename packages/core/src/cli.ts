@@ -3,6 +3,11 @@ import type { Readable, Writable } from "node:stream";
 import { promptSecret, readStdin } from "./auth.js";
 import { runJsonRpc } from "./json-rpc.js";
 import { writeResult } from "./output.js";
+import {
+  resolvePermissionCategories,
+  validateCommandPermissions,
+  validatePermissionsDisabled,
+} from "./permissions.js";
 import { ProfileStore } from "./profile-store.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import type {
@@ -11,6 +16,7 @@ import type {
   CommandContext,
   CommandDefinition,
   CommandInput,
+  PermissionCategory,
   Profile,
   ProfileStoreContract,
   SecretStore,
@@ -47,6 +53,19 @@ export function createCli(definition: CliDefinition): CliApplication {
   const fetchImplementation = definition.runtime?.fetch ?? globalThis.fetch;
   const applicationId = definition.applicationId ?? definition.name;
   const profileDefinition = definition.profile ?? {};
+  const permissionCategories: readonly PermissionCategory[] | undefined =
+    definition.permissions === undefined
+      ? undefined
+      : resolvePermissionCategories(definition.permissions);
+  if (permissionCategories) {
+    validateCommandPermissions(definition.commands, permissionCategories);
+  } else {
+    validatePermissionsDisabled(definition.commands);
+  }
+  const defaultPermissions =
+    permissionCategories
+      ?.filter((category) => category.enabledByDefault === true)
+      .map((category) => category.name) ?? [];
   const profileStore: ProfileStoreContract =
     definition.runtime?.profileStore ??
     new ProfileStore({
@@ -61,6 +80,8 @@ export function createCli(definition: CliDefinition): CliApplication {
 
   const resolveProfile = async (requestedName?: string): Promise<Profile> =>
     profileStore.get(requestedName);
+  const enabledPermissions = async (profileName: string): Promise<Set<string>> =>
+    new Set((await profileStore.getPermissions(profileName)) ?? defaultPermissions);
 
   const execute = async (
     argv: readonly string[],
@@ -100,6 +121,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       handler: CommandDefinition["run"],
       command: Command,
       commandInput: CommandInput,
+      requiredPermission?: string,
     ): Promise<void> => {
       if (!handler) {
         const help = command.helpInformation().trimEnd();
@@ -118,6 +140,15 @@ export function createCli(definition: CliDefinition): CliApplication {
         fetch: fetchImplementation,
         signal: execution.signal,
       };
+      if (requiredPermission) {
+        const enabled = await enabledPermissions(profile.name);
+        if (!enabled.has(requiredPermission)) {
+          throw new Error(
+            `Permission '${requiredPermission}' is disabled for profile '${profile.name}'. ` +
+              `Enable it explicitly with '${definition.name} permissions grant ${requiredPermission} --profile ${profile.name}'.`,
+          );
+        }
+      }
       result = await handler(commandInput, context);
       handled = true;
       if (execution.render) {
@@ -128,6 +159,9 @@ export function createCli(definition: CliDefinition): CliApplication {
     const addDefinition = (parent: Command, item: CommandDefinition): void => {
       const parts = commandParts(item.name);
       const current = new Command(parts.name).description(item.description);
+      if (item.permission) {
+        current.addHelpText("after", `\nRequired permission: ${item.permission}\n`);
+      }
       for (const argument of parts.arguments) {
         current.argument(argument);
       }
@@ -154,7 +188,7 @@ export function createCli(definition: CliDefinition): CliApplication {
             positional[index],
           ]),
         );
-        await runHandler(item.run, actionCommand, { args, options });
+        await runHandler(item.run, actionCommand, { args, options }, item.permission);
       });
       parent.addCommand(current);
     };
@@ -215,6 +249,92 @@ export function createCli(definition: CliDefinition): CliApplication {
         });
       });
     program.addCommand(profileCommand);
+
+    if (permissionCategories) {
+      const permissionByName = new Map(
+        permissionCategories.map((category) => [category.name, category]),
+      );
+      const permissionRows = async (profileName: string) => {
+        const enabled = await enabledPermissions(profileName);
+        return permissionCategories.map((category) => ({
+          name: category.name,
+          enabled: enabled.has(category.name),
+          description: category.description,
+        }));
+      };
+      const requireKnownPermission = (name: string): void => {
+        if (!permissionByName.has(name)) {
+          throw new Error(
+            `Unknown permission '${name}'. Available permissions: ${[...permissionByName.keys()].join(", ")}.`,
+          );
+        }
+      };
+
+      const permissionsCommand = new Command("permissions").description(
+        "Manage profile-specific safety permissions",
+      );
+      permissionsCommand
+        .command("list")
+        .description("List permissions for the selected profile")
+        .action(async (_options: unknown, command: Command) => {
+          await runHandler(
+            async (_commandInput, context) => permissionRows(context.profile.name),
+            command,
+            { args: {}, options: {} },
+          );
+        });
+      permissionsCommand
+        .command("grant <permission>")
+        .description("Enable a permission for the selected profile")
+        .action(async (permission: string, _options: unknown, command: Command) => {
+          await runHandler(
+            async (_commandInput, context) => {
+              requireKnownPermission(permission);
+              const enabled = await enabledPermissions(context.profile.name);
+              enabled.add(permission);
+              await profileStore.setPermissions(
+                context.profile.name,
+                permissionCategories
+                  .map((category) => category.name)
+                  .filter((name) => enabled.has(name)),
+              );
+              return {
+                profile: context.profile.name,
+                permission,
+                enabled: true,
+              };
+            },
+            command,
+            { args: { permission }, options: {} },
+          );
+        });
+      permissionsCommand
+        .command("revoke <permission>")
+        .description("Disable a permission for the selected profile")
+        .action(async (permission: string, _options: unknown, command: Command) => {
+          await runHandler(
+            async (_commandInput, context) => {
+              requireKnownPermission(permission);
+              const enabled = await enabledPermissions(context.profile.name);
+              enabled.delete(permission);
+              await profileStore.setPermissions(
+                context.profile.name,
+                permissionCategories
+                  .map((category) => category.name)
+                  .filter((name) => enabled.has(name)),
+              );
+              return {
+                profile: context.profile.name,
+                permission,
+                enabled: false,
+              };
+            },
+            command,
+            { args: { permission }, options: {} },
+          );
+        });
+      program.addCommand(permissionsCommand);
+    }
 
     if (definition.auth) {
       const auth = definition.auth;

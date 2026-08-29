@@ -2,11 +2,14 @@
 
 Role: **service integration author**.
 
-Read the root `AGENTS.md`, `docs/DESIGN.md`, and `docs/testing.md` first.
+Read the root `AGENTS.md`, `docs/DESIGN.md`, `docs/integrations.md`, and `docs/testing.md` first.
 
 - Use the service's own vocabulary and small DTOs containing only consumed fields.
 - Build commands as a discoverable tree. Branches group resources; leaves return domain data.
 - Use the factory's profiles, auth, output, and JSON-RPC facilities instead of reimplementing them.
+- Enable permission gates for agent-facing integrations. Every service leaf must declare
+  `ReadOnly`, `Update`, or a documented custom category. Status/list/get commands are `ReadOnly`;
+  commands that trigger, cancel, create, modify, delete, upload, or comment are at least `Update`.
 - Depend on native `fetch` and mock it with MSW. Do not add an HTTP wrapper until a real repeated
   need survives two integrations.
 - Authentication validation may identify the current user but must never return or log the token.

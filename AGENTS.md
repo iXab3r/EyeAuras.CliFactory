@@ -11,7 +11,7 @@ public API. If code and design disagree, stop and reconcile them explicitly.
 | Editing | Read next | Responsibility |
 |---|---|---|
 | `packages/core/**` | [`packages/core/AGENTS.md`](packages/core/AGENTS.md) | Service-agnostic CLI mechanisms |
-| `integrations/**` | [`integrations/AGENTS.md`](integrations/AGENTS.md) | Thin, service-shaped products |
+| `integrations/**` | [`integrations/AGENTS.md`](integrations/AGENTS.md) + [`docs/integrations.md`](docs/integrations.md) | Thin, service-shaped products |
 | tests or fixtures | [`docs/testing.md`](docs/testing.md) | Mock-first evidence and sanitization |
 | `scripts/**`, `.github/**`, docs | This file + relevant design section | Repository tooling and public contract |
 
@@ -28,14 +28,25 @@ More specific `AGENTS.md` files override this router only inside their directory
    commit credentials. There is no plaintext fallback.
 4. **Profiles isolate environments.** Endpoint/config and credential identity both include the
    active profile. Tests must cover any change that could cross profiles.
-5. **Mock the network boundary.** Default tests are offline and deterministic. Real-service tests
+5. **Permission-gated means explicit.** When an integration enables permission gates, every
+   service leaf declares a category. Read operations use `ReadOnly`; side effects use `Update` or
+   a documented custom category. Never weaken a category merely to make a command pass.
+6. **Mock the network boundary.** Default tests are offline and deterministic. Real-service tests
    are explicit, opt-in, read-only by default, and sanitized before becoming fixtures.
-6. **Keep service concepts in integrations.** Core must not know TeamCity terminology. Extract a
+7. **Keep service concepts in integrations.** Core must not know TeamCity terminology. Extract a
    shared mechanism only when another real integration proves it.
-7. **Verify in proportion to risk.** Run the narrow affected tests during work and `npm test`
+8. **Verify in proportion to risk.** Run the narrow affected tests during work and `npm test`
    before declaring a repository-wide change complete.
-8. **Commit hygiene.** Never rewrite pushed history or force-push. Inspect staged changes for
+9. **Commit hygiene.** Never rewrite pushed history or force-push. Inspect staged changes for
    secrets and generated noise before committing.
+
+## Function role: Reconciliation Lead
+
+Use **Reconciliation Lead** when work has multiple useful phases, a declared inventory, or needs
+to be resumable by another agent. Read [`docs/roles/reconciliation-lead.md`](docs/roles/reconciliation-lead.md)
+and [`docs/practices/workstreams.md`](docs/practices/workstreams.md). The role owns plans and
+ledgers under `.workspace/workstreams/`; it composes with, but never replaces, the domain role
+that owns production code.
 
 ## Repository shape
 
@@ -44,6 +55,7 @@ packages/core/           shared factory primitives
 integrations/teamcity/   first executable integration
 docs/                    canonical design and practices
 scripts/                 .NET 10 bootstrap and repository tools
+.workspace/workstreams/  tracked plans, ledgers, and handovers for phased work
 ```
 
 Submodules are initialized through `dotnet run --file scripts/bootstrap.cs`. Add a submodule only

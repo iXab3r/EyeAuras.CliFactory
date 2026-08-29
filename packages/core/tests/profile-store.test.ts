@@ -25,6 +25,12 @@ test("profiles are independent and switching is explicit", async (context) => {
     name: "production",
     values: { url: "https://production.test" },
   });
+  assert.equal(await store.getPermissions(), undefined);
+  assert.deepEqual(await store.setPermissions("production", ["ReadOnly", "Update"]), [
+    "ReadOnly",
+    "Update",
+  ]);
+  assert.deepEqual(await store.getPermissions(), ["ReadOnly", "Update"]);
 
   const persisted = await readFile(join(rootDirectory, "test-cli", "profiles.json"), "utf8");
   assert.doesNotMatch(persisted, /token|password|secret/i);

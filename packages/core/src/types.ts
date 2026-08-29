@@ -57,13 +57,29 @@ export interface OptionDefinition {
   parse?: (value: string, previous: unknown) => unknown;
 }
 
+export interface CommandSettings {
+  options?: readonly OptionDefinition[];
+  permission?: string;
+}
+
 export interface CommandDefinition {
   /** Command name followed by optional Commander-style arguments, for example `show <id>`. */
   name: string;
   description: string;
   options?: readonly OptionDefinition[];
+  permission?: string;
   children?: readonly CommandDefinition[];
   run?: CommandHandler;
+}
+
+export interface PermissionCategory {
+  name: string;
+  description: string;
+  enabledByDefault?: boolean;
+}
+
+export interface PermissionGateDefinition {
+  categories?: readonly PermissionCategory[];
 }
 
 export interface TokenValidationContext {
@@ -96,6 +112,7 @@ export interface CliDefinition {
   applicationId?: string;
   profile?: ProfileDefinition;
   auth?: TokenAuthDefinition;
+  permissions?: PermissionGateDefinition;
   commands: readonly CommandDefinition[];
   runtime?: CliRuntime;
 }
@@ -105,6 +122,8 @@ export interface ProfileStoreContract {
   list(): Promise<{ active: string; profiles: Profile[] }>;
   set(name: string, values: ProfileValues): Promise<Profile>;
   use(name: string): Promise<Profile>;
+  getPermissions(name?: string): Promise<readonly string[] | undefined>;
+  setPermissions(name: string, permissions: readonly string[]): Promise<readonly string[]>;
 }
 
 export interface CliApplication {

@@ -40,6 +40,21 @@ private keys, or cookies.
 Profile identity is part of the secret key. Switching from `uat` to `production` must never reuse
 the other profile's credential accidentally.
 
+### Permission gates are profile-specific safety policy
+
+An integration may enable the permission gate. Once enabled, every service leaf command must name
+one known category or CLI construction fails. The standard categories are `ReadOnly` and `Update`:
+`ReadOnly` starts enabled; `Update` starts disabled. Integrations may append categories when a real
+operator boundary needs more precision.
+
+Permission selection follows the profile. Granting an update category for UAT must not grant it
+for Production. The runner checks the category before calling the handler, so denial happens before
+the HTTP boundary.
+
+The gate is defense-in-depth for humans and AI agents, not an authentication or authorization
+boundary. A remote service still enforces actual identity and rights. Built-in configuration
+commands remain ungated so users can inspect and recover their local setup.
+
 ### Secrets use the operating system
 
 The default secret store delegates to the platform credential facility through a native binding:
@@ -81,6 +96,7 @@ flowchart TB
     declaration["Recursive command declaration"] --> commander["Commander command tree"]
     commander --> handler["Integration handler"]
     profiles["Profile JSON"] --> context["Command context"]
+    policy["Profile permissions"] --> commander
     keyring["OS credential store"] --> context
     context --> handler
     handler --> renderer["Human / JSON renderer"]
@@ -109,9 +125,15 @@ The profile document has a versioned shape:
   "active": "default",
   "profiles": {
     "default": { "url": "https://teamcity.example.com" }
+  },
+  "permissions": {
+    "default": ["ReadOnly"]
   }
 }
 ```
+
+The `permissions` property is absent until a user changes a profile away from integration
+defaults. An explicit empty array means every service permission is disabled for that profile.
 
 ## Authentication contract
 
@@ -125,6 +147,17 @@ The token is validated by the integration before it is persisted. Authentication
 optionally revalidate the stored token, but must never print it. Logout deletes only the active
 profile's credential.
 
+## Permission contract
+
+Enabling `permissions: {}` adds standard `permissions list/grant/revoke` commands. Integration
+authors attach one category to each service leaf in the same command declaration that owns its
+handler. `list`, `get`, `status`, search, and inspection normally use `ReadOnly`. Create, trigger,
+cancel, comment, upload, edit, and delete operations use at least `Update`.
+
+Custom categories contain a stable CLI-safe name, description, and optional default. They are not
+hierarchical: enabling `Update` does not implicitly enable a custom `DeployProduction` category.
+Category changes are ordinary profile configuration and intentionally never contain secrets.
+
 ## Testing model
 
 Development follows a thin vertical TDD loop:
@@ -133,8 +166,9 @@ Development follows a thin vertical TDD loop:
 2. Make one explicit opt-in request to the real service or use an official documentation sample.
 3. Remove credentials and sensitive/customer data before saving a fixture.
 4. Express the desired command as a failing test against an HTTP mock.
-5. Implement the smallest client and command code that passes the test.
-6. Keep real-service tests opt-in; keep mock tests deterministic and in the default suite.
+5. For a side effect, first prove its permission denial occurs before the mock sees a request.
+6. Implement the smallest client and command code that passes the test.
+7. Keep real-service tests opt-in; keep mock tests deterministic and in the default suite.
 
 MSW intercepts the native `fetch` boundary in Node tests. Fixtures are data, not a second client
 implementation. Full rules are in [`testing.md`](testing.md).
@@ -154,8 +188,8 @@ does not exist.
 
 ### `packages/core`
 
-Owns recursive command construction, standard commands, output, profile persistence, secret
-persistence, and JSON-RPC transport. It must remain service-agnostic.
+Owns recursive command construction, standard commands, output, profile persistence, permission
+gates, secret persistence, and JSON-RPC transport. It must remain service-agnostic.
 
 ### `integrations/<service>`
 
@@ -172,6 +206,7 @@ Owns process execution and pipeline composition. It remains independently testab
 - A plugin runtime or dependency-injection container.
 - A universal service DTO, pagination model, or HTTP client wrapper.
 - A plaintext or silently degraded secret store.
+- Treating local permission gates as a replacement for remote authorization or human policy.
 - Publishing npm packages before the public API has a second consumer.
 - Claiming streaming subscriptions before JSON-RPC notifications have cancellation and
   backpressure tests.
@@ -181,3 +216,7 @@ Owns process execution and pipeline composition. It remains independently testab
 Promote-on-use: a feature enters core only when a current integration consumes it. When two
 integrations differ, preserve the difference until their shared shape is demonstrated. The goal is
 homogeneous operation, not forced homogeneity of unrelated service domains.
+
+The implementation path for new products is documented in [`integrations.md`](integrations.md).
+Phased integrations use the Reconciliation Lead practice in
+[`practices/workstreams.md`](practices/workstreams.md).

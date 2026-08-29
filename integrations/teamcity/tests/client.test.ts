@@ -118,6 +118,12 @@ test("the CLI command tree renders a mocked service response as JSON", async () 
     async use(name) {
       return { name, values: { url: "https://teamcity.test" } };
     },
+    async getPermissions() {
+      return undefined;
+    },
+    async setPermissions(_name, permissions) {
+      return [...permissions];
+    },
   };
   const secretStore = new MemorySecretStore();
   await secretStore.set("ai-cli-factory:teamcity-cli", "default:token", "test-token");

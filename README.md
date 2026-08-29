@@ -10,9 +10,9 @@ persistent JSON-RPC session for agents.
 The repository name is `EyeAuras.CliFactory`. The human-facing project name is **AI CLI
 Factory**.
 
-> Status: foundation stage. The command tree, profiles, token authentication, JSON output,
-> JSON-RPC transport, and the first TeamCity client are implemented as a narrow vertical slice.
-> The APIs are not stable yet.
+> Status: foundation stage. The command tree, profiles, token authentication, permission gates,
+> JSON output, JSON-RPC transport, and the first TeamCity client are implemented as a narrow
+> vertical slice. The APIs are not stable yet.
 
 ```mermaid
 flowchart LR
@@ -21,9 +21,11 @@ flowchart LR
     cli --> tree["Command tree"]
     cli --> profiles["Profiles"]
     cli --> auth["OS credential store"]
+    cli --> permissions["Profile permission gate"]
     tree --> integration["Small service integration"]
     profiles --> integration
     auth --> integration
+    permissions --> integration
     integration --> service["TeamCity · future services"]
 ```
 
@@ -40,6 +42,8 @@ those decisions once:
   credential store (Windows Credential Manager/DPAPI, macOS Keychain, or the Linux keyring), not
   in profile JSON.
 - `profile` commands isolate endpoints and configuration such as UAT and Production.
+- `permissions` gates classify commands as `ReadOnly`, `Update`, or an integration-defined
+  category. Permission choices are profile-specific; `Update` starts disabled.
 - `--json-rpc` keeps the process alive and accepts multiple commands over newline-delimited
   JSON-RPC 2.0, avoiding repeated Node startup for agent workflows.
 - HTTP behavior is developed mock-first. Sanitized fixtures can be captured from a real service
@@ -47,12 +51,15 @@ those decisions once:
 
 ## The authoring surface
 
-An integration describes commands once and returns ordinary objects:
+An integration describes commands once, classifies each leaf, and returns ordinary objects:
 
 ```ts
+import { command, createCli, Permission, tokenAuth } from "@eyeauras/cli-factory";
+
 const cli = createCli({
   name: "teamcity-cli",
   description: "TeamCity command line client",
+  permissions: {},
   profile: {
     defaults: { url: "https://teamcity.example.com" },
     fields: [
@@ -63,7 +70,9 @@ const cli = createCli({
   commands: [
     command("jobs", "Work with TeamCity build configurations", [
       command("list", "List jobs", async (_input, context) =>
-        createClient(context).listJobs()),
+        createClient(context).listJobs(), {
+          permission: Permission.ReadOnly,
+        }),
     ]),
   ],
 });
@@ -88,6 +97,10 @@ teamcity-cli profile use production
 teamcity-cli auth login --token-stdin
 teamcity-cli auth status
 teamcity-cli auth logout
+
+teamcity-cli permissions list
+teamcity-cli permissions grant Update --profile uat
+teamcity-cli permissions revoke Update --profile uat
 ```
 
 For automation, prefer `--token-stdin` or the integration's environment variable. Supplying a
@@ -115,10 +128,13 @@ state remain available for the whole session.
 
 | Path | Purpose |
 |---|---|
-| `packages/core` | Reusable CLI tree, output, profile, auth, and JSON-RPC primitives |
+| `packages/core` | Reusable CLI tree, output, profile, auth, permissions, and JSON-RPC primitives |
 | `integrations/teamcity` | First in-house product and executable example |
 | `docs/DESIGN.md` | Canonical architecture and invariants |
+| `docs/integrations.md` | How to build an in-repo or external integration |
 | `docs/testing.md` | Mock-first and opt-in integration-test workflow |
+| `docs/roles`, `docs/practices` | Reconciliation Lead and phased workstream practice |
+| `.workspace/workstreams` | Tracked resumable plans and ledgers |
 | `scripts/bootstrap.cs` | .NET 10 file-based bootstrap for submodules and npm dependencies |
 
 `CliWrap.ts` is planned as a separate repository and will be connected as a Git submodule when
@@ -149,10 +165,12 @@ On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login
 
 - Start from a real user command, then extract only the reusable mechanism it proves.
 - Keep integrations thin and service-shaped; keep generic behavior in `packages/core`.
+- Classify every gated service leaf correctly; never label a side effect `ReadOnly`.
 - Never store secrets in config, fixtures, logs, snapshots, or Git.
 - Make mock tests the default and real-service tests explicit and opt-in.
 - Prefer deletion and direct platform/library use over new abstraction layers.
 - AI agents begin at [`AGENTS.md`](AGENTS.md) and treat [`docs/DESIGN.md`](docs/DESIGN.md) as the
   canonical specification.
 
-See [the design](docs/DESIGN.md) and [testing workflow](docs/testing.md) for the detailed contract.
+Start with [writing an integration](docs/integrations.md), then use [the design](docs/DESIGN.md)
+and [testing workflow](docs/testing.md) for the detailed contract.

@@ -2,6 +2,7 @@ export { tokenAuth } from "./auth.js";
 export { createCli } from "./cli.js";
 export { command } from "./command.js";
 export { formatHuman, writeResult } from "./output.js";
+export { Permission } from "./permissions.js";
 export { ProfileStore } from "./profile-store.js";
 export {
   KeyringSecretStore,
@@ -16,7 +17,10 @@ export type {
   CommandDefinition,
   CommandHandler,
   CommandInput,
+  CommandSettings,
   OptionDefinition,
+  PermissionCategory,
+  PermissionGateDefinition,
   Profile,
   ProfileDefinition,
   ProfileField,

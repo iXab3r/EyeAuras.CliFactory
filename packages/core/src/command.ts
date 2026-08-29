@@ -1,7 +1,7 @@
 import type {
   CommandDefinition,
   CommandHandler,
-  OptionDefinition,
+  CommandSettings,
 } from "./types.js";
 
 export function command(
@@ -13,16 +13,22 @@ export function command(
   name: string,
   description: string,
   run: CommandHandler,
-  options?: readonly OptionDefinition[],
+  settings?: CommandSettings,
 ): CommandDefinition;
 export function command(
   name: string,
   description: string,
   childrenOrRun: readonly CommandDefinition[] | CommandHandler,
-  options: readonly OptionDefinition[] = [],
+  settings: CommandSettings = {},
 ): CommandDefinition {
   if (typeof childrenOrRun === "function") {
-    return { name, description, run: childrenOrRun, options };
+    return {
+      name,
+      description,
+      run: childrenOrRun,
+      ...(settings.options === undefined ? {} : { options: settings.options }),
+      ...(settings.permission === undefined ? {} : { permission: settings.permission }),
+    };
   }
 
   return { name, description, children: childrenOrRun };

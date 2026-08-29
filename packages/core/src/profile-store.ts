@@ -11,6 +11,7 @@ interface ProfileDocument {
   version: 1;
   active: string;
   profiles: Record<string, ProfileValues>;
+  permissions?: Record<string, string[]>;
 }
 
 export interface ProfileStoreOptions {
@@ -115,6 +116,32 @@ export class ProfileStore implements ProfileStoreContract {
     return { name, values: structuredClone(values) };
   }
 
+  public async getPermissions(name?: string): Promise<readonly string[] | undefined> {
+    const document = await this.#load();
+    const selectedName = name ?? document.active;
+    if (!document.profiles[selectedName]) {
+      throw new Error(`Profile '${selectedName}' does not exist.`);
+    }
+    const permissions = document.permissions?.[selectedName];
+    return permissions === undefined ? undefined : [...permissions];
+  }
+
+  public async setPermissions(
+    name: string,
+    permissions: readonly string[],
+  ): Promise<readonly string[]> {
+    assertProfileName(name);
+    const document = await this.#load();
+    if (!document.profiles[name]) {
+      throw new Error(`Profile '${name}' does not exist.`);
+    }
+    const uniquePermissions = [...new Set(permissions)];
+    document.permissions ??= {};
+    document.permissions[name] = uniquePermissions;
+    await this.#save(document);
+    return [...uniquePermissions];
+  }
+
   async #load(): Promise<ProfileDocument> {
     try {
       const contents = await readFile(this.#filePath, "utf8");
@@ -123,7 +150,15 @@ export class ProfileStore implements ProfileStoreContract {
         document.version !== 1 ||
         typeof document.active !== "string" ||
         !document.profiles ||
-        typeof document.profiles !== "object"
+        typeof document.profiles !== "object" ||
+        (document.permissions !== undefined &&
+          (document.permissions === null ||
+            typeof document.permissions !== "object" ||
+            Object.values(document.permissions).some(
+              (permissions) =>
+                !Array.isArray(permissions) ||
+                permissions.some((permission) => typeof permission !== "string"),
+            )))
       ) {
         throw new Error(`Unsupported profile document at '${this.#filePath}'.`);
       }

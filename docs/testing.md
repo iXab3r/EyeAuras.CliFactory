@@ -9,8 +9,9 @@ The default test suite must be safe to run offline and must never require creden
 2. Obtain a response from official documentation or an explicit opt-in call to the real service.
 3. Sanitize it before it enters the repository.
 4. Write an MSW handler at the native `fetch` boundary and a failing client/command test.
-5. Implement only the behavior required by that test.
-6. Run the focused test, then the repository check before merging.
+5. For side effects, prove a disabled permission rejects before the MSW handler is reached.
+6. Implement only the behavior required by that test.
+7. Run the focused test, then the repository check before merging.
 
 This is TDD with service evidence: authentication opens the door to discover the real contract;
 mocked tests make the discovered contract fast, deterministic, and reviewable.
@@ -53,3 +54,6 @@ npm test
 
 Do not call a test mocked when it bypasses the actual HTTP parsing or command handler under test.
 Mock the boundary, not the implementation.
+
+For the end-to-end authoring sequence and repository placement, see
+[`integrations.md`](integrations.md).

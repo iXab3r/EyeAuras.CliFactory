@@ -1,6 +1,7 @@
 import {
   command,
   createCli,
+  Permission,
   tokenAuth,
   type CliApplication,
   type CliRuntime,
@@ -42,6 +43,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
     description: "AI-friendly access to TeamCity",
     version: "0.1.0",
     applicationId: "teamcity-cli",
+    permissions: {},
     profile: {
       defaults: { url: defaultUrl },
       fields: [{ name: "url", flags: "--url <url>", description: "TeamCity server URL" }],
@@ -68,20 +70,31 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
               ...(typeof options.project === "string" ? { project: options.project } : {}),
               ...(typeof options.limit === "number" ? { limit: options.limit } : {}),
             }),
-          [
-            { flags: "--project <id>", description: "Limit jobs to a TeamCity project" },
-            {
-              flags: "--limit <count>",
-              description: "Maximum number of jobs",
-              defaultValue: 100,
-              parse: (value) => positiveInteger(value),
-            },
-          ],
+          {
+            permission: Permission.ReadOnly,
+            options: [
+              { flags: "--project <id>", description: "Limit jobs to a TeamCity project" },
+              {
+                flags: "--limit <count>",
+                description: "Maximum number of jobs",
+                defaultValue: 100,
+                parse: (value) => positiveInteger(value),
+              },
+            ],
+          },
         ),
-        command("show <id>", "Show one job", async ({ args }, context) =>
-          (await client(context)).getJob(String(args.id))),
-        command("status <id>", "Show the latest build status for a job", async ({ args }, context) =>
-          (await client(context)).getJobStatus(String(args.id))),
+        command(
+          "show <id>",
+          "Show one job",
+          async ({ args }, context) => (await client(context)).getJob(String(args.id)),
+          { permission: Permission.ReadOnly },
+        ),
+        command(
+          "status <id>",
+          "Show the latest build status for a job",
+          async ({ args }, context) => (await client(context)).getJobStatus(String(args.id)),
+          { permission: Permission.ReadOnly },
+        ),
       ]),
     ],
     ...(runtime === undefined ? {} : { runtime }),

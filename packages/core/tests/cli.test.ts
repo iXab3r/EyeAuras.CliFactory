@@ -5,6 +5,7 @@ import {
   command,
   createCli,
   MemorySecretStore,
+  Permission,
   type Profile,
   type ProfileStoreContract,
 } from "../src/index.js";
@@ -14,6 +15,7 @@ class MemoryProfiles implements ProfileStoreContract {
     ["default", { url: "https://example.test" }],
   ]);
   #active = "default";
+  readonly #permissions = new Map<string, readonly string[]>();
 
   public async get(name = this.#active): Promise<Profile> {
     const values = this.#profiles.get(name);
@@ -35,6 +37,17 @@ class MemoryProfiles implements ProfileStoreContract {
     const profile = await this.get(name);
     this.#active = name;
     return profile;
+  }
+  public async getPermissions(name = this.#active): Promise<readonly string[] | undefined> {
+    return this.#permissions.get(name);
+  }
+  public async setPermissions(
+    name: string,
+    permissions: readonly string[],
+  ): Promise<readonly string[]> {
+    const stored = [...permissions];
+    this.#permissions.set(name, stored);
+    return stored;
   }
 }
 
@@ -116,4 +129,74 @@ test("JSON-RPC keeps accepting commands and emits protocol-only stdout", async (
   assert.equal(frames[2]?.id, 3);
   assert.match(frames[2]?.result?.help ?? "", /Usage: example-cli/);
   assert.equal(stderr.text(), "");
+});
+
+test("permission gates default to read-only and stay isolated by profile", async () => {
+  const profiles = new MemoryProfiles();
+  await profiles.set("production", { url: "https://production.test" });
+  let writes = 0;
+  const cli = createCli({
+    name: "guarded-cli",
+    description: "Guarded example",
+    permissions: {},
+    commands: [
+      command("read", "Read state", async () => "read", {
+        permission: Permission.ReadOnly,
+      }),
+      command("write", "Change state", async () => {
+        writes += 1;
+        return "written";
+      }, {
+        permission: Permission.Update,
+      }),
+    ],
+    runtime: {
+      input: Readable.from([]),
+      output: capture().stream,
+      error: capture().stream,
+      profileStore: profiles,
+      secretStore: new MemorySecretStore(),
+    },
+  });
+
+  assert.equal(await cli.execute(["read"]), "read");
+  assert.deepEqual(await cli.execute(["permissions", "list"]), [
+    {
+      name: "ReadOnly",
+      enabled: true,
+      description: "Read remote state without changing it",
+    },
+    {
+      name: "Update",
+      enabled: false,
+      description: "Perform operations that may change remote state",
+    },
+  ]);
+  await assert.rejects(cli.execute(["write"]), /Permission 'Update' is disabled/);
+  assert.equal(writes, 0);
+
+  assert.deepEqual(await cli.execute(["permissions", "grant", "Update"]), {
+    profile: "default",
+    permission: "Update",
+    enabled: true,
+  });
+  assert.equal(await cli.execute(["write"]), "written");
+  assert.equal(writes, 1);
+  await assert.rejects(
+    cli.execute(["--profile", "production", "write"]),
+    /Permission 'Update' is disabled for profile 'production'/,
+  );
+});
+
+test("enabling the permission gate requires every service leaf to declare a category", () => {
+  assert.throws(
+    () =>
+      createCli({
+        name: "invalid-cli",
+        description: "Invalid example",
+        permissions: {},
+        commands: [command("unsafe", "Missing category", async () => undefined)],
+      }),
+    /must declare a permission/,
+  );
 });
