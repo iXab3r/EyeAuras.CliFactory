@@ -1,6 +1,6 @@
 # TeamCity REST expansion — implementation ledger
 
-**Lifecycle:** active
+**Lifecycle:** complete
 **Feature spec:** [GitHub Issue #1](https://github.com/iXab3r/EyeAuras.CliFactory/issues/1)
 
 | Phase | Scope | Status | Agent | Review |
@@ -9,7 +9,7 @@
 | 1 | Discovery and baseline correction | done | service integration author | passed |
 | 2 | Operational reads | done | service integration author | passed |
 | 3 | Controlled updates | done | service integration author | passed |
-| 4 | Delivery hardening | in progress | service integration author | — |
+| 4 | Delivery hardening | done | service integration author | passed |
 
 ## Phase 0 — foundation baseline
 
@@ -38,9 +38,10 @@ DTOs, locators, fields, pagination limits, REST paths, and operational filter se
 
 Discovery evidence: the target's public login page reports TeamCity 2026.1.3. Its public
 `/app/rest/swagger.json` reports `TeamCity REST API`, Swagger 2.0, version `2026.1 (current)`, and
-confirms the selected GET/POST resource paths. Authenticated data reads could not run because no
-`TEAMCITY_TOKEN` or OS-stored credential is available in this workspace; the added opt-in smoke is
-the executable authenticated evidence path and has no credential fallback.
+confirms the selected GET/POST resource paths. The guest REST `apiVersion` endpoint also returned
+`2026.1`. Authenticated data reads could not run because no `TEAMCITY_TOKEN` or OS-stored credential
+is available in this workspace; the added opt-in smoke is the executable authenticated evidence
+path and has no credential fallback.
 
 Implementation evidence:
 
@@ -95,7 +96,37 @@ In progress evidence:
 - Local repository-wide `npm test` passed; the only skipped test is the documented opt-in live
   smoke because this workspace has no TeamCity credential.
 
+Final verification:
+
+- implementation commit: [`9c9b35e`](https://github.com/iXab3r/EyeAuras.CliFactory/commit/9c9b35eff3e079ea9254578a7a2d06605f515440);
+- GitHub Actions: [run 33260409427](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33260409427), all six Windows/macOS/Linux × Node 22/24 jobs passed;
+- staged diff check and credential-pattern scan passed; generated `dist` output and raw discovery
+  payloads were not committed.
+
+Review verdict: **passed**. Public docs match the shipped tree and all local/CI default gates are
+green.
+
+## Close-out
+
+Delivered outcomes:
+
+- 14 `ReadOnly` and three `Update` TeamCity leaves complete the Issue #1 operational loop;
+- the TeamCity product references the common `@eyeauras/cli-factory` npm package while all service
+  paths, locators, DTOs, and filters remain integration-local;
+- deterministic MSW, CLI/profile/auth/permission/JSON-RPC, process, and opt-in live-smoke evidence
+  is in place.
+
+Known product failures: **none**.
+
+External evidence note: the authenticated live smoke was not executed in this workspace because
+no credential was available. It is intentionally skipped by default, documented, and executable
+with external environment inputs. Public target discovery confirmed the REST 2026.1 contract.
+
+Deferred candidates remain those explicitly excluded by Issue #1: artifacts/logs, workflow and
+administrative mutations, raw REST, streaming, OAuth, `CliWrap.ts`, and npm publishing. They need
+separate Issues before implementation.
+
 ## Next action
 
-Run repository-wide verification, inspect the public diff for secrets/generated noise, publish the
-implementation, and attach CI evidence. The workstream and Issue stay open until those gates pass.
+No workstream action remains. Close Issue #1 after linking this close-out; create separate Issues
+for any deferred candidate selected next.
