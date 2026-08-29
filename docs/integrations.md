@@ -114,14 +114,33 @@ one useful read:
 2. Define profile fields for connection identity and mark service prerequisites `required`:
    usually URL plus tenant, organization, or project when those values select a different realm.
 3. Implement authentication and validate it with the cheapest identity/status endpoint.
-4. Call one high-value read-only endpoint against the real service explicitly.
-5. Sanitize the response or derive a minimal fixture from official documentation.
-6. Write a failing MSW test at the native `fetch` boundary.
-7. Implement the client and command until the mocked test passes.
-8. Keep the real smoke test opt-in; add the next command by value, not API order.
+4. Build the CLI, configure a real current-user profile, and call one high-value read-only endpoint
+   through the packaged CLI process.
+5. Add or extend the integration's explicit local profile-backed proof inventory.
+6. Sanitize the response or derive a minimal fixture from official documentation.
+7. Write a failing MSW test at the native `fetch` boundary.
+8. Implement the client and command until the mocked test passes.
+9. Re-run the local proof while debugging; add the next command by value, not API order.
 
 Authentication is discovery infrastructure, not a reason to postpone tests. Its purpose in the
 first slice is to reveal the real contract so deterministic mocks can take over the daily loop.
+
+## Keep a local real-profile proof
+
+Once the authentication skeleton works, an integration owns a separate development proof that
+invokes its compiled executable with a required profile name. The profile comes from the current
+user's normal AppData and the credential comes from the OS keyring; do not add test-only URL/token
+inputs. This catches packaging, profile, authentication, command-tree, and rendering failures that a
+direct client smoke cannot see.
+
+The proof is not part of `npm test` and must refuse CI before it spawns the CLI. Its command inventory
+is fixed in source, bounded, and exclusively `ReadOnly`; it never forwards arbitrary user argv or
+trusts an enabled profile permission as its only safety boundary. It prints compact pass/count/skip
+evidence instead of service payloads and never records fixtures automatically. See
+[`testing.md`](testing.md) for the binding safety and evidence contract.
+
+Do not extract this into Core after the first integration. Let a second real integration prove which
+process-runner and summary mechanics are genuinely reusable.
 
 ## Profiles: more than one connection
 

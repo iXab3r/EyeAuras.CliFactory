@@ -13,7 +13,9 @@ Read the root `AGENTS.md`, `docs/DESIGN.md`, `docs/integrations.md`, and `docs/t
 - Depend on native `fetch` and mock it with MSW. Do not add an HTTP wrapper until a real repeated
   need survives two integrations.
 - Authentication validation may identify the current user but must never return or log the token.
-- Real-service tests are opt-in and read-only unless mutation is unmistakably requested.
+- Keep real-service proof outside default tests and CI. It must invoke the packaged CLI through a
+  real current-user profile/keyring and a fixed bounded `ReadOnly` inventory; never forward
+  arbitrary argv or accept test-only URL/token injection.
 - Fixtures must be public-safe and minimal.
 
 Required evidence: focused mocked tests for the changed client/command and `npm test` before merge.

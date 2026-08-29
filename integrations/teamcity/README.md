@@ -115,6 +115,12 @@ The live smoke test is read-only and explicitly opt-in. It checks authentication
 and one bounded page each of projects, jobs, builds, queue entries, and agents; it never queues or
 cancels a build.
 
+This current smoke is legacy: it injects URL/token environment variables into `TeamCityClient` and
+does not prove the packaged CLI, persisted profile, or OS keyring. It remains available during the
+migration but is not the pattern for new integrations. [Issue #4](https://github.com/iXab3r/EyeAuras.CliFactory/issues/4)
+tracks its replacement with an explicit local profile-backed proof that stays outside `npm test` and
+all CI/CD workflows.
+
 PowerShell:
 
 ```text

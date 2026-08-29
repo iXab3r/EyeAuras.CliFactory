@@ -215,15 +215,24 @@ Category changes are ordinary profile configuration and intentionally never cont
 Development follows a thin vertical TDD loop:
 
 1. Add the minimum authentication/profile skeleton needed to reach the service.
-2. Make one explicit opt-in request to the real service or use an official documentation sample.
-3. Remove credentials and sensitive/customer data before saving a fixture.
-4. Express the desired command as a failing test against an HTTP mock.
-5. For a side effect, first prove its permission denial occurs before the mock sees a request.
-6. Implement the smallest client and command code that passes the test.
-7. Keep real-service tests opt-in; keep mock tests deterministic and in the default suite.
+2. Configure a real current-user profile through the built CLI and OS credential store.
+3. Run an explicit local, read-only integration proof through the compiled CLI process, or use an
+   official documentation sample when a real service is unavailable.
+4. Remove credentials and sensitive/customer data before saving a minimal fixture.
+5. Express the desired command as a failing test against an HTTP mock.
+6. For a side effect, first prove its permission denial occurs before the mock sees a request.
+7. Implement the smallest client and command code that passes the test.
+8. Re-run the local proof while debugging; keep mocked tests deterministic and in the default suite.
 
 MSW intercepts the native `fetch` boundary in Node tests. Fixtures are data, not a second client
 implementation. Full rules are in [`testing.md`](testing.md).
+
+A profile-backed integration proof is development evidence, not regression coverage. It uses a
+named profile from the current user's normal AppData and credentials from the normal OS keyring; it
+does not accept a test URL or token. It invokes the packaged CLI boundary and a fixed, bounded
+inventory of `ReadOnly` commands. It is a separate explicit script, refuses CI environments before
+networking, never prints or persists raw responses, and is never included in `npm test`. Mocked tests
+remain the only service-contract tests required in CI.
 
 ## Submodules and CliWrap.ts
 

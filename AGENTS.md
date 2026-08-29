@@ -35,8 +35,9 @@ More specific `AGENTS.md` files override this router only inside their directory
 6. **Permission-gated means explicit.** When an integration enables permission gates, every
    service leaf declares a category. Read operations use `ReadOnly`; side effects use `Update` or
    a documented custom category. Never weaken a category merely to make a command pass.
-7. **Mock the network boundary.** Default tests are offline and deterministic. Real-service tests
-   are explicit, opt-in, read-only by default, and sanitized before becoming fixtures.
+7. **Mock the network boundary.** Default tests are offline and deterministic. Real-service proof
+   is an explicit local-only packaged-CLI run through a real profile/keyring, uses a fixed bounded
+   `ReadOnly` inventory, and never runs in CI. Sanitize evidence before it becomes a fixture.
 8. **Keep service concepts in integrations.** Core must not know TeamCity terminology. Extract a
    shared mechanism only when another real integration proves it.
 9. **Verify in proportion to risk.** Run the narrow affected tests during work and `npm test`

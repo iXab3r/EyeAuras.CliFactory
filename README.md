@@ -194,6 +194,7 @@ On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login
 - Never store secrets in config, fixtures, logs, snapshots, or Git.
 - Derive non-secret profile-owned files from `AppArguments.AppDataDirectory`; CLIs are not portable.
 - Make mock tests the default and real-service tests explicit and opt-in.
+- Keep real-profile proofs as separate local-only packaged-CLI runs; never put them in CI/CD.
 - Prefer deletion and direct platform/library use over new abstraction layers.
 - Use GitHub Issues for feature/bug scope and acceptance; use workstreams for phased execution and evidence.
 - AI agents begin at [`AGENTS.md`](AGENTS.md) and treat [`docs/DESIGN.md`](docs/DESIGN.md) as the
