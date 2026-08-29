@@ -10,9 +10,9 @@ persistent JSON-RPC session for agents.
 The repository name is `EyeAuras.CliFactory`. The human-facing project name is **AI CLI
 Factory**.
 
-> Status: foundation stage. The command tree, profiles, token authentication, permission gates,
-> JSON output, JSON-RPC transport, and the first TeamCity client are implemented as a narrow
-> vertical slice. The APIs are not stable yet.
+> Status: foundation stage. The common npm package and the TeamCity operational v1 integration
+> are implemented, including 17 service commands, mocked REST contracts, permission gates,
+> profiles, JSON, JSON-RPC, and an opt-in read-only live smoke. The APIs are not stable yet.
 
 ```mermaid
 flowchart LR
@@ -130,6 +130,7 @@ state remain available for the whole session.
 |---|---|
 | `packages/core` | Reusable CLI tree, output, profile, auth, permissions, and JSON-RPC primitives |
 | `integrations/teamcity` | First in-house product and executable example |
+| `integrations/teamcity/README.md` | Shipped TeamCity command tree and operating guide |
 | `docs/DESIGN.md` | Canonical architecture and invariants |
 | `docs/integrations.md` | How to build an in-repo or external integration |
 | `docs/testing.md` | Mock-first and opt-in integration-test workflow |
@@ -158,6 +159,10 @@ real request:
 $env:TEAMCITY_TOKEN | npm run teamcity -- auth login --token-stdin
 npm run teamcity -- jobs list --json
 ```
+
+The shipped TeamCity tree covers server status, projects, jobs, builds and their diagnostics,
+the build queue, agents, and three explicitly gated operations: start a job, cancel a running
+build, and cancel a queued build. See the [TeamCity CLI guide](integrations/teamcity/README.md).
 
 On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login --token-stdin`.
 

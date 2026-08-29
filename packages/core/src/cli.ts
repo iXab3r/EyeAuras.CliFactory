@@ -158,7 +158,9 @@ export function createCli(definition: CliDefinition): CliApplication {
 
     const addDefinition = (parent: Command, item: CommandDefinition): void => {
       const parts = commandParts(item.name);
-      const current = new Command(parts.name).description(item.description);
+      const current = new Command(parts.name)
+        .description(item.description)
+        .configureOutput(parent.configureOutput());
       if (item.permission) {
         current.addHelpText("after", `\nRequired permission: ${item.permission}\n`);
       }
@@ -193,7 +195,9 @@ export function createCli(definition: CliDefinition): CliApplication {
       parent.addCommand(current);
     };
 
-    const profileCommand = new Command("profile").description("Manage service profiles");
+    const profileCommand = new Command("profile")
+      .description("Manage service profiles")
+      .configureOutput(program.configureOutput());
     profileCommand
       .command("list")
       .description("List profiles")
@@ -270,9 +274,9 @@ export function createCli(definition: CliDefinition): CliApplication {
         }
       };
 
-      const permissionsCommand = new Command("permissions").description(
-        "Manage profile-specific safety permissions",
-      );
+      const permissionsCommand = new Command("permissions")
+        .description("Manage profile-specific safety permissions")
+        .configureOutput(program.configureOutput());
       permissionsCommand
         .command("list")
         .description("List permissions for the selected profile")
@@ -338,7 +342,9 @@ export function createCli(definition: CliDefinition): CliApplication {
 
     if (definition.auth) {
       const auth = definition.auth;
-      const authCommand = new Command("auth").description("Manage authentication");
+      const authCommand = new Command("auth")
+        .description("Manage authentication")
+        .configureOutput(program.configureOutput());
       authCommand
         .command("login")
         .description("Validate and securely store a credential for the active profile")
@@ -408,6 +414,15 @@ export function createCli(definition: CliDefinition): CliApplication {
     for (const item of definition.commands) {
       addDefinition(program, item);
     }
+
+    program.action(() => {
+      const help = program.helpInformation().trimEnd();
+      result = { help };
+      handled = true;
+      if (execution.render) {
+        output.write(`${help}\n`);
+      }
+    });
 
     try {
       await program.parseAsync(["node", definition.name, ...argv]);

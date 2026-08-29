@@ -43,6 +43,15 @@ Real integration tests require both an opt-in flag such as `TEAMCITY_INTEGRATION
 provided outside Git. They must be read-only unless the command and test name make mutation
 unmistakable. A skipped real-service test is expected in CI, not a missing test failure.
 
+The TeamCity smoke additionally requires `TEAMCITY_URL` and `TEAMCITY_TOKEN`:
+
+```text
+TEAMCITY_INTEGRATION=1 TEAMCITY_URL=https://teamcity.example.com TEAMCITY_TOKEN=<external-token> npm test
+```
+
+It performs only bounded GET requests for authentication, server, projects, jobs, builds, queue,
+and agents. It never records responses or exercises the three mutation commands.
+
 ## Required evidence
 
 For a change in `packages/core`, run the core tests and at least one affected integration test. For

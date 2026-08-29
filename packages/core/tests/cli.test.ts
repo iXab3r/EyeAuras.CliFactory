@@ -64,6 +64,28 @@ function capture(): { stream: Writable; text: () => string } {
   };
 }
 
+test("running the root command without arguments shows help successfully", async () => {
+  const stdout = capture();
+  const stderr = capture();
+  const cli = createCli({
+    name: "example-cli",
+    description: "Example",
+    commands: [command("ping", "Ping", async () => ({ ok: true }))],
+    runtime: {
+      input: Readable.from([]),
+      output: stdout.stream,
+      error: stderr.stream,
+      profileStore: new MemoryProfiles(),
+      secretStore: new MemorySecretStore(),
+    },
+  });
+
+  assert.equal(await cli.run([]), 0);
+  assert.match(stdout.text(), /Usage: example-cli/);
+  assert.match(stdout.text(), /ping/);
+  assert.equal(stderr.text(), "");
+});
+
 test("one command declaration serves JSON CLI and JSON-RPC execution", async () => {
   const stdout = capture();
   const stderr = capture();
@@ -103,7 +125,7 @@ test("JSON-RPC keeps accepting commands and emits protocol-only stdout", async (
   const input = Readable.from([
     '{"jsonrpc":"2.0","id":1,"method":"cli.execute","params":{"argv":["ping"]}}\n',
     '{"jsonrpc":"2.0","id":2,"method":"missing"}\n',
-    '{"jsonrpc":"2.0","id":3,"method":"cli.execute","params":{"argv":["--help"]}}\n',
+    '{"jsonrpc":"2.0","id":3,"method":"cli.execute","params":{"argv":["ping","--help"]}}\n',
   ]);
   const cli = createCli({
     name: "example-cli",
@@ -127,7 +149,7 @@ test("JSON-RPC keeps accepting commands and emits protocol-only stdout", async (
   assert.equal(frames.length, 3);
   assert.equal(frames[2]?.jsonrpc, "2.0");
   assert.equal(frames[2]?.id, 3);
-  assert.match(frames[2]?.result?.help ?? "", /Usage: example-cli/);
+  assert.match(frames[2]?.result?.help ?? "", /Usage: example-cli ping/);
   assert.equal(stderr.text(), "");
 });
 
