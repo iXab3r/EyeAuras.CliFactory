@@ -1,0 +1,27 @@
+{
+  "name": "ai-cli-factory",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A TypeScript factory for consistent, AI-friendly command-line integrations.",
+  "workspaces": [
+    "packages/*",
+    "integrations/*"
+  ],
+  "scripts": {
+    "bootstrap": "dotnet run --file scripts/bootstrap.cs",
+    "build": "npm run build --workspace @eyeauras/cli-factory && npm run build --workspace @eyeauras/teamcity-cli",
+    "typecheck": "npm run build",
+    "test": "npm run build && npm run test:compiled --workspaces --if-present",
+    "check": "npm run test",
+    "teamcity": "npm run start --workspace @eyeauras/teamcity-cli --"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@11.4.2",
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^7.0.2"
+  }
+}
