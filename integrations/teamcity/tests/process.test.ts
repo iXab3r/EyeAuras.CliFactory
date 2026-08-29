@@ -24,6 +24,13 @@ test("the packaged CLI process separates help, JSON output, and errors", async (
   assert.match(root.stdout, /projects/);
   assert.equal(root.stderr, "");
 
+  const profileHelp = run(["profile", "--help"]);
+  assert.equal(profileHelp.status, 0, profileHelp.stderr);
+  for (const command of ["create", "set", "set-default", "delete"]) {
+    assert.match(profileHelp.stdout, new RegExp(`\\b${command}\\b`));
+  }
+  assert.equal(profileHelp.stderr, "");
+
   const permissionHelp = run(["jobs", "run", "--help"]);
   assert.equal(permissionHelp.status, 0, permissionHelp.stderr);
   assert.match(permissionHelp.stdout, /Required permission: Update/);
