@@ -290,3 +290,64 @@ test("auth login validates and stores a token without printing it", async () => 
   assert.equal(testRuntime.stdout().includes("login-token"), false);
   assert.equal(testRuntime.stderr().includes("login-token"), false);
 });
+
+test("explicit guest profile configuration needs no token and uses guest REST", async () => {
+  const publicServer = "https://teamcity.jetbrains.com";
+  server.use(
+    http.get(`${publicServer}/guestAuth/app/rest/server`, ({ request }) => {
+      assert.equal(request.headers.get("authorization"), null);
+      return HttpResponse.json({
+        version: "2026.2 EAP",
+        buildNumber: "238763",
+        webUrl: publicServer,
+      });
+    }),
+  );
+  const testRuntime = await createTestRuntime({
+    profiles: [{ name: "default" }],
+    tokens: {},
+  });
+  const cli = createTeamCityCli(testRuntime.runtime);
+
+  assert.equal(
+    await cli.run([
+      "profile",
+      "configure",
+      "jetbrains-demo",
+      "--url",
+      publicServer,
+      "--guest",
+      "--json",
+    ]),
+    0,
+  );
+  assert.deepEqual(JSON.parse(testRuntime.stdout()), {
+    configured: true,
+    profile: "jetbrains-demo",
+    authenticated: true,
+    identity: null,
+  });
+  assert.deepEqual((await testRuntime.profileStore.get("jetbrains-demo")).values, {
+    url: publicServer,
+    guest: true,
+  });
+
+  testRuntime.resetOutput();
+  assert.equal(
+    await cli.run(["auth", "status", "--profile", "jetbrains-demo", "--json"]),
+    0,
+  );
+  assert.deepEqual(JSON.parse(testRuntime.stdout()), {
+    authenticated: true,
+    profile: "jetbrains-demo",
+    identity: null,
+  });
+
+  testRuntime.resetOutput();
+  assert.equal(
+    await cli.run(["server", "status", "--profile", "jetbrains-demo", "--json"]),
+    0,
+  );
+  assert.equal(JSON.parse(testRuntime.stdout()).buildNumber, "238763");
+  assert.equal(testRuntime.stderr(), "");
+});

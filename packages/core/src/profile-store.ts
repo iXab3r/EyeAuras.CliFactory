@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
+import { AppArguments, type IAppArguments } from "./app-arguments.js";
 import type {
   Profile,
   ProfileStoreContract,
@@ -19,33 +19,20 @@ export interface ProfileStoreOptions {
   defaultName?: string;
   defaults?: ProfileValues;
   rootDirectory?: string;
+  appArguments?: IAppArguments;
   validate?: (values: ProfileValues) => void | Promise<void>;
 }
 
 const profileNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-
-function defaultConfigRoot(): string {
-  const overridden = process.env.CLI_FACTORY_HOME;
-  if (overridden) {
-    return overridden;
-  }
-
-  if (platform() === "win32") {
-    return process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
-  }
-
-  if (platform() === "darwin") {
-    return join(homedir(), "Library", "Application Support");
-  }
-
-  return process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-}
 
 function assertProfileName(name: string): void {
   if (!profileNamePattern.test(name)) {
     throw new Error(
       "Profile names must start with a letter or number and contain at most 64 letters, numbers, dots, dashes, or underscores.",
     );
+  }
+  if (name.toLowerCase() === "profiles.json") {
+    throw new Error("Profile name 'profiles.json' is reserved for the application profile index.");
   }
 }
 
@@ -60,11 +47,27 @@ export class ProfileStore implements ProfileStoreContract {
     assertProfileName(this.#defaultName);
     this.#defaults = structuredClone(options.defaults ?? {});
     this.#validate = options.validate;
-    this.#filePath = join(
-      options.rootDirectory ?? defaultConfigRoot(),
-      options.applicationId,
-      "profiles.json",
-    );
+    const appArguments =
+      options.appArguments ??
+      new AppArguments({
+        AppName: options.applicationId,
+        Profile: this.#defaultName,
+        ...(options.rootDirectory === undefined
+          ? {}
+          : {
+              Environment: {
+                ...AppArguments.CurrentEnvironment(),
+                EnvironmentAppData: options.rootDirectory,
+                EnvironmentLocalAppData: options.rootDirectory,
+              },
+            }),
+      });
+    if (appArguments.AppName !== options.applicationId) {
+      throw new Error(
+        `ProfileStore applicationId '${options.applicationId}' does not match AppArguments.AppName '${appArguments.AppName}'.`,
+      );
+    }
+    this.#filePath = join(appArguments.RoamingAppDataDirectory, "profiles.json");
   }
 
   public async get(name?: string): Promise<Profile> {

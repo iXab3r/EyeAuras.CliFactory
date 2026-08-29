@@ -17,8 +17,6 @@ import type {
   TeamCityTriState,
 } from "./models.js";
 
-const defaultUrl = "https://teamcity.example.com";
-
 const pageOptions: readonly OptionDefinition[] = [
   {
     flags: "--limit <count>",
@@ -43,9 +41,10 @@ function profileUrl(profile: Profile): string {
 }
 
 async function client(context: CommandContext): Promise<TeamCityClient> {
+  const guest = context.profile.values.guest === true;
   return new TeamCityClient({
     baseUrl: profileUrl(context.profile),
-    token: await context.secrets.require("token"),
+    ...(guest ? { guest: true } : { token: await context.secrets.require("token") }),
     fetch: context.fetch,
     signal: context.signal,
   });
@@ -146,17 +145,37 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
     applicationId: "teamcity-cli",
     permissions: {},
     profile: {
-      defaults: { url: defaultUrl },
-      fields: [{ name: "url", flags: "--url <url>", description: "TeamCity server URL" }],
+      fields: [
+        {
+          name: "url",
+          flags: "--url <url>",
+          description: "TeamCity server URL",
+          required: true,
+        },
+        {
+          name: "guest",
+          flags: "--guest",
+          description: "Use TeamCity guest access without a token",
+        },
+        {
+          name: "guest",
+          flags: "--no-guest",
+          description: "Use token authentication",
+        },
+      ],
       validate(values) {
         const url = values.url;
-        if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
+        if (url !== undefined && (typeof url !== "string" || !/^https?:\/\//.test(url))) {
           throw new Error("A TeamCity profile URL must start with http:// or https://.");
+        }
+        if (values.guest !== undefined && typeof values.guest !== "boolean") {
+          throw new Error("TeamCity guest mode must be a boolean.");
         }
       },
     },
     auth: tokenAuth({
       env: "TEAMCITY_TOKEN",
+      required: (profile) => profile.values.guest !== true,
       async validate({ profile, token, fetch, signal }) {
         return new TeamCityClient({ baseUrl: profileUrl(profile), token, fetch, signal }).currentUser();
       },

@@ -41,7 +41,8 @@ those decisions once:
 - `auth login`, `auth status`, and `auth logout` are standard commands. Secrets live in the OS
   credential store (Windows Credential Manager/DPAPI, macOS Keychain, or the Linux keyring), not
   in profile JSON.
-- `profile` commands isolate endpoints and configuration such as UAT and Production.
+- `profile` commands isolate endpoints and configuration such as UAT and Production. Handlers get
+  the familiar PoeShared-style `context.appArguments.AppDataDirectory` for profile-owned files.
 - `permissions` gates classify commands as `ReadOnly`, `Update`, or an integration-defined
   category. Permission choices are profile-specific; `Update` starts disabled.
 - `--json-rpc` keeps the process alive and accepts multiple commands over newline-delimited
@@ -61,9 +62,13 @@ const cli = createCli({
   description: "TeamCity command line client",
   permissions: {},
   profile: {
-    defaults: { url: "https://teamcity.example.com" },
     fields: [
-      { name: "url", flags: "--url <url>", description: "TeamCity server URL" },
+      {
+        name: "url",
+        flags: "--url <url>",
+        description: "TeamCity server URL",
+        required: true,
+      },
     ],
   },
   auth: tokenAuth({ env: "TEAMCITY_TOKEN", validate: validateToken }),
@@ -91,7 +96,8 @@ It also adds the common commands:
 
 ```text
 teamcity-cli profile list
-teamcity-cli profile create production --url https://teamcity.example.com
+teamcity-cli profile configure production --url https://teamcity.example.com --token-stdin
+teamcity-cli profile create staging --url https://staging-teamcity.example.com
 teamcity-cli profile set production --url https://new-teamcity.example.com
 teamcity-cli profile set-default production
 teamcity-cli profile delete old-uat
@@ -130,7 +136,7 @@ state remain available for the whole session.
 
 | Path | Purpose |
 |---|---|
-| `packages/core` | Reusable CLI tree, output, profile, auth, permissions, and JSON-RPC primitives |
+| `packages/core` | Reusable CLI tree, AppArguments, output, profile, auth, permissions, and JSON-RPC primitives |
 | `integrations/teamcity` | First in-house product and executable example |
 | `integrations/teamcity/README.md` | Shipped TeamCity command tree and operating guide |
 | `docs/DESIGN.md` | Canonical architecture and invariants |
@@ -154,13 +160,25 @@ npm test
 npm run teamcity -- --help
 ```
 
-The TeamCity profile starts with `https://teamcity.example.com`. Configure a token before making a
-real request:
+No service URL is compiled into the public CLI. Configure an authenticated profile explicitly
+before making a real request:
 
 ```text
-$env:TEAMCITY_TOKEN | npm run teamcity -- auth login --token-stdin
+$env:TEAMCITY_TOKEN | npm run teamcity -- profile configure default --url https://teamcity.example.com --token-stdin
 npm run teamcity -- jobs list --json
 ```
+
+For a credential-free read-only trial, JetBrains currently exposes a public TeamCity server with
+guest access. It is an explicit example profile, never an automatic default or background request:
+
+```text
+npm run teamcity -- profile configure jetbrains-demo --url https://teamcity.jetbrains.com --guest
+npm run teamcity -- server status --profile jetbrains-demo --json
+```
+
+Running `teamcity-cli` or a service command in an ordinary terminal also starts the same guided
+configuration when the selected profile is incomplete. JSON, JSON-RPC, redirected stdin, and
+programmatic execution never prompt; their error names the exact `profile configure` command.
 
 The shipped TeamCity tree covers server status, projects, jobs, builds and their diagnostics,
 the build queue, agents, and three explicitly gated operations: start a job, cancel a running
@@ -174,6 +192,7 @@ On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login
 - Keep integrations thin and service-shaped; keep generic behavior in `packages/core`.
 - Classify every gated service leaf correctly; never label a side effect `ReadOnly`.
 - Never store secrets in config, fixtures, logs, snapshots, or Git.
+- Derive non-secret profile-owned files from `AppArguments.AppDataDirectory`; CLIs are not portable.
 - Make mock tests the default and real-service tests explicit and opt-in.
 - Prefer deletion and direct platform/library use over new abstraction layers.
 - Use GitHub Issues for feature/bug scope and acceptance; use workstreams for phased execution and evidence.

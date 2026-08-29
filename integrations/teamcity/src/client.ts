@@ -129,7 +129,8 @@ export class TeamCityHttpError extends Error {
 
 export class TeamCityClient {
   readonly #baseUrl: string;
-  readonly #token: string;
+  readonly #token: string | undefined;
+  readonly #guest: boolean;
   readonly #fetch: typeof globalThis.fetch;
   readonly #signal: AbortSignal | undefined;
 
@@ -138,8 +139,16 @@ export class TeamCityClient {
     if (!baseUrl) {
       throw new Error("TeamCity base URL cannot be empty.");
     }
+    const token = options.token?.trim();
+    if (options.guest === true && token) {
+      throw new Error("TeamCity guest access and token authentication are mutually exclusive.");
+    }
+    if (options.guest !== true && !token) {
+      throw new Error("TeamCity token authentication requires a non-empty token.");
+    }
     this.#baseUrl = baseUrl;
-    this.#token = options.token;
+    this.#token = token;
+    this.#guest = options.guest === true;
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#signal = options.signal;
   }
@@ -406,14 +415,17 @@ export class TeamCityClient {
     query: Record<string, string> = {},
     body?: unknown,
   ): Promise<T> {
-    const url = new URL(`${this.#baseUrl}${path}`);
+    const requestPath = this.#guest
+      ? path.replace(/^\/app\/rest(?=\/|$)/, "/guestAuth/app/rest")
+      : path;
+    const url = new URL(`${this.#baseUrl}${requestPath}`);
     for (const [name, value] of Object.entries(query)) {
       url.searchParams.set(name, value);
     }
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-      Authorization: `Bearer ${this.#token}`,
-    };
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (this.#token) {
+      headers.Authorization = `Bearer ${this.#token}`;
+    }
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
     }

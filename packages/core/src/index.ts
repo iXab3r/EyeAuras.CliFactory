@@ -1,4 +1,5 @@
 export { tokenAuth } from "./auth.js";
+export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
 export { command } from "./command.js";
 export { formatHuman, writeResult } from "./output.js";
@@ -9,6 +10,12 @@ export {
   MemorySecretStore,
   ProfileSecrets,
 } from "./secret-store.js";
+export type {
+  AppArgumentsEnvironment,
+  AppArgumentsOptions,
+  IAppArguments,
+  IAppConfig,
+} from "./app-arguments.js";
 export type {
   CliApplication,
   CliDefinition,

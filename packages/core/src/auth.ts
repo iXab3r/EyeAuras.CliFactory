@@ -1,9 +1,11 @@
 import type { Readable, Writable } from "node:stream";
+import { createInterface } from "node:readline/promises";
 import type { TokenAuthDefinition } from "./types.js";
 
 export interface TokenAuthOptions {
   secretName?: string;
   env?: string;
+  required?: TokenAuthDefinition["required"];
   validate?: TokenAuthDefinition["validate"];
 }
 
@@ -14,6 +16,9 @@ export function tokenAuth(options: TokenAuthOptions = {}): TokenAuthDefinition {
   };
   if (options.env !== undefined) {
     definition.environmentVariable = options.env;
+  }
+  if (options.required !== undefined) {
+    definition.required = options.required;
   }
   if (options.validate !== undefined) {
     definition.validate = options.validate;
@@ -39,10 +44,29 @@ interface TtyWritable extends Writable {
   isTTY?: boolean;
 }
 
+export function canPrompt(input: Readable, output: Writable): boolean {
+  return (input as TtyReadable).isTTY === true && (output as TtyWritable).isTTY === true;
+}
+
+export async function promptText(
+  input: Readable,
+  output: Writable,
+  label: string,
+): Promise<string> {
+  if (!canPrompt(input, output)) {
+    throw new Error("Interactive profile configuration requires a TTY.");
+  }
+  const prompt = createInterface({ input, output, terminal: false });
+  try {
+    return (await prompt.question(`${label}: `)).trim();
+  } finally {
+    prompt.close();
+  }
+}
+
 export async function promptSecret(input: Readable, output: Writable): Promise<string> {
   const ttyInput = input as TtyReadable;
-  const ttyOutput = output as TtyWritable;
-  if (!ttyInput.isTTY || !ttyOutput.isTTY || !ttyInput.setRawMode) {
+  if (!canPrompt(input, output) || !ttyInput.setRawMode) {
     throw new Error("No token was provided. Use --token-stdin or the documented environment variable.");
   }
 

@@ -54,6 +54,12 @@ and agents. It never records responses or exercises the three mutation commands.
 
 ## Required evidence
 
+Changes to application-data behavior use an injected `AppArgumentsEnvironment`; tests never redirect
+the real user's folders. Cover the exact `RoamingAppDataDirectory/Profile` composition, separation of
+at least two profiles, and deletion of a profile-owned directory when lifecycle semantics change.
+For JSON-RPC, prove that two requests selecting different profiles receive different
+`AppDataDirectory` values without restarting the process.
+
 For a change in `packages/core`, run the core tests and at least one affected integration test. For
 a change in an integration, run its mocked tests. Before a commit intended for `main`, run:
 

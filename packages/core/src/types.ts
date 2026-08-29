@@ -1,4 +1,5 @@
 import type { Readable, Writable } from "node:stream";
+import type { IAppArguments } from "./app-arguments.js";
 
 export type ProfileValues = Record<string, unknown>;
 
@@ -11,6 +12,8 @@ export interface ProfileField {
   name: string;
   flags: string;
   description: string;
+  /** A service command cannot run until this field has a non-empty value. */
+  required?: boolean;
 }
 
 export interface ProfileDefinition {
@@ -34,6 +37,7 @@ export interface ScopedSecrets {
 }
 
 export interface CommandContext {
+  appArguments: IAppArguments;
   profile: Profile;
   secrets: ScopedSecrets;
   fetch: typeof globalThis.fetch;
@@ -83,6 +87,7 @@ export interface PermissionGateDefinition {
 }
 
 export interface TokenValidationContext {
+  appArguments: IAppArguments;
   profile: Profile;
   token: string;
   fetch: typeof globalThis.fetch;
@@ -93,10 +98,13 @@ export interface TokenAuthDefinition {
   kind: "token";
   secretName: string;
   environmentVariable?: string;
+  /** Allows a configured profile (for example guest access) to opt out of token auth. */
+  required?: (profile: Profile) => boolean;
   validate?: (context: TokenValidationContext) => unknown | Promise<unknown>;
 }
 
 export interface CliRuntime {
+  appArguments?: IAppArguments;
   input?: Readable;
   output?: Writable;
   error?: Writable;

@@ -9,6 +9,9 @@ Read the root `AGENTS.md` and `docs/DESIGN.md` first.
   data; it must not branch on `--json`.
 - Treat stdout as a protocol surface. In JSON-RPC mode only JSON-RPC frames may reach stdout.
 - Keep profile files non-secret and versioned. Make writes atomic.
+- Preserve the PoeShared-style `AppArguments` storage API and PascalCase public names. All
+  profile-owned paths derive from `AppDataDirectory`; portable and executable-relative storage are
+  forbidden. Resolve a fresh profile view per command so JSON-RPC requests cannot leak paths.
 - Permission state is profile-specific safety configuration. Standard `ReadOnly` is enabled by
   default; `Update` is disabled. A gated CLI fails at startup when a service leaf has no category.
 - Permission gates are defense-in-depth, not remote authorization. Never imply that enabling a

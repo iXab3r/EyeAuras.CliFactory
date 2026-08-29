@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
 import {
+  AppArguments,
   command,
   createCli,
   MemorySecretStore,
@@ -101,9 +105,22 @@ test("running the root command without arguments shows help successfully", async
   assert.equal(stderr.text(), "");
 });
 
-test("profile commands create, update, select, and safely delete profiles", async () => {
+test("profile commands create, update, select, and safely delete profiles", async (context) => {
   const profiles = new MemoryProfiles();
   const secrets = new MemorySecretStore();
+  const dataRoot = await mkdtemp(join(tmpdir(), "cli-factory-profile-data-"));
+  context.after(() => rm(dataRoot, { recursive: true, force: true }));
+  const appArguments = new AppArguments({
+    AppName: "profile-cli",
+    Profile: "default",
+    Environment: {
+      AppDomainDirectory: join(dataRoot, "app"),
+      ApplicationExecutablePath: join(dataRoot, "app", "profile-cli.js"),
+      EnvironmentLocalAppData: join(dataRoot, "local"),
+      EnvironmentAppData: join(dataRoot, "roaming"),
+      ProcessId: 42,
+    },
+  });
   const cli = createCli({
     name: "profile-cli",
     description: "Profile example",
@@ -119,6 +136,7 @@ test("profile commands create, update, select, and safely delete profiles", asyn
       error: capture().stream,
       profileStore: profiles,
       secretStore: secrets,
+      appArguments,
     },
   });
 
@@ -129,12 +147,16 @@ test("profile commands create, update, select, and safely delete profiles", asyn
     { name: "uat", values: { url: "https://uat.test" } },
   );
   await cli.execute(["profile", "create", "retired", "--url", "https://retired.test"]);
-  await secrets.set("profile-cli", "retired:token", "retired-secret");
+  const retiredDataDirectory = appArguments.WithProfile("retired").AppDataDirectory;
+  await mkdir(retiredDataDirectory, { recursive: true });
+  await writeFile(join(retiredDataDirectory, "integration-state.json"), "{}", "utf8");
+  await secrets.set("ai-cli-factory:profile-cli", "retired:token", "retired-secret");
   assert.deepEqual(await cli.execute(["profile", "delete", "retired"]), {
     deleted: "retired",
     default: "default",
   });
-  assert.equal(await secrets.get("profile-cli", "retired:token"), undefined);
+  assert.equal(await secrets.get("ai-cli-factory:profile-cli", "retired:token"), undefined);
+  await assert.rejects(stat(retiredDataDirectory), { code: "ENOENT" });
 
   await assert.rejects(cli.execute(["profile", "delete", "default"]), /set-default/);
   await cli.execute(["profile", "set-default", "uat"]);
@@ -153,6 +175,8 @@ test("profile commands create, update, select, and safely delete profiles", asyn
 test("one command declaration serves JSON CLI and JSON-RPC execution", async () => {
   const stdout = capture();
   const stderr = capture();
+  const profiles = new MemoryProfiles();
+  await profiles.create("production", { url: "https://production.test" });
   const cli = createCli({
     name: "example-cli",
     description: "Example",
@@ -160,6 +184,7 @@ test("one command declaration serves JSON CLI and JSON-RPC execution", async () 
     commands: [
       command("things", "Things", [
         command("show <id>", "Show one thing", ({ args }, context) => ({
+          appDataDirectory: context.appArguments.AppDataDirectory,
           id: args.id,
           profile: context.profile.name,
         })),
@@ -169,18 +194,45 @@ test("one command declaration serves JSON CLI and JSON-RPC execution", async () 
       input: Readable.from([]),
       output: stdout.stream,
       error: stderr.stream,
-      profileStore: new MemoryProfiles(),
+      profileStore: profiles,
       secretStore: new MemorySecretStore(),
+      appArguments: new AppArguments({
+        AppName: "example-cli",
+        Profile: "default",
+        Environment: {
+          AppDomainDirectory: join("root", "app"),
+          ApplicationExecutablePath: join("root", "app", "example-cli.js"),
+          EnvironmentLocalAppData: join("root", "local"),
+          EnvironmentAppData: join("root", "roaming"),
+          ProcessId: 42,
+        },
+      }),
     },
   });
 
   assert.equal(await cli.run(["things", "show", "42", "--json"]), 0);
-  assert.equal(stdout.text(), '{"id":"42","profile":"default"}\n');
+  assert.equal(
+    stdout.text(),
+    `${JSON.stringify({
+      appDataDirectory: join("root", "roaming", "example-cli", "default"),
+      id: "42",
+      profile: "default",
+    })}\n`,
+  );
   assert.equal(stderr.text(), "");
   assert.deepEqual(await cli.execute(["things", "show", "7"]), {
+    appDataDirectory: join("root", "roaming", "example-cli", "default"),
     id: "7",
     profile: "default",
   });
+  assert.deepEqual(
+    await cli.execute(["--profile", "production", "things", "show", "8"]),
+    {
+      appDataDirectory: join("root", "roaming", "example-cli", "production"),
+      id: "8",
+      profile: "production",
+    },
+  );
 });
 
 test("JSON-RPC keeps accepting commands and emits protocol-only stdout", async () => {

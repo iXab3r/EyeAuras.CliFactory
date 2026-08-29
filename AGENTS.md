@@ -29,16 +29,19 @@ More specific `AGENTS.md` files override this router only inside their directory
    commit credentials. There is no plaintext fallback.
 4. **Profiles isolate environments.** Endpoint/config and credential identity both include the
    active profile. Tests must cover any change that could cross profiles.
-5. **Permission-gated means explicit.** When an integration enables permission gates, every
+5. **AppData belongs to the current user and profile.** Derive profile-owned files from
+   `AppArguments.AppDataDirectory`. Never add portable, executable-relative, or working-directory
+   storage. Secrets remain in the OS credential store.
+6. **Permission-gated means explicit.** When an integration enables permission gates, every
    service leaf declares a category. Read operations use `ReadOnly`; side effects use `Update` or
    a documented custom category. Never weaken a category merely to make a command pass.
-6. **Mock the network boundary.** Default tests are offline and deterministic. Real-service tests
+7. **Mock the network boundary.** Default tests are offline and deterministic. Real-service tests
    are explicit, opt-in, read-only by default, and sanitized before becoming fixtures.
-7. **Keep service concepts in integrations.** Core must not know TeamCity terminology. Extract a
+8. **Keep service concepts in integrations.** Core must not know TeamCity terminology. Extract a
    shared mechanism only when another real integration proves it.
-8. **Verify in proportion to risk.** Run the narrow affected tests during work and `npm test`
+9. **Verify in proportion to risk.** Run the narrow affected tests during work and `npm test`
    before declaring a repository-wide change complete.
-9. **Commit hygiene.** Never rewrite pushed history or force-push. Inspect staged changes for
+10. **Commit hygiene.** Never rewrite pushed history or force-push. Inspect staged changes for
    secrets and generated noise before committing.
 
 ## Function role: Reconciliation Lead

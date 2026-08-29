@@ -1,6 +1,7 @@
 export interface TeamCityClientOptions {
   baseUrl: string;
-  token: string;
+  token?: string;
+  guest?: boolean;
   fetch?: typeof globalThis.fetch;
   signal?: AbortSignal;
 }

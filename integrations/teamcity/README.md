@@ -30,25 +30,42 @@ builds visible instead of reporting an older successful default-branch build.
 
 ## Profiles and authentication
 
-The default profile points to `https://teamcity.example.com`. Create separate profiles whenever
-URLs or security realms differ:
+The public CLI has no compiled-in TeamCity URL. The virtual `default` profile exists immediately,
+but service commands cannot run until its required URL and authentication mode are configured.
+Configure separate profiles whenever URLs or security realms differ:
 
 ```text
-teamcity-cli profile create uat --url https://teamcity-uat.example.com
-teamcity-cli profile create production --url https://teamcity.example.com
+teamcity-cli profile configure uat --url https://teamcity-uat.example.com --token-stdin
+teamcity-cli profile configure production --url https://teamcity.example.com --token-stdin
 teamcity-cli profile set-default production
-teamcity-cli auth login --profile uat --token-stdin
-teamcity-cli auth login --profile production --token-stdin
 teamcity-cli auth status --profile production --json
 ```
+
+In an ordinary terminal, running `teamcity-cli` or a service command with an incomplete profile
+starts the same guided configuration. JSON, JSON-RPC, redirected/non-TTY input, and programmatic
+execution never prompt; they fail before networking and print an actionable `profile configure`
+command.
+
+JetBrains currently exposes a public TeamCity server that supports guest REST reads. Create it as
+an explicit demo profile; the CLI never selects it or contacts it automatically:
+
+```text
+teamcity-cli profile configure jetbrains-demo --url https://teamcity.jetbrains.com --guest
+teamcity-cli server status --profile jetbrains-demo --json
+```
+
+Guest mode uses TeamCity's `/guestAuth/app/rest` path and sends no Authorization header. Its
+available data and uptime are controlled by JetBrains. To convert a guest profile to token auth,
+reconfigure it with `--no-guest --token-stdin`.
 
 Use `profile set <name> --url <url>` to update an existing profile. A default profile always
 exists. To remove one, make another profile default first and then run `profile delete <name>`;
 the final remaining profile cannot be deleted.
 
-`auth login` validates the token through the current-user REST endpoint before the common package
-stores it in the platform credential store. Tokens never enter profile JSON. For automation, pipe
-the token to `--token-stdin` or set `TEAMCITY_TOKEN`; do not put it in a command-line argument.
+For token profiles, configuration validates the token through the current-user REST endpoint before
+the common package stores it in the platform credential store. `auth login` remains available for
+credential rotation. Tokens never enter profile JSON. For automation, pipe the token to
+`--token-stdin` or set `TEAMCITY_TOKEN`; do not put it in a command-line argument.
 
 ## Permission fail-safe
 

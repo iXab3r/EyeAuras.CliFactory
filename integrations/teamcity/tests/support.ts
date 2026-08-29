@@ -15,7 +15,8 @@ export class TestProfileStore implements ProfileStoreContract {
   public constructor(
     profiles: Array<{
       name: string;
-      url: string;
+      url?: string;
+      guest?: boolean;
       permissions?: readonly string[];
     }> = [{ name: "default", url: "https://teamcity.test" }],
   ) {
@@ -25,7 +26,10 @@ export class TestProfileStore implements ProfileStoreContract {
     }
     this.#active = first.name;
     for (const profile of profiles) {
-      this.#profiles.set(profile.name, { url: profile.url });
+      this.#profiles.set(profile.name, {
+        ...(profile.url === undefined ? {} : { url: profile.url }),
+        ...(profile.guest === undefined ? {} : { guest: profile.guest }),
+      });
       if (profile.permissions !== undefined) {
         this.#permissions.set(profile.name, [...profile.permissions]);
       }
@@ -113,7 +117,12 @@ export interface TestRuntime {
 }
 
 export async function createTestRuntime(options: {
-  profiles?: Array<{ name: string; url: string; permissions?: readonly string[] }>;
+  profiles?: Array<{
+    name: string;
+    url?: string;
+    guest?: boolean;
+    permissions?: readonly string[];
+  }>;
   tokens?: Record<string, string>;
   input?: string;
 } = {}): Promise<TestRuntime> {

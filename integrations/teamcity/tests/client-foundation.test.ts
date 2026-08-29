@@ -69,6 +69,22 @@ test("gets the bounded server status", async () => {
   assert.equal((await client().getServerStatus()).buildNumber, "222742");
 });
 
+test("guest access uses TeamCity's guestAuth REST path without an Authorization header", async () => {
+  server.use(
+    http.get(`${baseUrl}/guestAuth/app/rest/server`, ({ request }) => {
+      assert.equal(request.headers.get("authorization"), null);
+      return HttpResponse.json({
+        version: "2026.2 EAP",
+        buildNumber: "238763",
+        webUrl: baseUrl,
+      });
+    }),
+  );
+
+  const guestClient = new TeamCityClient({ baseUrl, guest: true });
+  assert.equal((await guestClient.getServerStatus()).buildNumber, "238763");
+});
+
 test("lists a bounded page of active child projects", async () => {
   server.use(
     http.get(`${baseUrl}/app/rest/projects`, ({ request }) => {

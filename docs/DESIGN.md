@@ -10,7 +10,7 @@ The factory exists to make each new service CLI cheaper to build, easier for a h
 and predictable for an AI to operate. Reuse is successful only when it removes code from a real
 integration without hiding the service's domain.
 
-The first proving consumer is TeamCity at `https://teamcity.example.com`. In-house integrations
+The first proving consumer is TeamCity. In-house integrations
 live beside the framework under `integrations/`; they are products, executable examples, and the
 source of evidence for extracting reusable features.
 
@@ -38,6 +38,14 @@ name. One profile is the default. A default profile exists even before configura
 and the collection can never become empty. Profile files contain no passwords, access tokens,
 refresh tokens, private keys, or cookies.
 
+Profile fields that are prerequisites for service commands are declared `required`. The virtual
+default profile may therefore exist in an incomplete state without inventing a product-specific
+endpoint. In an ordinary TTY, starting the root command or a service leaf enters the same generic
+configuration flow. `profile configure [name]` is its explicit form: it accepts the integration's
+profile field options and completes authentication when required. JSON, JSON-RPC, redirected
+stdin/stdout, and programmatic execution never prompt; they fail before the handler with an
+actionable configuration command.
+
 The standard lifecycle is explicit: `profile create <name>` creates, `profile set <name>` updates
 an existing profile, `profile set-default <name>` chooses the default, and `profile delete <name>`
 removes a non-default profile. The default profile cannot be deleted until another profile is made
@@ -46,6 +54,10 @@ known stored authentication credential for that profile.
 
 Profile identity is part of the secret key. Switching from `uat` to `production` must never reuse
 the other profile's credential accidentally.
+
+Profile identity also owns a current-user application-data root. Configuration, logs, temporary
+files, caches, downloaded data, and other profile-specific files derive from that root. A profile
+must never construct a path from the current working directory or the executable directory.
 
 ### Permission gates are profile-specific safety policy
 
@@ -103,6 +115,7 @@ flowchart TB
     declaration["Recursive command declaration"] --> commander["Commander command tree"]
     commander --> handler["Integration handler"]
     profiles["Profile JSON"] --> context["Command context"]
+    appdata["Profile AppArguments"] --> context
     policy["Profile permissions"] --> commander
     keyring["OS credential store"] --> context
     context --> handler
@@ -113,16 +126,45 @@ flowchart TB
 Commander is used for parsing and automatic nested help. `@napi-rs/keyring` is the native secret
 store binding. Both are replaceable implementation choices, not APIs exposed to integrations.
 
-## Configuration locations
+## AppArguments and current-user application data
 
-Application state is stored below the platform's conventional user config root:
+Core exports the familiar PoeShared-style `AppArguments` API. Its public storage names and path
+composition intentionally match the C#/Rust contract:
 
-- Windows: `%APPDATA%/<application-id>/profiles.json`
-- macOS: `~/Library/Application Support/<application-id>/profiles.json`
-- Linux: `$XDG_CONFIG_HOME/<application-id>/profiles.json` or `~/.config/<application-id>`
+```text
+EnvironmentAppData/<AppName>              = RoamingAppDataDirectory
+EnvironmentLocalAppData/<AppName>         = LocalAppDataDirectory
+RoamingAppDataDirectory/<Profile>          = AppDataDirectory
+AppDataDirectory/temp                      = TempDirectory
+AppDataDirectory/log                       = LogDirectory()
+```
 
-`CLI_FACTORY_HOME` overrides the root for tests and controlled automation. Writes use a temporary
-file followed by rename so an interrupted write cannot leave half a JSON document.
+`AppName` is the CLI's stable `applicationId`; changing it after release requires an explicit
+migration. `profiles.json` is application-wide and lives directly in
+`RoamingAppDataDirectory`. All other profile-owned files derive from `AppDataDirectory` using
+ordinary `node:path` composition. Secrets remain in the OS credential store and never enter these
+directories.
+
+The environment roots belong to the current OS user:
+
+| Platform | `EnvironmentAppData` | `EnvironmentLocalAppData` |
+|---|---|---|
+| Windows | `%APPDATA%` | `%LOCALAPPDATA%` |
+| macOS | `~/Library/Application Support` | same |
+| Linux | `$XDG_DATA_HOME` or `~/.local/share` | same |
+
+CliFactory applications are deliberately non-portable. There is no `--dataFolder`, sibling
+`data` directory detection, executable-relative fallback, or public environment-variable override.
+Tests inject an `AppArgumentsEnvironment` or `AppArguments` instance instead of redirecting a real
+application through process-global state.
+
+Unlike a PoeShared desktop process, a persistent CLI process may execute commands against different
+profiles. Core therefore creates a profile-specific `AppArguments` view for every command and exposes
+it as `context.appArguments`. There is no mutable process-wide active AppData directory.
+
+Profile-document writes use a temporary file followed by rename so an interrupted write cannot
+leave half a JSON document. Deleting a profile deletes its known credential and its complete
+`AppDataDirectory`; default-profile and final-profile protections run before deletion.
 
 The profile document has a versioned shape:
 
@@ -131,7 +173,7 @@ The profile document has a versioned shape:
   "version": 1,
   "active": "default",
   "profiles": {
-    "default": { "url": "https://teamcity.example.com" }
+    "default": { "url": "https://teamcity.example.com", "guest": false }
   },
   "permissions": {
     "default": ["ReadOnly"]
@@ -144,13 +186,16 @@ defaults. An explicit empty array means every service permission is disabled for
 
 ## Authentication contract
 
-The built-in token flow resolves a candidate in this order:
+The built-in token flow resolves a candidate in this order during `profile configure` or
+`auth login`:
 
 1. stdin when `--token-stdin` is present;
 2. the integration-specific environment variable;
 3. a masked interactive terminal prompt.
 
-The token is validated by the integration before it is persisted. Authentication status may
+The token is validated by the integration before it is persisted. An integration may declare
+that a configured profile does not require a token, for example TeamCity guest access; the
+service-specific switch and HTTP behavior stay in that integration. Authentication status may
 optionally revalidate the stored token, but must never print it. Logout deletes only the active
 profile's credential.
 
@@ -196,7 +241,8 @@ does not exist.
 ### `packages/core`
 
 Owns recursive command construction, standard commands, output, profile persistence, permission
-gates, secret persistence, and JSON-RPC transport. It must remain service-agnostic.
+gates, secret persistence, the `AppArguments` current-user data contract, and JSON-RPC transport.
+It must remain service-agnostic.
 
 ### `integrations/<service>`
 
@@ -213,6 +259,7 @@ Owns process execution and pipeline composition. It remains independently testab
 - A plugin runtime or dependency-injection container.
 - A universal service DTO, pagination model, or HTTP client wrapper.
 - A plaintext or silently degraded secret store.
+- Portable or executable-relative application data.
 - Treating local permission gates as a replacement for remote authorization or human policy.
 - Publishing npm packages before the public API has a second consumer.
 - Claiming streaming subscriptions before JSON-RPC notifications have cancellation and
