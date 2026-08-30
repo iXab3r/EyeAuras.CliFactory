@@ -1,0 +1,696 @@
+{
+  "baseline_snapshot": "authoring-final.json",
+  "direct_snapshot": "ar50-direct-families.json",
+  "final_snapshot": "ar50-final.json",
+  "samples": [
+    {
+      "name": "listIssues",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "listIssues",
+        "start": 251,
+        "end": 259,
+        "nonblank": 9,
+        "body": "export async function listIssues(\n  connection: Connection,\n  options: IssueSearchOptions = {},\n): Promise<YouTrackObject[]> {\n  return readCollection(connection, \"api/issues\", {\n    ...page(options, issueListFields),\n    ...(options.query === undefined ? {} : { query: requiredText(options.query, \"query\") }),\n  });\n}"
+      },
+      "after": {
+        "name": "listIssues",
+        "start": 266,
+        "end": 274,
+        "nonblank": 9,
+        "body": "export async function listIssues(\n  connection: Connection,\n  options: IssueSearchOptions = {},\n): Promise<YouTrackObject[]> {\n  return readCollection(connection, \"api/issues\", {\n    ...page(options, issueListFields),\n    ...(options.query === undefined ? {} : { query: requiredText(options.query, \"query\") }),\n  });\n}"
+      },
+      "identical": true
+    },
+    {
+      "name": "getIssue",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "getIssue",
+        "start": 261,
+        "end": 269,
+        "nonblank": 9,
+        "body": "export async function getIssue(\n  connection: Connection,\n  id: string,\n  options: ProjectionOptions = {},\n): Promise<YouTrackObject> {\n  return readObject(connection, issuePath(id), {\n    fields: fields(options, `${issueListFields},description,created`),\n  });\n}"
+      },
+      "after": {
+        "name": "getIssue",
+        "start": 276,
+        "end": 284,
+        "nonblank": 9,
+        "body": "export async function getIssue(\n  connection: Connection,\n  id: string,\n  options: ProjectionOptions = {},\n): Promise<YouTrackObject> {\n  return readObject(connection, issuePath(id), {\n    fields: fields(options, `${issueListFields},description,created`),\n  });\n}"
+      },
+      "identical": true
+    },
+    {
+      "name": "updateIssue",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "updateIssue",
+        "start": 327,
+        "end": 340,
+        "nonblank": 14,
+        "body": "export async function updateIssue(\n  connection: Connection,\n  id: string,\n  input: unknown,\n): Promise<YouTrackObject | null> {\n  const body = mutationBody(input, [\"summary\", \"description\"]);\n  if (Object.keys(body).length === 0) {\n    throw new Error(\"YouTrack issue update requires summary or description.\");\n  }\n  return mutate(connection, issuePath(id), {\n    ...(Object.hasOwn(body, \"summary\") ? { summary: narrative(body.summary, \"summary\") } : {}),\n    ...(Object.hasOwn(body, \"description\") ? { description: description(body.description) } : {}),\n  }, \"id,idReadable,summary,updated\");\n}"
+      },
+      "after": {
+        "name": "updateIssue",
+        "start": 366,
+        "end": 379,
+        "nonblank": 14,
+        "body": "export async function updateIssue(\n  connection: Connection,\n  id: string,\n  input: unknown,\n): Promise<YouTrackObject | null> {\n  const body = mutationBody(input, [\"summary\", \"description\"]);\n  if (Object.keys(body).length === 0) {\n    throw new Error(\"YouTrack issue update requires summary or description.\");\n  }\n  return mutate(connection, issuePath(id), {\n    ...(Object.hasOwn(body, \"summary\") ? { summary: narrative(body.summary, \"summary\") } : {}),\n    ...(Object.hasOwn(body, \"description\") ? { description: description(body.description) } : {}),\n  }, \"id,idReadable,summary,updated\");\n}"
+      },
+      "identical": true
+    }
+  ],
+  "declarations": [
+    {
+      "description": "Search one page of issues using YouTrack query syntax",
+      "path": "integrations/youtrack/src/cli.ts",
+      "before": {
+        "start": 141,
+        "end": 152,
+        "nonblank": 12,
+        "body": "        command(\n          \"list\",\n          \"Search one page of issues using YouTrack query syntax\",\n          async ({ options }, context) => listIssues(await connection(context), readOptions(options)),\n          {\n            permission: Permission.ReadOnly,\n            options: [\n              ...pageOptions,\n              { flags: \"--query <query>\", description: \"YouTrack search query\" },\n            ],\n          },\n        ),"
+      },
+      "after": {
+        "start": 104,
+        "end": 115,
+        "nonblank": 12,
+        "body": "        command(\n          \"list\",\n          \"Search one page of issues using YouTrack query syntax\",\n          async ({ options }, context) => listIssues(await connection(context), readOptions(options)),\n          {\n            permission: Permission.ReadOnly,\n            options: [\n              ...pageOptions,\n              { flags: \"--query <query>\", description: \"YouTrack search query\" },\n            ],\n          },\n        ),"
+      },
+      "identical": true
+    },
+    {
+      "description": "Show an issue by database or readable ID",
+      "path": "integrations/youtrack/src/cli.ts",
+      "before": {
+        "start": 153,
+        "end": 159,
+        "nonblank": 7,
+        "body": "        command(\n          \"get <issueID>\",\n          \"Show an issue by database or readable ID\",\n          async ({ args, options }, context) =>\n            getIssue(await connection(context), String(args.issueID), readOptions(options)),\n          { permission: Permission.ReadOnly, options: projectionOptions },\n        ),"
+      },
+      "after": {
+        "start": 116,
+        "end": 122,
+        "nonblank": 7,
+        "body": "        command(\n          \"get <issueID>\",\n          \"Show an issue by database or readable ID\",\n          async ({ args, options }, context) =>\n            getIssue(await connection(context), String(args.issueID), readOptions(options)),\n          { permission: Permission.ReadOnly, options: projectionOptions },\n        ),"
+      },
+      "identical": true
+    },
+    {
+      "description": "Update summary and/or description; description null clears it",
+      "path": "integrations/youtrack/src/cli.ts",
+      "before": {
+        "start": 134,
+        "end": 140,
+        "nonblank": 7,
+        "body": "        command(\n          \"update <issueID>\",\n          \"Update summary and/or description; description null clears it\",\n          async ({ args, options }, context) =>\n            updateIssue(await connection(context), String(args.issueID), options.body),\n          { permission: Permission.Update, options: bodyOptions },\n        ),"
+      },
+      "after": {
+        "start": 97,
+        "end": 103,
+        "nonblank": 7,
+        "body": "        command(\n          \"update <issueID>\",\n          \"Update summary and/or description; description null clears it\",\n          async ({ args, options }, context) =>\n            updateIssue(await connection(context), String(args.issueID), options.body),\n          { permission: Permission.Update, options: bodyOptions },\n        ),"
+      },
+      "identical": true
+    }
+  ],
+  "helpers": [
+    {
+      "name": "request",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "request",
+        "start": 139,
+        "end": 196,
+        "nonblank": 58,
+        "body": "async function request(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n  responseName = \"JSON\",\n  body?: YouTrackObject,\n): Promise<YouTrackValue> {\n  const url = new URL(path, youTrackUrl(connection.baseUrl));\n  url.search = new URLSearchParams(query).toString();\n  const token = connection.token.trim();\n  if (!token || /[\\r\\n]/.test(token)) {\n    throw new Error(\"YouTrack authentication requires a non-empty single-line token.\");\n  }\n  let response: Response;\n  try {\n    response = await (connection.fetch ?? globalThis.fetch)(url, {\n      headers: {\n        Accept: \"application/json\",\n        Authorization: `Bearer ${token}`,\n        ...(body === undefined ? {} : { \"Content-Type\": \"application/json\" }),\n      },\n      ...(body === undefined ? {} : { method: \"POST\", body: JSON.stringify(body) }),\n      redirect: \"error\",\n      ...(connection.signal === undefined ? {} : { signal: connection.signal }),\n    });\n  } catch {\n    throw new Error(\"YouTrack request failed; check connectivity, TLS and the configured URL.\");\n  }\n  if (!response.ok) {\n    const retryAfter = response.headers.get(\"retry-after\");\n    let retry = \"\";\n    if (response.status === 429 && retryAfter) {\n      if (/^\\d{1,10}$/.test(retryAfter)) {\n        retry = ` Retry after ${Number(retryAfter)} seconds.`;\n      } else if (/^[A-Z][a-z]{2}, \\d{2} [A-Z][a-z]{2} \\d{4} \\d{2}:\\d{2}:\\d{2} GMT$/.test(retryAfter)) {\n        const date = new Date(retryAfter);\n        if (!Number.isNaN(date.getTime())) {\n          retry = ` Retry after ${date.toUTCString()}.`;\n        }\n      }\n    }\n    throw new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`);\n  }\n  let value: YouTrackValue;\n  try {\n    const text = await response.text();\n    if (body !== undefined && !text.trim()) {\n      return null;\n    }\n    value = JSON.parse(text) as YouTrackValue;\n  } catch {\n    throw new Error(`YouTrack returned an invalid ${responseName} response.`);\n  }\n  if (body !== undefined && value === null) {\n    throw new Error(\"YouTrack returned an invalid mutation response.\");\n  }\n  return value;\n}"
+      },
+      "after": {
+        "name": "request",
+        "start": 149,
+        "end": 209,
+        "nonblank": 61,
+        "body": "async function request(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n  responseName = \"JSON\",\n  options: RequestOptions = {},\n): Promise<YouTrackValue> {\n  const url = new URL(path, youTrackUrl(connection.baseUrl));\n  url.search = new URLSearchParams(query).toString();\n  const token = connection.token.trim();\n  if (!token || /[\\r\\n]/.test(token)) {\n    throw new Error(\"YouTrack authentication requires a non-empty single-line token.\");\n  }\n  const body = options.body;\n  const multipart = body instanceof FormData;\n  let response: Response;\n  try {\n    response = await (connection.fetch ?? globalThis.fetch)(url, {\n      headers: {\n        Accept: \"application/json\",\n        Authorization: `Bearer ${token}`,\n        ...(body === undefined || multipart ? {} : { \"Content-Type\": \"application/json\" }),\n      },\n      method: options.method ?? \"GET\",\n      ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),\n      redirect: \"error\",\n      ...(connection.signal === undefined ? {} : { signal: connection.signal }),\n    });\n  } catch {\n    throw new Error(\"YouTrack request failed; check connectivity, TLS and the configured URL.\");\n  }\n  if (!response.ok) {\n    const retryAfter = response.headers.get(\"retry-after\");\n    let retry = \"\";\n    if (response.status === 429 && retryAfter) {\n      if (/^\\d{1,10}$/.test(retryAfter)) {\n        retry = ` Retry after ${Number(retryAfter)} seconds.`;\n      } else if (/^[A-Z][a-z]{2}, \\d{2} [A-Z][a-z]{2} \\d{4} \\d{2}:\\d{2}:\\d{2} GMT$/.test(retryAfter)) {\n        const date = new Date(retryAfter);\n        if (!Number.isNaN(date.getTime())) {\n          retry = ` Retry after ${date.toUTCString()}.`;\n        }\n      }\n    }\n    throw new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`);\n  }\n  let value: YouTrackValue;\n  try {\n    const text = await response.text();\n    if (options.allowEmpty && !text.trim()) {\n      return null;\n    }\n    value = JSON.parse(text) as YouTrackValue;\n  } catch {\n    throw new Error(`YouTrack returned an invalid ${responseName} response.`);\n  }\n  if (options.allowEmpty && value === null) {\n    throw new Error(\"YouTrack returned an invalid mutation response.\");\n  }\n  return value;\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "readObject",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "readObject",
+        "start": 198,
+        "end": 204,
+        "nonblank": 7,
+        "body": "async function readObject(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n): Promise<YouTrackObject> {\n  return object(scrub(await request(connection, path, query), connection.token.trim()));\n}"
+      },
+      "after": {
+        "name": "readObject",
+        "start": 211,
+        "end": 219,
+        "nonblank": 9,
+        "body": "export async function readObject(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n  body?: YouTrackObject,\n): Promise<YouTrackObject> {\n  const options: RequestOptions = body === undefined ? {} : { method: \"POST\", body };\n  return object(scrub(await request(connection, path, query, \"JSON\", options), connection.token.trim()));\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "readCollection",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "readCollection",
+        "start": 206,
+        "end": 219,
+        "nonblank": 14,
+        "body": "async function readCollection(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n): Promise<YouTrackObject[]> {\n  const value = scrub(await request(connection, path, query), connection.token.trim());\n  if (!Array.isArray(value)) {\n    throw new Error(\"YouTrack returned an invalid collection response.\");\n  }\n  if (value.length > Number(query.$top)) {\n    throw new Error(\"YouTrack returned more items than the requested top limit.\");\n  }\n  return value.map(object);\n}"
+      },
+      "after": {
+        "name": "readCollection",
+        "start": 221,
+        "end": 234,
+        "nonblank": 14,
+        "body": "export async function readCollection(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n): Promise<YouTrackObject[]> {\n  const value = scrub(await request(connection, path, query), connection.token.trim());\n  if (!Array.isArray(value)) {\n    throw new Error(\"YouTrack returned an invalid collection response.\");\n  }\n  if (value.length > Number(query.$top)) {\n    throw new Error(\"YouTrack returned more items than the requested top limit.\");\n  }\n  return value.map(object);\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "mutate",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "mutate",
+        "start": 304,
+        "end": 312,
+        "nonblank": 9,
+        "body": "async function mutate(\n  connection: Connection,\n  path: string,\n  body: YouTrackObject,\n  projection: string,\n): Promise<YouTrackObject | null> {\n  const value = await request(connection, path, { fields: projection }, \"JSON\", body);\n  return value === null ? null : object(scrub(value, connection.token.trim()));\n}"
+      },
+      "after": {
+        "name": "mutate",
+        "start": 319,
+        "end": 329,
+        "nonblank": 11,
+        "body": "export async function mutate(\n  connection: Connection,\n  path: string,\n  body: YouTrackObject,\n  projection: string,\n): Promise<YouTrackObject | null> {\n  const value = await request(connection, path, { fields: projection }, \"JSON\", {\n    method: \"POST\", body, allowEmpty: true,\n  });\n  return value === null ? null : object(scrub(value, connection.token.trim()));\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "fields",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "fields",
+        "start": 69,
+        "end": 71,
+        "nonblank": 3,
+        "body": "function fields(options: ProjectionOptions, defaults: string): string {\n  return requiredText(options.fields ?? defaults, \"fields\");\n}"
+      },
+      "after": {
+        "name": "fields",
+        "start": 69,
+        "end": 71,
+        "nonblank": 3,
+        "body": "export function fields(options: ProjectionOptions, defaults: string): string {\n  return requiredText(options.fields ?? defaults, \"fields\");\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "page",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "page",
+        "start": 73,
+        "end": 83,
+        "nonblank": 11,
+        "body": "function page(options: PageOptions, defaults: string): Record<string, string> {\n  const top = options.top ?? 50;\n  const skip = options.skip ?? 0;\n  if (!Number.isSafeInteger(top) || top < 1 || top > 100) {\n    throw new Error(\"YouTrack top must be an integer between 1 and 100.\");\n  }\n  if (!Number.isSafeInteger(skip) || skip < 0) {\n    throw new Error(\"YouTrack skip must be a nonnegative safe integer.\");\n  }\n  return { fields: fields(options, defaults), $top: String(top), $skip: String(skip) };\n}"
+      },
+      "after": {
+        "name": "page",
+        "start": 73,
+        "end": 83,
+        "nonblank": 11,
+        "body": "export function page(options: PageOptions, defaults: string): Record<string, string> {\n  const top = options.top ?? 50;\n  const skip = options.skip ?? 0;\n  if (!Number.isSafeInteger(top) || top < 1 || top > 100) {\n    throw new Error(\"YouTrack top must be an integer between 1 and 100.\");\n  }\n  if (!Number.isSafeInteger(skip) || skip < 0) {\n    throw new Error(\"YouTrack skip must be a nonnegative safe integer.\");\n  }\n  return { fields: fields(options, defaults), $top: String(top), $skip: String(skip) };\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "requiredText",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "requiredText",
+        "start": 62,
+        "end": 67,
+        "nonblank": 6,
+        "body": "function requiredText(value: string, label: string): string {\n  if (!value.trim() || /[\\u0000-\\u001f\\u007f]/.test(value)) {\n    throw new Error(`YouTrack ${label} must be nonempty text without control characters.`);\n  }\n  return value;\n}"
+      },
+      "after": {
+        "name": "requiredText",
+        "start": 62,
+        "end": 67,
+        "nonblank": 6,
+        "body": "export function requiredText(value: string, label: string): string {\n  if (!value.trim() || /[\\u0000-\\u001f\\u007f]/.test(value)) {\n    throw new Error(`YouTrack ${label} must be nonempty text without control characters.`);\n  }\n  return value;\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "issuePath",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "issuePath",
+        "start": 85,
+        "end": 95,
+        "nonblank": 11,
+        "body": "function issuePath(id: string): string {\n  requiredText(id, \"issue ID\");\n  if (id === \".\" || id === \"..\") {\n    throw new Error(\"YouTrack issue ID must not be a dot path segment.\");\n  }\n  try {\n    return `api/issues/${encodeURIComponent(id)}`;\n  } catch {\n    throw new Error(\"YouTrack issue ID must contain valid Unicode text.\");\n  }\n}"
+      },
+      "after": {
+        "name": "issuePath",
+        "start": 97,
+        "end": 99,
+        "nonblank": 3,
+        "body": "export function issuePath(id: string): string {\n  return `api/issues/${encodedID(id, \"issue ID\")}`;\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "encodedID",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": null,
+      "after": {
+        "name": "encodedID",
+        "start": 85,
+        "end": 95,
+        "nonblank": 11,
+        "body": "export function encodedID(id: string, label = \"ID\"): string {\n  requiredText(id, label);\n  if (id === \".\" || id === \"..\") {\n    throw new Error(`YouTrack ${label} must not be a dot path segment.`);\n  }\n  try {\n    return encodeURIComponent(id);\n  } catch {\n    throw new Error(`YouTrack ${label} must contain valid Unicode text.`);\n  }\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "deleteObject",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": null,
+      "after": {
+        "name": "deleteObject",
+        "start": 331,
+        "end": 334,
+        "nonblank": 4,
+        "body": "export async function deleteObject(connection: Connection, path: string): Promise<YouTrackObject | null> {\n  const value = await request(connection, path, {}, \"JSON\", { method: \"DELETE\", allowEmpty: true });\n  return value === null ? null : object(scrub(value, connection.token.trim()));\n}"
+      },
+      "identical": false
+    },
+    {
+      "name": "uploadObjectCollection",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": null,
+      "after": {
+        "name": "uploadObjectCollection",
+        "start": 336,
+        "end": 352,
+        "nonblank": 17,
+        "body": "export async function uploadObjectCollection(\n  connection: Connection,\n  path: string,\n  body: FormData,\n  projection: string,\n): Promise<YouTrackObject[] | null> {\n  const value = await request(connection, path, { fields: projection }, \"JSON\", {\n    method: \"POST\", body, allowEmpty: true,\n  });\n  if (value === null) {\n    return null;\n  }\n  if (!Array.isArray(value)) {\n    throw new Error(\"YouTrack returned an invalid upload collection response.\");\n  }\n  return value.map((item) => object(scrub(item, connection.token.trim())));\n}"
+      },
+      "identical": false
+    }
+  ],
+  "verification": [
+    {
+      "path": "integrations/teamcity/integration-tests/profile-proof.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/bin.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/cli.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/client.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/index.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/locator.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/models.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/argument-errors.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/cli.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-builds.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-foundation.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-operations.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/integration-proof.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/process.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/support.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/integration-tests/profile-proof.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/bin.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli-support.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/client.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/index.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments-commands.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context-commands.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields-commands.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query-commands.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations-commands.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time-commands.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli-fixture.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/client.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-attachments.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-context.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields-cli.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-query.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-relations.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time-cli.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/mutations.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/profile-proof.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/reads.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/transport.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/app-arguments.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/auth.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/cli.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/command.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/json-rpc.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/output.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/permissions.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/profile-store.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/secret-store.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/app-arguments.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/auth.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/cli.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/profile-configure.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/profile-store.test.ts",
+      "saved_content_hash_matches": true,
+      "nonblank_matches": true,
+      "current_file_hash_matches": true
+    }
+  ]
+}

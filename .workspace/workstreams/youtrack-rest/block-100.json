@@ -1,0 +1,877 @@
+{
+  "id": "youtrack-block-100",
+  "status": "complete",
+  "scope_authority": "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6",
+  "source_inventory": "classification.json",
+  "previous_block": "block-50.json",
+  "baseline_accepted_count": 50,
+  "accepted_operation_count": 100,
+  "target_accepted_count": 100,
+  "new_operation_count": 50,
+  "new_readonly_count": 44,
+  "new_update_count": 6,
+  "accepted_baseline_ids": [
+    "GET /api/users/me",
+    "GET /api/admin/projects",
+    "GET /api/issues",
+    "GET /api/issues/{issueID}",
+    "GET /api/issues/{issueID}/comments",
+    "POST /api/issues",
+    "POST /api/issues/{issueID}",
+    "POST /api/issues/{issueID}/comments",
+    "POST /api/commands/assist",
+    "POST /api/commands",
+    "POST /api/search/assist",
+    "POST /api/issuesGetter/count",
+    "GET /api/savedQueries",
+    "GET /api/savedQueries/{queryID}",
+    "GET /api/admin/projects/{projectID}",
+    "GET /api/admin/projects/{projectID}/customFields",
+    "GET /api/admin/projects/{projectID}/customFields/{fieldID}",
+    "GET /api/users",
+    "GET /api/issues/{issueID}/customFields",
+    "GET /api/issues/{issueID}/customFields/{fieldID}",
+    "POST /api/issues/{issueID}/customFields/{fieldID}",
+    "GET /api/issueLinkTypes",
+    "GET /api/issueLinkTypes/{typeID}",
+    "GET /api/issues/{issueID}/links",
+    "GET /api/issues/{issueID}/links/{linkID}",
+    "GET /api/issues/{issueID}/links/{linkID}/issues",
+    "POST /api/issues/{issueID}/links/{linkID}/issues",
+    "DELETE /api/issues/{issueID}/links/{linkID}/issues/{issueID}",
+    "GET /api/tags",
+    "GET /api/tags/{tagID}",
+    "GET /api/issues/{issueID}/tags",
+    "POST /api/issues/{issueID}/tags",
+    "DELETE /api/issues/{issueID}/tags/{tagID}",
+    "GET /api/activitiesPage",
+    "GET /api/issues/{issueID}/activitiesPage",
+    "GET /api/issues/{issueID}/comments/{commentID}",
+    "POST /api/issues/{issueID}/comments/{commentID}",
+    "GET /api/issues/{issueID}/vcsChanges",
+    "GET /api/issues/{issueID}/vcsChanges/{changeID}",
+    "GET /api/issues/{issueID}/sprints",
+    "GET /api/issues/{issueID}/timeTracking",
+    "GET /api/issues/{issueID}/timeTracking/workItems",
+    "POST /api/issues/{issueID}/timeTracking/workItems",
+    "GET /api/issues/{issueID}/timeTracking/workItems/{itemID}",
+    "POST /api/issues/{issueID}/timeTracking/workItems/{itemID}",
+    "GET /api/workItems",
+    "GET /api/workItems/{itemID}",
+    "GET /api/issues/{issueID}/attachments",
+    "GET /api/issues/{issueID}/attachments/{attachmentID}",
+    "POST /api/issues/{issueID}/attachments"
+  ],
+  "authoring_baseline": "research/authoring-baseline/snapshots/ar50-final.json",
+  "authoring_baseline_sha256": "1387dd12cef9c7f6a8f94e395d9b4696d798223e53ff346c02558de0f7334984",
+  "authorization": "Block100 andAR100 completed with independent/root acceptance. Final18 operations and separate derived download remain pending; no extra user approval required at future internal slice boundaries.",
+  "counter_rule": "Unique source IDs counted only after exposed, boundary-tested and reviewer/root accepted. No operation101 before AR100 PASS and required corrections close.",
+  "issue_contract_rule": "Schedules existing Issue6 v1 endpoints and CLI mappings, not new public scope. Domain owners refresh official method/body/projection contracts before affected source; material public changes require Issue amendment first.",
+  "live_proof_rule": "Existing thirteen-row ReadOnly proof remains fixed until relevant implemented behavior plus explicit reviewed bounded expansion. Limited rights; denied required rows are not PASS. No broad crawls, mutations, CI networking or private payload storage.",
+  "derived_download": "Final separateP1 capability, accepted0/1; no endpoint count. Article attachments/hierarchy and niche bundles remain final18.",
+  "shared_contract": {
+    "issue_sections": [
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#public-cli-and-integration-contract",
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#pagination-projections-and-results",
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#default-projections-and-required-body-families",
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#mutation-body-and-file-behavior"
+    ],
+    "command_shape": "Use each exact inventory CLI row, opaque segment-encoded IDs and existing recursive tree. Structured writes use required inline --body object; command language and multipart leaves use their published dedicated flags.",
+    "paging": "One request per invocation. Only documented offset collections expose top50/skip0 defaults, top1..100 and skip>=0. Cursor pages require nonempty categories, preserve cursor envelope, no top/skip/page-size.",
+    "projection": "Finite documented source-shaped defaults and explicit --fields where supported; no implicit nested collection expansion/follow-up. All human/JSON/RPC results scrub credential-bearing URL/bearer values, including explicit projection results.",
+    "mutation": "All Update gated before fetch; missing required command arguments and invalid body syntax fail before onboarding. File argument presence/blank/control syntax checks do no filesystem I/O; stat/regular-file/readability follows Update gate. No automatic retry; omit unspecified fields, allow explicit null where documented, empty success returns null.",
+    "output_error": "One data result from shared handlers; ordinary CLI errors sanitized stderr+exit1, RPC existing -32000; preserve profile/keyring/AppData isolation.",
+    "verification": "Each group requires native-fetch mocked request/response/permission/profile/error evidence and independent technical acceptance. Full npm test and independent authoring/simplicity AR100 close milestone; test count alone is not coverage or authoring evidence."
+  },
+  "groups": [
+    {
+      "id": "B100.1",
+      "outcome": "Discover common issue field types and enum/state choices",
+      "status": "done",
+      "source_owner": "youtrack_fields",
+      "operation_count": 11,
+      "target_cumulative": 61,
+      "contract_gate": "Finite field/type/bundle/value projections from official references; no unbounded embedded values or automatic field lookup. Preserve source $type and documented collection pagination only.",
+      "operations": [
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/enum",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle enum list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-enum.html#get_all-EnumBundle-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/enum/{bundleID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle enum get <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-enum.html#get-EnumBundle-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/enum/{bundleID}/values",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle enum value list <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-enum-bundleID-values.html#get_all-EnumBundleElement-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/enum/{bundleID}/values/{elementID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle enum value get <bundle> <value>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-enum-bundleID-values.html#get-EnumBundleElement-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/state",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle state list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-state.html#get_all-StateBundle-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/state/{bundleID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle state get <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-state.html#get-StateBundle-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/state/{bundleID}/values",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle state value list <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-state-bundleID-values.html#get_all-StateBundleElement-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/state/{bundleID}/values/{elementID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle state value get <bundle> <value>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-state-bundleID-values.html#get-StateBundleElement-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/customFields",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "field list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-customFields.html#get_all-CustomField-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/customFields/{fieldID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "field get <field>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-customFields.html#get-CustomField-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/types",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "field type list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-types.html#get_all-FieldType-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        }
+      ]
+    },
+    {
+      "id": "B100.2",
+      "outcome": "Resolve assignable user choices and user identity",
+      "status": "done",
+      "source_owner": "youtrack_query",
+      "operation_count": 8,
+      "target_cumulative": 69,
+      "contract_gate": "Keep aggregate members, groups and individual users distinct. Pin documented user attributes rather than stale name/fullName samples; no permission census or implication of effective access.",
+      "operations": [
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/user",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle user list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user.html#get_all-UserBundle-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/user/{bundleID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle user get <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-user.html#get-UserBundle-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/aggregatedUsers",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle user member list <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user-bundleID-aggregatedUsers.html#get_all-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/groups",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle user group list <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user-bundleID-groups.html#get_all-UserGroup-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/groups/{groupID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle user group get <bundle> <group>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-user-bundleID-groups.html#get-UserGroup-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/individuals",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle user individual list <bundle>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user-bundleID-individuals.html#get_all-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/individuals/{userID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "bundle user individual get <bundle> <user>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-user-bundleID-individuals.html#get-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/users/{userID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "user get <user>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-users.html#get-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        }
+      ]
+    },
+    {
+      "id": "B100.3",
+      "outcome": "Inspect groups and project team membership",
+      "status": "done",
+      "source_owner": "youtrack_relations",
+      "operation_count": 9,
+      "target_cumulative": 78,
+      "contract_gate": "Preserve --direct distinction for ownUsers versus aggregate users; group/project-team endpoints have version/permission boundaries, not Hub fallback. No recursive group expansion or automatic traversal.",
+      "operations": [
+        {
+          "id": "GET /api/admin/projects/{projectID}/team",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project team get <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects-projectID-team.html#get-ProjectTeam-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/projects/{projectID}/team/groups",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project team group list <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-team-groups.html#get_all-UserGroup-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/projects/{projectID}/team/ownUsers",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project team user list <project> --direct",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-team-ownUsers.html#get_all-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/projects/{projectID}/team/users",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project team user list <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-team-users.html#get_all-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/groups",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "group list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-groups.html#get_all-UserGroup-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/groups/{groupID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "group get <group>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-groups.html#get-UserGroup-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/groups/{groupID}/ownUsers",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "group member list <group> --direct",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-groups-groupID-ownUsers.html#get_all-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/groups/{groupID}/subGroups",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "group subgroup list <group>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-groups-groupID-subGroups.html#get_all-NestedGroup-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/groups/{groupID}/users",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "group member list <group>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-groups-groupID-users.html#get_all-User-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        }
+      ]
+    },
+    {
+      "id": "B100.4",
+      "outcome": "Discover time tracking configuration and valid work types",
+      "status": "done",
+      "source_owner": "youtrack_time",
+      "operation_count": 7,
+      "target_cumulative": 85,
+      "contract_gate": "Expose documented global/project time settings and work-type identities as finite objects/collections. Reads only; no settings mutation or automatic default/type selection.",
+      "operations": [
+        {
+          "id": "GET /api/admin/projects/{projectID}/timeTrackingSettings",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project time-tracking get <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects-projectID-timeTrackingSettings.html#get-ProjectTimeTrackingSettings-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/projects/{projectID}/timeTrackingSettings/workItemTypes",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project work-item-type list <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-timeTrackingSettings-workItemTypes.html#get_all-WorkItemType-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/projects/{projectID}/timeTrackingSettings/workItemTypes/{typeID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project work-item-type get <project> <type>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects-projectID-timeTrackingSettings-workItemTypes.html#get-WorkItemType-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/timeTrackingSettings",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "time-tracking settings get",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-timeTrackingSettings.html#get-GlobalTimeTrackingSettings-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/timeTrackingSettings/workItemTypes",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "work-item-type list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-timeTrackingSettings-workItemTypes.html#get_all-WorkItemType-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/timeTrackingSettings/workItemTypes/{typeID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "work-item-type get <type>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-timeTrackingSettings-workItemTypes.html#get-WorkItemType-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/admin/timeTrackingSettings/workTimeSettings",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "time-tracking work-time get",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-timeTrackingSettings-workTimeSettings.html#get-WorkTimeSettings-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        }
+      ]
+    },
+    {
+      "id": "B100.5",
+      "outcome": "Inspect boards and manage explicit sprint plans",
+      "status": "done",
+      "source_owner": "youtrack_context",
+      "operation_count": 6,
+      "target_cumulative": 91,
+      "contract_gate": "Sprint create requires name; update nonempty documented writable object. Previous-sprint transfer moves unresolved issues and must remain explicit if exposed, never automatic. Pin source dates/body/projections before implementation; Update gates and no live writes.",
+      "operations": [
+        {
+          "id": "GET /api/agiles",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "agile list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-agiles.html#get_all-Agile-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/agiles/{agileID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "agile get <agile>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-agiles.html#get-Agile-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/agiles/{agileID}/sprints",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "sprint list <agile>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-agiles-agileID-sprints.html#get_all-Sprint-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "POST /api/agiles/{agileID}/sprints",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "sprint create <agile> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-agiles-agileID-sprints.html#create-Sprint-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/agiles/{agileID}/sprints/{sprintID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "sprint get <agile> <sprint>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-agiles-agileID-sprints.html#get-Sprint-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "POST /api/agiles/{agileID}/sprints/{sprintID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "sprint update <agile> <sprint> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-agiles-agileID-sprints.html#update-Sprint-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        }
+      ]
+    },
+    {
+      "id": "B100.6",
+      "outcome": "Read and maintain knowledge-base articles and discussion",
+      "status": "done",
+      "source_owner": "youtrack_attachments",
+      "operation_count": 9,
+      "target_cumulative": 100,
+      "contract_gate": "Article create uses summary and project, not title or a required existing article ID from copied reference prose. Pin content/comment bodies and finite defaults; no generic issue-style article query unless documented. Article attachments/hierarchy deferred, no real writes.",
+      "operations": [
+        {
+          "id": "GET /api/admin/projects/{projectID}/articles",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project article list <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-articles.html#get_all-Article-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/articles",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "article list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-articles.html#get_all-Article-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "POST /api/articles",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "article create --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-articles.html#create-Article-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/articles/{articleID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "article get <article>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-articles.html#get-Article-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "POST /api/articles/{articleID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "article update <article> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-articles.html#update-Article-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/articles/{articleID}/comments",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "article comment list <article>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-articles-articleID-comments.html#get_all-ArticleComment-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "POST /api/articles/{articleID}/comments",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "article comment add <article> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-articles-articleID-comments.html#create-ArticleComment-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "GET /api/articles/{articleID}/comments/{commentID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "article comment get <article> <comment>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-articles-articleID-comments.html#get-ArticleComment-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        },
+        {
+          "id": "POST /api/articles/{articleID}/comments/{commentID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "article comment update <article> <comment> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-articles-articleID-comments.html#update-ArticleComment-method",
+          "status": "accepted",
+          "source_release": "root-approved"
+        }
+      ]
+    }
+  ],
+  "deferred_final_count": 18,
+  "deferred_final_reason": "Build/owned/version bundle families12 are less common lookups; article attachment3 and hierarchy3 stay together for final extension, alongside separately counted issue download.",
+  "deferred_final_operations": [
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/build",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle build list",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-build.html#get_all-BuildBundle-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/build/{bundleID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle build get <bundle>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-build.html#get-BuildBundle-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/build/{bundleID}/values",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle build value list <bundle>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-build-bundleID-values.html#get_all-BuildBundleElement-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/build/{bundleID}/values/{elementID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle build value get <bundle> <value>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-build-bundleID-values.html#get-BuildBundleElement-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/ownedField",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle owned list",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-ownedField.html#get_all-OwnedBundle-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/ownedField/{bundleID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle owned get <bundle>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-ownedField.html#get-OwnedBundle-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/ownedField/{bundleID}/values",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle owned value list <bundle>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-ownedField-bundleID-values.html#get_all-OwnedBundleElement-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/ownedField/{bundleID}/values/{elementID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle owned value get <bundle> <value>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-ownedField-bundleID-values.html#get-OwnedBundleElement-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/version",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle version list",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-version.html#get_all-VersionBundle-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/version/{bundleID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle version get <bundle>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-version.html#get-VersionBundle-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/version/{bundleID}/values",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle version value list <bundle>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-version-bundleID-values.html#get_all-VersionBundleElement-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/admin/customFieldSettings/bundles/version/{bundleID}/values/{elementID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "bundle version value get <bundle> <value>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-version-bundleID-values.html#get-VersionBundleElement-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/articles/{articleID}/attachments",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "article attachment list <article>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-articles-articleID-attachments.html#get_all-ArticleAttachment-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "POST /api/articles/{articleID}/attachments",
+      "category": "Update",
+      "priority": "P1",
+      "cli": "article attachment upload <article> --file <path>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-articles-articleID-attachments.html#create-ArticleAttachment-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/articles/{articleID}/attachments/{attachmentID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "article attachment get <article> <attachment>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-articles-articleID-attachments.html#get-ArticleAttachment-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/articles/{articleID}/childArticles",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "article child list <article>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-articles-articleID-childArticles.html#get_all-Article-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/articles/{articleID}/childArticles/{articleID}",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "article child get <article> <child>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-articles-articleID-childArticles.html#get-Article-method",
+      "status": "deferred-final-18"
+    },
+    {
+      "id": "GET /api/articles/{articleID}/parentArticle",
+      "category": "ReadOnly",
+      "priority": "P1",
+      "cli": "article parent get <article>",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-articles-articleID-parentArticle.html#get-Article-method",
+      "status": "deferred-final-18"
+    }
+  ],
+  "integration_lead": "youtrack_auth: existing CLI/index/docs/common files and composition only",
+  "scope_review": "research/review/block-100-scope-review.md: independent/root exact-scope PASS; reviewed article/sprint body amendment published in Issue6 and exact remote readback verified; all50 source rows released",
+  "mutation_contract_amendment": {
+    "status": "published-and-remotely-verified",
+    "payload": "research/block100-contract-amendment.md",
+    "issue_body": "issue-body.md",
+    "operation_count": 6,
+    "endpoint_scope_change": false,
+    "publication_evidence": {
+      "issue": "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6",
+      "state": "OPEN",
+      "body_sha256": "4433757a320c1d6c30664a60ed493bdd403f89ee0a8357748c5f0a5454399c5e",
+      "verdict": "Root gh issue edit --body-file after independent PASS, privacy check and exact prior-body guard; remote readback exact",
+      "source_release": "All six mutations released; all50 block operations now in implementation"
+    }
+  },
+  "pending_evidence": "No outstanding block100 technical or authoring correction; final18 and derived download remain unimplemented/unaccepted by this block.",
+  "partial_acceptance": {
+    "count": 35,
+    "verdict": "Independent technical PASS and root source/scope review",
+    "groups": [
+      "B100.1",
+      "B100.2",
+      "B100.3",
+      "B100.4"
+    ],
+    "focused_tests": {
+      "fields": 30,
+      "users": 16,
+      "groups": 15,
+      "time": 8
+    },
+    "records": [
+      "research/review/block-100-fields-time-review.md",
+      "research/review/block-100-user-directory-review.md",
+      "research/review/block-100-groups-articles-review.md"
+    ],
+    "total_accepted": 85,
+    "read_only": 72,
+    "update": 13
+  },
+  "technical_acceptance": {
+    "verdict": "Independent all50 technical PASS plus root acceptance; cumulative100(81ReadOnly/19Update)",
+    "direct_full_tests": "312/312 independently passed before nullableText trial",
+    "last_group_tests": {
+      "agile": 12,
+      "articles": 16
+    },
+    "records": [
+      "research/review/block-100-fields-time-review.md",
+      "research/review/block-100-user-directory-review.md",
+      "research/review/block-100-groups-articles-review.md",
+      "research/review/block-100-agile-review.md"
+    ],
+    "final_full_tests": "312/312 after trial independently passed: Core25/TeamCity36/YouTrack251; no skips"
+  },
+  "ar100": {
+    "status": "done",
+    "verdict": "Independent written authoring/simplicity PASS and root approval; no required corrections remain",
+    "review": "research/authoring-baseline/ar100-review.md",
+    "review_sha256": "27d2f1ee9b24be05231cae2a1b7c4f0619c391134641110892fb88688480f35a",
+    "direct_snapshot": "research/authoring-baseline/snapshots/ar100-direct.json",
+    "direct_snapshot_sha256": "523ebcdd9013bfcb5ca316529cca082d4fbfc68ec6998f9422dab3c7226ea144",
+    "trial_snapshot": "research/authoring-baseline/snapshots/ar100-nullable-trial.json",
+    "trial_snapshot_sha256": "1066e7599d43181b23c1470afdde7ee47b04618aca4de17f3d0fc1d783e5d945",
+    "historical_counter_note": "Direct and trial capture metadata85 accepted is immutable history; final snapshot records accepted100",
+    "final_snapshot": "research/authoring-baseline/snapshots/ar100-final.json",
+    "final_snapshot_sha256": "2e84c55765941e663f5bc2b0f0e4e7d3ff5aee0e0d092f2d67b9348f32339033",
+    "verified_file_count": 84,
+    "production_lines": 6058,
+    "production_breakdown": {
+      "core": 1741,
+      "teamcity": 1100,
+      "youtrack": 3217
+    },
+    "tests_support_lines": 6687,
+    "proof_lines": 507,
+    "delta_from_ar50": {
+      "production": 1197,
+      "tests_support": 1665,
+      "proof": 25
+    },
+    "equivalent_trial": {
+      "change": "YouTrack-local nullableText reuse across4 existing modules",
+      "direct_production": 6067,
+      "final_production": 6058,
+      "full_cost_source_delta": -9,
+      "behavior": "Exact predicates, caller guards, omission/null behavior and error messages preserved; helper/import/setup cost included",
+      "shared_core": "No new Core API or source change; no dependency change"
+    },
+    "tests": "npm.cmd test:312/312 final PASS; independent312 PASS",
+    "live_proof": {
+      "command": "node.exe integrations/youtrack/dist/integration-tests/profile-proof.js --profile youtrack-dev",
+      "working_directory": "D:\\Work\\EyeAuras.CliFactory-1",
+      "verdict": "21ReadOnlyPASS,0SKIP,exit0",
+      "counts": [
+        1,
+        3,
+        3,
+        1,
+        1,
+        1,
+        3,
+        3,
+        3,
+        3,
+        0,
+        3,
+        0,
+        3,
+        3,
+        3,
+        1,
+        1,
+        3,
+        3,
+        0
+      ],
+      "privacy": "Normal profile/keyring; only static counts recorded, no mutations/private payload persistence"
+    },
+    "issue_body_sha256": "4433757a320c1d6c30664a60ed493bdd403f89ee0a8357748c5f0a5454399c5e",
+    "final_checks": "Root targeted privacy0 findings; git diff --check PASS; all84 final hashes matched",
+    "required_corrections": [],
+    "next": "Final18 operations and separate derived download pending; finalAR118 mandatory including download cost"
+  }
+}

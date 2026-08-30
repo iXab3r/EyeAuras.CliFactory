@@ -41,7 +41,7 @@ P4 | Public contract and close-out | done | Reconciliation Lead | reviewed
 - Public docs now describe incomplete defaults, generic onboarding, non-interactive behavior, and
   the explicit `https://teamcity.jetbrains.com` guest example.
 - Organization-specific endpoint scan:
-  `rg -n "build\\.eyeauras\\.net" . --glob '!node_modules/**' --glob '!**/dist/**'` — no matches.
+  Reviewed the source tree for organization-specific endpoint references; no matches remained.
 - Final verification: `npm test` — core 14/14 passed; TeamCity 23 passed and the opt-in live smoke
   skipped as designed.
 - Diff hygiene: `git diff --check` — clean.

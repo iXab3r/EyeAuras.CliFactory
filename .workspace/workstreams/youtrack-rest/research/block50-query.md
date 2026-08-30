@@ -1,0 +1,27 @@
+# Block 50 query/command contract
+
+Research refreshed 2026-08-30 against official JetBrains references. This file records six operations, not acceptance.
+
+| REST operation | CLI | Category | Bounded request and result |
+|---|---|---|---|
+| POST /api/commands | commands apply --query --issues | Update | Exactly one request; explicit 1–20 issue IDs, no search expansion; projected object or empty-success null. |
+| POST /api/commands/assist | commands assist --query [--issues] [--caret] | ReadOnly | One JSON query request; optional explicit issue context; suggestion object. |
+| POST /api/search/assist | search assist --query [--caret] | ReadOnly | One JSON query request; suggestion object. |
+| POST /api/issuesGetter/count | issues count --query | ReadOnly | One JSON query request; count object, no retries/polling. |
+| GET /api/savedQueries | saved-queries list | ReadOnly | One offset page, top 1–100/default50, skip nonnegative/default0. |
+| GET /api/savedQueries/{queryID} | saved-queries get <queryID> | ReadOnly | One encoded opaque ID segment; projected object. |
+
+Command execution requires query and at least one issue reference. The documented references support id or idReadable. CLI selection accepts comma-separated database numeric IDs or readable issue IDs; numeric n-n values use id, while other nonempty-prefix/numeric-suffix values use idReadable. Whitespace and commas are excluded inside an ID; arbitrary opaque strings are not guessed to be readable IDs. Empty entries and duplicate IDs are rejected rather than silently deduplicated. This accepts Unicode project prefixes without inventing an ASCII project-name grammar. A maximum of20 is a CLI safety bound, not a server limit. Body consists only of query and issues; there are no runAs, silent, mute, comment, arbitrary body or implicit search-selection options. Default response projection is query,issues(id,idReadable). The official example documents HTTP200 with an empty body; it becomes null, without retries. [Commands](https://www.jetbrains.com/help/youtrack/devportal/resource-api-commands.html).
+
+Command assist requires query, accepts caret and issue context, and returns a CommandList object. It parses commands and suggests completions; it does not promise a successful later mutation or simulate workflows. Default projection is query,caret,commands(description,error,delete),suggestions(option,description,caret,completionStart,completionEnd). Query is nullable in returned entities; nested parsed description/error/delete are also nullable. Zero suggestions is successful. Empty HTTPbody, null or nonobject top-level responses fail. [Command suggestions](https://www.jetbrains.com/help/youtrack/devportal/resource-api-commands-assist.html), [ParsedCommand](https://www.jetbrains.com/help/youtrack/devportal/api-entity-ParsedCommand.html).
+
+Search assist uses query and optional caret only in this slice. No folders or unresolved-setting override is inferred. Default projection is query,caret,suggestions(option,description,caret,completionStart,completionEnd). Returned query and suggestion attributes can be null. Assist endpoints have no documented paging flags; one request does not imply a promised server suggestion-count limit. Caret input is a nonnegative integer no greater than the query string length; omission preserves the server end-of-query default. [Search suggestions](https://www.jetbrains.com/help/youtrack/devportal/resource-api-search-assist.html), [Suggestion](https://www.jetbrains.com/help/youtrack/devportal/api-entity-Suggestion.html).
+
+Count uses a POST for read semantics. The official all-issues empty-object body is deliberately not exposed: this CLI requires an explicit nonempty query. Default projection is count. A returned count of -1 stays -1 (pending), and documented null stays null; neither causes polling. Explicit fields may select a sparse object. An absent count under default projection, nonnumeric count, or values below -1 are invalid. [Issue count](https://www.jetbrains.com/help/youtrack/devportal/resource-api-issuesGetter-count.html).
+
+Saved-query reads default to id,name,query,owner(id,login). Query and owner are nullable; no embedded issues or deprecated sharing fields are selected by default. Collection supports documented $top/$skip; detail only fields. Explicit projections preserve sparse/nullable domain data, through the existing recursive secret/signature scrubber. No saved-query mutations enter this six-operation block. [Saved queries](https://www.jetbrains.com/help/youtrack/devportal/resource-api-savedQueries.html), [Specific saved query](https://www.jetbrains.com/help/youtrack/devportal/operations-api-savedQueries.html).
+
+All new command options that are mandatory use Core required metadata; query/selection/caret parsers throw safe errors without input echo. POST read bodies must use strict-object response handling, never the empty-success mutation behavior. Offline MSW proves category gates, exact bodies/methods/context paths, one request, sparse/null results, local invalid-input rejection, sanitized errors and shared human/JSON/RPC declarations. No live mutations or real payload fixtures are permitted.
+
+The explicit reference mapping is supported by [Apply commands](https://www.jetbrains.com/help/youtrack/devportal/api-usecase-commands.html). [Numeric project IDs](https://www.jetbrains.com/help/youtrack/devportal/api-troubleshoot-numeric-project-id.html) confirms that project shortName cannot be purely numeric, so numeric n-n selects the database form.
+

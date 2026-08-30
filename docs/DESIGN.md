@@ -22,6 +22,12 @@ A CLI is a recursive command declaration. Every node has a name and description;
 contain children and leaf nodes execute handlers. The framework generates help at every node.
 Authors must not hand-write a dispatch switch or separate help pages.
 
+A service option may declare `required: true` in its existing `OptionDefinition`. The parser
+rejects a missing required value before profile onboarding, keyring access or the handler, in
+ordinary CLI, programmatic and JSON-RPC execution. A declared default satisfies this requirement;
+existing option parsing still applies to supplied values. This is distinct from required profile
+fields, which the interactive configurator may prompt for.
+
 ### Handlers return domain data
 
 Command handlers return values and do not decide whether output is human-readable or JSON. The
@@ -194,6 +200,25 @@ The built-in token flow resolves a candidate in this order during `profile confi
 1. stdin when `--token-stdin` is present;
 2. the integration-specific environment variable;
 3. a masked interactive terminal prompt.
+
+Stored credentials are not configure/login candidates. Prompting requires ordinary rendered
+execution without `--json`, with stdin, stdout and stderr all attached to a TTY. JSON-RPC and
+programmatic execution never prompt or consume `--token-stdin`; an explicit rendered CLI stdin
+flow remains available.
+
+`profile configure` validates the profile name, non-secret configuration and new authentication
+candidate before changing persistent state. Missing or rejected candidates preserve the existing
+profile and credential and do not create a new profile. After successful authentication validation,
+configure removes the previous credential, saves the candidate profile, then saves the validated
+credential. A removal failure leaves configuration unchanged. A later storage failure can leave
+an unauthenticated profile; the error directs the user to `profile configure <name> --token-stdin`.
+This fails closed across two stores; it is not an atomic transaction, and it never rolls back an
+old credential onto a new endpoint. `auth login` validates against the current profile and changes
+only the credential. Configure/login storage failures expose no backend error details or causes.
+Ordinary `profile set` remains a non-auth configuration operation.
+
+No-auth integrations and profiles that opt out of token authentication configure without accessing
+credentials. `auth login` rejects such profiles.
 
 The token is validated by the integration before it is persisted. An integration may declare
 that a configured profile does not require a token, for example TeamCity guest access; the
