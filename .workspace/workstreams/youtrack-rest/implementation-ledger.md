@@ -2,7 +2,7 @@
 
 **Lifecycle:** active — v1 functionality complete; formal release evidence pending  
 **Feature spec:** [GitHub Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6), open.  
-**Current phase:** PV3 independently accepted with final metrics; root privacy/staging and source commit pending. Functional v1 and AR118 remain complete; formal close-out pending. **Accepted REST operations:118/118 (98ReadOnly,20Update); derived capability:1/1.**
+**Current phase:** PV1/PV2/PV3 requested cycle complete through source commit 869e7aa9; GitHub functional status is reconciled; formal release evidence remains separate. Functional v1 and AR118 remain complete; formal close-out pending. **Accepted REST operations:118/118 (98ReadOnly,20Update); derived capability:1/1.**
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
@@ -23,46 +23,30 @@
 | AR118 | Final short-batch review including download cost | done | repo_contract / inventory_reviewer / root | Written PASS/root approval; all derived costs included; multipart net-8; no required corrections |
 | PV1 | Commit verified functional v1 | done | root / privacy reviewer | Commit 10d7fee2; independent full-tree and 243 staged-blob privacy PASS; fresh 400 tests PASS |
 | PV2 | Independent exact-commit review and fixes | done | independent reviewers / source owners / root | Four findings CLOSED; 414/414 and final privacy PASS; correcting commit 3df5066f |
-| PV3 | Shared authoring analysis and bounded trials across YouTrack + TeamCity | awaiting review | common_discovery / independent reviewers / root | Technical/authoring PASS; final 6,955 source / 9,072 tests / 513 proof; root privacy and source commit pending |
+| PV3 | Shared authoring analysis and bounded trials across YouTrack + TeamCity | done | common_discovery / independent reviewers / root | Technical/authoring and final privacy PASS; source commit 869e7aa9; 418 tests and 24 bounded GETs PASS |
 | Delivery | Formal release and Issue/workstream close-out | pending | root / owner | Functionality, linked v2 and local baseline commit complete; closing link/CI/close-out still pending; Issue stays open |
 
-## Current handover — accepted PV3 awaits privacy and source commit
+## Current handover — requested cycle complete; formal release pending
 
-- Root final approval: **118/118 REST** (98 ReadOnly,20 Update) plus download **1/1**; **117 service
-  leaves** (97 ReadOnly,20 Update). AR118 is done with independent PASS and no required corrections.
-- Final root npm test and independent suites: **400/400 PASS** (Core33,TeamCity39,YouTrack328).
-  Root normal-profile/keyring proof: **24 fixed GETs PASS,0SKIP,0FAIL,exit0**; no live binary downloads
-  or writes. Auth and downloader security corrections are reviewed and regression-tested.
-- Final snapshot `research/authoring-baseline/snapshots/ar118-final.json`, SHA
-  `594bc11c7802b24f287fabac0da278e3feef6bb3c753f888836ee379e89f1e32`: all99 hashes verified;
-  **6876 source** (Core1760/TC1100/YT4016),**8264 tests-support**,**513 proof**. Multipart reuse saves
-  a true8 net source lines versus the corrected direct implementation; Core auth+19 is separate
-  correctness cost. No overall batch reduction or new framework is claimed.
-- `research/final-functional-acceptance.md` links witnesses; immutable direct/security histories stay
-  intact. Issue7 owns all163 v2 rows/supplements; Issue6 functional acceptance was verified after root
-  publication and exact readback. No more operation implementation is needed for v1.
-- Root committed v1 as `10d7fee2cbce13d90bf59a82f9946962ea69218b` (tree
-  `3accb6209f276e34cb80aecdc389bd1afe544026`) after independent full-tree/staged privacy PASS
-  and fresh 400-test PASS. The pre-existing management-text privacy finding was sanitized.
-  The worktree was clean immediately after commit; this receipt update is a later docs-only change.
-- PV2's four findings are independently CLOSED. Root's fresh coherent suite passed **414/414**
-  (Core 40 / TeamCity 41 / YouTrack 333), zero failures/skips. Four actual profile consumer tests
-  passed; independent Windows checks preserved configuration bytes, sentinel files and credentials
-  across all eight store methods plus CLI delete/configure/auth logout. See
-  `research/pv2-review-receipt.md`. Root committed corrections as
-  `3df5066f8d3cc1038570bf6005db32aa4ff47655` after final privacy PASS; PV2 is done.
-- [Issue #10](https://github.com/iXab3r/EyeAuras.CliFactory/issues/10) is published with exact body
-  readback. Root released `common_discovery` to implement the bounded positional-inference trial
-  against corrected baseline `3df5066f`. Independent technical and authoring review passed.
-  Final costs: 6,955 source (+51 Core), 9,072 tests/support (+205), 513 proof unchanged; 129 wrappers
-  became zero in 17 consumer files, but total production characters grew by 1,108. This is a
-  simplicity/type-safety gain, not a LOC reduction. Post-format 418/418 passed; all 24 live GETs passed
-  before the equivalent type-only formatting change. Final manifest SHA `99b84464feeaf8d6cbff47c9c41796464bc6968e0671bc99e39c6b1549170fb7`.
-  `research/pv3-review-closeout.md` records acceptance; root privacy and source commit remain pending.
-  Published Issue #10 body remains frozen; its functional candidate waits for the source commit hash.
-- Keep workstream ACTIVE and Issue #6 OPEN: a local commit alone does not satisfy closing commit/PR,
-  CI and close-out requirements. Push, merge and live writes remain unauthorized. Routine internal
-  phase gates require evidence, not another user approval.
+- PV1 committed v1 as `10d7fee2`; PV2 independently closed four findings and committed fixes as
+  `3df5066f`; PV3 independent technical/authoring PASS is committed as
+  `869e7aa9aa5b3c8f2c401f08b60f40c1cce87e47` (tree `f340eeb70afb6459b12bd301a4a6aab314b9eaf3`).
+  Final privacy passed and the worktree was clean immediately after the source commit.
+- Final post-format suite: 418/418 PASS (Core 44 / TeamCity 41 / YouTrack 333), zero failures/skips.
+  The equivalent type-only build before formatting passed all 24 fixed live GETs; no raw payloads,
+  real downloads or live mutations were captured. Endpoint coverage remains 118/118 plus download 1/1.
+- PV3 removed 129 redundant positional wrappers from 17 consumer files. Full cost is 6,955 source,
+  9,072 tests/support and 513 proof: +51 Core source/+205 tests versus PV2; production LF characters
+  grew by 1,108. Accepted benefit is simpler, safer typing, not a LOC reduction. Final 106-file manifest
+  SHA `99b84464feeaf8d6cbff47c9c41796464bc6968e0671bc99e39c6b1549170fb7` and review witnesses are
+  linked from `research/pv3-review-closeout.md`.
+- No further production work is required for the requested cycle. Root published the functional
+  status of Issues #6 and #10 with exact guarded readback; both remain OPEN. The Issue #6 inventory
+  and historical tail are unchanged. This documentation receipt records the completed cycle;
+  frozen source manifests remain intact, and Issue #7 owns all 163 deferred rows.
+- Keep the overall workstream ACTIVE and Issues #6/#9/#10 OPEN for formal linked/CI close-out.
+  No push, merge, CI or release is claimed or newly authorized by these receipts.
+
 ## 2026-08-30 — R0 baseline and task boundary
 
 - Parent reports worktree `EyeAuras.CliFactory-1` on `feature/youtrack-v1`, base commit `e0d4d1b`.
@@ -784,3 +768,43 @@ Independent technical and authoring verdicts PASS; no remaining technical/format
 Root post-format 418/418 and prior equivalent pre-format 24-GET proof passed. Complete witnesses
 are in `research/pv3-review-closeout.md`. Full privacy/staging and root's source commit remain pending;
 no new commit hash or formal Issue/CI closure is asserted. Management files are ready to freeze.
+
+
+## 2026-08-30 — PV3 source commit and requested-cycle completion
+
+Root committed `869e7aa9aa5b3c8f2c401f08b60f40c1cce87e47`, tree
+`f340eeb70afb6459b12bd301a4a6aab314b9eaf3`, clean immediately afterward. Final privacy PASS covered
+260 blobs / 9,181,451 bytes, 878 decoded snapshot records and a 31-file / 246,801-byte patch,
+SHA `dede496a9166f6078b0ca1982b771102172b3d287406d95c52cea729d2e31445`.
+PV3 is done and the latest requested cycle is complete; no further production work is pending.
+The separate Issue #10 functional candidate records the exact source commit and accepted costs;
+root publication/readback and a documentation receipt commit remain bookkeeping, not new source work.
+Formal release/CI closure remains pending for Issues #6/#9/#10 and the overall active workstream.
+
+
+## 2026-08-30 — Issue #10 functional publication receipt
+
+Root published the functional update to [Issue #10](https://github.com/iXab3r/EyeAuras.CliFactory/issues/10)
+after guarding prior body SHA `f5c5fd1080a68397c7efe1ec6c44ee45afc0a69ec2f96f13d72d402f2bc821e3`.
+Exact remote/local new-body SHA `77a04d12347c4d160827e93a4a6b204e14d1872bbb272aa2a3ff5f4eab73ac1a`;
+Issue remains OPEN with formal closure unchecked. Source is unchanged since `869e7aa9`.
+The separate Issue #6 current-status candidate SHA is
+`87186af7c65a37e943203aa709189742f3f32f482f771a32cbad86365b2c0d2c`; all bytes from its historical
+outcome/baseline heading onward match original `435ef59f...` exactly. Publication is root-owned.
+
+## 2026-08-30 — final current-status publication and documentation receipt
+
+Root published `issue-body-postreview-candidate.md` to Issue #6 after confirming its prior body
+matched the frozen original. Exact remote/local readback passed, SHA
+`87186af7c65a37e943203aa709189742f3f32f482f771a32cbad86365b2c0d2c`.
+Only the current-status section changed; the inventory and historical tail remained identical.
+Issue #10 functional publication was already verified at SHA
+`77a04d12347c4d160827e93a4a6b204e14d1872bbb272aa2a3ff5f4eab73ac1a`.
+The requested cycle is complete at source commit `869e7aa9`; these final changes only reconcile
+management records and published status. The last source verification remains 418 tests and
+24 bounded ReadOnly GETs, with no failures or skips. No production change, push, merge, CI,
+release or Issue closure is part of this documentation receipt.
+
+The final staged whitespace check reports one inherited blank line at EOF in the frozen Issue #6
+publication candidate. Its byte-exact historical tail and verified remote payload are preserved;
+this cosmetic warning is not a privacy or source-code finding.

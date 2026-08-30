@@ -2,7 +2,7 @@
 
 **Lifecycle:** active — v1 functionality and AR118 complete; formal release evidence pending.  
 **Feature scope:** [GitHub Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6).  
-**Current milestone:** functional v1 is committed as `10d7fee2cbce13d90bf59a82f9946962ea69218b`; independently review and fix that commit, then evaluate shared authoring improvements across actual YouTrack and TeamCity consumers. Keep Issue #6 and the workstream open until its formal close-out gates are satisfied.
+**Current milestone:** requested commit, independent review/fix cycle and shared-authoring pass are complete through source commit `869e7aa9aa5b3c8f2c401f08b60f40c1cce87e47`. No further production work is required for that request; GitHub functional status is reconciled; formal release evidence remains separate.
 **Accepted REST operations:** 118/118 (98 ReadOnly, 20 Update). **Accepted derived download:** 1/1, counted separately.
 
 Issue #6 owns the v1 contract; this plan orders work and the ledger records evidence. The user
@@ -27,7 +27,8 @@ published with exact readback before source release. `common_discovery` owns the
 independent technical and authoring review passed. Final readable source costs 6,955 lines
 (+51 Core), tests/support 9,072 (+205), proof 513 unchanged; wrapper count fell from 129 to zero.
 Root post-format 418 tests passed; the equivalent pre-format type-only build passed all 24 live GETs.
-Privacy/staging and the source commit remain pending; see `research/pv3-review-closeout.md`.
+Final privacy passed and root committed the accepted source as `869e7aa9aa5b3c8f2c401f08b60f40c1cce87e47`.
+PV3 is complete; see `research/pv3-review-closeout.md`.
 
 1. **PV1 — commit the verified functional baseline (done).** Root reviews the intended
    source/docs diff, runs the full tracked-tree and staged-diff privacy gate, and commits current
@@ -39,7 +40,7 @@ Privacy/staging and the source commit remain pending; see `research/pv3-review-c
    final corrected tree. Repeat independent review until required corrections close. Root commits
    fixes after the same privacy gate and records the accepted commit/hash as the next baseline.
    If no fixes are needed, record that verdict without an empty commit.
-3. **PV3 — shared authoring analysis and trials (accepted; privacy and commit pending).** Start only after PV2 passes. Inspect
+3. **PV3 — shared authoring analysis and trials (done).** Start only after PV2 passes. Inspect
    actual YouTrack and TeamCity duplication and accepted parallel Core changes. Before product
    implementation, root records a bounded candidate Issue or amendment with behavior, exclusions
    and acceptance; repository-only maintenance may use a complete reviewable commit record under

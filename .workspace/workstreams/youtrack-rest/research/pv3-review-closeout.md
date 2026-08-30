@@ -1,6 +1,6 @@
 # PV3 review and close-out receipt
 
-Status: independently accepted; final root privacy review and source commit pending.
+Status: complete — independently accepted and committed; formal release/CI closure remains separate.
 [Issue #10](https://github.com/iXab3r/EyeAuras.CliFactory/issues/10) owns the inference contract.
 The immutable parent baseline is `3df5066f8d3cc1038570bf6005db32aa4ff47655`.
 Final manifest `pv3-authoring-final.json` contains 106 TypeScript file records, SHA-256
@@ -39,8 +39,20 @@ remain historical evidence; this shared change does not increment the endpoint c
 
 ## Commit and formal closure
 
-The accepted source set is identified by the exact parent and final manifest above. Root will run
-full precommit privacy/staging review and commit it; no new commit SHA is invented in this record.
-The actual hash may be added in a later receipt rather than made self-referential. Issue #10's
-functional candidate remains unpublished until that source commit is known. Issue #6, #9 and #10
-remain OPEN for their formal linked/CI conditions. No push, merge, CI or Issue closure is claimed.
+Root committed the accepted source as `869e7aa9aa5b3c8f2c401f08b60f40c1cce87e47`, tree
+`f340eeb70afb6459b12bd301a4a6aab314b9eaf3`, with a clean worktree immediately afterward.
+Final independent privacy PASS covered 260 blobs (9,181,451 bytes), 878 decoded snapshot records,
+and the 31-file patch (246,801 bytes), SHA
+`dede496a9166f6078b0ca1982b771102172b3d287406d95c52cea729d2e31445`.
+The final manifest above uses current filesystem hashes, independently checked against all 106 files;
+its corrected metadata does not change source, metrics or review verdicts.
+
+PV1/PV2/PV3 and the user's requested commit/review/common-authoring cycle are complete. No further
+production work is required for that request. This later management receipt records the actual
+source commit without making its own hash self-referential. Root published the separate Issue #10 functional candidate with exact readback SHA
+`77a04d12347c4d160827e93a4a6b204e14d1872bbb272aa2a3ff5f4eab73ac1a`, keeping it OPEN.
+Root also published Issue #6 current status with exact guarded readback, SHA
+`87186af7c65a37e943203aa709189742f3f32f482f771a32cbad86365b2c0d2c`.
+Its inventory and historical tail are unchanged. This documentation receipt changes no production code.
+Issue #6, #9 and #10 remain OPEN for formal linked/CI conditions. No push, merge, CI or Issue closure
+is claimed. The overall YouTrack workstream remains active only for its formal release evidence.
