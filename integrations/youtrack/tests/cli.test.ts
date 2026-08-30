@@ -476,3 +476,79 @@ test("projected credential keys and encoded tokens never reach human, JSON or RP
   }
   assert.equal(calls, 3);
 });
+
+test("default identity and auth status reject sensitive fields in human, JSON and RPC output", async (t) => {
+  const message = "YouTrack returned an invalid identity response.";
+  for (const command of [["user", "me"], ["auth", "status"]]) {
+    for (const mode of ["human", "json", "rpc"]) {
+      const argv = [...command, "--profile", "dev"];
+      const input = mode === "rpc" ? JSON.stringify({
+        jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv },
+      }) + "\n" : "";
+      const f = await fixture(t, input);
+      await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
+      await f.secrets.set(service, "dev:token", "synthetic-token");
+      let calls = 0;
+      server.use(http.get("*/api/users/me", ({ request }) => {
+        calls++;
+        assert.equal(new URL(request.url).searchParams.get("fields"), "id,login");
+        return HttpResponse.json(command[0] === "user" ? {
+          id: "1-1", login: "https://youtrack.example.com/file?download=synthetic%2Dtoken",
+        } : {
+          id: "/track/api/files/fixture/sign=synthetic-signature", login: "fixture-user",
+        });
+      }));
+      const exit = await f.cli.run(mode === "rpc" ? ["--json-rpc"] : [...argv, ...(mode === "json" ? ["--json"] : [])]);
+      assert.equal(exit, mode === "rpc" ? 0 : 1);
+      if (mode === "rpc") {
+        const reply = JSON.parse(f.stdout());
+        assert.equal(reply.error.code, -32000);
+        assert.equal(reply.error.message, message);
+        assert.equal(reply.result, undefined);
+        assert.equal(f.stderr(), "");
+      } else {
+        assert.equal(f.stdout(), "");
+        assert.match(f.stderr(), /YouTrack returned an invalid identity response\./);
+      }
+      assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic|https:|sign=|\[redacted\]/);
+      assert.equal(await f.secrets.get(service, "dev:token"), "synthetic-token");
+      assert.equal(calls, 1);
+    }
+  }
+});
+
+test("configure and login reject sensitive identity before persisting candidate credentials", async (t) => {
+  for (const action of ["configure", "login"]) {
+    const f = await fixture(t, "synthetic-token\n");
+    await f.cli.execute(["profile", "create", "dev", "--url", "https://old.youtrack.example.com"]);
+    await f.secrets.set(service, "dev:token", "synthetic-existing");
+    const path = join(f.appArguments.RoamingAppDataDirectory, "profiles.json");
+    const before = await readFile(path);
+    let writes = 0;
+    const unexpectedWrite = async () => { writes++; throw new Error("Unexpected secret mutation"); };
+    f.secrets.set = unexpectedWrite;
+    f.secrets.delete = unexpectedWrite;
+    let calls = 0;
+    server.use(http.get("*/api/users/me", ({ request }) => {
+      calls++;
+      assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
+      assert.equal(new URL(request.url).searchParams.get("fields"), "id,login");
+      return HttpResponse.json({
+        id: "1-1", login: action === "configure"
+          ? "https://youtrack.example.com/file?download=synthetic%2Dtoken"
+          : "/track/api/files/fixture/sign=synthetic-signature",
+      });
+    }));
+    const argv = action === "configure"
+      ? ["profile", "configure", "dev", "--url", "https://new.youtrack.example.com"]
+      : ["auth", "login", "--profile", "dev"];
+    assert.equal(await f.cli.run([...argv, "--token-stdin", "--json"]), 1);
+    assert.equal(f.stdout(), "");
+    assert.match(f.stderr(), /YouTrack returned an invalid identity response\./);
+    assert.doesNotMatch(f.stderr(), /synthetic|https:|sign=|\[redacted\]/);
+    assert.equal(writes, 0);
+    assert.equal(calls, 1);
+    assert.equal(await f.secrets.get(service, "dev:token"), "synthetic-existing");
+    assert.deepEqual(await readFile(path), before);
+  }
+});

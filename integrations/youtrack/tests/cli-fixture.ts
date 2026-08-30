@@ -1,13 +1,20 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import assert from "node:assert/strict";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import type { TestContext } from "node:test";
 import { AppArguments, MemorySecretStore } from "@eyeauras/cli-factory";
 import { createYouTrackCli } from "../src/cli.js";
 export async function fixture(t: TestContext, input = "") {
-  const directory = await mkdtemp(join(tmpdir(), "youtrack-auth-test-"));
-  t.after(async () => { await rm(directory, { recursive: true, force: true }); });
+  const temporaryRoot = await realpath(tmpdir());
+  const directory = await realpath(await mkdtemp(join(temporaryRoot, "youtrack-auth-test-")));
+  t.after(async () => {
+    const cleanupDirectory = await realpath(directory);
+    assert.equal(cleanupDirectory, directory);
+    assert.equal(dirname(cleanupDirectory), temporaryRoot);
+    await rm(directory, { recursive: true, force: true });
+  });
   const appArguments = new AppArguments({ AppName: "youtrack-cli", Environment: {
     AppDomainDirectory: join(directory, "executable"),
     ApplicationExecutablePath: join(directory, "executable", "youtrack-cli.js"),

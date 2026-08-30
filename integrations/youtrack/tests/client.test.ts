@@ -81,13 +81,19 @@ test("empty or multiline tokens fail without any request; cancellation reaches f
   assert.equal(calls, 1);
 });
 
-test("identity cannot reflect the credential into authentication output", async () => {
-  for (const value of [
-    { id: "synthetic-token", login: "fixture-user" },
-    { id: "1-1", login: "Bearer synthetic-token" },
+test("identity rejects credential-bearing fields instead of accepting scrubbed placeholders", async () => {
+  for (const text of [
+    "synthetic-token", "Bearer synthetic-token",
+    "https://youtrack.example.com/file?download=synthetic%2Dtoken",
+    "https://youtrack.example.com/file#download=synthetic%2Dtoken",
+    "/track/api/files/fixture/sign=synthetic-signature",
+    "See https://youtrack.example.com/file?sign=synthetic-signature here",
   ]) {
-    server.use(http.get("*/api/users/me", () => HttpResponse.json(value)));
-    await assert.rejects(currentUser(options), /^Error: YouTrack returned an invalid identity response\.$/);
+    for (const key of ["id", "login"]) {
+      const value = { id: "1-1", login: "fixture-user", [key]: text };
+      server.use(http.get("*/api/users/me", () => HttpResponse.json(value)));
+      await assert.rejects(currentUser(options), /^Error: YouTrack returned an invalid identity response\.$/);
+    }
   }
 });
 

@@ -82,7 +82,7 @@ export class ProfileStore implements ProfileStoreContract {
     const document = await this.#load();
     const selectedName = name ?? document.active;
     const values = document.profiles[selectedName];
-    if (!values) {
+    if (!Object.hasOwn(document.profiles, selectedName) || !values) {
       throw new Error(`Profile '${selectedName}' does not exist.`);
     }
 
@@ -114,7 +114,7 @@ export class ProfileStore implements ProfileStoreContract {
   public async set(name: string, values: ProfileValues): Promise<Profile> {
     assertProfileName(name);
     const document = await this.#load();
-    if (!document.profiles[name]) {
+    if (!Object.hasOwn(document.profiles, name)) {
       throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
     }
     const nextValues = {
@@ -132,7 +132,7 @@ export class ProfileStore implements ProfileStoreContract {
     assertProfileName(name);
     const document = await this.#load();
     const values = document.profiles[name];
-    if (!values) {
+    if (!Object.hasOwn(document.profiles, name) || !values) {
       throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
     }
 
@@ -144,7 +144,7 @@ export class ProfileStore implements ProfileStoreContract {
   public async delete(name: string): Promise<{ deleted: string; default: string }> {
     assertProfileName(name);
     const document = await this.#load();
-    if (!document.profiles[name]) {
+    if (!Object.hasOwn(document.profiles, name)) {
       throw new Error(`Profile '${name}' does not exist.`);
     }
     if (Object.keys(document.profiles).length === 1) {
@@ -170,10 +170,12 @@ export class ProfileStore implements ProfileStoreContract {
   public async getPermissions(name?: string): Promise<readonly string[] | undefined> {
     const document = await this.#load();
     const selectedName = name ?? document.active;
-    if (!document.profiles[selectedName]) {
+    if (!Object.hasOwn(document.profiles, selectedName)) {
       throw new Error(`Profile '${selectedName}' does not exist.`);
     }
-    const permissions = document.permissions?.[selectedName];
+    const permissions = document.permissions && Object.hasOwn(document.permissions, selectedName)
+      ? document.permissions[selectedName]
+      : undefined;
     return permissions === undefined ? undefined : [...permissions];
   }
 
@@ -183,7 +185,7 @@ export class ProfileStore implements ProfileStoreContract {
   ): Promise<readonly string[]> {
     assertProfileName(name);
     const document = await this.#load();
-    if (!document.profiles[name]) {
+    if (!Object.hasOwn(document.profiles, name)) {
       throw new Error(`Profile '${name}' does not exist.`);
     }
     const uniquePermissions = [...new Set(permissions)];

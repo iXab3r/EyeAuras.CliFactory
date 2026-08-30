@@ -284,7 +284,7 @@ export async function currentUser(connection: Connection): Promise<YouTrackUser>
     value === null || typeof value !== "object" ||
     !("id" in value) || typeof value.id !== "string" || !value.id.trim() ||
     !("login" in value) || typeof value.login !== "string" || !value.login.trim() ||
-    value.id.includes(token) || value.login.includes(token)
+    scrubText(value.id, token) !== value.id || scrubText(value.login, token) !== value.login
   ) {
     throw new Error("YouTrack returned an invalid identity response.");
   }

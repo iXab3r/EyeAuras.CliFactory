@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -20,9 +20,12 @@ const bytes = new Uint8Array([0, 255, 13, 10]);
 const metadata = { id: "attachment-fixture", name: "fixture.bin", mimeType: "application/octet-stream", url: signedUrl };
 
 async function temporary(t: TestContext) {
-  const directory = await mkdtemp(join(tmpdir(), "youtrack-download-test-"));
+  const temporaryRoot = await realpath(tmpdir());
+  const directory = await realpath(await mkdtemp(join(temporaryRoot, "youtrack-download-test-")));
   t.after(async () => {
-    assert.ok(resolve(directory).startsWith(resolve(tmpdir()) + sep));
+    const cleanupDirectory = await realpath(directory);
+    assert.equal(cleanupDirectory, directory);
+    assert.equal(dirname(cleanupDirectory), temporaryRoot);
     await rm(directory, { recursive: true, force: true });
   });
   return directory;
