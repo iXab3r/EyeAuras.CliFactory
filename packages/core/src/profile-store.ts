@@ -36,6 +36,14 @@ export function assertProfileName(name: string): void {
   }
 }
 
+export function assertUniqueProfileName(name: string, existingNames: readonly string[]): void {
+  if (existingNames.some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+    throw new Error(
+      `Profile '${name}' already exists ignoring letter case. Use its exact spelling or choose a different name.`,
+    );
+  }
+}
+
 export class ProfileStore implements ProfileStoreContract {
   readonly #filePath: string;
   readonly #defaultName: string;
@@ -95,9 +103,7 @@ export class ProfileStore implements ProfileStoreContract {
   public async create(name: string, values: ProfileValues = {}): Promise<Profile> {
     assertProfileName(name);
     const document = await this.#load();
-    if (document.profiles[name]) {
-      throw new Error(`Profile '${name}' already exists.`);
-    }
+    assertUniqueProfileName(name, Object.keys(document.profiles));
     const nextValues = { ...this.#defaults, ...values };
     await this.#validate?.(nextValues);
     document.profiles[name] = nextValues;
@@ -212,6 +218,15 @@ export class ProfileStore implements ProfileStoreContract {
             )))
       ) {
         throw new Error(`Unsupported profile document at '${this.#filePath}'.`);
+      }
+
+      const names = Object.keys(document.profiles);
+      if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) {
+        throw new Error(
+          "Profile document contains names that differ only by letter case. " +
+          "Back up profiles.json and profile-owned data, then resolve the conflicting names " +
+          "manually and reconfigure renamed profiles. No data was changed.",
+        );
       }
 
       return document as ProfileDocument;

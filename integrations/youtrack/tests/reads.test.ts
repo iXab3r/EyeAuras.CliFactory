@@ -192,3 +192,42 @@ test("whole relative URL values and fragment credentials are redacted without ch
     safe: "https://example.com/file?assigned=true&design=compact#section",
   });
 });
+
+test("projected object keys use the same credential URL scrubber as string values", async () => {
+  const safe = "https://example.com/files/part%2Fname?view=a%26b#section%2Ftwo";
+  server.use(http.get("*", () => HttpResponse.json({
+    entries: [
+      { "/track/api/files/fixture/sign=synthetic-signature": "fixture" },
+      { "See https://example.com/file?sign=synthetic-signature here": { "synthetic-token": null } },
+      { [safe]: "unchanged" },
+    ],
+  })));
+  assert.deepEqual(await getIssue(connection, "DEMO-1", { fields: "entries" }), {
+    entries: [
+      { "[redacted]": "fixture" },
+      { "See [redacted] here": { "[redacted]": null } },
+      { [safe]: "unchanged" },
+    ],
+  });
+});
+
+test("active bearer values in decoded URL components are redacted without rewriting safe URLs", async () => {
+  const links = [
+    "https://example.com/files/synthetic%2Dtoken",
+    "https://example.com/file?download=synthetic%2Dtoken",
+    "https://example.com/file?synthetic%2Dtoken=download",
+    "https://example.com/file#synthetic%2Dtoken",
+    "https://example.com/file#download=synthetic%2Dtoken",
+    "https://example.com/file#synthetic%2Dtoken=download",
+    "api/files/fixture?download=synthetic%2Dtoken",
+  ];
+  const safe = "https://example.com/files/part%2Fname?download=safe%26view%3D1#section%2Ftwo";
+  server.use(http.get("*", () => HttpResponse.json({
+    links, keys: [{ [links[1]!]: "fixture" }], safe,
+    description: `See ${links[0]} for details`,
+  })));
+  assert.deepEqual(await readUser(connection, { fields: "links,keys,safe,description" }), {
+    links: links.map(() => "[redacted]"), keys: [{ "[redacted]": "fixture" }], safe,
+    description: "See [redacted] for details",
+  });
+});

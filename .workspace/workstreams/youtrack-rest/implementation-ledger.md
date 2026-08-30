@@ -2,7 +2,7 @@
 
 **Lifecycle:** active — v1 functionality complete; formal release evidence pending  
 **Feature spec:** [GitHub Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6), open.  
-**Current phase:** PV1 local commit preparation; independent commit review and shared-authoring pass follow. Functional v1 and AR118 remain complete; formal close-out pending. **Accepted REST operations:118/118 (98ReadOnly,20Update); derived capability:1/1.**
+**Current phase:** PV2 corrections independently accepted; formatting frozen; final privacy and fixing commit pending before shared-authoring trials. Functional v1 and AR118 remain complete; formal close-out pending. **Accepted REST operations:118/118 (98ReadOnly,20Update); derived capability:1/1.**
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
@@ -21,12 +21,12 @@
 | AR100 | Mandatory review at 100 | done | repo_contract / inventory_reviewer / orchestrator | Written authoring PASS and root approval; true local helper-9, final312 tests and21liveReadOnly PASS; no corrections |
 | V1.3 | Final18 operations + separate download | done | domain owners / independent reviewers / root | Final118 plus download1 accepted; coherent400 tests and all24ReadOnly proof PASS |
 | AR118 | Final short-batch review including download cost | done | repo_contract / inventory_reviewer / root | Written PASS/root approval; all derived costs included; multipart net-8; no required corrections |
-| PV1 | Commit verified functional v1 | in progress | root / privacy reviewer | Explicit user authorization; full tracked/staged privacy gate and commit receipt pending |
-| PV2 | Independent exact-commit review and fixes | pending | independent reviewers / source owners / root | Starts after PV1; corrected reviewed commit and focused/full verification required |
+| PV1 | Commit verified functional v1 | done | root / privacy reviewer | Commit 10d7fee2; independent full-tree and 243 staged-blob privacy PASS; fresh 400 tests PASS |
+| PV2 | Independent exact-commit review and fixes | awaiting review | independent reviewers / source owners / root | All four findings CLOSED; root 414/414 PASS; formatting frozen; final privacy and fixing commit pending |
 | PV3 | Shared authoring analysis and bounded trials across YouTrack + TeamCity | pending | Core/integration owners / independent authoring reviewer / root | Starts after PV2; bounded Issue/contract gate before product implementation, full-cost comparison and simplicity verdict |
-| Delivery | Formal release and Issue/workstream close-out | pending | root / owner | Functionality and linkedv2 complete; closingcommitPR/CI/privacy/closeout gates not supplied; Issue stays open |
+| Delivery | Formal release and Issue/workstream close-out | pending | root / owner | Functionality, linked v2 and local baseline commit complete; closing link/CI/close-out still pending; Issue stays open |
 
-## Current handover — commit, review/fix, then shared authoring
+## Current handover — independent commit review, then shared authoring
 
 - Root final approval: **118/118 REST** (98 ReadOnly,20 Update) plus download **1/1**; **117 service
   leaves** (97 ReadOnly,20 Update). AR118 is done with independent PASS and no required corrections.
@@ -41,10 +41,15 @@
 - `research/final-functional-acceptance.md` links witnesses; immutable direct/security histories stay
   intact. Issue7 owns all163 v2 rows/supplements; Issue6 functional acceptance was verified after root
   publication and exact readback. No more operation implementation is needed for v1.
-- The user now authorizes local commits: root prepares the v1 commit after full tracked-tree and
-  staged-diff privacy checks, then an independent exact-commit review/fix cycle. A pre-existing
-  management-text privacy finding is being sanitized by the privacy owner; no sensitive value is
-  reproduced here. The final gate and commit receipt are still pending.
+- Root committed v1 as `10d7fee2cbce13d90bf59a82f9946962ea69218b` (tree
+  `3accb6209f276e34cb80aecdc389bd1afe544026`) after independent full-tree/staged privacy PASS
+  and fresh 400-test PASS. The pre-existing management-text privacy finding was sanitized.
+  The worktree was clean immediately after commit; this receipt update is a later docs-only change.
+- PV2's four findings are independently CLOSED. Root's fresh coherent suite passed **414/414**
+  (Core 40 / TeamCity 41 / YouTrack 333), zero failures/skips. Four actual profile consumer tests
+  passed; independent Windows checks preserved configuration bytes, sentinel files and credentials
+  across all eight store methods plus CLI delete/configure/auth logout. See
+  `research/pv2-review-receipt.md`. Formatting and diff check passed; privacy and root's fixing commit remain pending.
 - Shared-authoring analysis/trials start after the corrected review baseline passes. Use the three
   PV phases in the plan, actual YouTrack + TeamCity consumers, candidate Issue/contract gating and
   full source/test/proof/complexity comparisons; no speculative savings or extraction mandate.
@@ -633,3 +638,89 @@ The immutable AR118 witness above supplies the starting 99-file / 6,876 source /
 513 proof baseline with 400 offline tests and 24 live GETs passed. Commit hash, full precommit
 privacy verdict, independent commit-review findings and any corrected baseline remain pending.
 No new source changes, tests, endpoint acceptance or authoring reduction are claimed by this plan.
+
+
+## 2026-08-30 — PV1 commit receipt; PV2 started
+
+Root reports PV1 complete: commit `10d7fee2cbce13d90bf59a82f9946962ea69218b`, tree
+`3accb6209f276e34cb80aecdc389bd1afe544026`, clean worktree immediately afterward. Fresh root
+400-test suite passed. Independent privacy review covered the full tree, 243 staged blobs and
+whole staged patch (reported SHA prefix `9d87787c`); the earlier private-host pattern in the old
+onboarding ledger was sanitized without reproducing it here. Staged `diff --check` reported 35
+cosmetic EOF/Markdown hard-break warnings, not a clean formatting pass or privacy blocker; root
+retained the exact baseline and historical hashed records.
+
+Three fresh reviewers own Core, safety and operation coverage against the exact commit and parent.
+PV2 is in progress. Read-only common discovery suggested literal command-argument typing at 129
+cast sites as a simplicity candidate, not a measured LOC win; context binding and universal HTTP
+were rejected directions. No candidate implementation or Issue draft is released before PV2's
+corrected baseline and root's candidate request. No source or GitHub changes accompany this receipt.
+
+
+## 2026-08-30 — PV2 confirmed findings and profile-isolation Issue gate
+
+| Finding | Priority | Required correction / current evidence |
+|---|---|---|
+| Built-in command process exit | P1 | Core owner has a small correction and subprocess regressions ready; independent final acceptance pending. |
+| Case-colliding profile names share Windows AppData | P1 | Synthetic `Fixture` / `fixture` reproduction includes cross-profile data deletion; bounded public Issue draft prepared before implementation. |
+| Signed URLs exposed through JSON object keys | P2 | Sanitize response keys as well as values without exposing credential-bearing URLs; delegated fix/re-review pending. |
+| Percent-encoded active bearer in URL value | P2 | Close encoded credential reflection with meaningful synthetic regressions; auth owner assigned, final acceptance pending. |
+
+The profile Issue draft proposes ASCII case-folded name uniqueness on all platforms, exact spelling
+preservation, and fail-closed loading of already-colliding documents before file/secret mutation.
+Recovery is explicit manual backup/reconfiguration; no migration, automatic normalization or data
+deletion. Core applies it to both TeamCity and YouTrack. No broader filename policy is inferred.
+Root owns Issue publication and source release; this management update implements no fix. PV2 stays
+in progress and PV3 implementation stays pending until the corrected baseline is independently accepted.
+
+
+## 2026-08-30 — Issue #9 publication and built-in exit verdict
+
+Root published [Issue #9](https://github.com/iXab3r/EyeAuras.CliFactory/issues/9), exact body SHA
+`eb5fa3bd0a826eca0fbd934a791bb437b95b5adab1879c6225a314dc848ba00c`, and verified remote readback.
+The profile owner is released under that contract; configure must reject the collision before auth
+or secret mutation. The existing draft remains frozen as publication evidence.
+
+The three-line built-in process-exit correction passed root's three compiled regressions and
+independent review's six original RPC probes with two response frames/continued execution. That
+finding is closed for this reviewed correction. Profile isolation and the two response-safety
+findings still await fixes and independent acceptance; the coherent final suite and fixing commit
+remain future PV2 gates. No source or GitHub mutation was performed by the management agent.
+
+
+## 2026-08-30 — PV3 Issue candidate prepared, not released
+
+Prepared `research/pv3-positional-inference-issue-body.md`, proposed title
+“Infer positional handler arguments from existing command declarations”. It is a new Issue candidate,
+not Issue #8. Publication and implementation wait for the exact corrected PV2 commit and independent
+proposal feedback. The draft preserves unknown fallbacks, broad existing callback annotations and
+both real consumers; it promises no runtime/options/DSL/dependency expansion or physical-line saving.
+The 129 coercions and 6,876 / 8,264 / 513 counts are explicitly pre-fix discovery figures only.
+PV3 implementation remains pending; no source or GitHub change accompanies this draft.
+
+
+## 2026-08-30 — safety corrections accepted; PV3 parallel-source check
+
+Root reports both response-safety corrections accepted after independent seven repro/control checks
+and 101 compiled tests. This closes the JSON-key signed-URL and percent-encoded active-bearer findings;
+profile isolation and its real-consumer tests remain in progress under `repo_contract` / `youtrack_auth`.
+The coherent final PV2 suite, independent acceptance and correcting commit are still pending.
+
+Root's read-only parallel-checkout comparison found original HEAD `1d36395` with no positional
+inference in Core `command.ts` / `types.ts`. Uncommitted parallel `cli.ts` / `types.ts` changes were
+left untouched and not imported. The unpublished PV3 draft incorporates the independent proposal
+review's conservative dynamic-template, literal-name union and duplicate-name fallbacks. This is
+candidate evidence only, not shared-source implementation or a corrected-baseline measurement.
+
+
+## 2026-08-30 — PV2 corrections accepted, fixing commit pending
+
+All four findings are independently closed; root's coherent 414-test suite passed with zero skips
+or failures. `research/pv2-review-receipt.md` records the bounded witnesses and Issue #9 contract.
+PV2 awaits precommit privacy and the fixing commit; no commit receipt is invented.
+The unpublished PV3 candidate still waits for that exact corrected baseline. Formal Issue/CI closure
+and push/merge remain outside this receipt.
+
+Final post-format root suite passed 414/414 again. Corrected costs are 6,904 source, 8,867
+tests/support and 513 proof; +28 source/+603 tests are PV2 correctness costs, not PV3 savings.
+Source formatting is frozen; only privacy/staging and the fixing commit remain before the new baseline.

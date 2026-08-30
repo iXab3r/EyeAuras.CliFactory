@@ -10,7 +10,7 @@ import {
   validateCommandPermissions,
   validatePermissionsDisabled,
 } from "./permissions.js";
-import { assertProfileName, ProfileStore } from "./profile-store.js";
+import { assertProfileName, assertUniqueProfileName, ProfileStore } from "./profile-store.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import type {
   CliApplication,
@@ -249,6 +249,9 @@ export function createCli(definition: CliDefinition): CliApplication {
       assertProfileName(profileName);
       const listed = await profileStore.list();
       const existing = listed.profiles.find((profile) => profile.name === profileName);
+      if (!existing) {
+        assertUniqueProfileName(profileName, listed.profiles.map((profile) => profile.name));
+      }
       const values = {
         ...(profileDefinition.defaults ?? {}),
         ...(existing?.values ?? {}),
@@ -421,6 +424,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     };
 
     const profileCommand = new Command("profile")
+      .exitOverride()
       .description("Manage service profiles")
       .configureOutput(program.configureOutput());
     profileCommand
@@ -584,6 +588,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       };
 
       const permissionsCommand = new Command("permissions")
+        .exitOverride()
         .description("Manage profile-specific safety permissions")
         .configureOutput(program.configureOutput());
       permissionsCommand
@@ -652,6 +657,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     if (definition.auth) {
       const auth = definition.auth;
       const authCommand = new Command("auth")
+        .exitOverride()
         .description("Manage authentication")
         .configureOutput(program.configureOutput());
       authCommand

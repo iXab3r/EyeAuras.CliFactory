@@ -439,3 +439,40 @@ test("RPC continues after missing required body and malformed JSON before a vali
   assert.equal(f.stderr(), "");
   assert.equal(calls, 1);
 });
+
+test("projected credential keys and encoded tokens never reach human, JSON or RPC output", async (t) => {
+  const argv = ["issues", "get", "DEMO-1", "--fields", "attachments", "--profile", "dev"];
+  const expected = { attachments: [{ "[redacted]": "[redacted]" }], safe: "fixture-value" };
+  let calls = 0;
+  server.use(http.get("https://youtrack.example.com/api/issues/DEMO-1", ({ request }) => {
+    calls++;
+    assert.equal(new URL(request.url).searchParams.get("fields"), "attachments");
+    assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
+    return HttpResponse.json({
+      attachments: [{
+        "/track/api/files/fixture/sign=synthetic-signature":
+          "https://example.com/file?download=synthetic%2Dtoken",
+      }],
+      safe: "fixture-value",
+    });
+  }));
+  for (const mode of ["human", "json", "rpc"]) {
+    const input = mode === "rpc" ? JSON.stringify({
+      jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv },
+    }) + "\n" : "";
+    const f = await fixture(t, input);
+    await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
+    await f.secrets.set(service, "dev:token", "synthetic-token");
+    assert.equal(await f.cli.run(mode === "rpc" ? ["--json-rpc"] : [...argv, ...(mode === "json" ? ["--json"] : [])]), 0);
+    assert.doesNotMatch(f.stdout(), /synthetic|sign=|download=/);
+    assert.equal(f.stderr(), "");
+    if (mode === "human") {
+      assert.match(f.stdout(), /redacted/);
+      assert.match(f.stdout(), /fixture-value/);
+    } else {
+      const result = JSON.parse(f.stdout());
+      assert.deepEqual(mode === "rpc" ? result.result : result, expected);
+    }
+  }
+  assert.equal(calls, 3);
+});

@@ -58,6 +58,16 @@ removes a non-default profile. The default profile cannot be deleted until anoth
 default; the final remaining profile cannot be deleted. Deletion also removes the integration's
 known stored authentication credential for that profile.
 
+Profile names are ASCII and must be unique ignoring letter case on every supported platform, so
+names such as `Fixture` and `fixture` cannot share a case-insensitive filesystem directory.
+A single existing mixed-case name keeps its spelling, data path and credential identity; explicit
+profile lookup remains exact and does not introduce case-insensitive aliases. Creating or
+configuring a new colliding name fails before prompting, validation or any persisted change.
+An existing document containing case-colliding names fails closed before profile or credential
+mutation, including deletion. Core never chooses a winner or automatically migrates, renames or
+deletes data. To recover, first back up `profiles.json` and profile-owned data, then manually
+resolve conflicting names to distinct identities and reconfigure credentials for renamed profiles.
+
 Profile identity is part of the secret key. Switching from `uat` to `production` must never reuse
 the other profile's credential accidentally.
 

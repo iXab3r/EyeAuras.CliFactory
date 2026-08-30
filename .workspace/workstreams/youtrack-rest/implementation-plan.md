@@ -2,7 +2,7 @@
 
 **Lifecycle:** active — v1 functionality and AR118 complete; formal release evidence pending.  
 **Feature scope:** [GitHub Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6).  
-**Current milestone:** commit verified functional v1, independently review and fix that commit, then evaluate shared authoring improvements across actual YouTrack and TeamCity consumers. Keep Issue #6 and the workstream open until its formal close-out gates are satisfied.  
+**Current milestone:** functional v1 is committed as `10d7fee2cbce13d90bf59a82f9946962ea69218b`; independently review and fix that commit, then evaluate shared authoring improvements across actual YouTrack and TeamCity consumers. Keep Issue #6 and the workstream open until its formal close-out gates are satisfied.
 **Accepted REST operations:** 118/118 (98 ReadOnly, 20 Update). **Accepted derived download:** 1/1, counted separately.
 
 Issue #6 owns the v1 contract; this plan orders work and the ledger records evidence. The user
@@ -13,11 +13,22 @@ live mutation or broader real-service crawl is authorized.
 
 ## Post-v1 phases — current execution order
 
-1. **PV1 — commit the verified functional baseline (in progress).** Root reviews the intended
+PV1 receipt: commit `10d7fee2cbce13d90bf59a82f9946962ea69218b`, tree
+`3accb6209f276e34cb80aecdc389bd1afe544026`; root reported a clean worktree immediately after
+commit, fresh 400-test PASS and independent full-tree/staged privacy PASS. PV2 reviewers are
+`review_core_v1`, `review_safety_v1` and `review_operations_v1`, inspecting that exact commit and parent.
+
+PV2 profile-isolation contract is published as [Issue #9](https://github.com/iXab3r/EyeAuras.CliFactory/issues/9).
+Its source owner is released, including configure collision preflight before authentication or secret
+mutation. All four PV2 findings are independently closed and the root coherent suite passed
+414/414. See `research/pv2-review-receipt.md`; final formatting is frozen; privacy and the fixing commit remain
+pending. PV3 still awaits that exact corrected baseline.
+
+1. **PV1 — commit the verified functional baseline (done).** Root reviews the intended
    source/docs diff, runs the full tracked-tree and staged-diff privacy gate, and commits current
    v1 plus these management records. Resolve findings before committing; record the resulting
    commit and verification evidence. Reference Issue #6 without claiming its formal closure.
-2. **PV2 — independent commit review and fixes (pending).** Review the exact PV1 commit against
+2. **PV2 — independent commit review and fixes (review passed; fixing commit pending).** Review the exact PV1 commit against
    its parent, with bounded attention to Core, both integrations, safety and public contracts.
    Agents fix actionable findings; use focused regression evidence and the full suite for the
    final corrected tree. Repeat independent review until required corrections close. Root commits

@@ -98,37 +98,47 @@ export function issuePath(id: string): string {
   return `api/issues/${encodedID(id, "issue ID")}`;
 }
 
-function scrubUrl(text: string): string {
+function scrubUrl(text: string, token: string): string {
   try {
     const url = new URL(text, "https://youtrack.example.com");
-    const signedPath = /(?:^|\/)(?:sign|signature|token)=/i.test(decodeURIComponent(url.pathname));
-    const keys = [...url.searchParams.keys(), ...new URLSearchParams(url.hash.slice(1)).keys()];
+    const path = decodeURIComponent(url.pathname);
+    const fragment = new URLSearchParams(url.hash.slice(1));
+    const signedPath = /(?:^|\/)(?:sign|signature|token)=/i.test(path);
+    const keys = [...url.searchParams.keys(), ...fragment.keys()];
+    const reflectedToken = [
+      path, decodeURIComponent(url.hash.slice(1)), ...keys,
+      ...url.searchParams.values(), ...fragment.values(),
+    ].some((part) => part.includes(token));
     const credentialQuery = keys.some((key) => [
       "sign", "sig", "signature", "token", "accesstoken", "refreshtoken", "idtoken",
       "secret", "password", "credential", "credentials", "auth", "authorization", "authtoken",
       "apikey", "key", "awsaccesskeyid", "xamzsignature", "xamzcredential", "xamzsecuritytoken",
       "xgoogsignature", "xgoogcredential",
     ].includes(key.replace(/[-_]/g, "").toLowerCase()));
-    return url.username || url.password || signedPath || credentialQuery ? "[redacted]" : text;
+    return url.username || url.password || signedPath || credentialQuery || reflectedToken ? "[redacted]" : text;
   } catch {
     return "[redacted]";
   }
 }
 
+function scrubText(text: string, token: string): string {
+  if (!/\s/.test(text) && /[\/?#]/.test(text) && scrubUrl(text, token) === "[redacted]") {
+    return "[redacted]";
+  }
+  return text.replace(/(?:https?:\/\/|\.\.?\/|\/)[^\s"'<>]+/gi, (url) => scrubUrl(url, token))
+    .replaceAll(token, "[redacted]");
+}
+
 function scrub(value: YouTrackValue, token: string): YouTrackValue {
   if (typeof value === "string") {
-    const text = value.replaceAll(token, "[redacted]");
-    if (!/\s/.test(text) && /[\/?#]/.test(text) && scrubUrl(text) === "[redacted]") {
-      return "[redacted]";
-    }
-    return text.replace(/(?:https?:\/\/|\.\.?\/|\/)[^\s"'<>]+/gi, scrubUrl);
+    return scrubText(value, token);
   }
   if (Array.isArray(value)) {
     return value.map((item) => scrub(item, token));
   }
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-      key.replaceAll(token, "[redacted]"), scrub(item, token),
+      scrubText(key, token), scrub(item, token),
     ]));
   }
   return value;
