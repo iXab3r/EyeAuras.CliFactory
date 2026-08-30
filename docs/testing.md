@@ -70,23 +70,18 @@ Safety comes from construction:
 Mocked tests remain the durable regression suite because they are deterministic and safe. The local
 proof answers a different question: “Does the real built product work with this real profile now?”
 
-### TeamCity migration note
+### TeamCity
 
-TeamCity currently has a legacy opt-in smoke that injects `TEAMCITY_URL` and `TEAMCITY_TOKEN` into a
-direct `TeamCityClient`. It reaches the server but does not prove the compiled CLI/profile/keyring
-path and is discovered as a skip by the default suite. Do not copy this pattern. Its replacement is
-planned in [Issue #4](https://github.com/iXab3r/EyeAuras.CliFactory/issues/4) and the linked
-`teamcity-profile-integration-proof` workstream.
-
-Until that replacement ships, the legacy smoke remains available explicitly:
+Configure a local profile through `profile configure`, then run:
 
 ```text
-TEAMCITY_INTEGRATION=1 TEAMCITY_URL=https://teamcity.example.com TEAMCITY_TOKEN=<external-token> npm test
+npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
 ```
 
-It performs only bounded GET requests for authentication, server, projects, jobs, builds, queue,
-and agents. It never records responses or exercises the three mutation commands, but it is not the
-factory template for new integrations.
+The command builds Core and TeamCity first, then invokes the compiled CLI through that profile. Its
+17 proof rows cover local permission inspection, authentication, bounded collection/detail reads,
+build diagnostics, and a two-request JSON-RPC session. It accepts no endpoint or token override and
+refuses `CI` or `GITHUB_ACTIONS` environments before launching the CLI.
 
 ## Required evidence
 

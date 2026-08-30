@@ -21,8 +21,7 @@ More specific `AGENTS.md` files override this router only inside their directory
 ## Universal laws
 
 1. **Do not overengineer.** Implement the smallest vertical slice demanded by a current consumer.
-   No generator, plugin system, DI container, universal HTTP layer, or compatibility shim without
-   concrete evidence.
+   No generator, plugin system, DI container, or universal HTTP layer without concrete evidence.
 2. **One command declaration.** Help, human output, JSON output, and JSON-RPC execution derive from
    the same recursive command tree. Handlers return data; they do not render formats.
 3. **Secrets never become config.** Use the injected secret store. Never print, log, snapshot, or
@@ -44,6 +43,10 @@ More specific `AGENTS.md` files override this router only inside their directory
    before declaring a repository-wide change complete.
 10. **Commit hygiene.** Never rewrite pushed history or force-push. Inspect staged changes for
    secrets and generated noise before committing.
+11. **Break cleanly.** This early-stage project has no backward-compatibility obligation. Do not
+   retain legacy branches, compatibility shims, deprecated aliases, or parallel old/new paths.
+   Replace the old contract and update all in-repo consumers, tests, and docs together. Document
+   required user reconfiguration; never silently delete existing user data.
 
 ## Function role: Reconciliation Lead
 

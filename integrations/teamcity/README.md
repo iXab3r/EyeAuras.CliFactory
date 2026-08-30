@@ -99,7 +99,7 @@ object per line:
 {"jsonrpc":"2.0","id":2,"method":"cli.execute","params":{"argv":["jobs","list","--profile","production"]}}
 ```
 
-## Tests and real-service smoke
+## Tests and local integration proof
 
 The default suite is offline. MSW verifies the native `fetch` boundary, including exact REST
 methods, paths, locators, requested fields, mutation bodies, permission denial before networking,
@@ -111,30 +111,23 @@ Run the integration suite through the repository command:
 npm test
 ```
 
-The live smoke test is read-only and explicitly opt-in. It checks authentication, server status,
-and one bounded page each of projects, jobs, builds, queue entries, and agents; it never queues or
-cancels a build.
-
-This current smoke is legacy: it injects URL/token environment variables into `TeamCityClient` and
-does not prove the packaged CLI, persisted profile, or OS keyring. It remains available during the
-migration but is not the pattern for new integrations. [Issue #4](https://github.com/iXab3r/EyeAuras.CliFactory/issues/4)
-tracks its replacement with an explicit local profile-backed proof that stays outside `npm test` and
-all CI/CD workflows.
-
-PowerShell:
+For development/debug proof-of-work, configure a real local profile once and run:
 
 ```text
-$env:TEAMCITY_INTEGRATION = "1"
-$env:TEAMCITY_URL = "https://teamcity.example.com"
-$env:TEAMCITY_TOKEN = "<token supplied outside Git>"
-npm test
+npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
 ```
 
-Bash/zsh:
+This command builds Core and TeamCity and then runs the compiled CLI as child processes. It uses
+the selected current-user profile and its OS-keyring credential, not test-only URL/token inputs.
+The fixed 17-row inventory covers authentication, permission inspection, server, bounded projects,
+jobs/status, builds/tests/problems/changes, queue, agents, and a persistent JSON-RPC session.
 
-```text
-TEAMCITY_INTEGRATION=1 TEAMCITY_URL=https://teamcity.example.com TEAMCITY_TOKEN="$TEAMCITY_TOKEN" npm test
-```
+Only `ReadOnly` service commands are invoked, with at most three items per collection. Empty lists
+are valid and dependent detail checks are explicitly skipped. Output contains pass/count/skip
+summaries, never raw payloads or discovered identifiers. No fixture or artifact is recorded.
+
+The proof is outside `npm test` and refuses CI/CD environments before launching the CLI. It is a
+local development tool, not a regression suite or production availability monitor.
 
 See [the integration authoring guide](../../docs/integrations.md) for how this product references
 the common package and how to start the next in-repo or external integration.

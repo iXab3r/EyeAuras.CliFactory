@@ -90,7 +90,8 @@ consumer needs them.
 
 Every leaf command supports `--json`. JSON values use stable service/domain field names and do not
 contain ANSI decoration. Errors have a stable structured form in JSON-RPC mode; a future CLI-wide
-JSON error envelope will be introduced only with compatibility tests.
+JSON error envelope must update the current contract, consumers, documentation, and contract tests
+together; it must not retain a parallel old format.
 
 ### JSON-RPC is a persistent transport
 
@@ -139,8 +140,9 @@ AppDataDirectory/temp                      = TempDirectory
 AppDataDirectory/log                       = LogDirectory()
 ```
 
-`AppName` is the CLI's stable `applicationId`; changing it after release requires an explicit
-migration. `profiles.json` is application-wide and lives directly in
+`AppName` is the CLI's stable `applicationId`; changing it selects a different user-data and
+credential namespace. Document the required reconfiguration rather than adding old-namespace
+fallbacks, and leave existing user data untouched. `profiles.json` is application-wide and lives directly in
 `RoamingAppDataDirectory`. All other profile-owned files derive from `AppDataDirectory` using
 ordinary `node:path` composition. Secrets remain in the OS credential store and never enter these
 directories.
@@ -275,6 +277,14 @@ Owns process execution and pipeline composition. It remains independently testab
   backpressure tests.
 
 ## Evolution rule
+
+While the project is in its initial stage, changes are clean breaks. There is no obligation to
+preserve an earlier API, CLI syntax, configuration shape, or development workflow. Remove superseded
+implementations in the same change that introduces their replacement; update in-repo consumers,
+tests, and docs together. Do not add legacy branches, compatibility shims, deprecated aliases,
+automatic old-format migrations, or transition periods with two supported paths. External consumers
+update to the new contract when they update their pinned factory version. Explain any required
+reconfiguration without silently deleting user-owned configuration or credentials.
 
 Promote-on-use: a feature enters core only when a current integration consumes it. When two
 integrations differ, preserve the difference until their shared shape is demonstrated. The goal is

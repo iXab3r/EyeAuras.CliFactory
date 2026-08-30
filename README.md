@@ -12,7 +12,7 @@ Factory**.
 
 > Status: foundation stage. The common npm package and the TeamCity operational v1 integration
 > are implemented, including 17 service commands, mocked REST contracts, permission gates,
-> profiles, JSON, JSON-RPC, and an opt-in read-only live smoke. The APIs are not stable yet.
+> profiles, JSON, JSON-RPC, and a local profile-backed integration proof. The APIs are not stable yet.
 
 ```mermaid
 flowchart LR

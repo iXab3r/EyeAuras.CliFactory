@@ -4,10 +4,10 @@ Issue: [#4](https://github.com/iXab3r/EyeAuras.CliFactory/issues/4)
 
 Phase | Scope | Status | Agent | Review
 ---|---|---|---|---
-P1 | Isolate the execution lane | pending | service integration author | pending
-P2 | Prove the real product boundary | pending | service integration author | pending
-P3 | Close the bounded ReadOnly inventory | pending | service integration author | pending
-P4 | Retire legacy evidence and reconcile | pending | Reconciliation Lead | pending
+P1 | Isolate the execution lane | done | service integration author | reviewed
+P2 | Prove the real product boundary | done | service integration author | reviewed
+P3 | Close the bounded ReadOnly inventory | done | service integration author | reviewed
+P4 | Finalize the only supported path and reconcile | awaiting review | Reconciliation Lead | pending CI
 
 ## Evidence log
 
@@ -24,3 +24,33 @@ P4 | Retire legacy evidence and reconcile | pending | Reconciliation Lead | pend
 - Earlier manual evidence confirmed the compiled CLI can execute the intended bounded read-only
   surface through a configured local profile, without persisting or publishing response payloads.
 - Next action: implement P1 and record proof that CI refusal occurs before child-process creation.
+
+### 2026-08-30 — scope correction
+
+- The user rejected a compatibility period. Issue #4 records immediate replacement: the previous
+  URL/token-injected test and its documentation are deleted, not retained as a fallback.
+
+### 2026-08-30 — P1/P2/P3 reviewed
+
+- `integration-tests/profile-proof.ts` is outside the default test glob and invokes only the compiled
+  CLI process with a required profile name. It never instantiates the service client or injects a
+  URL/token.
+- The fixed inventory contains 17 proof rows, including conditional detail checks and JSON-RPC.
+  Every service command maps to `ReadOnly`; an enabled `Update` permission does not broaden it.
+- Offline runner tests cover argument rejection, CI refusal before invocation, exact argv inventory,
+  bounded pages, empty-page skips, and omission of raw child output from summaries.
+- Local evidence: `npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile default`
+  completed with 17 passed, 0 skipped, 0 failed through the real current-user profile/keyring.
+- A direct entry-point run under `CI=true` exited with refusal code 2 before launching the CLI.
+
+### 2026-08-30 — P4 submitted for review
+
+- Deleted `tests/live.test.ts` and its stale local compiled output. No URL/token-injected real-test
+  command remains in product docs or npm scripts.
+- Public docs now describe the profile-backed proof as the only supported real-service development
+  path.
+- `AGENTS.md` and the canonical design make clean breaks the project-wide early-stage policy:
+  no compatibility shims, aliases, parallel paths, or automatic old-format migrations.
+- `npm test`: Core 14/14 and TeamCity 28/28 passed; zero skips and no real-service proof discovery.
+- `git diff --check`: clean.
+- Remaining gate: publish the implementation and link successful CI before Issue closure.

@@ -12,7 +12,9 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "start": "node dist/src/bin.js",
-    "test:compiled": "node --test dist/tests/*.test.js"
+    "test:compiled": "node --test dist/tests/*.test.js",
+    "pretest:integration": "npm run build --workspace @eyeauras/cli-factory && npm run build",
+    "test:integration": "node dist/integration-tests/profile-proof.js"
   },
   "engines": {
     "node": ">=22"

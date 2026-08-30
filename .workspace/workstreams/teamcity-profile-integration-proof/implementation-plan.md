@@ -49,9 +49,9 @@ handling, permission inspection, and a two-request persistent JSON-RPC proof. No
 Gate: the runner reports every inventory row as pass or explicit data-dependent skip; code review
 maps each service command to `ReadOnly`; a local proof completes without raw payload output.
 
-### P4 — Retire legacy evidence and reconcile
+### P4 — Finalize the only supported path and reconcile
 
-Scope: remove `tests/live.test.ts`, update TeamCity/public docs from planned to shipped behavior, run
+Scope: delete `tests/live.test.ts` without a compatibility period, update TeamCity/public docs to shipped behavior, run
 repository verification, and reconcile Issue acceptance plus workstream close-out.
 
 Gate: `npm test` is offline and green, the explicit proof succeeds locally, no env-injected live
