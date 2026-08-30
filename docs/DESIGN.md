@@ -22,6 +22,10 @@ A CLI is a recursive command declaration. Every node has a name and description;
 contain children and leaf nodes execute handlers. The framework generates help at every node.
 Authors must not hand-write a dispatch switch or separate help pages.
 
+An option may declare `required: true`; the shared parser rejects a missing value before the
+handler, unless a default is declared. Parsing, nested help and validation use the same declaration
+in ordinary execution and JSON-RPC. Help and argument errors never terminate the host process.
+
 ### Handlers return domain data
 
 Command handlers return values and do not decide whether output is human-readable or JSON. The

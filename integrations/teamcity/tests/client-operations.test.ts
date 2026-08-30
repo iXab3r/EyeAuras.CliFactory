@@ -176,7 +176,7 @@ test("surfaces a remote mutation rejection without the token", async () => {
     (error: unknown) =>
       error instanceof TeamCityHttpError &&
       error.status === 409 &&
-      error.message.includes("already finished") &&
+      error.message === "TeamCity request failed with HTTP 409." &&
       !error.message.includes("fixture-token"),
   );
 });

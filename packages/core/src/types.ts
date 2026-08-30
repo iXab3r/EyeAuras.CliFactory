@@ -57,6 +57,8 @@ export type CommandHandler = (
 export interface OptionDefinition {
   flags: string;
   description: string;
+  /** Require a value (or a declared default) before invoking the handler. */
+  required?: boolean;
   defaultValue?: unknown;
   parse?: (value: string, previous: unknown) => unknown;
 }

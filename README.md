@@ -10,8 +10,9 @@ persistent JSON-RPC session for agents.
 The repository name is `EyeAuras.CliFactory`. The human-facing project name is **AI CLI
 Factory**.
 
-> Status: foundation stage. The common npm package and the TeamCity operational v1 integration
-> are implemented, including 17 service commands, mocked REST contracts, permission gates,
+> Status: foundation stage. The common npm package and TeamCity operations/authoring integration
+> are implemented, exposing all 449 routes in the frozen TeamCity 2026.1 REST inventory,
+> with mocked REST contracts, permission gates,
 > profiles, JSON, JSON-RPC, and a local profile-backed integration proof. The APIs are not stable yet.
 
 ```mermaid
@@ -38,9 +39,10 @@ those decisions once:
   branches use the same model. Help is generated at every level.
 - Handlers return data. The framework owns human rendering and the mandatory `--json` form, so
   integration authors do not implement output twice.
-- `auth login`, `auth status`, and `auth logout` are standard commands. Secrets live in the OS
-  credential store (Windows Credential Manager/DPAPI, macOS Keychain, or the Linux keyring), not
-  in profile JSON.
+- `auth login`, `auth status`, and `auth logout` are standard commands. The shipped token helper
+  uses the OS credential store, never profile JSON. The design also permits explicitly declared
+  browser auth state in profile AppData; app-owned auth and optional IPC/Playwright modules are
+  [planned](docs/runtime-modules.md), not shipped yet.
 - `profile` commands isolate endpoints and configuration such as UAT and Production. Handlers get
   the familiar PoeShared-style `context.appArguments.AppDataDirectory` for profile-owned files.
 - `permissions` gates classify commands as `ReadOnly`, `Update`, or an integration-defined
@@ -181,8 +183,17 @@ configuration when the selected profile is incomplete. JSON, JSON-RPC, redirecte
 programmatic execution never prompt; their error names the exact `profile configure` command.
 
 The shipped TeamCity tree covers server status, projects, jobs, builds and their diagnostics,
-the build queue, agents, and three explicitly gated operations: start a job, cancel a running
-build, and cancel a queued build. See the [TeamCity CLI guide](integrations/teamcity/README.md).
+the build queue, agents, project/job authoring, plain parameters, steps, existing VCS roots,
+triggers, features, snapshot/artifact dependencies, agent requirements, templates, agent pools,
+agent eligibility, queue positioning, build annotations and statistics.
+The tree also includes cloud/VCS/versioned settings, investigations/mutes, account/role/server
+administration, deployment dashboards, bounded file transfers and keyring-backed secure values.
+Mutations require Update or the explicit Admin/Credentials category. The local v2 implementation
+exposes **449/449 REST method/path pairs (100%)**:235 GET and214 mutation routes. This is route
+coverage, not every payload variant or live mutation verification. Config-parameter reset and
+bulk unmute intentionally report native acknowledgement without verified postconditions.
+See the [TeamCity CLI guide](integrations/teamcity/README.md) and
+[final local reconciliation](.workspace/workstreams/teamcity-v2/final-review.md).
 
 On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login --token-stdin`.
 

@@ -312,6 +312,22 @@ It orders TeamCity REST work by user/agent value and keeps update operations beh
 
 ## Test the declaration, not a parallel implementation
 
+Declare mandatory options once with `required: true` in the existing command settings:
+
+```ts
+command("create <id>", "Create a resource", createResource, {
+  permission: Permission.Update,
+  options: [{ flags: "--name <name>", description: "Display name", required: true }],
+});
+```
+
+The parser owns missing-option validation and the generated `(required)` help hint; the same
+behavior applies in JSON-RPC. A declared default satisfies the requirement. Service-specific
+validation (non-empty names, allowed fields, safe properties) remains in the integration.
+Use small local functions for proven repetition, such as TeamCity's project/job parameter tree
+and profile-scoped client binding. Do not promote its HTTP or property semantics into Core.
+For expansion work, follow the [50-operation authoring review practice](practices/integration-authoring-reviews.md).
+
 For each command, prefer a test that runs the real client and, when useful, the real CLI command
 tree against MSW. Assert:
 
@@ -322,8 +338,27 @@ tree against MSW. Assert:
 - profile isolation when connection, secret, or permission behavior changes;
 - absence of credentials and private data from errors and fixtures.
 
-The default suite never calls the real service. Real smoke tests are opt-in, read-only by default,
-and use credentials supplied outside Git.
+The default suite never calls the real service. Local proof is opt-in, uses the packaged CLI and
+an explicit real current-user profile/keyring, and executes only a fixed bounded ReadOnly inventory.
+It refuses CI. New sensitive/expensive reads do not automatically join that inventory.
+
+## Native wire formats and private results
+
+CLI output format is independent of REST media. A text/XML/multipart/binary service contract does
+not require another help/JSON/RPC implementation: validate and project domain data in the integration,
+then return it through the existing tree. A native void action can return acknowledgement only after
+actual success; do not invent completion, atomicity or verified postconditions.
+
+For files, use an explicit output basename under the active `AppDataDirectory`, bounded streaming,
+no-clobber publication and no implicit opening/execution. Return the real path/byte count/hash,
+not discarded bytes or an unusable URL. Credentials are different: store them only in the injected
+profile keyring, return aliases, and make remote-operation/local-storage partial failures explicit.
+Never promote a raw method/path/body passthrough as endpoint coverage.
+
+TeamCity's concrete examples are `file-commands.ts`, `downloads.ts` and `credential-inputs.ts`.
+They remain integration-owned; another real integration must prove a shared Core extraction.
+Reuse the existing command tree, required options, custom permission categories, AppArguments and
+ScopedSecrets first. Measure helper/security costs too at every50-operation authoring checkpoint.
 
 ## Ready-for-review checklist
 

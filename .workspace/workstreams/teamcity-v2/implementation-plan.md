@@ -1,6 +1,8 @@
 # TeamCity v2 — implementation plan
 
-Lifecycle: active. Implementation has not started.
+Lifecycle: active for publication/CI closure. S1–S10 and final+432 review complete locally:
+449/449 routes exposed. No implementation inventory remains; code is not committed/pushed.
+Final evidence and limitations: [final-review.md](final-review.md).
 Feature contract: [Issue #5](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5).
 Working branch: `feature/teamcity-v2`, based on `main` at `e0d4d1b`.
 
@@ -13,7 +15,72 @@ This plan owns execution order and gates only. Do not copy another evolving REST
 The [audit](../teamcity-api-coverage-20260830/report.md) and its CSVs are immutable baseline
 evidence: 17 exposed, 432 missing, 3.79% endpoint coverage. They are not a live progress table.
 
+## First slice: S1
+
+The [Issue planning comment](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5#issuecomment-5467757311)
+owns the exact S1 CLI/REST/gate and payload/safety contract. S1 selects **32 new operations**
+(11 ReadOnly, 21 Update); [local implementation review passed](s1-review.md). Working-tree coverage
+is 49/449 (10.91%); these changes are not yet committed/pushed. Existing VCS roots are reused; root/credential provisioning
+and the remaining P1 families stay outside S1.
+
+Before repeating new declarations, use the [authoring baseline](authoring-baseline.md) and three
+representative operations to test a simpler authoring shape.
+
+| S1 step | Scope | New operations | Gate |
+|---|---|---:|---|
+| A | Project/job lifecycle | 8 | Create/set/move/delete contracts, explicit gates, text/empty responses |
+| B | Project/job parameters | 10 | Plain-property behavior, protected-value redaction, local reuse with clear paths |
+| C | Build steps | 5 | Explicit full replacement, typed property input, safe result mapping |
+| D | Existing VCS discovery and attachments | 9 | No connection secrets, checkout-rule text handling, full mocked scenario |
+
+Gate for S1: all 32 rows reconciled, mocked tests and local ReadOnly proof evidence according to
+the Issue, generated UX verified, before/after authoring examples and net code changes reviewed.
+This closes S1 only, not all of P1.
+
+## Next slice: S2
+
+The [S2 execution contract](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5#issuecomment-5467992110)
+selects 18 more routes: triggers, features, snapshot dependencies and existing template attachments.
+Implementation passed exact mock contracts and the [checkpoint +50 review](checkpoint-50-review.md).
+Local coverage is 67/449; [s2-coverage.csv](s2-coverage.csv) adds 18 distinct routes to S1's 32.
+The first batch is closed locally, not published. No live Update operation was performed.
+
+## Mandatory authoring checkpoints
+
+Follow [integration authoring reviews](../../../docs/practices/integration-authoring-reviews.md).
+The v2 counter starts at **0 new operations**, above the 17-route baseline. Review after +50,
++100, +150, and so on, plus the final shorter batch. The first checkpoint is 67 total routes.
+Do not begin the next batch while the checkpoint or its required corrective work is open.
+
+S1 ends at +32/50; it does not reset the counter. Fifty is not a required slice size. Compare
+same-capability examples and total Core-plus-integration cost, including helpers; seek improvements
+usable by other CLIs without moving TeamCity concepts into Core or weakening its promotion rule.
+
+S1–S10 closed checkpoints through +400 and the final+432 review. No next implementation batch
+remains in the frozen inventory. Future expansion requires a new explicit scope, not denominator drift.
+
+## Large slice: S3+S4
+
+The owner requested the next ~100 operations in one delivery. The
+[100-route execution contract](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5#issuecomment-5468205768)
+owns exact syntax, REST paths, DTOs, gates and exclusions. S3 adds 50 project/job configuration
+routes; close checkpoint +100 (117 total) before S4 adds 50 build/queue/agent/pool routes.
+Then close checkpoint +150 (167 total). S3 and [checkpoint +100](checkpoint-100-review.md) passed
+locally with 181 tests. S4 and [checkpoint +150](checkpoint-150-review.md) then passed with 241 tests
+and the fixed 19/19 local ReadOnly proof. Local coverage is **167/449**, including 86 reads and 81
+updates; 282 routes remain. Both halves are reconciled in s3-coverage.csv and s4-coverage.csv.
+The [source corrections](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5#issuecomment-5468269661)
+clarify agent fields and DTOs without changing route counts. All S1–S4 acceptance remains local;
+no commit/push is authorized by this slice. The next step is publication after owner direction or
+agreement of another exact slice, not automatic closure of P1 or the complete feature.
+
 ## Phases
+
+Owner continuation (2026-08-30): finish the complete remaining inventory autonomously. The
+[completion/S5 contract](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5#issuecomment-5468407176)
+authorized subsequent bounded slices without asking the owner again. S5–S10 and reviews at
++200/+250/+300/+350/+400/final+432 are now complete locally. No real Update calls or code
+publication were implied. Sensitive surfaces retain explicit gated, credential-safe contracts.
 
 | Phase | Issue scope | Execution order and gate |
 |---|---|---|

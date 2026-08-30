@@ -79,8 +79,9 @@ npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
 ```
 
 The command builds Core and TeamCity first, then invokes the compiled CLI through that profile. Its
-17 proof rows cover local permission inspection, authentication, bounded collection/detail reads,
-build diagnostics, and a two-request JSON-RPC session. It accepts no endpoint or token override and
+19 proof rows cover local permission inspection, authentication, bounded collection/detail reads,
+build diagnostics, VCS root discovery and a two-request JSON-RPC session. Unpaged scoped authoring
+lists are not included; their behavior and all mutations are proven with MSW. It accepts no endpoint or token override and
 refuses `CI` or `GITHUB_ACTIONS` environments before launching the CLI.
 
 ## Required evidence

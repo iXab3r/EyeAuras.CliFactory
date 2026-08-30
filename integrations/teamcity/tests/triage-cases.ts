@@ -1,0 +1,467 @@
+import type { AuthoringCase } from "./authoring-cases.js";
+
+// Independent synthetic wire contracts from the official REST reference.
+const B = "id,buildTypeId,number,state,status";
+const C = "id,version,date,comment";
+const PO = "id,type,identity,currentlyMuted,problem(id),build(id)";
+const TO = "id,name,status,duration,ignored,currentlyMuted,test(id),build(id)";
+const I =
+  "id,state,assignee(id),assignment(text,timestamp),scope(project(id),buildTypes(buildType(id))),target(anyProblem,tests(test(id)),problems(problem(id))),resolution(type,time)";
+const M =
+  "id,assignment(text,timestamp),scope(project(id),buildTypes(buildType(id))),target(anyProblem,tests(test(id)),problems(problem(id))),resolution(type,time)";
+const multiFields = "count,errorCount,operationResult(related(build(id)))";
+const multi = {
+  count: 2,
+  errorCount: 1,
+  operationResult: [{ related: { build: { id: 42 } } }, { related: { build: { id: 43 } } }],
+};
+const multiResult = { count: 2, errorCount: 1, partialFailure: true, buildIds: [42, 43] };
+const build = { id: 42, buildTypeId: "Build", number: "42", state: "running", status: "SUCCESS" };
+const change = { id: 7, version: "abc", date: "20260830T100000+0000", comment: "Synthetic" };
+const problem = { id: "12", type: "execution", identity: "example" };
+const testInfo = { id: "9223372036854775807", name: "example" };
+const problemOccurrence = {
+  ...problem,
+  currentlyMuted: false,
+  problem: { id: "12" },
+  build: { id: 42 },
+};
+const testOccurrence = {
+  ...testInfo,
+  status: "SUCCESS",
+  duration: 5,
+  ignored: false,
+  currentlyMuted: false,
+  test: { id: testInfo.id },
+  build: { id: 42 },
+};
+const target = { kind: "job", jobId: "Build" };
+const investigationInput = {
+  target,
+  state: "TAKEN",
+  assignee: 3,
+  resolution: "manually",
+  comment: "Synthetic",
+};
+const investigation = {
+  id: "buildType:(id:Build)",
+  state: "TAKEN",
+  assignee: { id: 3 },
+  assignment: { text: "Synthetic" },
+  scope: { buildTypes: { buildType: [{ id: "Build" }] } },
+  target: { anyProblem: true },
+  resolution: { type: "manually" },
+};
+const investigationBody = {
+  state: investigation.state,
+  assignee: investigation.assignee,
+  assignment: investigation.assignment,
+  scope: investigation.scope,
+  target: investigation.target,
+  resolution: investigation.resolution,
+};
+const muteInput = {
+  project: "Example",
+  tests: [testInfo.id],
+  resolution: "manually",
+  comment: "Synthetic",
+};
+const muteBody = {
+  assignment: { text: "Synthetic" },
+  scope: { project: { id: "Example" } },
+  target: { tests: { test: [{ id: testInfo.id }] } },
+  resolution: { type: "manually" },
+};
+const mute = { id: 9, ...muteBody };
+const batchArgs = ["--build", "42", "--build", "43"];
+const batchPath = "/builds/multiple/item:(id:42),item:(id:43)";
+const batch = (
+  argv: string[],
+  method: AuthoringCase["method"],
+  suffix: string,
+  body?: unknown,
+  text = false,
+): AuthoringCase => ({
+  argv: ["builds", "batch", ...argv, ...batchArgs],
+  method,
+  path: batchPath + suffix,
+  query: { fields: multiFields },
+  ...(body === undefined ? {} : { body }),
+  text,
+  jsonResponse: true,
+  response: multi,
+  expected: multiResult,
+});
+const buildRead = (
+  name: string,
+  suffix: string,
+  fields: string,
+  response: unknown,
+  expected: unknown,
+): AuthoringCase => ({
+  argv: ["builds", name, "42"],
+  method: "GET",
+  path: "/builds/id:42/" + suffix,
+  query: { fields },
+  response,
+  expected,
+});
+const invArgs = ["--item", JSON.stringify(investigationInput)];
+const muteArgs = ["--item", JSON.stringify(muteInput)];
+export const triageCases: AuthoringCase[] = [
+  {
+    argv: ["builds", "batch", "status", ...batchArgs],
+    method: "GET",
+    path: "/builds/aggregated/item:(id:42),item:(id:43)/status",
+    text: true,
+    response: "SUCCESS",
+    expected: { status: "SUCCESS" },
+  },
+  {
+    argv: ["builds", "batch", "show", ...batchArgs],
+    method: "GET",
+    path: batchPath,
+    query: { fields: `count,nextHref,build(${B})` },
+    response: { build: [build] },
+    expected: [build],
+  },
+  batch(["cancel", "--comment", "Synthetic"], "POST", "", {
+    comment: "Synthetic",
+    readdIntoQueue: false,
+  }),
+  batch(["delete"], "DELETE", ""),
+  batch(["comment", "set", "--text", "Synthetic"], "PUT", "/comment", "Synthetic", true),
+  batch(["comment", "clear"], "DELETE", "/comment"),
+  batch(["pin", "--status", "false"], "PUT", "/pinInfo", { status: false }),
+  batch(["tags", "add", "--tag", "example"], "POST", "/tags", { tag: [{ name: "example" }] }),
+  batch(["tags", "remove", "--tag", "example"], "DELETE", "/tags", { tag: [{ name: "example" }] }),
+  buildRead(
+    "artifact-changes",
+    "artifactDependencyChanges",
+    `count,buildChange(nextBuild(${B}),prevBuild(${B}))`,
+    { buildChange: [{ nextBuild: build }] },
+    [{ nextBuild: build }],
+  ),
+  {
+    argv: ["builds", "reset-finish-cache", "42"],
+    method: "DELETE",
+    path: "/builds/id:42/caches/finishProperties",
+    response: null,
+    expected: { buildId: 42, cacheReset: true },
+  },
+  {
+    argv: ["builds", "finish", "42"],
+    method: "PUT",
+    path: "/builds/id:42/finish",
+    text: true,
+    response: "20260830T100000+0000",
+    expected: { buildId: 42, acceptedFinishTime: "20260830T100000+0000" },
+  },
+  {
+    argv: ["builds", "finish-at", "42", "20260830T100000+0000"],
+    method: "PUT",
+    path: "/builds/id:42/finishDate",
+    text: true,
+    body: "20260830T100000+0000",
+    response: "20260830T100000+0000",
+    expected: { buildId: 42, acceptedFinishTime: "20260830T100000+0000" },
+  },
+  {
+    argv: ["builds", "log", "append", "42", "--text", "Synthetic"],
+    method: "POST",
+    path: "/builds/id:42/log",
+    text: true,
+    body: "Synthetic",
+    response: null,
+    expected: { buildId: 42, appended: true },
+  },
+  {
+    ...buildRead(
+      "unused",
+      "problemOccurrences",
+      `count,problemOccurrence(${PO})`,
+      { problemOccurrence: [problemOccurrence] },
+      [problemOccurrence],
+    ),
+    argv: ["builds", "problem-occurrences", "list", "42"],
+  },
+  {
+    argv: ["builds", "problem-occurrences", "add", "42", "--text", "Synthetic"],
+    method: "POST",
+    path: "/builds/id:42/problemOccurrences",
+    query: { fields: PO },
+    text: true,
+    jsonResponse: true,
+    body: "Synthetic",
+    response: problemOccurrence,
+    expected: problemOccurrence,
+  },
+  buildRead(
+    "related-issues",
+    "relatedIssues",
+    "count,issueUsage(issue(id))",
+    { issueUsage: [{ issue: { id: "TEST-1", url: "https://issues.test/TEST-1" } }] },
+    [{ id: "TEST-1" }],
+  ),
+  {
+    argv: ["builds", "start-agentless", "42", "--requestor", "CLI"],
+    method: "PUT",
+    path: "/builds/id:42/runningData",
+    text: true,
+    jsonResponse: true,
+    query: { fields: B },
+    body: "CLI",
+    response: build,
+    expected: build,
+  },
+  {
+    argv: ["builds", "set-status", "42", "FAILURE", "--comment", "Synthetic"],
+    method: "POST",
+    path: "/builds/id:42/status",
+    query: { fields: `build(${B}),errors(item)` },
+    body: { status: "FAILURE", comment: "Synthetic" },
+    response: { build, errors: { item: ["synthetic-private-detail"] } },
+    expected: { build, errorCount: 1, partialFailure: true },
+  },
+  buildRead(
+    "test-occurrences",
+    "testOccurrences",
+    `count,testOccurrence(${TO})`,
+    { testOccurrence: [testOccurrence] },
+    [testOccurrence],
+  ),
+  {
+    ...buildRead(
+      "unused",
+      "vcsLabels",
+      "count,vcsLabel,text,status,buildId",
+      { vcsLabel: [{ text: "v1", status: "SUCCESS", buildId: 42 }] },
+      [{ text: "v1", status: "SUCCESS", buildId: 42 }],
+    ),
+    argv: ["builds", "vcs-labels", "list", "42"],
+  },
+  {
+    argv: ["builds", "vcs-labels", "add", "42", "--label", "v1", "--root-instance", "8"],
+    method: "POST",
+    path: "/builds/id:42/vcsLabels",
+    query: { fields: "count,vcsLabel,text,status,buildId", locator: "id:8" },
+    text: true,
+    jsonResponse: true,
+    body: "v1",
+    response: { vcsLabel: [{ text: "v1", status: "FAILURE", buildId: 42 }] },
+    expected: [{ text: "v1", status: "FAILURE", buildId: 42 }],
+  },
+  {
+    argv: ["changes", "duplicates", "7"],
+    method: "GET",
+    path: "/changes/id:7/duplicates",
+    query: { fields: `change(${C})` },
+    response: { change: [change] },
+    expected: [change],
+  },
+  {
+    argv: ["changes", "first-builds", "7"],
+    method: "GET",
+    path: "/changes/id:7/firstBuilds",
+    query: { fields: `build(${B})` },
+    response: { build: [build] },
+    expected: [build],
+  },
+  {
+    argv: ["changes", "issues", "7"],
+    method: "GET",
+    path: "/changes/id:7/issues",
+    response: { issue: [{ id: "TEST-1", url: "https://issues.test/TEST-1" }] },
+    expected: [{ id: "TEST-1" }],
+  },
+  {
+    argv: ["changes", "parent-revisions", "7"],
+    method: "GET",
+    path: "/changes/id:7/parentRevisions",
+    response: { item: ["abc"] },
+    expected: ["abc"],
+  },
+  {
+    argv: ["changes", "root-instance", "7"],
+    method: "GET",
+    path: "/changes/id:7/vcsRootInstance",
+    query: { fields: "id,name,vcs-root-id" },
+    response: { id: "8", name: "Git", "vcs-root-id": "Git" },
+    expected: { id: "8", name: "Git", "vcs-root-id": "Git" },
+  },
+  {
+    argv: ["changes", "field", "7", "personal"],
+    method: "GET",
+    path: "/changes/id:7/personal",
+    text: true,
+    response: "false",
+    expected: { changeId: 7, field: "personal", value: "false" },
+  },
+  {
+    argv: ["investigations", "list"],
+    method: "GET",
+    path: "/investigations",
+    query: { locator: "start:0,count:100", fields: `count,nextHref,investigation(${I})` },
+    response: { investigation: [investigation] },
+    expected: [investigation],
+  },
+  {
+    argv: ["investigations", "create", ...invArgs],
+    method: "POST",
+    path: "/investigations",
+    query: { fields: I },
+    body: investigationBody,
+    response: investigation,
+    expected: investigation,
+  },
+  {
+    argv: ["investigations", "create-many", ...invArgs],
+    method: "POST",
+    path: "/investigations/multiple",
+    query: { fields: `count,investigation(${I})` },
+    body: { investigation: [investigationBody] },
+    response: { investigation: [investigation] },
+    expected: [investigation],
+  },
+  {
+    argv: ["investigations", "show", "--target", JSON.stringify(target)],
+    method: "GET",
+    path: "/investigations/buildType:(id:Build)",
+    query: { fields: I },
+    response: investigation,
+    expected: investigation,
+  },
+  {
+    argv: ["investigations", "replace", ...invArgs],
+    method: "PUT",
+    path: "/investigations/buildType:(id:Build)",
+    query: { fields: I },
+    body: investigationBody,
+    response: investigation,
+    expected: investigation,
+  },
+  {
+    argv: ["investigations", "delete", "--target", JSON.stringify(target)],
+    method: "DELETE",
+    path: "/investigations/buildType:(id:Build)",
+    response: null,
+    expected: { deleted: true },
+  },
+  {
+    argv: ["mutes", "list"],
+    method: "GET",
+    path: "/mutes",
+    query: { locator: "start:0,count:100", fields: `count,nextHref,mute(${M})` },
+    response: { mute: [mute] },
+    expected: [mute],
+  },
+  {
+    argv: ["mutes", "create", ...muteArgs],
+    method: "POST",
+    path: "/mutes",
+    query: { fields: M },
+    body: muteBody,
+    response: mute,
+    expected: mute,
+  },
+  {
+    argv: ["mutes", "create-many", ...muteArgs],
+    method: "POST",
+    path: "/mutes/multiple",
+    query: { fields: `count,mute(${M})` },
+    body: { mute: [muteBody] },
+    response: { mute: [mute] },
+    expected: [mute],
+  },
+  {
+    argv: ["mutes", "show", "9"],
+    method: "GET",
+    path: "/mutes/id:9",
+    query: { fields: M },
+    response: mute,
+    expected: mute,
+  },
+  {
+    argv: ["mutes", "delete", "9", "--comment", "Synthetic"],
+    method: "DELETE",
+    path: "/mutes/id:9",
+    text: true,
+    body: "Synthetic",
+    response: null,
+    expected: { muteId: 9, deleted: true },
+  },
+  {
+    argv: ["tests", "list"],
+    method: "GET",
+    path: "/tests",
+    query: { locator: "start:0,count:100", fields: "count,nextHref,test(id,name)" },
+    response: { test: [testInfo] },
+    expected: [testInfo],
+  },
+  {
+    argv: ["tests", "show", testInfo.id],
+    method: "GET",
+    path: "/tests/id:" + testInfo.id,
+    query: { fields: "id,name" },
+    response: testInfo,
+    expected: testInfo,
+  },
+  {
+    argv: ["tests", "occurrence", testInfo.id, "--build", "42"],
+    method: "GET",
+    path: "/testOccurrences/build:(id:42),test:(id:" + testInfo.id + ")",
+    query: { fields: TO },
+    response: testOccurrence,
+    expected: testOccurrence,
+  },
+  {
+    argv: ["problems", "list"],
+    method: "GET",
+    path: "/problems",
+    query: { locator: "start:0,count:100", fields: "count,nextHref,problem(id,type,identity)" },
+    response: { problem: [problem] },
+    expected: [problem],
+  },
+  {
+    argv: ["problems", "show", "12"],
+    method: "GET",
+    path: "/problems/id:12",
+    query: { fields: "id,type,identity" },
+    response: problem,
+    expected: problem,
+  },
+  {
+    argv: ["problems", "occurrence", "12", "--build", "42"],
+    method: "GET",
+    path: "/problemOccurrences/build:(id:42),problem:(id:12)",
+    query: { fields: PO },
+    response: problemOccurrence,
+    expected: problemOccurrence,
+  },
+  ...(["output-parameters", "resulting-properties"] as const).flatMap((kind): AuthoringCase[] => [
+    {
+      argv: ["builds", kind, "list", "42"],
+      method: "GET",
+      path: "/builds/id:42/" + kind,
+      query: { fields: "count,property(name)" },
+      response: { property: [{ name: "env.MODE", value: "synthetic-private-value" }] },
+      expected: ["env.MODE"],
+    },
+    {
+      argv: ["builds", kind, "exists", "42", "env.MODE"],
+      method: "GET",
+      path: "/builds/id:42/" + kind + "/env.MODE",
+      text: true,
+      response: "synthetic-private-value",
+      expected: { name: "env.MODE", exists: true },
+    },
+  ]),
+  {
+    argv: ["changes", "attributes", "7"],
+    method: "GET",
+    path: "/changes/id:7/attributes",
+    query: { fields: "count,entry(name)" },
+    response: { entry: [{ name: "example", value: "synthetic-private-value" }] },
+    expected: ["example"],
+  },
+];
