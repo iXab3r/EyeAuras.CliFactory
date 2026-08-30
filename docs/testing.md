@@ -83,6 +83,19 @@ The command builds Core and TeamCity first, then invokes the compiled CLI throug
 build diagnostics, and a two-request JSON-RPC session. It accepts no endpoint or token override and
 refuses `CI` or `GITHUB_ACTIONS` environments before launching the CLI.
 
+### RANDOM.ORG example
+
+`integrations/random-rest` uses MSW at native fetch and a test-only AppArguments environment for
+packaged-process checks. It is anonymous: no keyring credentials or fake login are needed.
+The explicit `npm run test:integration --workspace @eyeauras/random-rest-cli -- --profile <name>`
+uses a normally configured current-user profile, including its operator contact for User-Agent.
+Its four `node:test` cases cover signed-range integers, repeated draws from 0..1, a signed sequence
+and a minimal two-item sequence (15 values total). Every case invokes the packaged CLI and checks output
+shape/range/uniqueness without printing the values. They run sequentially; after the first failure,
+remaining cases are skipped. A zero-test runner result is a failure, not a successful live proof.
+The default offline suite rehearses this exact runner and child processes under MSW; only an
+explicit run against the real service is live evidence. Never run parallel live proofs.
+
 ## Required evidence
 
 Changes to application-data behavior use an injected `AppArgumentsEnvironment`; tests never redirect

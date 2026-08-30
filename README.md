@@ -139,6 +139,7 @@ state remain available for the whole session.
 | `packages/core` | Reusable CLI tree, AppArguments, output, profile, auth, permissions, and JSON-RPC primitives |
 | `integrations/teamcity` | First in-house product and executable example |
 | `integrations/teamcity/README.md` | Shipped TeamCity command tree and operating guide |
+| `integrations/random-rest` | Minimal anonymous RANDOM.ORG HTTP example (two commands) |
 | `docs/DESIGN.md` | Canonical architecture and invariants |
 | `docs/integrations.md` | How to build an in-repo or external integration |
 | `docs/testing.md` | Mock-first and opt-in integration-test workflow |
@@ -160,7 +161,7 @@ npm test
 npm run teamcity -- --help
 ```
 
-No service URL is compiled into the public CLI. Configure an authenticated profile explicitly
+No service URL is compiled into the TeamCity CLI. Configure an authenticated profile explicitly
 before making a real request:
 
 ```text
@@ -185,6 +186,14 @@ the build queue, agents, and three explicitly gated operations: start a job, can
 build, and cancel a queued build. See the [TeamCity CLI guide](integrations/teamcity/README.md).
 
 On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login --token-stdin`.
+
+## RANDOM.ORG example
+
+The [RANDOM.ORG example](integrations/random-rest/README.md) provides `random-rest-cli integers`
+and `random-rest-cli sequence` using the older public HTTP API without an API key. Configure only
+an operator contact for User-Agent; the public service URL has an explicit default. It demonstrates
+the existing factory without adding IPC or a browser dependency. Both commands support `--json`
+and stdio JSON-RPC. Run `npm exec -- random-rest-cli --help` after installing/building the workspace.
 
 ## Development principles
 

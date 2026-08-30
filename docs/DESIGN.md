@@ -201,6 +201,21 @@ service-specific switch and HTTP behavior stay in that integration. Authenticati
 optionally revalidate the stored token, but must never print it. Logout deletes only the active
 profile's credential.
 
+## RANDOM.ORG HTTP example
+
+`random-rest-cli` is an anonymous example using the owner-selected older HTTP interface, despite
+its obsolete status. Its two service commands, `integers` and `sequence`, share an integration-local
+client contract and return `{ values: number[] }`. They support normal human/JSON/JSON-RPC output
+and profile-specific ReadOnly permission checks. ReadOnly here means no user-record mutation;
+generation consumes the service's IP-based random-bit quota. Output is bounded to 100 integers.
+Both commands require `min < max`; the legacy service does not accept equal bounds.
+
+The normal profile defaults to the explicitly selected public RANDOM.ORG HTTPS origin and requires
+operator contact information for User-Agent, not credentials. It has no auth flow or keyring proof
+requirement. HTTP behavior includes a quota check, timeout, cancellation and strict result parsing.
+No Core changes, IPC server, cross-process scheduler or Playwright backend are part of this slice.
+See the [operating guide](../integrations/random-rest/README.md) for exact options and limitations.
+
 ## Permission contract
 
 Enabling `permissions: {}` adds standard `permissions list/grant/revoke` commands. Integration

@@ -1,0 +1,20 @@
+{
+  "name": "@eyeauras/random-rest-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Small keyless RANDOM.ORG HTTP example built with AI CLI Factory.",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "bin": { "random-rest-cli": "./dist/src/bin.js" },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/src/bin.js",
+    "test:compiled": "node --test dist/tests/*.test.js",
+    "pretest:integration": "npm run build --workspace @eyeauras/cli-factory && npm run build",
+    "test:integration": "node dist/integration-tests/profile-proof.js"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": { "@eyeauras/cli-factory": "0.1.0" },
+  "devDependencies": { "msw": "^2.11.0" }
+}
