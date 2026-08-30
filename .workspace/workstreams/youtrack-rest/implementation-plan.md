@@ -2,7 +2,7 @@
 
 **Lifecycle:** active — v1 functionality and AR118 complete; formal release evidence pending.  
 **Feature scope:** [GitHub Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6).  
-**Current milestone:** [PR #12](https://github.com/iXab3r/EyeAuras.CliFactory/pull/12) is published; independently review its exact diff, investigate failing CI, fix and push reviewed corrections, then reconcile final-head checks. The preceding PV1/PV2/PV3 cycle is complete; merge, release and live writes are not authorized.
+**Current milestone:** PR #12 review/fixes are complete and source head `005254d6` passed all six CI jobs. Final documentation/privacy/publication and that later head's CI remain bookkeeping; no source correction remains. The preceding PV1/PV2/PV3 cycle is complete; merge, release and live writes are not authorized.
 **Accepted REST operations:** 118/118 (98 ReadOnly, 20 Update). **Accepted derived download:** 1/1, counted separately.
 
 Issue #6 owns the v1 contract; this plan orders work and the ledger records evidence. The user
@@ -24,8 +24,10 @@ owners. Fixtures must use canonical temp roots; production no-links safeguards s
 
 Corrected local source is frozen and independently accepted: root 423/423 tests (47 Core / 41
 TeamCity / 335 YouTrack) and all 24 freshly built bounded GETs passed. R1/R2 independent re-review
-passed; R3 static review passed, with actual corrected macOS CI still pending. Root will stage,
-privacy-check, commit and push; do not invent the new head or transfer old CI results to it.
+passed; R3 static review passed, with actual corrected macOS CI still pending. Root staging,
+privacy review, commit and push completed at `005254d6fc4981a1fafa0a6a715c9dbd92f946aa`;
+source CI run 33314691369 passed all six jobs at that exact head, including macOS. Final
+management-only head CI is verified separately after its commit/push; no future result is claimed.
 
 1. **PR1 — publish branch and PR (done).** Root refreshes base/remote state and privacy evidence,
    pushes the existing branch without waiting for a management-only commit, and creates the PR to
@@ -34,11 +36,11 @@ privacy-check, commit and push; do not invent the new head or transfer old CI re
 2. **PR2 — independent PR review (done locally).** Review the exact base/head diff with delegated Core,
    integration and safety ownership. Existing local reviews are evidence, not a substitute for this
    review. Record actionable findings, scope and an explicit verdict against those SHAs.
-3. **PR3 — fixes, verification and push (reviewed; commit/push pending).** Agents fix accepted findings; independently
+3. **PR3 — fixes, verification and push (done).** Agents fix accepted findings; independently
    re-review them and run focused regressions plus the coherent repository suite. Root runs privacy
    and staged review before each fixing commit, pushes normally and records the new head. Repeat
    until required findings close; if none exist, record that result without an empty commit.
-4. **PR4 — final-head CI and handover (pending).** Verify required checks and review evidence on the
+4. **PR4 — final-head CI and handover (source CI passed; final docs-head verification pending).** Verify required checks and review evidence on the
    exact final remote head, investigate failures, and reconcile PR/Issue/workstream status. Do not
    transfer an earlier green result to a newer commit. Leave merge/release untouched and distinguish
    code-review completion from formal Issue closure; absence of CI is not a passing CI result.

@@ -2,7 +2,7 @@
 
 **Lifecycle:** active — v1 functionality complete; formal release evidence pending  
 **Feature spec:** [GitHub Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6), open.  
-**Current phase:** PR2 local review complete; corrections independently accepted with 423 tests and 24 live GETs PASS. PR3 commit/push and PR4 corrected-head CI pending. Prior PV1/PV2/PV3 cycle complete. **Accepted REST operations: 118/118 (98 ReadOnly, 20 Update); derived capability: 1/1.**
+**Current phase:** PR2/PR3 complete; corrected source 005254d6 passed CI 6/6. PR4 awaits final documentation commit/publication and that later head's CI, with no source correction outstanding. Prior PV1/PV2/PV3 cycle complete. **Accepted REST operations: 118/118 (98 ReadOnly, 20 Update); derived capability: 1/1.**
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
@@ -26,8 +26,8 @@
 | PV3 | Shared authoring analysis and bounded trials across YouTrack + TeamCity | done | common_discovery / independent reviewers / root | Technical/authoring and final privacy PASS; source commit 869e7aa9; 418 tests and 24 bounded GETs PASS |
 | PR1 | Publish branch and PR to main | done | root / privacy reviewer | Remote head 7a9811f verified; OPEN PR #12 / base e0d4d1b; exact body readback PASS |
 | PR2 | Independent exact-PR review | done | pr_core_review / pr_safety_review / pr_operations_review | Original review complete; R1/R2 independent re-review PASS, R3 static PASS; actual macOS CI belongs to PR4 |
-| PR3 | Fix, independently verify and push corrections | awaiting review | source owners / reviewers / root | Fixes frozen and locally accepted: 423/423 plus 24 GETs; root final privacy/staging, commit and push pending |
-| PR4 | Final-head CI and handover | pending | root / reviewers | Final remote checks and verdict pending; no merge/release authorization |
+| PR3 | Fix, independently verify and push corrections | done | source owners / reviewers / root | Independent acceptance, 423/423 and 24 GETs; privacy PASS; pushed 005254d6 |
+| PR4 | Final-head CI and handover | awaiting review | root / reviewers | Source 005254d6 CI 6/6 PASS; final documentation-head checks/publication pending; no merge/release authorization |
 | Delivery | Formal release and Issue/workstream close-out | pending | root / owner | Functionality, linked v2 and local baseline commit complete; closing link/CI/close-out still pending; Issue stays open |
 
 ## Current handover — publish PR, independently review and fix
@@ -46,9 +46,12 @@
   passed. Root's fresh full suite passed **423/423** (47 Core / 41 TeamCity / 335 YouTrack), and the
   fresh built normal-profile proof passed all 24 fixed GETs with zero failures/skips and no raw data,
   downloads or mutations. `research/pr-review-receipt.md` records the source/focused witnesses.
-- Source is frozen and locally accepted. Root now stages/privacy-checks, commits and pushes; the
-  corrected commit hash and new-head CI are still pending. Keep original `research/pr-body.md`
-  unchanged for this fix commit; a later update will include actual final-head evidence.
+- Root committed and pushed corrected source `005254d6fc4981a1fafa0a6a715c9dbd92f946aa`, tree
+  `0249da1b83df0097ab9aab2ca494e80334e6f67e`, after privacy PASS over 265 files/full patch; worktree
+  clean immediately afterward. Source CI run 33314691369 passed all six Linux/Windows/macOS
+  Node 22/24 jobs at that exact head, closing R3. Original `research/pr-body.md` stays frozen;
+  the reviewed candidate and `research/pr-issue-status.md` record current facts without replacing
+  frozen scope/history. Root still verifies any final documentation-only head after commit/push.
 - Coverage remains 118 REST plus download 1/1; PV3 removed 129 wrappers in both real consumers with
   +51 Core source lines. PV1/PV2/PV3 are complete. Existing frozen reports/manifests remain unchanged;
   Issue #7 owns the 163 deferred rows.
@@ -871,3 +874,24 @@ seven prototype-like names closed R2; independent safety source plus 10 compiled
 R1. R3 static fixture review passed while actual macOS CI awaits the corrected pushed head.
 PR2 is done locally. PR3 awaits root final privacy/staging, commit and push; no new hash or final
 CI success is invented. The original published PR body is unchanged and included in this fix set.
+
+
+## 2026-08-30 — reviewed correction commit pushed; new CI pending
+
+Root committed/pushed `005254d6fc4981a1fafa0a6a715c9dbd92f946aa`, tree
+`0249da1b83df0097ab9aab2ca494e80334e6f67e`, after privacy PASS over 265 files and the full patch;
+worktree clean immediately afterward. PR3 is done; PR4 awaits this head's CI. No green matrix or
+final documentation head is claimed. A separate reviewed PR-body candidate preserves the original
+published body; after source CI passes, root will commit final management receipts, verify that
+head's CI and publish current PR/Issue delivery facts without merge or closure.
+
+
+## 2026-08-30 — corrected source CI green; final documentation handover
+
+Root verified [run 33314691369](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33314691369)
+SUCCESS for all six Ubuntu/Windows/macOS Node 22/24 jobs on `005254d6fc4981a1fafa0a6a715c9dbd92f946aa`.
+R3 is closed by actual macOS execution; R1/R2 independent verdicts and 423/24 source checks remain valid.
+No source correction remains. Updated PR candidate and three Issue intro replacements are ready for
+root guarded publication, preserving original tails. Root commits/pushes final management receipts
+only after privacy and checks that new head's CI externally; no self-hash or unrun CI result is claimed.
+PR4 records source CI success while that final documentation gate remains pending. No merge/release.
