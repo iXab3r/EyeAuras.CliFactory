@@ -42,11 +42,18 @@ More specific `AGENTS.md` files override this router only inside their directory
 9. **Verify in proportion to risk.** Run the narrow affected tests during work and `npm test`
    before declaring a repository-wide change complete.
 10. **Commit hygiene.** Never rewrite pushed history or force-push. Inspect staged changes for
-   secrets and generated noise before committing.
+   generated noise and run the pre-commit privacy gate before committing.
 11. **Break cleanly.** This early-stage project has no backward-compatibility obligation. Do not
    retain legacy branches, compatibility shims, deprecated aliases, or parallel old/new paths.
    Replace the old contract and update all in-repo consumers, tests, and docs together. Document
    required user reconfiguration; never silently delete existing user data.
+12. **Pre-commit privacy gate.** Before every commit, check both the full tracked tree and the
+   staged diff, including code, docs, fixtures, scripts, and workstream records. Look for passwords,
+   tokens, API/access/private keys, cookies, credential-bearing URLs, private/internal server
+   addresses, personal data, and unsanitized service responses. Use clearly synthetic test values,
+   never real credentials or private service data. Report suspicious locations without echoing
+   sensitive values; unresolved findings block commit and push. Only explicit owner approval can
+   permit specific non-secret metadata; it never permits credentials or unrelated new disclosures.
 
 ## Function role: Reconciliation Lead
 
