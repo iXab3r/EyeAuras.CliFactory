@@ -57,7 +57,7 @@ P4 | Finalize the only supported path and reconcile | done | Reconciliation Lead
 
 ### 2026-08-30 — P4 reviewed and workstream closed out
 
-- Implementation: [464e079](https://github.com/iXab3r/EyeAuras.CliFactory/commit/464e0794b5ce89105af6e6ab75edc204f0da7788).
+- Implementation (history-sanitized equivalent): [1e18191](https://github.com/iXab3r/EyeAuras.CliFactory/commit/1e181913c7d5b240f6b6121a4357b032f9f39229).
 - [CI run 33282403466](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33282403466)
   passed all six jobs: Windows, Linux, and macOS on Node 22 and 24. CI ran only the offline suite.
 - Reconciliation checked all four phases and the Issue acceptance checklist against the shipped

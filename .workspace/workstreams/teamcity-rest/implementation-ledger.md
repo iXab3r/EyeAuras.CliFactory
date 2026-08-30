@@ -19,7 +19,7 @@ Implementation evidence:
 - `integrations/teamcity/tests/client.test.ts` exercises bearer requests, locators, empty build
   status, credential-safe errors, and CLI JSON through MSW.
 - Core tests prove command/JSON-RPC reuse and profile isolation.
-- Commit `ab33fa0` passed GitHub Actions on Windows, macOS, and Linux with Node 22 and 24:
+- Commit `305a7c4` (history-sanitized equivalent) passed GitHub Actions on Windows, macOS, and Linux with Node 22 and 24:
   <https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33256576311>.
 
 Review verdict: **passed**. The baseline is real and reusable; broader TeamCity REST coverage is
@@ -98,7 +98,7 @@ In progress evidence:
 
 Final verification:
 
-- implementation commit: [`9c9b35e`](https://github.com/iXab3r/EyeAuras.CliFactory/commit/9c9b35eff3e079ea9254578a7a2d06605f515440);
+- implementation commit (history-sanitized equivalent): [`6e01200`](https://github.com/iXab3r/EyeAuras.CliFactory/commit/6e012002e4aa6905295eb24bb28e5b48a550ce76);
 - GitHub Actions: [run 33260409427](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33260409427), all six Windows/macOS/Linux × Node 22/24 jobs passed;
 - staged diff check and credential-pattern scan passed; generated `dist` output and raw discovery
   payloads were not committed.
