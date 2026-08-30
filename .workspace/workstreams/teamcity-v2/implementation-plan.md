@@ -1,8 +1,10 @@
 # TeamCity v2 — implementation plan
 
-Lifecycle: active for publication/CI closure. S1–S10 and final+432 review complete locally:
-449/449 routes exposed. No implementation inventory remains; code is not committed/pushed.
-Final evidence and limitations: [final-review.md](final-review.md).
+Lifecycle: active for PR corrections/CI closure. S1–S10 expose449/449 routes and are published
+in [PR #13](https://github.com/iXab3r/EyeAuras.CliFactory/pull/13) as717b346.
+[PR review](pr-review.md) records two open findings and failed macOS/Windows CI; not ready to merge.
+Earlier slice sections below are historical local evidence; current readiness is owned by the ledger.
+Final inventory evidence and limitations: [final-review.md](final-review.md).
 Feature contract: [Issue #5](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5).
 Working branch: `feature/teamcity-v2`, based on `main` at `e0d4d1b`.
 

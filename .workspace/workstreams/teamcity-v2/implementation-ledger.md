@@ -1,7 +1,8 @@
 # TeamCity v2 — implementation ledger
 
-Lifecycle: active for publication/CI closure. S1–S10 and final+432 review accepted locally;
-449/449 frozen routes exposed, no remaining implementation inventory. Code publication pending.
+Lifecycle: active for PR corrections/CI closure. S1–S10 expose449/449 frozen routes;
+implementation717b346 is published in [PR #13](https://github.com/iXab3r/EyeAuras.CliFactory/pull/13).
+[PR review](pr-review.md) found two open download/CI issues; not ready to merge.
 Feature contract: [Issue #5](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5).
 Working branch: `feature/teamcity-v2`.
 
@@ -12,7 +13,7 @@ Working branch: `feature/teamcity-v2`.
 | 2 | Advanced launch and queue | done | Main agent / integration author | Local S4/S5/S6 contracts and safety checks passed |
 | 3 | Build evidence, annotations and triage | done | Main agent / integration author | Local S6/S10 contracts, real saved-byte tests and final review passed |
 | 4 | Infrastructure and configuration | done | Main agent / integration author | Local S7/S8/S9 gates and contract evidence passed; native reset limitation explicit |
-| 5 | Administration and final reconciliation | in progress | Main agent / Reconciliation Lead | Local implementation/reconciliation passed; publication, CI and closing reference still pending |
+| 5 | Administration and final reconciliation | awaiting review | Main agent / Reconciliation Lead | Published PR #13; R1/R2 remain open, CI2/6 pass; no merge/Issue closure |
 
 ## 2026-08-30 — phase 0
 
@@ -270,3 +271,22 @@ feature/teamcity-v2, HEAD1d36395833101c920f74ecdf2749ef2f2f6a0575, staged diff e
 push, real Update, permission/profile change or private response artifact. Unrelated dirty
 browser/runtime design edits were preserved. No implementation batch remains; publication/CI
 closure follows only with the appropriate authority and evidence, as specified above.
+
+## 2026-08-30 — publication and PR review
+
+Owner authorized commit, push, PR and review, including Core/Common reuse opportunities.
+Implementation717b346 was committed after581 passing local tests and a clean full-tree/staged-diff
+privacy gate, then pushed to feature/teamcity-v2 and published as PR #13. Unrelated browser/IPC/auth
+design hunks remained unstaged. No merge or history rewrite.
+
+[Focused review](pr-review.md) supersedes the local-only readiness verdict: CI passes both Linux
+jobs but fails both macOS and Windows jobs; path handling of test-owned roots prevents download
+tests from exercising their intended assertions (R1/P1). An offline compiled-command reproduction
+also saves a206 partial response as a normal successful download (R2/P2). Findings are not fixed
+in this review-only phase. Route exposure stays449/449, but acceptance/closure is not satisfied.
+
+Existing YouTrack and RANDOM.ORG work provides concrete reuse evidence for typed command binding,
+bounded private file output, option parsing and test setup. Multi-secret lifecycle remains a
+candidate, not an authorized new Core framework. Core/DESIGN overlaps with YouTrack PR #12 need
+reconciliation before combining the changes. Next: implement R1/R2 when requested, rerun local
+tests and the six-job matrix, then re-review; do not merge or close Issue #5 yet.
