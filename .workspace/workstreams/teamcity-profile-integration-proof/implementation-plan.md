@@ -1,6 +1,6 @@
 # TeamCity profile-backed integration proof — implementation plan
 
-Lifecycle: `active`
+Lifecycle: `complete`
 
 Issue: [#4](https://github.com/iXab3r/EyeAuras.CliFactory/issues/4)
 

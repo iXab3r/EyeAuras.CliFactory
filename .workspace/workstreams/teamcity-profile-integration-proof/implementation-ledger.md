@@ -7,7 +7,7 @@ Phase | Scope | Status | Agent | Review
 P1 | Isolate the execution lane | done | service integration author | reviewed
 P2 | Prove the real product boundary | done | service integration author | reviewed
 P3 | Close the bounded ReadOnly inventory | done | service integration author | reviewed
-P4 | Finalize the only supported path and reconcile | awaiting review | Reconciliation Lead | pending CI
+P4 | Finalize the only supported path and reconcile | done | Reconciliation Lead | reviewed
 
 ## Evidence log
 
@@ -54,3 +54,20 @@ P4 | Finalize the only supported path and reconcile | awaiting review | Reconcil
 - `npm test`: Core 14/14 and TeamCity 28/28 passed; zero skips and no real-service proof discovery.
 - `git diff --check`: clean.
 - Remaining gate: publish the implementation and link successful CI before Issue closure.
+
+### 2026-08-30 — P4 reviewed and workstream closed out
+
+- Implementation: [464e079](https://github.com/iXab3r/EyeAuras.CliFactory/commit/464e0794b5ce89105af6e6ab75edc204f0da7788).
+- [CI run 33282403466](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33282403466)
+  passed all six jobs: Windows, Linux, and macOS on Node 22 and 24. CI ran only the offline suite.
+- Reconciliation checked all four phases and the Issue acceptance checklist against the shipped
+  runner, deterministic tests, real-profile local proof, and public documentation. No status drift
+  or remaining evidence gaps were found.
+- Delivered: the profile-backed local proof is the only real-service test path; the previous
+  environment-injected test is deleted, and clean breaks are documented as project policy.
+- Final verification: Core 14/14 and TeamCity 28/28 offline tests; local real-profile proof 17/17;
+  CI refusal before CLI invocation; all six CI jobs green; clean diff checks.
+- Known failures: none within this scope.
+- Deferred candidates: none required for Issue #4. Generic runner extraction and fixture recording
+  remain explicit non-goals, not incomplete implementation.
+- Verdict: complete; Issue #4 is ready for closure with this evidence.
