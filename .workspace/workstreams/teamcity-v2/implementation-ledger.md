@@ -6,7 +6,7 @@ Working branch: `feature/teamcity-v2`.
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
-| 0 | Census, Issue and branch setup | awaiting review | Main agent / Reconciliation Lead | Issue and linked branch created; publication/privacy verification pending |
+| 0 | Census, Issue and branch setup | done | Main agent / Reconciliation Lead | Pass: Issue body, linked branch, nine published blobs, privacy gate and 42 tests verified |
 | 1 | Project/job authoring | pending | Unassigned | Exact slice contract required in Issue before code |
 | 2 | Advanced launch and queue | pending | Unassigned | Not started |
 | 3 | Build evidence, annotations and triage | pending | Unassigned | Not started |
@@ -33,8 +33,15 @@ state; implement follow-ups on `feature/teamcity-v2`. This turn sets up tracking
 - Retrieved the published Issue and compared its complete body with the reviewed draft: exact
   match, all 449 rows present, Issue open and labeled enhancement. Verified the linked branch.
 - Re-ran `npm test` on the feature branch: 42 passed (14 Core + 28 TeamCity).
-- Tracker files and the frozen audit are prepared for publication; phase 0 remains awaiting review
-  until the committed branch artifacts and links are verified remotely.
+- Published the frozen audit and workstream in commit `1b59539` on `feature/teamcity-v2`.
+  GitHub's remote ref matched local HEAD; all nine published artifact blob hashes matched the
+  committed tree. The existing `main` ref remained unchanged.
+- Before that commit, the privacy gate scanned the full 73-file tracked tree and the staged
+  nine-file diff: no unresolved findings. `git diff --cached --check` passed; no generated build
+  output or unrelated files were staged.
+
+Phase 0 review verdict: passed. The requested tracker and linked feature branch are published.
+Phases 1–5 remain pending; no new TeamCity API operation has been implemented by this setup.
 
 ## Next executable step
 
