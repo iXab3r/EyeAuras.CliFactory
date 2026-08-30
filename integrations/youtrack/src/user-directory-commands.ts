@@ -16,7 +16,7 @@ export const userDirectoryUserChildren = [
     "get <user>",
     "Read a user by database ID or login",
     async ({ args, options }, context) =>
-      getUser(await connection(context), String(args.user), readOptions(options)),
+      getUser(await connection(context), args.user, readOptions(options)),
     { permission: Permission.ReadOnly, options: projectionOptions },
   ),
 ];
@@ -33,7 +33,7 @@ export const userDirectoryBundleChildren = [
       "get <bundle>",
       "Read a user bundle without expanding membership",
       async ({ args, options }, context) =>
-        getUserBundle(await connection(context), String(args.bundle), readOptions(options)),
+        getUserBundle(await connection(context), args.bundle, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("member", "Inspect all bundle users, including users inherited from attached groups", [
@@ -41,7 +41,7 @@ export const userDirectoryBundleChildren = [
         "list <bundle>",
         "List one page of aggregated users, both direct and through groups",
         async ({ args, options }, context) =>
-          listUserBundleMembers(await connection(context), String(args.bundle), readOptions(options)),
+          listUserBundleMembers(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
     ]),
@@ -50,7 +50,7 @@ export const userDirectoryBundleChildren = [
         "list <bundle>",
         "List one page of attached groups without expanding their users",
         async ({ args, options }, context) =>
-          listUserBundleGroups(await connection(context), String(args.bundle), readOptions(options)),
+          listUserBundleGroups(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
@@ -59,8 +59,8 @@ export const userDirectoryBundleChildren = [
         async ({ args, options }, context) =>
           getUserBundleGroup(
             await connection(context),
-            String(args.bundle),
-            String(args.group),
+            args.bundle,
+            args.group,
             readOptions(options),
           ),
         { permission: Permission.ReadOnly, options: projectionOptions },
@@ -71,7 +71,7 @@ export const userDirectoryBundleChildren = [
         "list <bundle>",
         "List one page of directly added accounts, excluding group-only membership",
         async ({ args, options }, context) =>
-          listUserBundleIndividuals(await connection(context), String(args.bundle), readOptions(options)),
+          listUserBundleIndividuals(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
@@ -80,8 +80,8 @@ export const userDirectoryBundleChildren = [
         async ({ args, options }, context) =>
           getUserBundleIndividual(
             await connection(context),
-            String(args.bundle),
-            String(args.user),
+            args.bundle,
+            args.user,
             readOptions(options),
           ),
         { permission: Permission.ReadOnly, options: projectionOptions },

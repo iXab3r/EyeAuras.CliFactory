@@ -43,7 +43,7 @@ export const timeSettingsRootCommands = [
       "get <type>",
       "Read a global work item type by database ID",
       async ({ args, options }, context) =>
-        getWorkItemType(await connection(context), String(args.type), readOptions(options)),
+        getWorkItemType(await connection(context), args.type, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),
@@ -55,7 +55,7 @@ export const timeSettingsProjectChildren = [
       "get <project>",
       "Read project time tracking and its estimate and spent-time fields",
       async ({ args, options }, context) =>
-        getProjectTimeSettings(await connection(context), String(args.project), readOptions(options)),
+        getProjectTimeSettings(await connection(context), args.project, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),
@@ -64,7 +64,7 @@ export const timeSettingsProjectChildren = [
       "list <project>",
       "List one page of project work item types",
       async ({ args, options }, context) =>
-        listProjectWorkItemTypes(await connection(context), String(args.project), readOptions(options)),
+        listProjectWorkItemTypes(await connection(context), args.project, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
@@ -72,8 +72,8 @@ export const timeSettingsProjectChildren = [
       "Read a work item type attached to the project",
       async ({ args, options }, context) => getProjectWorkItemType(
         await connection(context),
-        String(args.project),
-        String(args.type),
+        args.project,
+        args.type,
         readOptions(options),
       ),
       { permission: Permission.ReadOnly, options: projectionOptions },

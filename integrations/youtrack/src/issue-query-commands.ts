@@ -105,7 +105,7 @@ export const queryRootCommands = [
       "Read a saved search by database ID",
       async ({ args, options }, context) => getSavedQuery(
         await connection(context),
-        String(args.queryID),
+        args.queryID,
         readOptions(options),
       ),
       {

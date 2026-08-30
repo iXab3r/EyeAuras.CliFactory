@@ -27,7 +27,7 @@ export const articlesRootCommands = [
       "get <article>",
       "Read article content and parent identity",
       async ({ args, options }, context) =>
-        getArticle(await connection(context), String(args.article), readOptions(options)),
+        getArticle(await connection(context), args.article, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command(
@@ -43,7 +43,7 @@ export const articlesRootCommands = [
       async ({ args, options }, context) =>
         updateArticle(
           await connection(context),
-          String(args.article),
+          args.article,
           options.body,
           readOptions(options),
         ),
@@ -54,7 +54,7 @@ export const articlesRootCommands = [
         "list <article>",
         "List one page of comments",
         async ({ args, options }, context) =>
-          listArticleComments(await connection(context), String(args.article), readOptions(options)),
+          listArticleComments(await connection(context), args.article, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
@@ -63,8 +63,8 @@ export const articlesRootCommands = [
         async ({ args, options }, context) =>
           getArticleComment(
             await connection(context),
-            String(args.article),
-            String(args.comment),
+            args.article,
+            args.comment,
             readOptions(options),
           ),
         { permission: Permission.ReadOnly, options: projectionOptions },
@@ -75,7 +75,7 @@ export const articlesRootCommands = [
         async ({ args, options }, context) =>
           addArticleComment(
             await connection(context),
-            String(args.article),
+            args.article,
             options.body,
             readOptions(options),
           ),
@@ -87,8 +87,8 @@ export const articlesRootCommands = [
         async ({ args, options }, context) =>
           updateArticleComment(
             await connection(context),
-            String(args.article),
-            String(args.comment),
+            args.article,
+            args.comment,
             options.body,
             readOptions(options),
           ),
@@ -104,7 +104,7 @@ export const articlesProjectChildren = [
       "list <project>",
       "List one page of articles in a project",
       async ({ args, options }, context) =>
-        listProjectArticles(await connection(context), String(args.project), readOptions(options)),
+        listProjectArticles(await connection(context), args.project, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
   ]),

@@ -14,7 +14,7 @@ export const agileRootCommands = [
       "get <agile>",
       "Read an agile board without expanding its sprints or projects",
       async ({ args, options }, context) =>
-        getAgile(await connection(context), String(args.agile), readOptions(options)),
+        getAgile(await connection(context), args.agile, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),
@@ -23,14 +23,14 @@ export const agileRootCommands = [
       "list <agile>",
       "List one page of a board's sprints",
       async ({ args, options }, context) =>
-        listSprints(await connection(context), String(args.agile), readOptions(options)),
+        listSprints(await connection(context), args.agile, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
       "get <agile> <sprint>",
       "Read a sprint; use current for the board's current sprint",
       async ({ args, options }, context) =>
-        getSprint(await connection(context), String(args.agile), String(args.sprint), readOptions(options)),
+        getSprint(await connection(context), args.agile, args.sprint, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command(
@@ -38,7 +38,7 @@ export const agileRootCommands = [
       "Create with name; optional previousSprint.id moves unresolved issues from that sprint. " +
         "isDefault: true automatically adds matching new issues. Neither setting is inferred.",
       async ({ args, options }, context) =>
-        createSprint(await connection(context), String(args.agile), options.body, readOptions(options)),
+        createSprint(await connection(context), args.agile, options.body, readOptions(options)),
       { permission: Permission.Update, options: [...bodyOptions, ...projectionOptions] },
     ),
     command(
@@ -48,8 +48,8 @@ export const agileRootCommands = [
       async ({ args, options }, context) =>
         updateSprint(
           await connection(context),
-          String(args.agile),
-          String(args.sprint),
+          args.agile,
+          args.sprint,
           options.body,
           readOptions(options),
         ),

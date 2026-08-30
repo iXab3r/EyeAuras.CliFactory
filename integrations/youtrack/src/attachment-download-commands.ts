@@ -7,8 +7,8 @@ export const attachmentDownloadCommand = command(
   "Download one attachment into this profile's downloads directory without overwriting files",
   async ({ args, options }, context) => downloadIssueAttachment(
     await connection(context),
-    String(args.issueID),
-    String(args.attachmentID),
+    args.issueID,
+    args.attachmentID,
     context.appArguments.AppDataDirectory,
     {
       ...(typeof options.name === "string" ? { name: options.name } : {}),

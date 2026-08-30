@@ -17,7 +17,7 @@ export const attachmentsIssueChildren = [
       async ({ args, options }, context) =>
         listIssueAttachments(
           await connection(context),
-          String(args.issueID),
+          args.issueID,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: pageOptions },
@@ -28,8 +28,8 @@ export const attachmentsIssueChildren = [
       async ({ args, options }, context) =>
         getIssueAttachment(
           await connection(context),
-          String(args.issueID),
-          String(args.attachmentID),
+          args.issueID,
+          args.attachmentID,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: projectionOptions },
@@ -40,7 +40,7 @@ export const attachmentsIssueChildren = [
       async ({ args, options }, context) =>
         uploadIssueAttachment(
           await connection(context),
-          String(args.issueID),
+          args.issueID,
           String(options.file),
         ),
       {

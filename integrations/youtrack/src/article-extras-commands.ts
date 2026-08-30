@@ -16,7 +16,7 @@ export const articlesExtraChildren = [
       "list <article>",
       "List one page of attachment metadata without downloading files",
       async ({ args, options }, context) =>
-        listArticleAttachments(await connection(context), String(args.article), readOptions(options)),
+        listArticleAttachments(await connection(context), args.article, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
@@ -25,8 +25,8 @@ export const articlesExtraChildren = [
       async ({ args, options }, context) =>
         getArticleAttachment(
           await connection(context),
-          String(args.article),
-          String(args.attachment),
+          args.article,
+          args.attachment,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: projectionOptions },
@@ -37,7 +37,7 @@ export const articlesExtraChildren = [
       async ({ args, options }, context) =>
         uploadArticleAttachment(
           await connection(context),
-          String(args.article),
+          args.article,
           String(options.file),
           readOptions(options),
         ),
@@ -60,7 +60,7 @@ export const articlesExtraChildren = [
       "list <article>",
       "List one page of immediate child articles",
       async ({ args, options }, context) =>
-        listChildArticles(await connection(context), String(args.article), readOptions(options)),
+        listChildArticles(await connection(context), args.article, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
@@ -69,8 +69,8 @@ export const articlesExtraChildren = [
       async ({ args, options }, context) =>
         getChildArticle(
           await connection(context),
-          String(args.article),
-          String(args.child),
+          args.article,
+          args.child,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: projectionOptions },
@@ -81,7 +81,7 @@ export const articlesExtraChildren = [
       "get <article>",
       "Read the parent; preserve a successful JSON null for no parent",
       async ({ args, options }, context) =>
-        getParentArticle(await connection(context), String(args.article), readOptions(options)),
+        getParentArticle(await connection(context), args.article, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),

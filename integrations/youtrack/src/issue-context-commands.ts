@@ -62,7 +62,7 @@ export const contextIssueChildren = [
       async ({ args, options }, context) =>
         getIssueActivitiesPage(
           await connection(context),
-          String(args.issueID),
+          args.issueID,
           activityReadOptions(options),
         ),
       { permission: Permission.ReadOnly, options: activityOptions },
@@ -73,7 +73,7 @@ export const contextIssueChildren = [
       "list <issueID>",
       "List one page of the issue's sprints",
       async ({ args, options }, context) =>
-        listIssueSprints(await connection(context), String(args.issueID), readOptions(options)),
+        listIssueSprints(await connection(context), args.issueID, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
   ]),
@@ -82,7 +82,7 @@ export const contextIssueChildren = [
       "list <issueID>",
       "List one page of VCS changes and pull requests",
       async ({ args, options }, context) =>
-        listVcsChanges(await connection(context), String(args.issueID), readOptions(options)),
+        listVcsChanges(await connection(context), args.issueID, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
@@ -91,8 +91,8 @@ export const contextIssueChildren = [
       async ({ args, options }, context) =>
         getVcsChange(
           await connection(context),
-          String(args.issueID),
-          String(args.changeID),
+          args.issueID,
+          args.changeID,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: projectionOptions },
@@ -107,8 +107,8 @@ export const contextCommentChildren = [
     async ({ args, options }, context) =>
       getComment(
         await connection(context),
-        String(args.issueID),
-        String(args.commentID),
+        args.issueID,
+        args.commentID,
         readOptions(options),
       ),
     { permission: Permission.ReadOnly, options: projectionOptions },
@@ -119,8 +119,8 @@ export const contextCommentChildren = [
     async ({ args, options }, context) =>
       updateComment(
         await connection(context),
-        String(args.issueID),
-        String(args.commentID),
+        args.issueID,
+        args.commentID,
         options.body,
       ),
     { permission: Permission.Update, options: bodyOptions },

@@ -27,7 +27,7 @@ export const bundleValuesChildren: readonly CommandDefinition[] = [
       "get <bundle>",
       "Show a build bundle by database ID without expanding values",
       async ({ args, options }, context) =>
-        getBuildBundle(await connection(context), String(args.bundle), readOptions(options)),
+        getBuildBundle(await connection(context), args.bundle, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("value", "Inspect values in a build bundle", [
@@ -35,14 +35,14 @@ export const bundleValuesChildren: readonly CommandDefinition[] = [
         "list <bundle>",
         "List one page of build values, preserving archived entries",
         async ({ args, options }, context) =>
-          listBuildValues(await connection(context), String(args.bundle), readOptions(options)),
+          listBuildValues(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
         "get <bundle> <value>",
         "Show a build value and its assembly timestamp",
         async ({ args, options }, context) => getBuildValue(
-          await connection(context), String(args.bundle), String(args.value), readOptions(options),
+          await connection(context), args.bundle, args.value, readOptions(options),
         ),
         { permission: Permission.ReadOnly, options: projectionOptions },
       ),
@@ -59,7 +59,7 @@ export const bundleValuesChildren: readonly CommandDefinition[] = [
       "get <bundle>",
       "Show an owned-field bundle by database ID without expanding values",
       async ({ args, options }, context) =>
-        getOwnedBundle(await connection(context), String(args.bundle), readOptions(options)),
+        getOwnedBundle(await connection(context), args.bundle, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("value", "Inspect values in an owned-field bundle", [
@@ -67,14 +67,14 @@ export const bundleValuesChildren: readonly CommandDefinition[] = [
         "list <bundle>",
         "List one page of owned values, preserving archived entries",
         async ({ args, options }, context) =>
-          listOwnedValues(await connection(context), String(args.bundle), readOptions(options)),
+          listOwnedValues(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
         "get <bundle> <value>",
         "Show an owned value and its associated user",
         async ({ args, options }, context) => getOwnedValue(
-          await connection(context), String(args.bundle), String(args.value), readOptions(options),
+          await connection(context), args.bundle, args.value, readOptions(options),
         ),
         { permission: Permission.ReadOnly, options: projectionOptions },
       ),
@@ -91,7 +91,7 @@ export const bundleValuesChildren: readonly CommandDefinition[] = [
       "get <bundle>",
       "Show a version bundle by database ID without expanding values",
       async ({ args, options }, context) =>
-        getVersionBundle(await connection(context), String(args.bundle), readOptions(options)),
+        getVersionBundle(await connection(context), args.bundle, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("value", "Inspect version values; default startDate requires YouTrack 2023.1+", [
@@ -99,14 +99,14 @@ export const bundleValuesChildren: readonly CommandDefinition[] = [
         "list <bundle>",
         "List one page of version values, preserving archived entries",
         async ({ args, options }, context) =>
-          listVersionValues(await connection(context), String(args.bundle), readOptions(options)),
+          listVersionValues(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
         "get <bundle> <value>",
         "Show a version value with raw release/start dates",
         async ({ args, options }, context) => getVersionValue(
-          await connection(context), String(args.bundle), String(args.value), readOptions(options),
+          await connection(context), args.bundle, args.value, readOptions(options),
         ),
         { permission: Permission.ReadOnly, options: projectionOptions },
       ),

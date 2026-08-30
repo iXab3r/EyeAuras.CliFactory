@@ -28,7 +28,7 @@ export const timeRootCommands = [
       "get <itemID>",
       "Read a work item",
       async ({ args, options }, context) =>
-        getWorkItem(await connection(context), String(args.itemID), readOptions(options)),
+        getWorkItem(await connection(context), args.itemID, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),
@@ -40,7 +40,7 @@ export const timeIssueChildren = [
       "get <issueID>",
       "Read time-tracking status without expanding work items",
       async ({ args, options }, context) =>
-        getTimeTracking(await connection(context), String(args.issueID), readOptions(options)),
+        getTimeTracking(await connection(context), args.issueID, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),
@@ -49,7 +49,7 @@ export const timeIssueChildren = [
       "list <issueID>",
       "List one page of issue work items",
       async ({ args, options }, context) =>
-        listIssueWorkItems(await connection(context), String(args.issueID), readOptions(options)),
+        listIssueWorkItems(await connection(context), args.issueID, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
@@ -58,8 +58,8 @@ export const timeIssueChildren = [
       async ({ args, options }, context) =>
         getIssueWorkItem(
           await connection(context),
-          String(args.issueID),
-          String(args.itemID),
+          args.issueID,
+          args.itemID,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: projectionOptions },
@@ -68,7 +68,7 @@ export const timeIssueChildren = [
       "add <issueID>",
       "Add work time; duration.minutes or duration.presentation is required",
       async ({ args, options }, context) =>
-        addWorkItem(await connection(context), String(args.issueID), options.body, readOptions(options)),
+        addWorkItem(await connection(context), args.issueID, options.body, readOptions(options)),
       { permission: Permission.Update, options: [...bodyOptions, ...projectionOptions] },
     ),
     command(
@@ -77,8 +77,8 @@ export const timeIssueChildren = [
       async ({ args, options }, context) =>
         updateWorkItem(
           await connection(context),
-          String(args.issueID),
-          String(args.itemID),
+          args.issueID,
+          args.itemID,
           options.body,
           readOptions(options),
         ),

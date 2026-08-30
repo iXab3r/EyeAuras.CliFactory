@@ -119,7 +119,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
           "update <issueID>",
           "Update summary and/or description; description null clears it",
           async ({ args, options }, context) =>
-            updateIssue(await connection(context), String(args.issueID), options.body),
+            updateIssue(await connection(context), args.issueID, options.body),
           { permission: Permission.Update, options: bodyOptions },
         ),
         command(
@@ -138,7 +138,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
           "get <issueID>",
           "Show an issue by database or readable ID",
           async ({ args, options }, context) =>
-            getIssue(await connection(context), String(args.issueID), readOptions(options)),
+            getIssue(await connection(context), args.issueID, readOptions(options)),
           { permission: Permission.ReadOnly, options: projectionOptions },
         ),
         command("comments", "Read and add issue comments", [
@@ -147,14 +147,14 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
             "add <issueID>",
             "Add a comment with a nonempty text field",
             async ({ args, options }, context) =>
-              addComment(await connection(context), String(args.issueID), options.body),
+              addComment(await connection(context), args.issueID, options.body),
             { permission: Permission.Update, options: bodyOptions },
           ),
           command(
             "list <issueID>",
             "List one page of comments for an issue",
             async ({ args, options }, context) =>
-              listComments(await connection(context), String(args.issueID), readOptions(options)),
+              listComments(await connection(context), args.issueID, readOptions(options)),
             { permission: Permission.ReadOnly, options: pageOptions },
           ),
         ]),

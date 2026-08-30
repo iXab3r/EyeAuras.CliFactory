@@ -29,3 +29,12 @@ linked correcting/closing evidence and CI; this review receipt does not close ei
 PV3 Issue draft remains unpublished and its exact baseline pending that commit. No common-type
 implementation is released by this receipt. The management agent made no source, service or GitHub
 changes; evidence above is attributed to root and independent reviewers.
+
+
+## Final commit receipt
+
+Root committed the reviewed corrections as `3df5066f8d3cc1038570bf6005db32aa4ff47655`, tree
+`0493db1b9b75be8ace7d6b76d9a3cf76494bbd40`, after final independent privacy PASS. Worktree was clean
+immediately after commit. PV2 is complete; the pending wording above records the earlier precommit
+stage. Final costs remain 6,904 / 8,867 / 513 and final tests 414/414. Formal Issue/CI closure remains
+pending; no push or merge is claimed.

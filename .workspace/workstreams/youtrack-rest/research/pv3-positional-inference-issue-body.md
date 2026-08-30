@@ -3,13 +3,15 @@ Existing `command()` declarations already name their positional arguments, but c
 that the existing parser knows. Infer those callback types from the same declaration so authors can
 pass required IDs directly and the compiler catches misspelled positional names.
 
-**Draft gate:** do not publish or implement until the independent PV2 corrections are accepted and
-committed, their exact baseline is recorded here, and the positional-type proposal review passes.
-**Corrected PV2 baseline: pending.** Discovery only used commit
-`10d7fee2cbce13d90bf59a82f9946962ea69218b`: 129 `String(args.<name>)` expressions (118 YouTrack,
-11 TeamCity); 6,876 production lines, 8,264 test/support lines and 513 proof lines. Recount after
-PV2. Its correctness changes are not savings or costs attributable to this trial. The motivation is
-simpler authoring and stronger types, not a promise of fewer physical source lines.
+**Reviewed baseline:** commit `3df5066f8d3cc1038570bf6005db32aa4ff47655`, tree
+`0493db1b9b75be8ace7d6b76d9a3cf76494bbd40`. All four PV2 correctness findings are independently
+closed; the final offline suite passed 414/414. Full costs are 6,904 production lines
+(Core 1,779 / TeamCity 1,100 / YouTrack 4,025), 8,867 test/support lines and 513 proof lines.
+These correctness costs belong to the baseline, not this trial. Discovery identified 129
+`String(args.<name>)` expressions (118 YouTrack / 11 TeamCity); confirm the candidate sites against
+this reviewed commit before conversion. The motivation is simpler authoring and stronger types,
+not a promise of fewer physical source lines. Independent proposal review approved the bounded
+trial and conservative fallbacks; implementation and acceptance remain pending.
 
 ## Bounded behavior
 
@@ -43,8 +45,12 @@ simpler authoring and stronger types, not a promise of fewer physical source lin
 No runtime API, dependency, DSL, generic HTTP/CRUD layer, context binder or service schema is added.
 Do not use `any`, bivariant callback tricks or repeated consumer assertions. If a localized erasure
 at the existing stored command-definition boundary is necessary, justify it against the unchanged
-parser and test it. Reject the trial if it needs a substantial type parser, many exported concepts,
-repeated annotations or diagnostics harder to understand than the original direct code.
+parser and test it. Inference applies to the literal declaration callback and factory-parsed
+invocation; the stored mutable `CommandDefinition` stays broad. Manually changing its `name`/`run`
+or directly invoking an erased `run` is not an end-to-end static type guarantee. Document this
+existing low-level boundary without adding a runtime wrapper or promising stronger guarantees.
+Reject the trial if it needs a substantial type parser, many exported concepts, repeated annotations
+or diagnostics harder to understand than the original direct code.
 
 ## Evidence and acceptance
 
@@ -57,8 +63,7 @@ repeated annotations or diagnostics harder to understand than the original direc
 - [ ] Compile-time positive and meaningful negative tests cover required/multiple/no-positional
       arguments, typo rejection, broad annotated callbacks, arrays/branches, dynamic templates and
       literal-name union fallback. Test every claimed optional, variadic or whitespace form and
-      conservative unsupported/duplicate
-      fallback. No broad cast may hide a failed contract assertion.
+      conservative unsupported/duplicate fallback. No broad cast may hide a failed contract assertion.
 - [ ] Convert both real integrations and run their affected offline tests plus Core tests. Existing
       CLI/JSON/RPC behavior remains intact. Focused runtime checks prove each newly claimed positional
       edge and retain missing-required rejection before onboarding/HTTP and Update denial before fetch.
@@ -77,7 +82,6 @@ repeated annotations or diagnostics harder to understand than the original direc
 
 This follows the committed [YouTrack v1 / Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6)
 and the separately scoped [profile isolation correction / Issue #9](https://github.com/iXab3r/EyeAuras.CliFactory/issues/9).
-Use a new Issue; Issue #8 belongs to another integration and is not reused.
 
 Execution remains in `.workspace/workstreams/youtrack-rest/implementation-plan.md` and
 `implementation-ledger.md`, PV3, on `feature/youtrack-v1`. The local proposal is

@@ -15,7 +15,7 @@ export const fieldsProjectChildren: readonly CommandDefinition[] = [
     "get <project>",
     "Show a project by database ID or short name",
     async ({ args, options }, context) =>
-      getProject(await connection(context), String(args.project), readOptions(options)),
+      getProject(await connection(context), args.project, readOptions(options)),
     { permission: Permission.ReadOnly, options: projectionOptions },
   ),
   command("field", "Inspect project custom-field settings and types", [
@@ -23,14 +23,14 @@ export const fieldsProjectChildren: readonly CommandDefinition[] = [
       "list <project>",
       "List one page of project custom fields",
       async ({ args, options }, context) =>
-        listProjectFields(await connection(context), String(args.project), readOptions(options)),
+        listProjectFields(await connection(context), args.project, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
       "get <project> <field>",
       "Show project custom-field settings",
       async ({ args, options }, context) => getProjectField(
-        await connection(context), String(args.project), String(args.field), readOptions(options),
+        await connection(context), args.project, args.field, readOptions(options),
       ),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
@@ -52,14 +52,14 @@ export const fieldsIssueChildren: readonly CommandDefinition[] = [
       "list <issueID>",
       "List one page of issue custom fields",
       async ({ args, options }, context) =>
-        listIssueFields(await connection(context), String(args.issueID), readOptions(options)),
+        listIssueFields(await connection(context), args.issueID, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
       "get <issueID> <fieldID>",
       "Show a field; request possibleEvents explicitly for state-machine transitions",
       async ({ args, options }, context) => getIssueField(
-        await connection(context), String(args.issueID), String(args.fieldID), readOptions(options),
+        await connection(context), args.issueID, args.fieldID, readOptions(options),
       ),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
@@ -67,7 +67,7 @@ export const fieldsIssueChildren: readonly CommandDefinition[] = [
       "set <issueID> <fieldID>",
       "Set $type and value, or a state-machine event.id",
       async ({ args, options }, context) => setIssueField(
-        await connection(context), String(args.issueID), String(args.fieldID), options.body,
+        await connection(context), args.issueID, args.fieldID, options.body,
       ),
       { permission: Permission.Update, options: bodyOptions },
     ),

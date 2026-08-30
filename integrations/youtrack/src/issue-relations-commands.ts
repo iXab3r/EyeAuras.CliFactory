@@ -33,7 +33,7 @@ export const relationsRootCommands = [
       "get <typeID>",
       "Read an issue link type",
       async ({ args, options }, context) =>
-        getLinkType(await connection(context), String(args.typeID), readOptions(options)),
+        getLinkType(await connection(context), args.typeID, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),
@@ -48,7 +48,7 @@ export const relationsRootCommands = [
       "get <tagID>",
       "Read a tag by database ID",
       async ({ args, options }, context) =>
-        getTag(await connection(context), String(args.tagID), readOptions(options)),
+        getTag(await connection(context), args.tagID, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
   ]),
@@ -60,7 +60,7 @@ export const relationsIssueChildren = [
       "list <issueID>",
       "List one page of link groups without embedded issues",
       async ({ args, options }, context) =>
-        listIssueLinks(await connection(context), String(args.issueID), readOptions(options)),
+        listIssueLinks(await connection(context), args.issueID, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
@@ -69,8 +69,8 @@ export const relationsIssueChildren = [
       async ({ args, options }, context) =>
         getIssueLink(
           await connection(context),
-          String(args.issueID),
-          String(args.linkID),
+          args.issueID,
+          args.linkID,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: projectionOptions },
@@ -81,8 +81,8 @@ export const relationsIssueChildren = [
       async ({ args, options }, context) =>
         listLinkedIssues(
           await connection(context),
-          String(args.issueID),
-          String(args.linkID),
+          args.issueID,
+          args.linkID,
           readOptions(options),
         ),
       { permission: Permission.ReadOnly, options: pageOptions },
@@ -93,8 +93,8 @@ export const relationsIssueChildren = [
       async ({ args, options }, context) =>
         addIssueLink(
           await connection(context),
-          String(args.issueID),
-          String(args.linkID),
+          args.issueID,
+          args.linkID,
           options.body,
         ),
       { permission: Permission.Update, options: bodyOptions },
@@ -105,9 +105,9 @@ export const relationsIssueChildren = [
       async ({ args }, context) =>
         removeIssueLink(
           await connection(context),
-          String(args.issueID),
-          String(args.linkID),
-          String(args.targetIssueID),
+          args.issueID,
+          args.linkID,
+          args.targetIssueID,
         ),
       { permission: Permission.Update },
     ),
@@ -117,21 +117,21 @@ export const relationsIssueChildren = [
       "list <issueID>",
       "List one page of tags assigned to an issue",
       async ({ args, options }, context) =>
-        listIssueTags(await connection(context), String(args.issueID), readOptions(options)),
+        listIssueTags(await connection(context), args.issueID, readOptions(options)),
       { permission: Permission.ReadOnly, options: pageOptions },
     ),
     command(
       "add <issueID>",
       "Assign an existing tag with body id (database ID)",
       async ({ args, options }, context) =>
-        addIssueTag(await connection(context), String(args.issueID), options.body),
+        addIssueTag(await connection(context), args.issueID, options.body),
       { permission: Permission.Update, options: bodyOptions },
     ),
     command(
       "remove <issueID> <tagID>",
       "Remove a tag assignment; the tag is not deleted",
       async ({ args }, context) =>
-        removeIssueTag(await connection(context), String(args.issueID), String(args.tagID)),
+        removeIssueTag(await connection(context), args.issueID, args.tagID),
       { permission: Permission.Update },
     ),
   ]),

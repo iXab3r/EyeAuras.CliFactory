@@ -2,7 +2,7 @@
 
 **Lifecycle:** active — v1 functionality complete; formal release evidence pending  
 **Feature spec:** [GitHub Issue #6](https://github.com/iXab3r/EyeAuras.CliFactory/issues/6), open.  
-**Current phase:** PV2 corrections independently accepted; formatting frozen; final privacy and fixing commit pending before shared-authoring trials. Functional v1 and AR118 remain complete; formal close-out pending. **Accepted REST operations:118/118 (98ReadOnly,20Update); derived capability:1/1.**
+**Current phase:** PV3 independently accepted with final metrics; root privacy/staging and source commit pending. Functional v1 and AR118 remain complete; formal close-out pending. **Accepted REST operations:118/118 (98ReadOnly,20Update); derived capability:1/1.**
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
@@ -22,11 +22,11 @@
 | V1.3 | Final18 operations + separate download | done | domain owners / independent reviewers / root | Final118 plus download1 accepted; coherent400 tests and all24ReadOnly proof PASS |
 | AR118 | Final short-batch review including download cost | done | repo_contract / inventory_reviewer / root | Written PASS/root approval; all derived costs included; multipart net-8; no required corrections |
 | PV1 | Commit verified functional v1 | done | root / privacy reviewer | Commit 10d7fee2; independent full-tree and 243 staged-blob privacy PASS; fresh 400 tests PASS |
-| PV2 | Independent exact-commit review and fixes | awaiting review | independent reviewers / source owners / root | All four findings CLOSED; root 414/414 PASS; formatting frozen; final privacy and fixing commit pending |
-| PV3 | Shared authoring analysis and bounded trials across YouTrack + TeamCity | pending | Core/integration owners / independent authoring reviewer / root | Starts after PV2; bounded Issue/contract gate before product implementation, full-cost comparison and simplicity verdict |
+| PV2 | Independent exact-commit review and fixes | done | independent reviewers / source owners / root | Four findings CLOSED; 414/414 and final privacy PASS; correcting commit 3df5066f |
+| PV3 | Shared authoring analysis and bounded trials across YouTrack + TeamCity | awaiting review | common_discovery / independent reviewers / root | Technical/authoring PASS; final 6,955 source / 9,072 tests / 513 proof; root privacy and source commit pending |
 | Delivery | Formal release and Issue/workstream close-out | pending | root / owner | Functionality, linked v2 and local baseline commit complete; closing link/CI/close-out still pending; Issue stays open |
 
-## Current handover — independent commit review, then shared authoring
+## Current handover — accepted PV3 awaits privacy and source commit
 
 - Root final approval: **118/118 REST** (98 ReadOnly,20 Update) plus download **1/1**; **117 service
   leaves** (97 ReadOnly,20 Update). AR118 is done with independent PASS and no required corrections.
@@ -49,10 +49,17 @@
   (Core 40 / TeamCity 41 / YouTrack 333), zero failures/skips. Four actual profile consumer tests
   passed; independent Windows checks preserved configuration bytes, sentinel files and credentials
   across all eight store methods plus CLI delete/configure/auth logout. See
-  `research/pv2-review-receipt.md`. Formatting and diff check passed; privacy and root's fixing commit remain pending.
-- Shared-authoring analysis/trials start after the corrected review baseline passes. Use the three
-  PV phases in the plan, actual YouTrack + TeamCity consumers, candidate Issue/contract gating and
-  full source/test/proof/complexity comparisons; no speculative savings or extraction mandate.
+  `research/pv2-review-receipt.md`. Root committed corrections as
+  `3df5066f8d3cc1038570bf6005db32aa4ff47655` after final privacy PASS; PV2 is done.
+- [Issue #10](https://github.com/iXab3r/EyeAuras.CliFactory/issues/10) is published with exact body
+  readback. Root released `common_discovery` to implement the bounded positional-inference trial
+  against corrected baseline `3df5066f`. Independent technical and authoring review passed.
+  Final costs: 6,955 source (+51 Core), 9,072 tests/support (+205), 513 proof unchanged; 129 wrappers
+  became zero in 17 consumer files, but total production characters grew by 1,108. This is a
+  simplicity/type-safety gain, not a LOC reduction. Post-format 418/418 passed; all 24 live GETs passed
+  before the equivalent type-only formatting change. Final manifest SHA `99b84464feeaf8d6cbff47c9c41796464bc6968e0671bc99e39c6b1549170fb7`.
+  `research/pv3-review-closeout.md` records acceptance; root privacy and source commit remain pending.
+  Published Issue #10 body remains frozen; its functional candidate waits for the source commit hash.
 - Keep workstream ACTIVE and Issue #6 OPEN: a local commit alone does not satisfy closing commit/PR,
   CI and close-out requirements. Push, merge and live writes remain unauthorized. Routine internal
   phase gates require evidence, not another user approval.
@@ -724,3 +731,56 @@ and push/merge remain outside this receipt.
 Final post-format root suite passed 414/414 again. Corrected costs are 6,904 source, 8,867
 tests/support and 513 proof; +28 source/+603 tests are PV2 correctness costs, not PV3 savings.
 Source formatting is frozen; only privacy/staging and the fixing commit remain before the new baseline.
+
+
+## 2026-08-30 — PV2 fixing commit; PV3 scoping released
+
+Root committed `3df5066f8d3cc1038570bf6005db32aa4ff47655`, tree
+`0493db1b9b75be8ace7d6b76d9a3cf76494bbd40`; worktree clean immediately afterward. Final independent
+privacy PASS covered 252 blobs (9,006,287 bytes), 878 snapshot records, and the 17-file patch
+(79,975 bytes), SHA `0634987ed3e20c04cb6666aafd27814b5547303377c5dd7bdcb67c02fc214610`.
+The reviewed corrected baseline is 6,904 source / 8,867 tests-support / 513 proof with 414/414 PASS.
+PV2 is done. PV3 scoping is active; its updated Issue candidate names this exact commit and the
+approved conservative type-inference boundaries. Source implementation awaits root publication.
+Issue #9 functional update is separate; formal CI/Issue closure is not implied by the local commit.
+
+
+## 2026-08-30 — Issue #10 publication; PV3 implementation released
+
+Root published [Issue #10](https://github.com/iXab3r/EyeAuras.CliFactory/issues/10), exact body SHA
+`f5c5fd1080a68397c7efe1ec6c44ee45afc0a69ec2f96f13d72d402f2bc821e3`, and verified remote readback.
+`common_discovery` has source GO for that bounded trial. The local published body remains unchanged.
+Implementation, tests, before/after costs and independent verdicts are not yet claimed. Issue #9's
+separate functional candidate awaits root's publication; neither Issue is formally closed here.
+
+
+## 2026-08-30 — Issue #9 functional acceptance publication
+
+Root published the reviewed functional candidate to [Issue #9](https://github.com/iXab3r/EyeAuras.CliFactory/issues/9)
+after guarding the prior body SHA `eb5fa3bd0a826eca0fbd934a791bb437b95b5adab1879c6225a314dc848ba00c`.
+Exact remote/local new-body SHA: `8994e1a017f7452b2bd9ae7d45c55b42bf3a45c5d6e3db04e28269ca24e87823`.
+Issue #9 remains OPEN; functional acceptance is recorded while formal linked commit/CI/closure
+remains unchecked. Original body and candidate are unchanged. PV3 source implementation remains active.
+
+
+## 2026-08-30 — PV3 technical PASS; final authoring gate pending
+
+Independent technical review found no remaining issue: four new runtime tests, 24 independent
+compile-time fallback probes and exact 129 cast removals across 17 consumer files. Root's full suite
+passed 418/418 (44 Core / 41 TeamCity / 333 YouTrack), and the final compiled normal-profile proof
+passed all 24 fixed GETs with zero skips/failures and only sanitized aggregates. No real mutation,
+binary download or raw payload file was produced. Final readability formatting/recount and written
+authoring/root acceptance remain pending; final metrics will be recorded in `research/pv3-review-closeout.md`.
+
+
+## 2026-08-30 — PV3 final independent acceptance; privacy/commit pending
+
+Final 106-file manifest `research/pv3-authoring-final.json`, SHA
+`99b84464feeaf8d6cbff47c9c41796464bc6968e0671bc99e39c6b1549170fb7`, records 6,955 production lines
+(Core 1,830 / TeamCity 1,100 / YouTrack 4,025), 9,072 tests/support and 513 proof. Versus accepted
+PV2: +51 source, +205 tests and unchanged proof. LF character cost is net +1,108 (+2,140 Core,
+-1,032 consumers); 129 wrappers became zero with only those edits across 17 consumer files.
+Independent technical and authoring verdicts PASS; no remaining technical/formatting correction.
+Root post-format 418/418 and prior equivalent pre-format 24-GET proof passed. Complete witnesses
+are in `research/pv3-review-closeout.md`. Full privacy/staging and root's source commit remain pending;
+no new commit hash or formal Issue/CI closure is asserted. Management files are ready to freeze.

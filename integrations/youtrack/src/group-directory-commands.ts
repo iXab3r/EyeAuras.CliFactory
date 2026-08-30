@@ -27,7 +27,7 @@ export const groupDirectoryRootCommands = [
       "get <group>",
       "Read a group by database ID without expanding members",
       async ({ args, options }, context) =>
-        getGroup(await connection(context), String(args.group), readOptions(options)),
+        getGroup(await connection(context), args.group, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("member", "Inspect direct or inherited group members", [
@@ -35,7 +35,7 @@ export const groupDirectoryRootCommands = [
         "list <group>",
         "List one page of members, including inherited users unless --direct is set",
         async ({ args, options }, context) =>
-          listGroupMembers(await connection(context), String(args.group), {
+          listGroupMembers(await connection(context), args.group, {
             ...readOptions(options),
             direct: options.direct === true,
           }),
@@ -47,7 +47,7 @@ export const groupDirectoryRootCommands = [
         "list <group>",
         "List one page of immediate subgroups",
         async ({ args, options }, context) =>
-          listSubgroups(await connection(context), String(args.group), readOptions(options)),
+          listSubgroups(await connection(context), args.group, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
     ]),
@@ -60,7 +60,7 @@ export const groupDirectoryProjectChildren = [
       "get <project>",
       "Read team identity and member count without expanding membership",
       async ({ args, options }, context) =>
-        getProjectTeam(await connection(context), String(args.project), readOptions(options)),
+        getProjectTeam(await connection(context), args.project, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("group", "Inspect groups added to the project team", [
@@ -68,7 +68,7 @@ export const groupDirectoryProjectChildren = [
         "list <project>",
         "List one page of team groups without expanding their users",
         async ({ args, options }, context) =>
-          listProjectTeamGroups(await connection(context), String(args.project), readOptions(options)),
+          listProjectTeamGroups(await connection(context), args.project, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
     ]),
@@ -77,7 +77,7 @@ export const groupDirectoryProjectChildren = [
         "list <project>",
         "List one page of team users, including group members unless --direct is set",
         async ({ args, options }, context) =>
-          listProjectTeamUsers(await connection(context), String(args.project), {
+          listProjectTeamUsers(await connection(context), args.project, {
             ...readOptions(options),
             direct: options.direct === true,
           }),

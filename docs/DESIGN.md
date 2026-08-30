@@ -28,6 +28,20 @@ ordinary CLI, programmatic and JSON-RPC execution. A declared default satisfies 
 existing option parsing still applies to supplied values. This is distinct from required profile
 fields, which the interactive configurator may prompt for.
 
+Literal leaf declarations infer required positional strings in their inline callback from the
+existing command name. The small inferred grammar uses ASCII letters, digits, underscores and
+hyphens in names, with single spaces between the command and required `<argument>` tokens.
+A supported declaration without arguments has an empty argument object. Options keep their broad
+unknown-record type; service validators still own numeric IDs and other domain constraints.
+
+The complete declaration falls back to `Record<string, unknown>` for dynamic or union names,
+duplicate arguments, optional/variadic tokens, other whitespace or unsupported syntax. Runtime
+parsing remains unchanged, including its wider Commander syntax. Existing explicitly annotated
+`CommandInput` and `CommandHandler` callbacks retain their broad types. Inference describes the
+literal callback when invoked through the factory parser. The stored mutable `CommandDefinition`
+remains broad; changing its name/run or manually invoking its erased handler is outside that
+inference guarantee.
+
 ### Handlers return domain data
 
 Command handlers return values and do not decide whether output is human-readable or JSON. The

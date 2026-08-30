@@ -26,7 +26,7 @@ export const fieldCatalogRootCommands: readonly CommandDefinition[] = [
       "get <field>",
       "Show a global custom field by database ID",
       async ({ args, options }, context) =>
-        getCustomField(await connection(context), String(args.field), readOptions(options)),
+        getCustomField(await connection(context), args.field, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("type", "Inspect custom-field types", [
@@ -52,7 +52,7 @@ export const fieldCatalogBundleChildren: readonly CommandDefinition[] = [
       "get <bundle>",
       "Show an enum bundle by database ID without expanding values",
       async ({ args, options }, context) =>
-        getEnumBundle(await connection(context), String(args.bundle), readOptions(options)),
+        getEnumBundle(await connection(context), args.bundle, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("value", "Inspect values in an enum bundle", [
@@ -60,14 +60,14 @@ export const fieldCatalogBundleChildren: readonly CommandDefinition[] = [
         "list <bundle>",
         "List one page of enum values, preserving archived entries",
         async ({ args, options }, context) =>
-          listEnumValues(await connection(context), String(args.bundle), readOptions(options)),
+          listEnumValues(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
         "get <bundle> <value>",
         "Show an enum value by database ID",
         async ({ args, options }, context) => getEnumValue(
-          await connection(context), String(args.bundle), String(args.value), readOptions(options),
+          await connection(context), args.bundle, args.value, readOptions(options),
         ),
         { permission: Permission.ReadOnly, options: projectionOptions },
       ),
@@ -84,7 +84,7 @@ export const fieldCatalogBundleChildren: readonly CommandDefinition[] = [
       "get <bundle>",
       "Show a state bundle by database ID without expanding values",
       async ({ args, options }, context) =>
-        getStateBundle(await connection(context), String(args.bundle), readOptions(options)),
+        getStateBundle(await connection(context), args.bundle, readOptions(options)),
       { permission: Permission.ReadOnly, options: projectionOptions },
     ),
     command("value", "Inspect values in a state bundle", [
@@ -92,14 +92,14 @@ export const fieldCatalogBundleChildren: readonly CommandDefinition[] = [
         "list <bundle>",
         "List one page of state values, preserving archived entries",
         async ({ args, options }, context) =>
-          listStateValues(await connection(context), String(args.bundle), readOptions(options)),
+          listStateValues(await connection(context), args.bundle, readOptions(options)),
         { permission: Permission.ReadOnly, options: pageOptions },
       ),
       command(
         "get <bundle> <value>",
         "Show a state value and whether it resolves an issue",
         async ({ args, options }, context) => getStateValue(
-          await connection(context), String(args.bundle), String(args.value), readOptions(options),
+          await connection(context), args.bundle, args.value, readOptions(options),
         ),
         { permission: Permission.ReadOnly, options: projectionOptions },
       ),
