@@ -1,9 +1,10 @@
 # TeamCity v2 — implementation plan
 
-Lifecycle: active for PR corrections/CI closure. S1–S10 expose449/449 routes and are published
+Lifecycle: complete for implementation/review acceptance. S1–S10 expose449/449 routes and are published
 in [PR #13](https://github.com/iXab3r/EyeAuras.CliFactory/pull/13) as717b346.
 [Follow-up review](pr-review-followup.md) records R1/R2 fixes and main/YouTrack reconciliation;
-952 local tests pass, integrated cross-platform CI is required before merge.
+952 local tests and all six integrated-head CI jobs pass. Final documentation-head checks precede
+the authorized GitHub merge and Issue closure.
 Earlier slice sections below are historical local evidence; current readiness is owned by the ledger.
 Final inventory evidence and limitations: [final-review.md](final-review.md).
 Feature contract: [Issue #5](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5).

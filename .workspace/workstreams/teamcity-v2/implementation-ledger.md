@@ -1,9 +1,9 @@
 # TeamCity v2 — implementation ledger
 
-Lifecycle: active for PR corrections/CI closure. S1–S10 expose449/449 frozen routes;
+Lifecycle: complete for implementation/review acceptance. S1–S10 expose449/449 frozen routes;
 implementation717b346 is published in [PR #13](https://github.com/iXab3r/EyeAuras.CliFactory/pull/13).
-[Follow-up review](pr-review-followup.md): R1/R2 fixed, main/YouTrack integrated,952 local tests pass;
-actual CI on the integrated PR head remains the merge gate.
+[Follow-up review](pr-review-followup.md): R1/R2 closed, main/YouTrack integrated,952 local tests and
+all six integrated-head CI jobs pass. Final documentation-head checks precede the authorized merge.
 Feature contract: [Issue #5](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5).
 Working branch: `feature/teamcity-v2`.
 
@@ -14,7 +14,7 @@ Working branch: `feature/teamcity-v2`.
 | 2 | Advanced launch and queue | done | Main agent / integration author | Local S4/S5/S6 contracts and safety checks passed |
 | 3 | Build evidence, annotations and triage | done | Main agent / integration author | Local S6/S10 contracts, real saved-byte tests and final review passed |
 | 4 | Infrastructure and configuration | done | Main agent / integration author | Local S7/S8/S9 gates and contract evidence passed; native reset limitation explicit |
-| 5 | Administration and final reconciliation | awaiting review | Main agent / Reconciliation Lead | R1/R2 and main reconciliation pass local review;952 tests pass; integrated CI pending |
+| 5 | Administration and final reconciliation | done | Main agent / Reconciliation Lead | R1/R2 closed;952 tests and integrated CI6/6 pass;449 routes reconciled; closing PR #13 |
 
 ## 2026-08-30 — phase 0
 
@@ -304,3 +304,18 @@ Fresh combined suite952/952 passed (48Core/569TeamCity/335YouTrack). Full combin
 344 files plus working/staged diffs, no unresolved findings. The [follow-up review](pr-review-followup.md)
 passes locally; integrated CI must be green before merging PR #13. Browser/auth/IPC working edits
 were temporarily preserved in a named stash for the merge, excluded from publication.
+
+## 2026-08-31 — final acceptance close-out
+
+Integrated head a6abdbe passed [all six CI jobs](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33365338367).
+Repeat review found no remaining correction/merge-resolution finding. Fresh CSV reconciliation
+confirms449/449 identities,235 GET/214 mutation routes, zero omissions/duplicates; client/case
+files are unchanged from the accepted route inventory. R1/P1 and R2/P2 are closed. Core/Common
+candidates remain explicit future work, not blockers or claims of extraction in this PR.
+
+Implementation and review acceptance is complete with PR #13 as the closing change for Issue #5.
+The final documentation commit still requires exact-head checks before GitHub merge; no unrun
+check is claimed. Native reset/bulk-unmute postcondition limitations remain documented. Real-service
+proof stays the recorded19/19 local ReadOnly run, never a CI job or authorization for mutations.
+Unrelated user docs were restored and their patches verified exactly against the preservation
+snapshot. No user configuration, credentials or private service data were changed or published.
