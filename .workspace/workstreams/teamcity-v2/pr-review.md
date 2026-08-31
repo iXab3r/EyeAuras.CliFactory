@@ -6,6 +6,9 @@ Date: 2026-08-30. Reviewed implementation: `717b3465cc0a01d4048e331b6bedb7964b26
 
 ## Verdict
 
+Historical review of717b346. The [2026-08-31 correction review](pr-review-followup.md) records
+R1/R2 fixes and reconciliation with the merged YouTrack integration; use it for current readiness.
+
 **Not ready to merge.** Two actionable findings remain. The 449-route census is complete,
 but route exposure is not a substitute for cross-platform correctness or complete downloads.
 No fixes, Core extraction, merge, remote service mutations or permission changes were made

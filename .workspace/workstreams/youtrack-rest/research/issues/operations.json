@@ -1,0 +1,566 @@
+{
+  "observedAt": "2026-08-30",
+  "domain": "issues",
+  "operations": [
+    {
+      "referenceId": 0,
+      "method": "GET",
+      "path": "/api/activities",
+      "queryTemplate": "{fields}&{$top}&{$skip}&{categories}&{reverse}&{start}&{end}&{author}&{issueQuery}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-activities.html"
+    },
+    {
+      "referenceId": 1,
+      "method": "GET",
+      "path": "/api/activities/{itemID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-activities.html"
+    },
+    {
+      "referenceId": 3,
+      "method": "GET",
+      "path": "/api/activitiesPage",
+      "queryTemplate": "{fields}&{categories}&{reverse}&{start}&{end}&{author}&{issueQuery}&{cursor}&{activityId}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-activitiesPage.html"
+    },
+    {
+      "referenceId": 113,
+      "method": "GET",
+      "path": "/api/issueLinkTypes",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issueLinkTypes.html"
+    },
+    {
+      "referenceId": 113,
+      "method": "POST",
+      "path": "/api/issueLinkTypes",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issueLinkTypes.html"
+    },
+    {
+      "referenceId": 114,
+      "method": "GET",
+      "path": "/api/issueLinkTypes/{typeID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issueLinkTypes.html"
+    },
+    {
+      "referenceId": 114,
+      "method": "POST",
+      "path": "/api/issueLinkTypes/{typeID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issueLinkTypes.html"
+    },
+    {
+      "referenceId": 114,
+      "method": "DELETE",
+      "path": "/api/issueLinkTypes/{typeID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issueLinkTypes.html"
+    },
+    {
+      "referenceId": 118,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/activities",
+      "queryTemplate": "{fields}&{$top}&{$skip}&{categories}&{reverse}&{start}&{end}&{author}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-activities.html"
+    },
+    {
+      "referenceId": 119,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/activities/{itemID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-activities.html"
+    },
+    {
+      "referenceId": 121,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/activitiesPage",
+      "queryTemplate": "{fields}&{categories}&{reverse}&{start}&{end}&{author}&{cursor}&{activityId}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-activitiesPage.html"
+    },
+    {
+      "referenceId": 122,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/attachments",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-attachments.html"
+    },
+    {
+      "referenceId": 122,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/attachments",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-attachments.html"
+    },
+    {
+      "referenceId": 123,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/attachments/{attachmentID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-attachments.html"
+    },
+    {
+      "referenceId": 123,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/attachments/{attachmentID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-attachments.html"
+    },
+    {
+      "referenceId": 123,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}/attachments/{attachmentID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-attachments.html"
+    },
+    {
+      "referenceId": 124,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/comments",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-comments.html"
+    },
+    {
+      "referenceId": 124,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/comments",
+      "queryTemplate": "{fields}&{draftId}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-comments.html"
+    },
+    {
+      "referenceId": 125,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/comments/{commentID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-comments.html"
+    },
+    {
+      "referenceId": 125,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/comments/{commentID}",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-comments.html"
+    },
+    {
+      "referenceId": 125,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}/comments/{commentID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-comments.html"
+    },
+    {
+      "referenceId": 126,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/comments/{commentID}/reactions",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-comments-commentID-reactions.html"
+    },
+    {
+      "referenceId": 126,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/comments/{commentID}/reactions",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-comments-commentID-reactions.html"
+    },
+    {
+      "referenceId": 127,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/comments/{commentID}/reactions/{reactionID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-comments-commentID-reactions.html"
+    },
+    {
+      "referenceId": 127,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}/comments/{commentID}/reactions/{reactionID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-comments-commentID-reactions.html"
+    },
+    {
+      "referenceId": 128,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/customFields",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-customFields.html"
+    },
+    {
+      "referenceId": 129,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/customFields/{fieldID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-customFields.html"
+    },
+    {
+      "referenceId": 129,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/customFields/{fieldID}",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-customFields.html"
+    },
+    {
+      "referenceId": 130,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/links",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-links.html"
+    },
+    {
+      "referenceId": 131,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/links/{linkID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-links.html"
+    },
+    {
+      "referenceId": 132,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/links/{linkID}/issues",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-links-linkID-issues.html"
+    },
+    {
+      "referenceId": 132,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/links/{linkID}/issues",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-links-linkID-issues.html"
+    },
+    {
+      "referenceId": 133,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}/links/{linkID}/issues/{issueID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-links-linkID-issues.html"
+    },
+    {
+      "referenceId": 135,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/project",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-project.html"
+    },
+    {
+      "referenceId": 135,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/project",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-project.html"
+    },
+    {
+      "referenceId": 136,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/sprints",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-sprints.html"
+    },
+    {
+      "referenceId": 137,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/tags",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-tags.html"
+    },
+    {
+      "referenceId": 137,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/tags",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-tags.html"
+    },
+    {
+      "referenceId": 138,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/tags/{tagID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-tags.html"
+    },
+    {
+      "referenceId": 138,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}/tags/{tagID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-tags.html"
+    },
+    {
+      "referenceId": 140,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/timeTracking",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-timeTracking.html"
+    },
+    {
+      "referenceId": 141,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/timeTracking/workItems",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-timeTracking-workItems.html"
+    },
+    {
+      "referenceId": 141,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/timeTracking/workItems",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-timeTracking-workItems.html"
+    },
+    {
+      "referenceId": 142,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/timeTracking/workItems/{itemID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-timeTracking-workItems.html"
+    },
+    {
+      "referenceId": 142,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/timeTracking/workItems/{itemID}",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-timeTracking-workItems.html"
+    },
+    {
+      "referenceId": 142,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}/timeTracking/workItems/{itemID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-timeTracking-workItems.html"
+    },
+    {
+      "referenceId": 143,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/vcsChanges",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-vcsChanges.html"
+    },
+    {
+      "referenceId": 143,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/vcsChanges",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-vcsChanges.html"
+    },
+    {
+      "referenceId": 144,
+      "method": "GET",
+      "path": "/api/issues/{issueID}/vcsChanges/{changeID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-vcsChanges.html"
+    },
+    {
+      "referenceId": 144,
+      "method": "POST",
+      "path": "/api/issues/{issueID}/vcsChanges/{changeID}",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-vcsChanges.html"
+    },
+    {
+      "referenceId": 144,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}/vcsChanges/{changeID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-vcsChanges.html"
+    },
+    {
+      "referenceId": 145,
+      "method": "POST",
+      "path": "/api/issuesGetter/count",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issuesGetter-count.html"
+    },
+    {
+      "referenceId": 149,
+      "method": "GET",
+      "path": "/api/savedQueries",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-savedQueries.html"
+    },
+    {
+      "referenceId": 149,
+      "method": "POST",
+      "path": "/api/savedQueries",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-savedQueries.html"
+    },
+    {
+      "referenceId": 150,
+      "method": "GET",
+      "path": "/api/savedQueries/{queryID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-savedQueries.html"
+    },
+    {
+      "referenceId": 150,
+      "method": "POST",
+      "path": "/api/savedQueries/{queryID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-savedQueries.html"
+    },
+    {
+      "referenceId": 150,
+      "method": "DELETE",
+      "path": "/api/savedQueries/{queryID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-savedQueries.html"
+    },
+    {
+      "referenceId": 151,
+      "method": "POST",
+      "path": "/api/search/assist",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-search-assist.html"
+    },
+    {
+      "referenceId": 152,
+      "method": "GET",
+      "path": "/api/tags",
+      "queryTemplate": "{fields}&{$top}&{$skip}&{query}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-tags.html"
+    },
+    {
+      "referenceId": 152,
+      "method": "POST",
+      "path": "/api/tags",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-tags.html"
+    },
+    {
+      "referenceId": 153,
+      "method": "GET",
+      "path": "/api/tags/{tagID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-tags.html"
+    },
+    {
+      "referenceId": 153,
+      "method": "POST",
+      "path": "/api/tags/{tagID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-tags.html"
+    },
+    {
+      "referenceId": 153,
+      "method": "DELETE",
+      "path": "/api/tags/{tagID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-tags.html"
+    },
+    {
+      "referenceId": 154,
+      "method": "GET",
+      "path": "/api/tags/{tagID}/issues",
+      "queryTemplate": "{fields}&{$top}&{$skip}&{customFields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-tags-tagID-issues.html"
+    },
+    {
+      "referenceId": 167,
+      "method": "GET",
+      "path": "/api/workItems",
+      "queryTemplate": "{fields}&{$top}&{$skip}&{query}&{startDate}&{endDate}&{start}&{end}&{createdStart}&{createdEnd}&{updatedStart}&{updatedEnd}&{author}&{creator}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-workItems.html"
+    },
+    {
+      "referenceId": 168,
+      "method": "GET",
+      "path": "/api/workItems/{itemID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-workItems.html"
+    },
+    {
+      "referenceId": 64,
+      "method": "GET",
+      "path": "/api/admin/projects/{projectID}/issues",
+      "queryTemplate": "{fields}&{$top}&{$skip}&{customFields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-issues.html"
+    },
+    {
+      "referenceId": 64,
+      "method": "POST",
+      "path": "/api/admin/projects/{projectID}/issues",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-issues.html"
+    },
+    {
+      "referenceId": 65,
+      "method": "POST",
+      "path": "/api/admin/projects/{projectID}/issues/{issueID}",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects-projectID-issues.html"
+    },
+    {
+      "referenceId": 65,
+      "method": "GET",
+      "path": "/api/admin/projects/{projectID}/issues/{issueID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects-projectID-issues.html"
+    },
+    {
+      "referenceId": 65,
+      "method": "DELETE",
+      "path": "/api/admin/projects/{projectID}/issues/{issueID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects-projectID-issues.html"
+    },
+    {
+      "referenceId": 105,
+      "method": "POST",
+      "path": "/api/commands",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-commands.html"
+    },
+    {
+      "referenceId": 106,
+      "method": "POST",
+      "path": "/api/commands/assist",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-commands-assist.html"
+    },
+    {
+      "referenceId": 116,
+      "method": "GET",
+      "path": "/api/issues",
+      "queryTemplate": "{fields}&{$top}&{$skip}&{query}&{customFields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues.html"
+    },
+    {
+      "referenceId": 116,
+      "method": "POST",
+      "path": "/api/issues",
+      "queryTemplate": "{fields}&{draftId}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues.html"
+    },
+    {
+      "referenceId": 117,
+      "method": "GET",
+      "path": "/api/issues/{issueID}",
+      "queryTemplate": "{fields}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues.html"
+    },
+    {
+      "referenceId": 117,
+      "method": "POST",
+      "path": "/api/issues/{issueID}",
+      "queryTemplate": "{fields}&{muteUpdateNotifications}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues.html"
+    },
+    {
+      "referenceId": 117,
+      "method": "DELETE",
+      "path": "/api/issues/{issueID}",
+      "queryTemplate": "",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues.html"
+    },
+    {
+      "referenceId": 163,
+      "method": "GET",
+      "path": "/api/users/{userID}/savedQueries",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-users-userID-savedQueries.html"
+    },
+    {
+      "referenceId": 164,
+      "method": "GET",
+      "path": "/api/users/{userID}/tags",
+      "queryTemplate": "{fields}&{$top}&{$skip}",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-users-userID-tags.html"
+    }
+  ]
+}

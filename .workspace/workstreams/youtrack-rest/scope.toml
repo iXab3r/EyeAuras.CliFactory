@@ -1,0 +1,62 @@
+id = "youtrack-rest-2026-08-30"
+status = "active"
+snapshot_date = "2026-08-30"
+source_document_updated = "2026-08-12"
+source_update_verification = "Index update date and retrieval date recorded; discovery.json includes per-page SHA-256 snapshots"
+repository = "https://github.com/iXab3r/EyeAuras.CliFactory"
+base_commit = "e0d4d1b"
+branch = "feature/youtrack-v1"
+worktree_name = "EyeAuras.CliFactory-1"
+issue_url = "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6"
+
+[census]
+roots = ["https://www.jetbrains.com/help/youtrack/devportal/api-resources.html"]
+versions = ["Current public YouTrack REST reference snapshot 2026-08-30", "Identity endpoints introduced in YouTrack 2026.1 included where documented"]
+identity_rule = "Uppercase HTTP method + one space + literal Resource-table /api path; preserve case and placeholder spelling including repeated placeholders; ambiguities recorded separately"
+discovery_command = "python .workspace/workstreams/youtrack-rest/research/discovery/discover.py"
+generated_inventory = "research/discovery/discovery.json"
+human_classification = "classification.json"
+freeze_state = "frozen; 169 pages, 281 unique operations, independently reviewed"
+
+[boundary]
+included = ["Every operation documented by the current public YouTrack /api resource reference", "Documented current /api identity/user/group operations", "All exposed methods per documented resource, including administrative and destructive operations"]
+excluded = ["Separate Hub REST API (not the YouTrack /api census)", "Deprecated YouTrack /rest API", "Instance-defined app/extension endpoints with no finite public resource inventory", "Undocumented/internal endpoints", "Web UI endpoints, GraphQL, or other non-REST protocols", "Live instance capability/authorization inventory"]
+completeness_claim = "Complete against the frozen official public resource-index snapshot and explicitly recorded corrections, not every private/legacy/runtime-defined endpoint or every server version"
+
+[release_policy]
+v1 = ["P0", "P1"]
+v2 = ["P2", "P3"]
+permissions = ["ReadOnly", "Update"]
+permission_rule = "ReadOnly for observation without service-state change; Update for every create/edit/delete/link/vote/watch/upload or other side effect, regardless of HTTP method"
+production_implementation = "Functional v1complete:118REST+download1,AR118PASS,400tests+24liveGETPASS; formalreleasepending, no Issue/workstreamclosure"
+
+
+
+
+[authoring_reviews]
+practice = "docs/practices/integration-authoring-reviews.md"
+baseline_commit = "e0d4d1b8dc615a969a0160f69a5fb34968d9ab3d"
+baseline_evidence = "research/authoring-baseline/baseline.json"
+reproduction = "research/authoring-baseline/recount.ps1"
+accepted_operation_count = 118
+accepted_operation_ids = ["GET /api/users/me", "GET /api/admin/projects", "GET /api/issues", "GET /api/issues/{issueID}", "GET /api/issues/{issueID}/comments", "POST /api/issues", "POST /api/issues/{issueID}", "POST /api/issues/{issueID}/comments", "POST /api/commands/assist", "POST /api/commands", "POST /api/search/assist", "POST /api/issuesGetter/count", "GET /api/savedQueries", "GET /api/savedQueries/{queryID}", "GET /api/admin/projects/{projectID}", "GET /api/admin/projects/{projectID}/customFields", "GET /api/admin/projects/{projectID}/customFields/{fieldID}", "GET /api/users", "GET /api/issues/{issueID}/customFields", "GET /api/issues/{issueID}/customFields/{fieldID}", "POST /api/issues/{issueID}/customFields/{fieldID}", "GET /api/issueLinkTypes", "GET /api/issueLinkTypes/{typeID}", "GET /api/issues/{issueID}/links", "GET /api/issues/{issueID}/links/{linkID}", "GET /api/issues/{issueID}/links/{linkID}/issues", "POST /api/issues/{issueID}/links/{linkID}/issues", "DELETE /api/issues/{issueID}/links/{linkID}/issues/{issueID}", "GET /api/tags", "GET /api/tags/{tagID}", "GET /api/issues/{issueID}/tags", "POST /api/issues/{issueID}/tags", "DELETE /api/issues/{issueID}/tags/{tagID}", "GET /api/activitiesPage", "GET /api/issues/{issueID}/activitiesPage", "GET /api/issues/{issueID}/comments/{commentID}", "POST /api/issues/{issueID}/comments/{commentID}", "GET /api/issues/{issueID}/vcsChanges", "GET /api/issues/{issueID}/vcsChanges/{changeID}", "GET /api/issues/{issueID}/sprints", "GET /api/issues/{issueID}/timeTracking", "GET /api/issues/{issueID}/timeTracking/workItems", "POST /api/issues/{issueID}/timeTracking/workItems", "GET /api/issues/{issueID}/timeTracking/workItems/{itemID}", "POST /api/issues/{issueID}/timeTracking/workItems/{itemID}", "GET /api/workItems", "GET /api/workItems/{itemID}", "GET /api/issues/{issueID}/attachments", "GET /api/issues/{issueID}/attachments/{attachmentID}", "POST /api/issues/{issueID}/attachments", "GET /api/admin/customFieldSettings/bundles/enum", "GET /api/admin/customFieldSettings/bundles/enum/{bundleID}", "GET /api/admin/customFieldSettings/bundles/enum/{bundleID}/values", "GET /api/admin/customFieldSettings/bundles/enum/{bundleID}/values/{elementID}", "GET /api/admin/customFieldSettings/bundles/state", "GET /api/admin/customFieldSettings/bundles/state/{bundleID}", "GET /api/admin/customFieldSettings/bundles/state/{bundleID}/values", "GET /api/admin/customFieldSettings/bundles/state/{bundleID}/values/{elementID}", "GET /api/admin/customFieldSettings/customFields", "GET /api/admin/customFieldSettings/customFields/{fieldID}", "GET /api/admin/customFieldSettings/types", "GET /api/admin/customFieldSettings/bundles/user", "GET /api/admin/customFieldSettings/bundles/user/{bundleID}", "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/aggregatedUsers", "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/groups", "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/groups/{groupID}", "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/individuals", "GET /api/admin/customFieldSettings/bundles/user/{bundleID}/individuals/{userID}", "GET /api/users/{userID}", "GET /api/admin/projects/{projectID}/team", "GET /api/admin/projects/{projectID}/team/groups", "GET /api/admin/projects/{projectID}/team/ownUsers", "GET /api/admin/projects/{projectID}/team/users", "GET /api/groups", "GET /api/groups/{groupID}", "GET /api/groups/{groupID}/ownUsers", "GET /api/groups/{groupID}/subGroups", "GET /api/groups/{groupID}/users", "GET /api/admin/projects/{projectID}/timeTrackingSettings", "GET /api/admin/projects/{projectID}/timeTrackingSettings/workItemTypes", "GET /api/admin/projects/{projectID}/timeTrackingSettings/workItemTypes/{typeID}", "GET /api/admin/timeTrackingSettings", "GET /api/admin/timeTrackingSettings/workItemTypes", "GET /api/admin/timeTrackingSettings/workItemTypes/{typeID}", "GET /api/admin/timeTrackingSettings/workTimeSettings", "GET /api/agiles", "GET /api/agiles/{agileID}", "GET /api/agiles/{agileID}/sprints", "POST /api/agiles/{agileID}/sprints", "GET /api/agiles/{agileID}/sprints/{sprintID}", "POST /api/agiles/{agileID}/sprints/{sprintID}", "GET /api/admin/projects/{projectID}/articles", "GET /api/articles", "POST /api/articles", "GET /api/articles/{articleID}", "POST /api/articles/{articleID}", "GET /api/articles/{articleID}/comments", "POST /api/articles/{articleID}/comments", "GET /api/articles/{articleID}/comments/{commentID}", "POST /api/articles/{articleID}/comments/{commentID}", "GET /api/admin/customFieldSettings/bundles/build", "GET /api/admin/customFieldSettings/bundles/build/{bundleID}", "GET /api/admin/customFieldSettings/bundles/build/{bundleID}/values", "GET /api/admin/customFieldSettings/bundles/build/{bundleID}/values/{elementID}", "GET /api/admin/customFieldSettings/bundles/ownedField", "GET /api/admin/customFieldSettings/bundles/ownedField/{bundleID}", "GET /api/admin/customFieldSettings/bundles/ownedField/{bundleID}/values", "GET /api/admin/customFieldSettings/bundles/ownedField/{bundleID}/values/{elementID}", "GET /api/admin/customFieldSettings/bundles/version", "GET /api/admin/customFieldSettings/bundles/version/{bundleID}", "GET /api/admin/customFieldSettings/bundles/version/{bundleID}/values", "GET /api/admin/customFieldSettings/bundles/version/{bundleID}/values/{elementID}", "GET /api/articles/{articleID}/attachments", "POST /api/articles/{articleID}/attachments", "GET /api/articles/{articleID}/attachments/{attachmentID}", "GET /api/articles/{articleID}/childArticles", "GET /api/articles/{articleID}/childArticles/{articleID}", "GET /api/articles/{articleID}/parentArticle"]
+first_slice_operation_target = 8
+ordinary_first_slice_review = 8
+mandatory_interval = 50
+mandatory_checkpoints = [50, 100, 118]
+derived_capability_target = 1
+accepted_derived_capability_count = 1
+counter_rule = "Unique census METHOD PATH exposed, boundary-tested and reviewer-accepted; builtins/auth reuse/flags/aliases/helpers/tests/refactors do not increment; derived download counted separately"
+next_batch_gate = "Do not implement operation 51 or 101 until preceding mandatory review PASS and required corrective simplification closes; final review includes delivered derived-download cost"
+review_template = "authoring-review-template.md"
+current_verdict = "Root final functional acceptance118+1 andwrittenAR118PASS; correctionsnone; formalcommitPR/CI/closeout evidencepending"
+
+[current_block]
+manifest = "block-118.json"
+status = "functional-complete-release-pending"
+baseline_accepted_count = 100
+target_accepted_count = 118
+proposed_new_operation_count = 18
+derived_capability_target = 1
+authorization = "Continue autonomously through118 plus derived download andAR118; routine internal gates need no additional user approval"
+source_release = "No further v1operation work; final functionalityaccepted, formalrelease/Issueclosuregates remain open"

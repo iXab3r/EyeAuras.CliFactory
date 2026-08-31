@@ -72,7 +72,6 @@ export async function promptSecret(input: Readable, output: Writable): Promise<s
 
   output.write("Token: ");
   ttyInput.setRawMode(true);
-  ttyInput.resume();
   let value = "";
 
   return new Promise<string>((resolve, reject) => {
@@ -87,6 +86,10 @@ export async function promptSecret(input: Readable, output: Writable): Promise<s
       const text = chunk.toString();
       for (const character of text) {
         if (character === "\r" || character === "\n") {
+          // A delayed LF from the previous text prompt must not submit an empty secret.
+          if (!value) {
+            continue;
+          }
           restore();
           resolve(value);
           return;
@@ -107,5 +110,6 @@ export async function promptSecret(input: Readable, output: Writable): Promise<s
     };
 
     ttyInput.on("data", onData);
+    ttyInput.resume();
   });
 }

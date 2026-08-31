@@ -10,7 +10,7 @@ import {
   validateCommandPermissions,
   validatePermissionsDisabled,
 } from "./permissions.js";
-import { ProfileStore } from "./profile-store.js";
+import { assertProfileName, assertUniqueProfileName, ProfileStore } from "./profile-store.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import type {
   CliApplication,
@@ -202,6 +202,41 @@ export function createCli(definition: CliDefinition): CliApplication {
     });
     program.exitOverride();
 
+    const canInteract = (globals: GlobalOptions): boolean =>
+      execution.render &&
+      globals.json !== true &&
+      canPrompt(input, output) &&
+      canPrompt(input, error);
+
+    const resolveToken = async (
+      profile: Profile,
+      tokenStdin: boolean,
+      interactive: boolean,
+    ): Promise<string> => {
+      let token: string | undefined;
+      if (tokenStdin) {
+        if (!execution.render) {
+          throw new Error(
+            "--token-stdin is unavailable through JSON-RPC or programmatic execution because stdin belongs to the transport.",
+          );
+        }
+        token = await readStdin(input);
+      } else {
+        const variable = definition.auth!.environmentVariable;
+        token = variable === undefined ? undefined : process.env[variable];
+        if (!token && interactive) {
+          token = await promptSecret(input, error);
+        }
+      }
+      if (!token) {
+        throw configurationError(profile, {
+          missingFields: [],
+          authenticationMissing: true,
+        });
+      }
+      return token;
+    };
+
     const configureProfile = async (
       profileName: string,
       options: ConfigureProfileOptions,
@@ -211,8 +246,12 @@ export function createCli(definition: CliDefinition): CliApplication {
       authenticated: true;
       identity: unknown;
     }> => {
+      assertProfileName(profileName);
       const listed = await profileStore.list();
       const existing = listed.profiles.find((profile) => profile.name === profileName);
+      if (!existing) {
+        assertUniqueProfileName(profileName, listed.profiles.map((profile) => profile.name));
+      }
       const values = {
         ...(profileDefinition.defaults ?? {}),
         ...(existing?.values ?? {}),
@@ -238,57 +277,46 @@ export function createCli(definition: CliDefinition): CliApplication {
         });
       }
 
-      const profile = existing
-        ? await profileStore.set(profileName, values)
-        : await profileStore.create(profileName, values);
-      if (!definition.auth || !authenticationRequired(profile)) {
+      await profileDefinition.validate?.(values);
+      const saveProfile = () =>
+        existing
+          ? profileStore.set(profileName, values)
+          : profileStore.create(profileName, values);
+      if (!definition.auth || !authenticationRequired(candidate)) {
+        await saveProfile();
         return {
           configured: true,
-          profile: profile.name,
+          profile: candidate.name,
           authenticated: true,
           identity: null,
         };
       }
 
       const auth = definition.auth;
-      const secrets = new ProfileSecrets(secretStore, applicationId, profile.name);
-      let token: string | undefined;
-      if (options.tokenStdin) {
-        if (!execution.render) {
-          throw new Error(
-            "--token-stdin is unavailable through JSON-RPC or programmatic execution because stdin belongs to the transport.",
-          );
-        }
-        token = await readStdin(input);
-      } else {
-        token = await secrets.get(auth.secretName);
-        token ??=
-          auth.environmentVariable === undefined
-            ? undefined
-            : process.env[auth.environmentVariable];
-        if (!token && options.interactive) {
-          token = await promptSecret(input, error);
-        }
-      }
-      if (!token) {
-        throw configurationError(profile, {
-          missingFields: [],
-          authenticationMissing: true,
-        });
-      }
-
-      const context = contextFor(profile, execution.signal);
+      const token = await resolveToken(candidate, options.tokenStdin, options.interactive);
+      const context = contextFor(candidate, execution.signal);
       const identity = await auth.validate?.({
         appArguments: context.appArguments,
-        profile,
+        profile: candidate,
         token,
         fetch: context.fetch,
         signal: context.signal,
       });
-      await secrets.set(auth.secretName, token);
+      try {
+        // Remove the old credential before changing its connection, including on save failure.
+        await context.secrets.delete(auth.secretName);
+        await saveProfile();
+        await context.secrets.set(auth.secretName, token);
+      } catch {
+        throw new Error(
+          "Could not save profile configuration or authentication. " +
+            "Check profile storage and the OS credential store. Authentication may be incomplete. " +
+            `Run '${definition.name} profile configure ${profileName} --token-stdin' to complete configuration.`,
+        );
+      }
       return {
         configured: true,
-        profile: profile.name,
+        profile: candidate.name,
         authenticated: true,
         identity: identity ?? null,
       };
@@ -302,8 +330,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       if (state.missingFields.length === 0 && !state.authenticationMissing) {
         return profile;
       }
-      const interactive =
-        execution.render && globals.json !== true && canPrompt(input, error);
+      const interactive = canInteract(globals);
       if (!interactive) {
         throw configurationError(profile, state);
       }
@@ -461,8 +488,7 @@ export function createCli(definition: CliDefinition): CliApplication {
             return configureProfile(name ?? context.profile.name, {
               values: profileValues(options),
               tokenStdin: options.tokenStdin === true,
-              interactive:
-                execution.render && globals.json !== true && canPrompt(input, error),
+              interactive: canInteract(globals),
             });
           },
           command,
@@ -655,19 +681,11 @@ export function createCli(definition: CliDefinition): CliApplication {
                   `Profile '${context.profile.name}' does not require a token. Change its profile configuration before using auth login.`,
                 );
               }
-              if (options.tokenStdin && !execution.render) {
-                throw new Error(
-                  "--token-stdin is unavailable through JSON-RPC or programmatic execution because stdin belongs to the transport.",
-                );
-              }
-              const token = options.tokenStdin
-                ? await readStdin(input)
-                : auth.environmentVariable && process.env[auth.environmentVariable]
-                  ? process.env[auth.environmentVariable]
-                  : await promptSecret(input, error);
-              if (!token) {
-                throw new Error("The token is empty.");
-              }
+              const token = await resolveToken(
+                context.profile,
+                options.tokenStdin === true,
+                canInteract(command.optsWithGlobals() as GlobalOptions),
+              );
               const identity = await auth.validate?.({
                 appArguments: context.appArguments,
                 profile: context.profile,
@@ -675,7 +693,14 @@ export function createCli(definition: CliDefinition): CliApplication {
                 fetch: context.fetch,
                 signal: context.signal,
               });
-              await context.secrets.set(auth.secretName, token);
+              try {
+                await context.secrets.set(auth.secretName, token);
+              } catch {
+                throw new Error(
+                  "Could not save authentication in the OS credential store. " +
+                    `Run '${definition.name} auth login --profile ${context.profile.name} --token-stdin' to retry.`,
+                );
+              }
               return { authenticated: true, profile: context.profile.name, identity: identity ?? null };
             },
             command,
@@ -741,9 +766,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       const state = await configurationState(profile);
       if (
         (state.missingFields.length > 0 || state.authenticationMissing) &&
-        execution.render &&
-        globals.json !== true &&
-        canPrompt(input, error)
+        canInteract(globals)
       ) {
         result = await configureProfile(profile.name, {
           values: {},

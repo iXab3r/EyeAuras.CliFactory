@@ -2,7 +2,8 @@
 
 Lifecycle: active for PR corrections/CI closure. S1–S10 expose449/449 frozen routes;
 implementation717b346 is published in [PR #13](https://github.com/iXab3r/EyeAuras.CliFactory/pull/13).
-[PR review](pr-review.md) found two open download/CI issues; not ready to merge.
+[Follow-up review](pr-review-followup.md): R1/R2 fixed, main/YouTrack integrated,952 local tests pass;
+actual CI on the integrated PR head remains the merge gate.
 Feature contract: [Issue #5](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5).
 Working branch: `feature/teamcity-v2`.
 
@@ -13,7 +14,7 @@ Working branch: `feature/teamcity-v2`.
 | 2 | Advanced launch and queue | done | Main agent / integration author | Local S4/S5/S6 contracts and safety checks passed |
 | 3 | Build evidence, annotations and triage | done | Main agent / integration author | Local S6/S10 contracts, real saved-byte tests and final review passed |
 | 4 | Infrastructure and configuration | done | Main agent / integration author | Local S7/S8/S9 gates and contract evidence passed; native reset limitation explicit |
-| 5 | Administration and final reconciliation | awaiting review | Main agent / Reconciliation Lead | Published PR #13; R1/R2 remain open, CI2/6 pass; no merge/Issue closure |
+| 5 | Administration and final reconciliation | awaiting review | Main agent / Reconciliation Lead | R1/R2 and main reconciliation pass local review;952 tests pass; integrated CI pending |
 
 ## 2026-08-30 — phase 0
 
@@ -290,3 +291,16 @@ bounded private file output, option parsing and test setup. Multi-secret lifecyc
 candidate, not an authorized new Core framework. Core/DESIGN overlaps with YouTrack PR #12 need
 reconciliation before combining the changes. Next: implement R1/R2 when requested, rerun local
 tests and the six-job matrix, then re-review; do not merge or close Issue #5 yet.
+
+## 2026-08-31 — corrections and main reconciliation
+
+Owner authorized P1/P2 fixes, repeat review and merge when green. Both new regressions failed first,
+then passed with the minimal corrections in ee73fdd. Full local pre-integration suite583/583;
+file-safety suite46/46. No live endpoints or user profile/keyring changes were used.
+
+YouTrack PR #12 then merged into main as adfc2c3. Resolved Core/DESIGN conflicts and silent duplicate
+required-option/rule13 additions while preserving both integrations' behavior and all tests.
+Fresh combined suite952/952 passed (48Core/569TeamCity/335YouTrack). Full combined privacy scan:
+344 files plus working/staged diffs, no unresolved findings. The [follow-up review](pr-review-followup.md)
+passes locally; integrated CI must be green before merging PR #13. Browser/auth/IPC working edits
+were temporarily preserved in a named stash for the merge, excluded from publication.

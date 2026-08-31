@@ -2,7 +2,8 @@
 
 Lifecycle: active for PR corrections/CI closure. S1–S10 expose449/449 routes and are published
 in [PR #13](https://github.com/iXab3r/EyeAuras.CliFactory/pull/13) as717b346.
-[PR review](pr-review.md) records two open findings and failed macOS/Windows CI; not ready to merge.
+[Follow-up review](pr-review-followup.md) records R1/R2 fixes and main/YouTrack reconciliation;
+952 local tests pass, integrated cross-platform CI is required before merge.
 Earlier slice sections below are historical local evidence; current readiness is owned by the ledger.
 Final inventory evidence and limitations: [final-review.md](final-review.md).
 Feature contract: [Issue #5](https://github.com/iXab3r/EyeAuras.CliFactory/issues/5).

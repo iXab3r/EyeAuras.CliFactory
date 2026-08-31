@@ -1,0 +1,542 @@
+{
+  "id": "youtrack-block-50",
+  "status": "complete",
+  "scope_authority": "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6",
+  "source_inventory": "classification.json",
+  "baseline_accepted_count": 8,
+  "accepted_operation_count": 50,
+  "target_accepted_count": 50,
+  "new_operation_count": 42,
+  "new_readonly_count": 32,
+  "new_update_count": 10,
+  "accepted_baseline_ids": [
+    "GET /api/users/me",
+    "GET /api/admin/projects",
+    "GET /api/issues",
+    "GET /api/issues/{issueID}",
+    "GET /api/issues/{issueID}/comments",
+    "POST /api/issues",
+    "POST /api/issues/{issueID}",
+    "POST /api/issues/{issueID}/comments"
+  ],
+  "authoring_baseline": "research/authoring-baseline/snapshots/authoring-final.json",
+  "authoring_baseline_sha256": "9e38686726651b97964a689e130cfe2d90f5fbbae9e29d1a5d38c5a9d32269ce",
+  "authorization": "Autonomously complete reviewed internal slices through 50 and AR50; no user approval needed at internal boundaries. No live mutations, broad crawl, CI networking, commits/pushes or permission weakening.",
+  "counter_rule": "Increment only after exposure, boundary tests and technical acceptance. AR50 must PASS and required corrections close before operation 51.",
+  "issue_contract_rule": "This manifest schedules existing Issue IDs, not a second contract. Official parameter/projection/body refresh precedes each implementation. Any public contract change or material field-level restriction must be reviewed and amended in Issue 6 before affected source.",
+  "live_proof_rule": "Existing limited-rights profile only; explicit bounded ReadOnly proof inventory may expand only for reviewed implemented behavior. Denied required rows are not PASS. No raw private data stored.",
+  "derived_download": "Remains P1/v1 but outside this 42-operation block; accepted 0/1 separately. Does not inflate endpoint count.",
+  "groups": [
+    {
+      "id": "B50.1",
+      "outcome": "Compose searches and explicit issue commands",
+      "status": "done",
+      "source_owner": "youtrack_query",
+      "operation_count": 6,
+      "target_cumulative": 14,
+      "contract_gate": "Pin assist/count body and return fields from official methods; preserve commands apply explicit 1-20 IDs, no runAs/silent/payload passthrough; count -1 remains pending with no polling.",
+      "operations": [
+        {
+          "id": "POST /api/commands/assist",
+          "category": "ReadOnly",
+          "priority": "P0",
+          "cli": "commands assist --query <query> [--issues <ids>] [--caret <n>]",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-commands-assist.html#create-CommandList-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/commands",
+          "category": "Update",
+          "priority": "P0",
+          "cli": "commands apply --query <query> --issues <ids>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-commands.html#create-CommandList-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/search/assist",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "search assist --query <query> [--caret <n>]",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-search-assist.html#create-SearchSuggestions-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issuesGetter/count",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues count --query <query>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issuesGetter-count.html#create-IssueCountResponse-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/savedQueries",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "saved-queries list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-savedQueries.html#get_all-SavedQuery-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/savedQueries/{queryID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "saved-queries get <queryID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-savedQueries.html#get-SavedQuery-method",
+          "status": "accepted"
+        }
+      ],
+      "current_issue_contract": {
+        "input": "Apply query plus explicit 1-20 issue IDs; assist/search query and documented caret/context only. Saved-query IDs positional. Count query exact search language.",
+        "returns": "Saved queries: source array/detail with identity/name/query fields. Assist/count response shapes and finite projection pinned from official method before implementation; preserve count -1 pending."
+      }
+    },
+    {
+      "id": "B50.2",
+      "outcome": "Inspect project/user context and edit typed issue fields",
+      "status": "done",
+      "source_owner": "youtrack_fields",
+      "operation_count": 7,
+      "target_cumulative": 21,
+      "contract_gate": "Official family refresh pins all 18 issue-field types and finite project-field projections; no automatic bundle expansion or invented selector precedence. Existing Issue permits supported optional-field subsets; material public changes still require Issue reconciliation.",
+      "operations": [
+        {
+          "id": "GET /api/admin/projects/{projectID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project get <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects.html#get-Project-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/admin/projects/{projectID}/customFields",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project field list <project>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-projects-projectID-customFields.html#get_all-ProjectCustomField-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/admin/projects/{projectID}/customFields/{fieldID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "project field get <project> <field>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-projects-projectID-customFields.html#get-ProjectCustomField-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/users",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "user list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-users.html#get_all-User-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/customFields",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues fields list <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-customFields.html#get_all-IssueCustomField-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/customFields/{fieldID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues fields get <issueID> <fieldID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-customFields.html#get-IssueCustomField-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issues/{issueID}/customFields/{fieldID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues fields set <issueID> <fieldID> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-customFields.html#update-IssueCustomField-method",
+          "status": "accepted"
+        }
+      ],
+      "current_issue_contract": {
+        "input": "Project/user IDs as published; field update validates all 18 documented issue-field types with $type plus value or state-machine event. Period permits both valid duration forms; documented reference selectors are accepted without invented selector precedence. Source owner pins exact official shapes.",
+        "returns": "Project id/name/shortName; users identity/login/name as authoritative attributes; project/issue fields id/name/$type plus minimal documented value and field metadata. Exact polymorphic projection pinned before code."
+      }
+    },
+    {
+      "id": "B50.3",
+      "outcome": "Navigate and organize issue links and tags",
+      "status": "done",
+      "source_owner": "youtrack_relations",
+      "operation_count": 12,
+      "target_cumulative": 33,
+      "contract_gate": "Pin target-id bodies, directional link IDs and distinct source/target arguments for repeated issueID placeholder; remove relationships, not issue/tag objects.",
+      "operations": [
+        {
+          "id": "GET /api/issueLinkTypes",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "link-types list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issueLinkTypes.html#get_all-IssueLinkType-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issueLinkTypes/{typeID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "link-types get <typeID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issueLinkTypes.html#get-IssueLinkType-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/links",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues links list <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-links.html#get_all-IssueLink-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/links/{linkID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues links get <issueID> <linkID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-links.html#get-IssueLink-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/links/{linkID}/issues",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues links issues <issueID> <linkID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-links-linkID-issues.html#get_all-Issue-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issues/{issueID}/links/{linkID}/issues",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues links add <issueID> <linkID> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-links-linkID-issues.html#create-Issue-method",
+          "status": "accepted"
+        },
+        {
+          "id": "DELETE /api/issues/{issueID}/links/{linkID}/issues/{issueID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues links remove <issueID> <linkID> <targetIssueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-links-linkID-issues.html#delete-Issue-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/tags",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "tags list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-tags.html#get_all-Tag-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/tags/{tagID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "tags get <tagID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-tags.html#get-Tag-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/tags",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues tags list <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-tags.html#get_all-Tag-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issues/{issueID}/tags",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues tags add <issueID> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-tags.html#create-Tag-method",
+          "status": "accepted"
+        },
+        {
+          "id": "DELETE /api/issues/{issueID}/tags/{tagID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues tags remove <issueID> <tagID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-tags.html#delete-Tag-method",
+          "status": "accepted"
+        }
+      ],
+      "current_issue_contract": {
+        "input": "Link/tag add body requires target resource id; links remove uses separate source issue, directional link ID and targetIssueID even though source path repeats issueID.",
+        "returns": "Link types/tags id plus documented labels; issue links retain direction/type and linked issue identity, without unbounded embedded issues; arrays/detail match source."
+      }
+    },
+    {
+      "id": "B50.4",
+      "outcome": "Inspect activity, comments and development context",
+      "status": "done",
+      "source_owner": "youtrack_context",
+      "operation_count": 7,
+      "target_cumulative": 40,
+      "contract_gate": "Pin activity categories/cursor/page envelope and per-leaf projection/query support; no offset/page-size flags for cursor pages. Comment update stays documented text body and credential-safe outputs.",
+      "operations": [
+        {
+          "id": "GET /api/activitiesPage",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "activities page --categories <categories> [--cursor <cursor>]",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-activitiesPage.html#get-ActivityCursorPage-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/activitiesPage",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues activity page <issueID> --categories <categories> [--cursor <cursor>]",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-activitiesPage.html#get-ActivityCursorPage-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/comments/{commentID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues comments get <issueID> <commentID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-comments.html#get-IssueComment-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issues/{issueID}/comments/{commentID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues comments update <issueID> <commentID> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-comments.html#update-IssueComment-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/vcsChanges",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues vcs-changes list <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-vcsChanges.html#get_all-VcsChange-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/vcsChanges/{changeID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues vcs-changes get <issueID> <changeID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-vcsChanges.html#get-VcsChange-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/sprints",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues sprints list <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-sprints.html#get_all-Sprint-method",
+          "status": "accepted"
+        }
+      ],
+      "current_issue_contract": {
+        "input": "Activity leaves expose required nonempty categories, optional cursor, reverse and fields only in this block; no offset/page-size or other filters. Comment update uses a nonempty documented writable object with text supported; IDs opaque.",
+        "returns": "Activity page envelope with cursors/hasBefore/hasAfter; comments id/text/author identity/timestamps; VCS and sprint finite documented detail fields pinned before code."
+      }
+    },
+    {
+      "id": "B50.5",
+      "outcome": "Inspect and record issue work time",
+      "status": "done",
+      "source_owner": "youtrack_time",
+      "operation_count": 7,
+      "target_cumulative": 47,
+      "contract_gate": "Pin official duration/body fields; allow both valid duration forms, with no invented exactly-one rule. Global list --query is documented and approved; no other date/repeated-author filters or automatic work-type discovery in this block.",
+      "operations": [
+        {
+          "id": "GET /api/issues/{issueID}/timeTracking",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues time-tracking get <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-timeTracking.html#get-IssueTimeTracking-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/timeTracking/workItems",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues work-items list <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-timeTracking-workItems.html#get_all-IssueWorkItem-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issues/{issueID}/timeTracking/workItems",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues work-items add <issueID> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-timeTracking-workItems.html#create-IssueWorkItem-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/timeTracking/workItems/{itemID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues work-items get <issueID> <itemID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-timeTracking-workItems.html#get-IssueWorkItem-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issues/{issueID}/timeTracking/workItems/{itemID}",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues work-items update <issueID> <itemID> --body <json>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-timeTracking-workItems.html#update-IssueWorkItem-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/workItems",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "work-items list",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-workItems.html#get_all-IssueWorkItem-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/workItems/{itemID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "work-items get <itemID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-workItems.html#get-IssueWorkItem-method",
+          "status": "accepted"
+        }
+      ],
+      "current_issue_contract": {
+        "input": "Work create requires duration.minutes or duration.presentation and permits both when valid; date/author optional. Update requires a nonempty documented writable object. Global work-items list exposes documented optional --query; additional date/repeated-author filters are deferred.",
+        "returns": "Work items id/date/duration/type/author and issue identity; time-tracking settings source object; arrays/detail preserved with finite documented fields."
+      }
+    },
+    {
+      "id": "B50.6",
+      "outcome": "Inspect and upload explicitly selected issue attachments",
+      "status": "done",
+      "source_owner": "youtrack_attachments",
+      "operation_count": 3,
+      "target_cumulative": 50,
+      "contract_gate": "Pin documented multipart field/content and finite metadata projection. Argument syntax is validated before onboarding; filesystem stat/regular/readability checks only after Update permission is granted and before fetch. Signed URL scrubbing in all outputs; derived download deferred.",
+      "operations": [
+        {
+          "id": "GET /api/issues/{issueID}/attachments",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues attachments list <issueID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-attachments.html#get_all-IssueAttachment-method",
+          "status": "accepted"
+        },
+        {
+          "id": "GET /api/issues/{issueID}/attachments/{attachmentID}",
+          "category": "ReadOnly",
+          "priority": "P1",
+          "cli": "issues attachments get <issueID> <attachmentID>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/operations-api-issues-issueID-attachments.html#get-IssueAttachment-method",
+          "status": "accepted"
+        },
+        {
+          "id": "POST /api/issues/{issueID}/attachments",
+          "category": "Update",
+          "priority": "P1",
+          "cli": "issues attachments upload <issueID> --file <path>",
+          "source": "https://www.jetbrains.com/help/youtrack/devportal/resource-api-issues-issueID-attachments.html#create-IssueAttachment-method",
+          "status": "accepted"
+        }
+      ],
+      "current_issue_contract": {
+        "input": "Upload requires explicit --file. Missing, blank or control-character argument syntax fails before onboarding without filesystem I/O. Stat, regular-file and readability checks run only after the Update permission gate and before fetch. No recursion/discovery/copies or multipart JSON substitute.",
+        "returns": "Attachment metadata id/name/size/MIME source fields; scrub signed URL fields in every output. Upload source array/object as documented, null only for empty success. No download in this block."
+      }
+    }
+  ],
+  "shared_contract": {
+    "issue_sections": [
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#public-cli-and-integration-contract",
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#pagination-projections-and-results",
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#default-projections-and-required-body-families",
+      "https://github.com/iXab3r/EyeAuras.CliFactory/issues/6#mutation-body-and-file-behavior"
+    ],
+    "command_shape": "Use each exact inventory CLI row, opaque segment-encoded IDs and existing recursive tree. Structured writes use required inline --body object; command language and multipart leaves use their published dedicated flags.",
+    "paging": "One request per invocation. Only documented offset collections expose top50/skip0 defaults, top1..100 and skip>=0. Cursor pages require nonempty categories, preserve cursor envelope, no top/skip/page-size.",
+    "projection": "Finite documented source-shaped defaults and explicit --fields where supported; no implicit nested collection expansion/follow-up. All human/JSON/RPC results scrub credential-bearing URL/bearer values, including explicit projection results.",
+    "mutation": "All Update gated before fetch; missing required command arguments and invalid body syntax fail before onboarding. File argument presence/blank/control syntax checks do no filesystem I/O; stat/regular-file/readability follows Update gate. No automatic retry; omit unspecified fields, allow explicit null where documented, empty success returns null.",
+    "output_error": "One data result from shared handlers; ordinary CLI errors sanitized stderr+exit1, RPC existing -32000; preserve profile/keyring/AppData isolation.",
+    "verification": "Each group requires native-fetch mocked request/response/permission/profile/error evidence and independent technical acceptance. Full npm test and independent authoring/simplicity AR50 close milestone; test count alone is not coverage or authoring evidence."
+  },
+  "scope_review": "research/review/block-50-scope-review.md: independent exact-ID PASS; root accepted scheduling and released six owners. Scope acceptance does not increment implementation count.",
+  "integration_lead": "youtrack_auth: shared existing files, foundation and CLI composition",
+  "technical_reviewer": "inventory_reviewer; acceptance requires reviewer plus root",
+  "reconciliation": "Root corrected proposal overreach: invalid file syntax before onboarding does not authorize filesystem access before Update. This implements existing Issue missing-required-command-parameter and permission contracts, not a public scope change. Defaults/body optional-field pinning remains within existing Issue; domain authors own official-source notes.",
+  "technical_acceptance": {
+    "verdict": "Independent technical PASS plus root acceptance for all42; total50 (37ReadOnly/13Update)",
+    "tests": "Final215/215: Core25, TeamCity36, YouTrack154; independent rerun, no skips",
+    "records": [
+      "research/review/block-50-technical-review.md",
+      "research/review/block-50-query-context-review.md",
+      "research/review/block-50-fields-time-review.md",
+      "research/review/block-50-relations-attachments-review.md"
+    ]
+  },
+  "ar50": {
+    "status": "done",
+    "verdict": "Independent written authoring/simplicity PASS and root approval; required corrections none",
+    "review": "research/authoring-baseline/ar50-review.md",
+    "review_sha256": "9ae9ee232b83a3c2c51d31177e193254e66a628c64aa55b0be3597a073b7ef40",
+    "required_corrections": [],
+    "closed_corrections": [
+      "Normal readable formatting restored; no compression credited as authoring savings",
+      "Period minutes0..2147483647 local CLI policy and boundary test; separate duration/Period validators retained"
+    ],
+    "snapshot": "research/authoring-baseline/snapshots/ar50-final.json",
+    "snapshot_sha256": "1387dd12cef9c7f6a8f94e395d9b4696d798223e53ff346c02558de0f7334984",
+    "verified_file_count": 64,
+    "production_lines": 4861,
+    "production_breakdown": {
+      "core": 1741,
+      "teamcity": 1100,
+      "youtrack": 2020
+    },
+    "tests_support_lines": 5022,
+    "proof_lines": 482,
+    "delta_from_ar8": {
+      "production": 1500,
+      "tests_support": 1844,
+      "proof": 37
+    },
+    "delta_from_original": {
+      "production": 2030,
+      "tests_support": 2961,
+      "proof": 152
+    },
+    "authoring_finding": "No same-capability source reduction or new shared Core benefit claimed; explicit bindings and separate validators retained; no new runtime dependency",
+    "tests": "npm.cmd test:215/215PASS (25Core+36TeamCity+154YouTrack); independent215PASS",
+    "live_proof": {
+      "command": "node.exe integrations/youtrack/dist/integration-tests/profile-proof.js --profile youtrack-dev",
+      "working_directory": "D:\\Work\\EyeAuras.CliFactory-1",
+      "verdict": "13ReadOnlyPASS,0SKIP,exit0",
+      "counts": [
+        1,
+        3,
+        3,
+        1,
+        1,
+        1,
+        3,
+        3,
+        3,
+        3,
+        0,
+        3,
+        0
+      ],
+      "privacy": "Static counts only; normal profile/keyring; no writes or private payload persistence"
+    },
+    "final_checks": "Root targeted privacy scan0 findings and git diff --check PASS; all64 hashes verified",
+    "next": "Later51-100 scope pending; no additional user approval required at internal slice boundaries; AR100 and finalAR118 mandatory"
+  }
+}

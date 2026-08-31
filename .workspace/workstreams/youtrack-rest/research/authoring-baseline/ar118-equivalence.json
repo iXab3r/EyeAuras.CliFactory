@@ -1,0 +1,814 @@
+{
+  "baseline_snapshot": "ar100-final.json",
+  "direct_snapshot": "ar118-direct.json",
+  "final_snapshot": "ar118-final.json",
+  "accepted_rest_operations": 118,
+  "derived_download_accepted": 1,
+  "samples": [
+    {
+      "name": "listIssues",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "listIssues",
+        "start": 266,
+        "end": 274,
+        "nonblank": 9,
+        "body": "export async function listIssues(\n  connection: Connection,\n  options: IssueSearchOptions = {},\n): Promise<YouTrackObject[]> {\n  return readCollection(connection, \"api/issues\", {\n    ...page(options, issueListFields),\n    ...(options.query === undefined ? {} : { query: requiredText(options.query, \"query\") }),\n  });\n}"
+      },
+      "after": {
+        "name": "listIssues",
+        "start": 300,
+        "end": 308,
+        "nonblank": 9,
+        "body": "export async function listIssues(\n  connection: Connection,\n  options: IssueSearchOptions = {},\n): Promise<YouTrackObject[]> {\n  return readCollection(connection, \"api/issues\", {\n    ...page(options, issueListFields),\n    ...(options.query === undefined ? {} : { query: requiredText(options.query, \"query\") }),\n  });\n}"
+      },
+      "identical": true
+    },
+    {
+      "name": "getIssue",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "getIssue",
+        "start": 276,
+        "end": 284,
+        "nonblank": 9,
+        "body": "export async function getIssue(\n  connection: Connection,\n  id: string,\n  options: ProjectionOptions = {},\n): Promise<YouTrackObject> {\n  return readObject(connection, issuePath(id), {\n    fields: fields(options, `${issueListFields},description,created`),\n  });\n}"
+      },
+      "after": {
+        "name": "getIssue",
+        "start": 310,
+        "end": 318,
+        "nonblank": 9,
+        "body": "export async function getIssue(\n  connection: Connection,\n  id: string,\n  options: ProjectionOptions = {},\n): Promise<YouTrackObject> {\n  return readObject(connection, issuePath(id), {\n    fields: fields(options, `${issueListFields},description,created`),\n  });\n}"
+      },
+      "identical": true
+    },
+    {
+      "name": "updateIssue",
+      "path": "integrations/youtrack/src/client.ts",
+      "before": {
+        "name": "updateIssue",
+        "start": 366,
+        "end": 379,
+        "nonblank": 14,
+        "body": "export async function updateIssue(\n  connection: Connection,\n  id: string,\n  input: unknown,\n): Promise<YouTrackObject | null> {\n  const body = mutationBody(input, [\"summary\", \"description\"]);\n  if (Object.keys(body).length === 0) {\n    throw new Error(\"YouTrack issue update requires summary or description.\");\n  }\n  return mutate(connection, issuePath(id), {\n    ...(Object.hasOwn(body, \"summary\") ? { summary: narrative(body.summary, \"summary\") } : {}),\n    ...(Object.hasOwn(body, \"description\") ? { description: nullableText(body.description, \"description\") } : {}),\n  }, \"id,idReadable,summary,updated\");\n}"
+      },
+      "after": {
+        "name": "updateIssue",
+        "start": 400,
+        "end": 413,
+        "nonblank": 14,
+        "body": "export async function updateIssue(\n  connection: Connection,\n  id: string,\n  input: unknown,\n): Promise<YouTrackObject | null> {\n  const body = mutationBody(input, [\"summary\", \"description\"]);\n  if (Object.keys(body).length === 0) {\n    throw new Error(\"YouTrack issue update requires summary or description.\");\n  }\n  return mutate(connection, issuePath(id), {\n    ...(Object.hasOwn(body, \"summary\") ? { summary: narrative(body.summary, \"summary\") } : {}),\n    ...(Object.hasOwn(body, \"description\") ? { description: nullableText(body.description, \"description\") } : {}),\n  }, \"id,idReadable,summary,updated\");\n}"
+      },
+      "identical": true
+    }
+  ],
+  "declarations": [
+    {
+      "description": "Search one page of issues using YouTrack query syntax",
+      "path": "integrations/youtrack/src/cli.ts",
+      "before": {
+        "start": 123,
+        "end": 134,
+        "nonblank": 12,
+        "body": "        command(\n          \"list\",\n          \"Search one page of issues using YouTrack query syntax\",\n          async ({ options }, context) => listIssues(await connection(context), readOptions(options)),\n          {\n            permission: Permission.ReadOnly,\n            options: [\n              ...pageOptions,\n              { flags: \"--query <query>\", description: \"YouTrack search query\" },\n            ],\n          },\n        ),"
+      },
+      "after": {
+        "start": 125,
+        "end": 136,
+        "nonblank": 12,
+        "body": "        command(\n          \"list\",\n          \"Search one page of issues using YouTrack query syntax\",\n          async ({ options }, context) => listIssues(await connection(context), readOptions(options)),\n          {\n            permission: Permission.ReadOnly,\n            options: [\n              ...pageOptions,\n              { flags: \"--query <query>\", description: \"YouTrack search query\" },\n            ],\n          },\n        ),"
+      },
+      "identical": true
+    },
+    {
+      "description": "Show an issue by database or readable ID",
+      "path": "integrations/youtrack/src/cli.ts",
+      "before": {
+        "start": 135,
+        "end": 141,
+        "nonblank": 7,
+        "body": "        command(\n          \"get <issueID>\",\n          \"Show an issue by database or readable ID\",\n          async ({ args, options }, context) =>\n            getIssue(await connection(context), String(args.issueID), readOptions(options)),\n          { permission: Permission.ReadOnly, options: projectionOptions },\n        ),"
+      },
+      "after": {
+        "start": 137,
+        "end": 143,
+        "nonblank": 7,
+        "body": "        command(\n          \"get <issueID>\",\n          \"Show an issue by database or readable ID\",\n          async ({ args, options }, context) =>\n            getIssue(await connection(context), String(args.issueID), readOptions(options)),\n          { permission: Permission.ReadOnly, options: projectionOptions },\n        ),"
+      },
+      "identical": true
+    },
+    {
+      "description": "Update summary and/or description; description null clears it",
+      "path": "integrations/youtrack/src/cli.ts",
+      "before": {
+        "start": 116,
+        "end": 122,
+        "nonblank": 7,
+        "body": "        command(\n          \"update <issueID>\",\n          \"Update summary and/or description; description null clears it\",\n          async ({ args, options }, context) =>\n            updateIssue(await connection(context), String(args.issueID), options.body),\n          { permission: Permission.Update, options: bodyOptions },\n        ),"
+      },
+      "after": {
+        "start": 118,
+        "end": 124,
+        "nonblank": 7,
+        "body": "        command(\n          \"update <issueID>\",\n          \"Update summary and/or description; description null clears it\",\n          async ({ args, options }, context) =>\n            updateIssue(await connection(context), String(args.issueID), options.body),\n          { permission: Permission.Update, options: bodyOptions },\n        ),"
+      },
+      "identical": true
+    }
+  ],
+  "uploads": [
+    {
+      "path": "integrations/youtrack/src/issue-attachments.ts",
+      "before": {
+        "name": "uploadIssueAttachment",
+        "start": 45,
+        "end": 64,
+        "nonblank": 20,
+        "body": "export async function uploadIssueAttachment(\n  connection: Connection,\n  issueID: string,\n  filePath: string,\n): Promise<YouTrackObject[] | null> {\n  const path = `${issuePath(issueID)}/attachments`;\n  requiredText(filePath, \"file path\");\n  let file: Blob;\n  try {\n    if (!(await fs.promises.stat(filePath)).isFile()) {\n      throw new Error();\n    }\n    file = await fs.openAsBlob(filePath);\n  } catch {\n    throw new Error(\"YouTrack upload requires a readable regular file.\");\n  }\n  const form = new FormData();\n  form.append(\"upload1\", file, basename(filePath));\n  return uploadObjectCollection(connection, path, form, attachmentFields);\n}"
+      },
+      "after": {
+        "name": "uploadIssueAttachment",
+        "start": 43,
+        "end": 51,
+        "nonblank": 9,
+        "body": "export async function uploadIssueAttachment(\n  connection: Connection,\n  issueID: string,\n  filePath: string,\n): Promise<YouTrackObject[] | null> {\n  const path = `${issuePath(issueID)}/attachments`;\n  const form = await attachmentForm(filePath);\n  return uploadObjectCollection(connection, path, form, attachmentFields);\n}"
+      },
+      "exact_moved_form_block": true
+    },
+    {
+      "path": "integrations/youtrack/src/article-extras.ts",
+      "before": {
+        "name": "uploadArticleAttachment",
+        "start": 51,
+        "end": 72,
+        "nonblank": 22,
+        "body": "export async function uploadArticleAttachment(\n  connection: Connection,\n  articleID: string,\n  filePath: string,\n  options: ProjectionOptions = {},\n): Promise<YouTrackObject[] | null> {\n  const path = `${articlePath(articleID)}/attachments`;\n  const projection = fields(options, attachmentFields);\n  requiredText(filePath, \"file path\");\n  let file: Blob;\n  try {\n    if (!(await fs.promises.stat(filePath)).isFile()) {\n      throw new Error();\n    }\n    file = await fs.openAsBlob(filePath);\n  } catch {\n    throw new Error(\"YouTrack upload requires a readable regular file.\");\n  }\n  const form = new FormData();\n  form.append(\"upload1\", file, basename(filePath));\n  return uploadObjectCollection(connection, path, form, projection);\n}"
+      },
+      "after": {
+        "name": "uploadArticleAttachment",
+        "start": 49,
+        "end": 59,
+        "nonblank": 11,
+        "body": "export async function uploadArticleAttachment(\n  connection: Connection,\n  articleID: string,\n  filePath: string,\n  options: ProjectionOptions = {},\n): Promise<YouTrackObject[] | null> {\n  const path = `${articlePath(articleID)}/attachments`;\n  const projection = fields(options, attachmentFields);\n  const form = await attachmentForm(filePath);\n  return uploadObjectCollection(connection, path, form, projection);\n}"
+      },
+      "exact_moved_form_block": true
+    }
+  ],
+  "attachment_form": {
+    "name": "attachmentForm",
+    "start": 5,
+    "end": 19,
+    "nonblank": 15,
+    "body": "export async function attachmentForm(filePath: string): Promise<FormData> {\n  requiredText(filePath, \"file path\");\n  let file: Blob;\n  try {\n    if (!(await fs.promises.stat(filePath)).isFile()) {\n      throw new Error();\n    }\n    file = await fs.openAsBlob(filePath);\n  } catch {\n    throw new Error(\"YouTrack upload requires a readable regular file.\");\n  }\n  const form = new FormData();\n  form.append(\"upload1\", file, basename(filePath));\n  return form;\n}"
+  },
+  "changed_after_correctness_fixed_direct": [
+    {
+      "path": "integrations/youtrack/src/article-extras.ts",
+      "kind": "source",
+      "before_nonblank": 101,
+      "after_nonblank": 88,
+      "delta": -13,
+      "before_sha256": "391b1b68c434242b760851ebf555bab6db9bd17574be45bf6245bddf51e6a900",
+      "after_sha256": "1e3a0860de97890dcbf15ffb621b359f11a0ef9b35065a4f50e4ac9e8946028b"
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-form.ts",
+      "kind": "source",
+      "before_nonblank": 0,
+      "after_nonblank": 18,
+      "delta": 18,
+      "before_sha256": null,
+      "after_sha256": "20d74774675b5ad3b5e9029da07a7d7b3839dcfe1093587f19aa803dc2d365bf"
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments.ts",
+      "kind": "source",
+      "before_nonblank": 60,
+      "after_nonblank": 47,
+      "delta": -13,
+      "before_sha256": "912a8795bfccae502548d5ff65cf756888d4520307b6fbeb694c1772770d64ef",
+      "after_sha256": "a21b7eac17752247278514730303a4d2ea18c2b1406895ae23e6c73a28721004"
+    }
+  ],
+  "download_metadata": {
+    "name": "getIssueAttachmentDownloadMetadata",
+    "start": 231,
+    "end": 253,
+    "nonblank": 23,
+    "body": "export async function getIssueAttachmentDownloadMetadata(\n  connection: Connection,\n  issueID: string,\n  attachmentID: string,\n): Promise<{ id: string; name: string; mimeType: string | null; url: string }> {\n  const value = object(await request(\n    connection,\n    `${issuePath(issueID)}/attachments/${encodedID(attachmentID, \"attachment ID\")}`,\n    { fields: \"id,name,mimeType,url\" },\n  ));\n  const token = connection.token.trim();\n  const { id, name, mimeType, url } = value;\n  if (\n    typeof id !== \"string\" || !id.trim() ||\n    typeof name !== \"string\" || !name.trim() ||\n    typeof url !== \"string\" || !url.trim() ||\n    (mimeType !== null && typeof mimeType !== \"string\") ||\n    [id, name, mimeType, url].some((item) => typeof item === \"string\" && item.includes(token))\n  ) {\n    throw new Error(\"YouTrack returned invalid attachment download metadata or no download URL.\");\n  }\n  return { id, name, mimeType, url };\n}"
+  },
+  "verification": [
+    {
+      "path": "integrations/teamcity/integration-tests/profile-proof.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/bin.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/cli.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/client.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/index.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/locator.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/src/models.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/argument-errors.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/auth-contract.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/cli.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-builds.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-foundation.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-operations.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/integration-proof.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/process.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/teamcity/tests/support.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/integration-tests/profile-proof.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/agile-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/agile.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/article-extras-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/article-extras.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/articles-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/articles.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-download-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-download.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-form.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/bin.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/bundle-values-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/bundle-values.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli-support.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/client.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/field-catalog-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/field-catalog.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/group-directory-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/group-directory.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/index.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/time-settings-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/time-settings.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/user-directory-commands.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/src/user-directory.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/agile.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/article-extras.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/articles.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/attachment-download.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/auth-contract.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values-cases.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values-cli.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli-fixture.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/client.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog-cases.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog-cli.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/group-directory.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-attachments.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-context.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields-cli.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-query.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-relations.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time-cli.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/mutations.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/profile-proof.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/reads.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/time-settings.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/transport.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "integrations/youtrack/tests/user-directory.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/app-arguments.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/auth.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/cli.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/command.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/json-rpc.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/output.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/permissions.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/profile-store.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/secret-store.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/app-arguments.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/auth-contract.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/auth.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/cli.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/profile-configure.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    },
+    {
+      "path": "packages/core/tests/profile-store.test.ts",
+      "saved_hash_matches": true,
+      "nonblank_matches": true,
+      "current_hash_matches": true
+    }
+  ],
+  "manifests": [
+    {
+      "path": "package.json",
+      "unchanged": true
+    },
+    {
+      "path": "packages/core/package.json",
+      "unchanged": true
+    },
+    {
+      "path": "integrations/youtrack/package.json",
+      "unchanged": true
+    },
+    {
+      "path": "integrations/teamcity/package.json",
+      "unchanged": true
+    }
+  ]
+}

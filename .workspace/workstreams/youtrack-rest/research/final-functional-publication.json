@@ -1,0 +1,14 @@
+{
+  "status": "frozen-awaiting-root-publication",
+  "old_body_sha256": "c44b094f090cacfe90272cd0a7b600d6c65d99be5bc2fcb0cec2ec67e2871c68",
+  "candidate": "issue-body-functional-candidate.md",
+  "candidate_sha256": "435ef59fb200666280b41a295faa71fabbabb1a7ac423571601370f8684efbc2",
+  "functional_checked": 8,
+  "v2_checked": 1,
+  "formal_closure_checked": false,
+  "canonical_unchanged": true,
+  "review_record": "research/final-functional-acceptance.md",
+  "publication": "Root reviewer/privacy/oldbodyguard and exactnewreadback; no Issueclosure",
+  "current_status_first": true,
+  "historical_headings_labeled": true
+}

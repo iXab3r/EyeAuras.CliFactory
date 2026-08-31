@@ -10,11 +10,12 @@
   ],
   "scripts": {
     "bootstrap": "dotnet run --file scripts/bootstrap.cs",
-    "build": "npm run build --workspace @eyeauras/cli-factory && npm run build --workspace @eyeauras/teamcity-cli",
+    "build": "npm run build --workspace @eyeauras/cli-factory && npm run build --workspace @eyeauras/teamcity-cli && npm run build --workspace @eyeauras/youtrack-cli",
     "typecheck": "npm run build",
     "test": "npm run build && npm run test:compiled --workspaces --if-present",
     "check": "npm run test",
-    "teamcity": "npm run start --workspace @eyeauras/teamcity-cli --"
+    "teamcity": "npm run start --workspace @eyeauras/teamcity-cli --",
+    "youtrack": "npm run start --workspace @eyeauras/youtrack-cli --"
   },
   "engines": {
     "node": ">=22"
