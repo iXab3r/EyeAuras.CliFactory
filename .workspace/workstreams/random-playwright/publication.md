@@ -55,3 +55,12 @@ snapshots), documentation protocol punctuation, reserved example/invalid/loopbac
 metadata, identifier-building expressions, synthetic redaction fixtures and dependency version fields.
 The feature commit's earlier 175-path/119-change review remains its dated baseline. Diff whitespace
 checks pass. Publication does not close Issue #11 or claim a new remote CI/platform result.
+
+## Publication receipt — complete
+
+Merge e4d219f (parents adbc566 and ffb3d93) was published to origin/main. The working branch
+codex/random-rest-cli was then fast-forwarded to main and pushed. A fresh fetch verified identical
+local main, working-branch HEAD, origin/main and origin/codex/random-rest-cli identities, with a
+clean working tree. This completes the owner's commit/push/merge/merge-back request. This receipt
+changes documentation only; the runtime verified by the 1070-test gate is unchanged. No known
+local test failures remain; remote CI/platform status is not asserted. Other worktrees were untouched.
