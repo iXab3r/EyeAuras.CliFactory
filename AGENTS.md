@@ -54,7 +54,6 @@ More specific `AGENTS.md` files override this router only inside their directory
    never real credentials or private service data. Report suspicious locations without echoing
    sensitive values; unresolved findings block commit and push. Only explicit owner approval can
    permit specific non-secret metadata; it never permits credentials or unrelated new disclosures.
-
 13. **Less authoring code, still simple.** API expansion workstreams declare a baseline and honor
    the authoring-review cadence (normally every 50 new operations). Review same-capability examples,
    total Core + integration code, and conceptual complexity—not just endpoint coverage or shorter

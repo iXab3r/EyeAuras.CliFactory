@@ -49,6 +49,16 @@ test("the packaged CLI process separates help, JSON output, and errors", async (
       enabled: false,
       description: "Perform operations that may change remote state",
     },
+    {
+      name: "Admin",
+      enabled: false,
+      description: "Change remote accounts, access policy and server administration",
+    },
+    {
+      name: "Credentials",
+      enabled: false,
+      description: "Issue/revoke remote credentials or remove explicitly owned local credentials",
+    },
   ]);
   assert.equal(json.stderr, "");
 

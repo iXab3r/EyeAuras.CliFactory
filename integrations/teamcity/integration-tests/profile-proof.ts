@@ -237,6 +237,21 @@ export async function runProfileProof(
     skip("agents show", agentItems === undefined ? "source list failed" : "source list empty");
   }
 
+  const roots = await executeJson(
+    "vcs roots list", ["vcs", "roots", "list", "--limit", pageLimit],
+    (value) => pageSummary(value, true),
+  );
+  const rootItems = roots === undefined ? undefined : arrayValue(roots, "VCS roots response");
+  const rootId = rootItems?.[0] === undefined ? undefined : itemId(rootItems[0]);
+  if (rootId) {
+    await executeJson("vcs roots show", ["vcs", "roots", "show", rootId], (value) => {
+      objectValue(value, "VCS root response");
+      return "response parsed";
+    });
+  } else {
+    skip("vcs roots show", rootItems === undefined ? "source list failed" : "source list empty");
+  }
+
   const rpcInput = [
     {
       jsonrpc: "2.0",

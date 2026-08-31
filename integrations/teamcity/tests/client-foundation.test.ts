@@ -260,7 +260,7 @@ test("reports HTTP and malformed-JSON failures without exposing credentials", as
     (error: unknown) =>
       error instanceof TeamCityHttpError &&
       error.status === 404 &&
-      error.message.includes("Project was not found"),
+      error.message === "TeamCity request failed with HTTP 404.",
   );
 
   server.use(

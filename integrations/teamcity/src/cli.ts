@@ -10,6 +10,15 @@ import {
   type Profile,
 } from "@eyeauras/cli-factory";
 import { TeamCityClient } from "./client.js";
+import { createAuthoringCommands } from "./authoring-commands.js";
+import { createOperatorCommands } from "./operator-commands.js";
+import { createBulkConfigurationCommands } from "./bulk-configuration-commands.js";
+import { createTriageCommands } from "./triage-commands.js";
+import { createAdminCommands } from "./admin-commands.js";
+import { adminCategories } from "./admin-models.js";
+import { createInfrastructureCommands } from "./infrastructure-commands.js";
+import { createSystemCommands } from "./system-commands.js";
+import { createFileCommands } from "./file-commands.js";
 import type {
   TeamCityBuildState,
   TeamCityBuildStatus,
@@ -122,11 +131,7 @@ const buildState = oneOf<TeamCityBuildState>("Build state", [
   "finished",
   "any",
 ]);
-const buildStatus = oneOf<TeamCityBuildStatus>("Build status", [
-  "SUCCESS",
-  "FAILURE",
-  "UNKNOWN",
-]);
+const buildStatus = oneOf<TeamCityBuildStatus>("Build status", ["SUCCESS", "FAILURE", "UNKNOWN"]);
 const testStatus = oneOf<TeamCityTestStatus>("Test status", [
   "unknown",
   "normal",
@@ -138,12 +143,20 @@ const testStatus = oneOf<TeamCityTestStatus>("Test status", [
 const triState = oneOf<TeamCityTriState>("Agent filter", ["true", "false", "any"]);
 
 export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
+  const bulk = createBulkConfigurationCommands(client, pageOptions);
+  const authoring = createAuthoringCommands(client, pageOptions, bulk);
+  const files = createFileCommands(client);
+  const system = createSystemCommands(client, pageOptions, files.avatar);
+  const triage = createTriageCommands(client, pageOptions, system.mutes);
+  const admin = createAdminCommands(client, pageOptions, system.users);
+  const infrastructure = createInfrastructureCommands(client, pageOptions, files.instances);
+  const operators = createOperatorCommands(client, pageOptions, bulk, triage, system.pools);
   return createCli({
     name: "teamcity-cli",
     description: "AI-friendly access to TeamCity",
     version: "0.1.0",
     applicationId: "teamcity-cli",
-    permissions: {},
+    permissions: { categories: adminCategories },
     profile: {
       fields: [
         {
@@ -177,11 +190,20 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       env: "TEAMCITY_TOKEN",
       required: (profile) => profile.values.guest !== true,
       async validate({ profile, token, fetch, signal }) {
-        return new TeamCityClient({ baseUrl: profileUrl(profile), token, fetch, signal }).currentUser();
+        return new TeamCityClient({
+          baseUrl: profileUrl(profile),
+          token,
+          fetch,
+          signal,
+        }).currentUser();
       },
     }),
     commands: [
       command("server", "Inspect the TeamCity server", [
+        ...admin.server,
+        ...infrastructure.server,
+        ...system.server,
+        ...files.server,
         command(
           "status",
           "Show TeamCity version, role, and clock information",
@@ -216,6 +238,10 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           async ({ args }, context) => (await client(context)).getProject(args.id),
           { permission: Permission.ReadOnly },
         ),
+        ...authoring.projects,
+        ...infrastructure.projects,
+        ...system.projects,
+        ...files.projects,
       ]),
       command("jobs", "Work with TeamCity build configurations", [
         command(
@@ -267,8 +293,13 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             ],
           },
         ),
+        ...authoring.jobs,
+        ...system.jobs,
+        ...files.jobs,
       ]),
       command("builds", "Inspect and control TeamCity builds", [
+        ...operators.builds,
+        ...files.builds,
         command(
           "list",
           "List operational builds across all branches",
@@ -369,6 +400,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ),
       ]),
       command("queue", "Inspect and control the TeamCity build queue", [
+        ...operators.queue,
         command(
           "list",
           "List queued builds",
@@ -406,6 +438,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ),
       ]),
       command("agents", "Inspect TeamCity build agents", [
+        ...operators.agents,
         command(
           "list",
           "List build agents",
@@ -450,6 +483,21 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           { permission: Permission.ReadOnly },
         ),
       ]),
+      command("vcs", "Inspect and configure version control", [
+        command("roots", "VCS root identities and configuration", [
+          ...authoring.roots,
+          ...files.roots,
+          ...infrastructure.roots,
+        ]),
+        infrastructure.instances,
+      ]),
+      operators.pools,
+      operators.changes,
+      ...triage.roots,
+      admin.users,
+      admin.groups,
+      ...infrastructure.rootsCommands,
+      ...system.roots,
     ],
     ...(runtime === undefined ? {} : { runtime }),
   });

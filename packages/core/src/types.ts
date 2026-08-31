@@ -55,10 +55,10 @@ export type CommandHandler = (
 ) => unknown | Promise<unknown>;
 
 export interface OptionDefinition {
-  /** Reject a missing value before profile onboarding or handler execution. */
-  required?: boolean;
   flags: string;
   description: string;
+  /** Require a value (or declared default) before profile onboarding or handler execution. */
+  required?: boolean;
   defaultValue?: unknown;
   parse?: (value: string, previous: unknown) => unknown;
 }

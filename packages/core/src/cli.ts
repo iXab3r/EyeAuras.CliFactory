@@ -383,7 +383,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     const addDefinition = (parent: Command, item: CommandDefinition): void => {
       const parts = commandParts(item.name);
       const current = new Command(parts.name)
-        .exitOverride()
+        .copyInheritedSettings(parent)
         .description(item.description)
         .configureOutput(parent.configureOutput());
       if (item.permission) {
@@ -393,15 +393,17 @@ export function createCli(definition: CliDefinition): CliApplication {
         current.argument(argument);
       }
       for (const specification of item.options ?? []) {
-        const option = new Option(specification.flags, specification.description);
-        if (specification.required) {
-          option.makeOptionMandatory();
-        }
+        const requiredHint = specification.required && specification.defaultValue === undefined
+          ? " (required)" : "";
+        const option = new Option(specification.flags, specification.description + requiredHint);
         if (specification.defaultValue !== undefined) {
           option.default(specification.defaultValue);
         }
         if (specification.parse) {
           option.argParser(specification.parse);
+        }
+        if (specification.required) {
+          option.makeOptionMandatory();
         }
         current.addOption(option);
       }
@@ -424,7 +426,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     };
 
     const profileCommand = new Command("profile")
-      .exitOverride()
+      .copyInheritedSettings(program)
       .description("Manage service profiles")
       .configureOutput(program.configureOutput());
     profileCommand
@@ -588,7 +590,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       };
 
       const permissionsCommand = new Command("permissions")
-        .exitOverride()
+        .copyInheritedSettings(program)
         .description("Manage profile-specific safety permissions")
         .configureOutput(program.configureOutput());
       permissionsCommand
@@ -657,7 +659,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     if (definition.auth) {
       const auth = definition.auth;
       const authCommand = new Command("auth")
-        .exitOverride()
+        .copyInheritedSettings(program)
         .description("Manage authentication")
         .configureOutput(program.configureOutput());
       authCommand

@@ -27,6 +27,8 @@ rejects a missing required value before profile onboarding, keyring access or th
 ordinary CLI, programmatic and JSON-RPC execution. A declared default satisfies this requirement;
 existing option parsing still applies to supplied values. This is distinct from required profile
 fields, which the interactive configurator may prompt for.
+Generated help marks required options without defaults. Help and argument errors never terminate
+the host process.
 
 Literal leaf declarations infer required positional strings in their inline callback from the
 existing command name. The small inferred grammar uses ASCII letters, digits, underscores and

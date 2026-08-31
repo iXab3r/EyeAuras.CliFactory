@@ -1,0 +1,51 @@
+method,path,cli,permission
+GET,/app/rest,server rest-info,ReadOnly
+POST,/app/rest/agentPools/{agentPoolLocator}/authorizationTokens,pools tokens create,Credentials
+GET,/app/rest/audit,audit list,ReadOnly
+GET,/app/rest/audit/{auditEventLocator},audit show,ReadOnly
+PUT,/app/rest/avatars/{userLocator},users avatar replace,Update
+DELETE,/app/rest/avatars/{userLocator},users avatar delete,Update
+GET,/app/rest/buildTypes/{btLocator}/investigations,jobs investigations,ReadOnly
+GET,/app/rest/buildTypes/{btLocator}/vcsRootInstances,jobs vcs-instances,ReadOnly
+GET,/app/rest/deploymentDashboards,deployments list,ReadOnly
+POST,/app/rest/deploymentDashboards,deployments create,Update
+GET,/app/rest/deploymentDashboards/{deploymentDashboardLocator},deployments show,ReadOnly
+DELETE,/app/rest/deploymentDashboards/{deploymentDashboardLocator},deployments delete,Update
+GET,/app/rest/deploymentDashboards/{deploymentDashboardLocator}/instances,deployments instances list,ReadOnly
+POST,/app/rest/deploymentDashboards/{deploymentDashboardLocator}/instances,deployments instances upsert,Update
+GET,/app/rest/deploymentDashboards/{deploymentDashboardLocator}/instances/{deploymentInstanceLocator},deployments instances show,ReadOnly
+POST,/app/rest/deploymentDashboards/{deploymentDashboardLocator}/instances/{deploymentInstanceLocator},deployments instances append-state,Update
+DELETE,/app/rest/deploymentDashboards/{deploymentDashboardLocator}/instances/{deploymentInstanceLocator},deployments instances delete,Update
+GET,/app/rest/health,health list,ReadOnly
+GET,/app/rest/health/category,health categories list,ReadOnly
+GET,/app/rest/health/category/{locator},health categories show,ReadOnly
+GET,/app/rest/health/{locator},health show,ReadOnly
+GET,/app/rest/info,server rest-plugin,ReadOnly
+DELETE,/app/rest/mutes/multiple,mutes delete-many,Update
+GET,/app/rest/projects/{projectLocator}/defaultValueSets,projects default-value-sets,ReadOnly
+GET,/app/rest/projects/{projectLocator}/deploymentDashboards,projects deployments list,ReadOnly
+GET,/app/rest/projects/{projectLocator}/deploymentDashboards/{dashboardLocator},projects deployments show,ReadOnly
+GET,/app/rest/roles,roles list,ReadOnly
+POST,/app/rest/roles,roles create,Admin
+GET,/app/rest/roles/id:{id},roles show,ReadOnly
+DELETE,/app/rest/roles/id:{id},roles delete,Admin
+PUT,/app/rest/roles/id:{roleId}/included/{includedId},roles included add,Admin
+DELETE,/app/rest/roles/id:{roleId}/included/{includedId},roles included remove,Admin
+PUT,/app/rest/roles/id:{roleId}/permissions/{permissionId},roles permissions add,Admin
+DELETE,/app/rest/roles/id:{roleId}/permissions/{permissionId},roles permissions remove,Admin
+GET,/app/rest/server/authSettings,server authentication show,ReadOnly
+PUT,/app/rest/server/authSettings,server authentication replace,Admin
+GET,/app/rest/server/backup,server backup status,ReadOnly
+POST,/app/rest/server/backup,server backup start,Admin
+GET,/app/rest/server/cleanup,server cleanup show,ReadOnly
+PUT,/app/rest/server/cleanup,server cleanup configure,Admin
+GET,/app/rest/server/globalSettings,server settings show,ReadOnly
+PUT,/app/rest/server/globalSettings,server settings set,Admin
+GET,/app/rest/server/licensingData,server licenses summary,ReadOnly
+GET,/app/rest/server/licensingData/licenseKeys,server licenses list,ReadOnly
+POST,/app/rest/server/licensingData/licenseKeys,server licenses add,Admin
+GET,/app/rest/server/licensingData/licenseKeys/{licenseKey},server licenses show,ReadOnly
+DELETE,/app/rest/server/licensingData/licenseKeys/{licenseKey},server licenses delete,Admin
+GET,/app/rest/server/metrics,server metrics,ReadOnly
+GET,/app/rest/server/plugins,server plugins,ReadOnly
+GET,/app/rest/server/{field},server field,ReadOnly

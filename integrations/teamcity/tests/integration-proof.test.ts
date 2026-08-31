@@ -46,6 +46,7 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     job: "private-job-id",
     build: 4242,
     agent: 73,
+    root: "private-root-id",
   };
   const invoke = async (invocation: CliInvocation): Promise<CliInvocationResult> => {
     invocations.push(invocation);
@@ -72,6 +73,7 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     if (command === "builds list --limit 3") return json([{ id: privateValues.build }]);
     if (command === "queue list --limit 3") return json([]);
     if (command === "agents list --limit 3") return json([{ id: privateValues.agent }]);
+    if (command === "vcs roots list --limit 3") return json([{ id: privateValues.root }]);
     if (command.startsWith("builds tests")) return json([]);
     if (command.startsWith("builds problems")) return json([]);
     if (command.startsWith("builds changes")) return json([]);
@@ -83,7 +85,7 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     { environment: {}, invoke },
   );
   assert.equal(report.success, true);
-  assert.equal(invocations.length, 17);
+  assert.equal(invocations.length, 19);
   assert.deepEqual(
     invocations.slice(0, -1).map((invocation) => invocation.argv.slice(0, -3)),
     [
@@ -103,6 +105,8 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
       ["queue", "list", "--limit", "3"],
       ["agents", "list", "--limit", "3"],
       ["agents", "show", String(privateValues.agent)],
+      ["vcs", "roots", "list", "--limit", "3"],
+      ["vcs", "roots", "show", privateValues.root],
     ],
   );
   for (const invocation of invocations.slice(0, -1)) {
@@ -113,7 +117,7 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
   assert.deepEqual(invocations.at(-1)?.argv, ["--json-rpc"]);
 
   const output = formatProofReport(report);
-  assert.match(output, /Summary: 17 passed, 0 skipped, 0 failed/);
+  assert.match(output, /Summary: 19 passed, 0 skipped, 0 failed/);
   for (const privateValue of [
     ...Object.values(privateValues).map(String),
     "private-version",
@@ -145,7 +149,7 @@ test("profile proof treats empty pages as safe dependent skips", async () => {
     { environment: {}, invoke },
   );
   assert.equal(report.success, true);
-  assert.equal(report.entries.filter((entry) => entry.status === "skipped").length, 8);
+  assert.equal(report.entries.filter((entry) => entry.status === "skipped").length, 9);
 });
 
 test("profile proof never copies failed CLI output into its report", async () => {

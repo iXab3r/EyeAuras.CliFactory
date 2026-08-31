@@ -1,0 +1,33 @@
+method,path,cli,permission
+GET,/app/rest/avatars/{userLocator}/{size}/avatar.png,users avatar download,ReadOnly
+GET,/app/rest/avatars/{userLocator}/{size}/avatar.{hash}.png,users avatar download-hash,ReadOnly
+GET,/app/rest/buildTypes/{btLocator}/settingsFile,jobs settings-path,ReadOnly
+GET,/app/rest/buildTypes/{btLocator}/vcs/files/latest,jobs files list,ReadOnly
+GET,/app/rest/buildTypes/{btLocator}/vcs/files/latest/archived{path},jobs files archive,ReadOnly
+GET,/app/rest/buildTypes/{btLocator}/vcs/files/latest/files{path},jobs files download,ReadOnly
+GET,/app/rest/buildTypes/{btLocator}/vcs/files/latest/metadata{path},jobs files metadata,ReadOnly
+GET,/app/rest/buildTypes/{btLocator}/vcs/files/latest/{path},jobs files children,ReadOnly
+GET,/app/rest/builds/aggregated/{buildLocator}/statusIcon{suffix},builds aggregate-icon,ReadOnly
+GET,/app/rest/builds/{buildLocator}/artifacts,builds artifacts list,ReadOnly
+GET,/app/rest/builds/{buildLocator}/artifacts/archived{path},builds artifacts archive,ReadOnly
+GET,/app/rest/builds/{buildLocator}/artifacts/files{path},builds artifacts download,ReadOnly
+GET,/app/rest/builds/{buildLocator}/artifacts/metadata{path},builds artifacts metadata,ReadOnly
+GET,/app/rest/builds/{buildLocator}/artifacts/{path},builds artifacts children,ReadOnly
+GET,/app/rest/builds/{buildLocator}/artifactsDirectory,builds artifacts-path,ReadOnly
+GET,/app/rest/builds/{buildLocator}/resolved/{value},builds resolve-parameter,Credentials
+GET,/app/rest/builds/{buildLocator}/sources/files/{fileName},builds source,ReadOnly
+GET,/app/rest/builds/{buildLocator}/statusIcon{suffix},builds icon,ReadOnly
+POST,/app/rest/projects/{projectLocator}/secure/tokens,projects secure create-reference,Credentials
+GET,/app/rest/projects/{projectLocator}/secure/values/{token},projects secure resolve,Credentials
+GET,/app/rest/projects/{projectLocator}/settingsFile,projects settings-path,ReadOnly
+GET,/app/rest/server/files/{areaId},server files list,ReadOnly
+GET,/app/rest/server/files/{areaId}/archived{path},server files archive,ReadOnly
+GET,/app/rest/server/files/{areaId}/files{path},server files download,ReadOnly
+GET,/app/rest/server/files/{areaId}/metadata{path},server files metadata,ReadOnly
+GET,/app/rest/server/files/{areaId}/{path},server files children,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/files/latest,vcs instances files list,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/files/latest/archived{path},vcs instances files archive,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/files/latest/files{path},vcs instances files download,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/files/latest/metadata{path},vcs instances files metadata,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/files/latest/{path},vcs instances files children,ReadOnly
+GET,/app/rest/vcs-roots/{vcsRootLocator}/settingsFile,vcs roots settings-path,ReadOnly

@@ -1,0 +1,51 @@
+method,path,cli,permission
+GET,/app/rest/cloud/images,cloud images list,ReadOnly
+GET,/app/rest/cloud/images/{imageLocator},cloud images show,ReadOnly
+GET,/app/rest/cloud/instances,cloud instances list,ReadOnly
+POST,/app/rest/cloud/instances,cloud instances start,Update
+GET,/app/rest/cloud/instances/{instanceLocator},cloud instances show,ReadOnly
+DELETE,/app/rest/cloud/instances/{instanceLocator},cloud instances delete,Update
+POST,/app/rest/cloud/instances/{instanceLocator}/actions/forceStop,cloud instances force-stop,Update
+POST,/app/rest/cloud/instances/{instanceLocator}/actions/stop,cloud instances stop,Update
+GET,/app/rest/cloud/profiles,cloud profiles list,ReadOnly
+GET,/app/rest/cloud/profiles/{profileLocator},cloud profiles show,ReadOnly
+POST,/app/rest/vcs-roots,vcs roots create,Update
+DELETE,/app/rest/vcs-roots/{vcsRootLocator},vcs roots delete,Update
+GET,/app/rest/vcs-roots/{vcsRootLocator}/instances,vcs roots instances,ReadOnly
+GET,/app/rest/vcs-roots/{vcsRootLocator}/properties,vcs roots properties list,ReadOnly
+PUT,/app/rest/vcs-roots/{vcsRootLocator}/properties,vcs roots properties replace,Update
+DELETE,/app/rest/vcs-roots/{vcsRootLocator}/properties,vcs roots properties clear,Update
+GET,/app/rest/vcs-roots/{vcsRootLocator}/properties/{name},vcs roots properties exists,ReadOnly
+PUT,/app/rest/vcs-roots/{vcsRootLocator}/properties/{name},vcs roots properties set,Update
+DELETE,/app/rest/vcs-roots/{vcsRootLocator}/properties/{name},vcs roots properties delete,Update
+GET,/app/rest/vcs-roots/{vcsRootLocator}/{field},vcs roots fields get,ReadOnly
+PUT,/app/rest/vcs-roots/{vcsRootLocator}/{field},vcs roots fields set,Update
+GET,/app/rest/vcs-root-instances,vcs instances list,ReadOnly
+POST,/app/rest/vcs-root-instances/checkingForChangesQueue,vcs instances check-changes,Update
+POST,/app/rest/vcs-root-instances/commitHookNotification,vcs instances notify-commit,Update
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator},vcs instances show,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/properties,vcs instances properties,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/repositoryState,vcs instances state show,ReadOnly
+PUT,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/repositoryState,vcs instances state replace,Update
+DELETE,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/repositoryState,vcs instances state reset,Update
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/repositoryState/creationDate,vcs instances state created,ReadOnly
+GET,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/{field},vcs instances fields get,ReadOnly
+PUT,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/{field},vcs instances fields set,Update
+DELETE,/app/rest/vcs-root-instances/{vcsRootInstanceLocator}/{field},vcs instances fields clear,Update
+GET,/app/rest/projects/{locator}/versionedSettings/affectedProjects,projects versioned-settings affected,ReadOnly
+POST,/app/rest/projects/{locator}/versionedSettings/checkForChanges,projects versioned-settings check-changes,Update
+POST,/app/rest/projects/{locator}/versionedSettings/commitCurrentSettings,projects versioned-settings commit,Update
+GET,/app/rest/projects/{locator}/versionedSettings/config,projects versioned-settings config show,ReadOnly
+PUT,/app/rest/projects/{locator}/versionedSettings/config,projects versioned-settings config replace,Update
+GET,/app/rest/projects/{locator}/versionedSettings/config/effective,projects versioned-settings config effective,ReadOnly
+GET,/app/rest/projects/{locator}/versionedSettings/config/parameters/{name},projects versioned-settings config fields get,ReadOnly
+PUT,/app/rest/projects/{locator}/versionedSettings/config/parameters/{name},projects versioned-settings config fields set,Update
+DELETE,/app/rest/projects/{locator}/versionedSettings/config/parameters/{name},projects versioned-settings config fields reset,Update
+GET,/app/rest/projects/{locator}/versionedSettings/contextParameters,projects versioned-settings context list,ReadOnly
+PUT,/app/rest/projects/{locator}/versionedSettings/contextParameters,projects versioned-settings context replace,Update
+POST,/app/rest/projects/{locator}/versionedSettings/loadSettings,projects versioned-settings load,Update
+GET,/app/rest/projects/{locator}/versionedSettings/status,projects versioned-settings status,ReadOnly
+GET,/app/rest/projects/{locator}/versionedSettings/tokens,projects versioned-settings tokens list,ReadOnly
+POST,/app/rest/projects/{locator}/versionedSettings/tokens,projects versioned-settings tokens set,Credentials
+DELETE,/app/rest/projects/{locator}/versionedSettings/tokens,projects versioned-settings tokens delete,Credentials
+GET,/app/rest/version,server rest-version,ReadOnly

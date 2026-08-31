@@ -142,10 +142,10 @@ test("profile commands create, update, select, and safely delete profiles", asyn
 
   await assert.rejects(cli.execute(["profile", "create", "default"]), /already exists/);
   await assert.rejects(cli.execute(["profile", "set", "missing"]), /does not exist/);
-  assert.deepEqual(
-    await cli.execute(["profile", "create", "uat", "--url", "https://uat.test"]),
-    { name: "uat", values: { url: "https://uat.test" } },
-  );
+  assert.deepEqual(await cli.execute(["profile", "create", "uat", "--url", "https://uat.test"]), {
+    name: "uat",
+    values: { url: "https://uat.test" },
+  });
   await cli.execute(["profile", "create", "retired", "--url", "https://retired.test"]);
   const retiredDataDirectory = appArguments.WithProfile("retired").AppDataDirectory;
   await mkdir(retiredDataDirectory, { recursive: true });
@@ -225,14 +225,11 @@ test("one command declaration serves JSON CLI and JSON-RPC execution", async () 
     id: "7",
     profile: "default",
   });
-  assert.deepEqual(
-    await cli.execute(["--profile", "production", "things", "show", "8"]),
-    {
-      appDataDirectory: join("root", "roaming", "example-cli", "production"),
-      id: "8",
-      profile: "production",
-    },
-  );
+  assert.deepEqual(await cli.execute(["--profile", "production", "things", "show", "8"]), {
+    appDataDirectory: join("root", "roaming", "example-cli", "production"),
+    id: "8",
+    profile: "production",
+  });
 });
 
 test("JSON-RPC keeps accepting commands and emits protocol-only stdout", async () => {
@@ -257,7 +254,11 @@ test("JSON-RPC keeps accepting commands and emits protocol-only stdout", async (
   });
 
   assert.equal(await cli.run(["--json-rpc"]), 0);
-  const frames = stdout.text().trim().split("\n").map((line) => JSON.parse(line));
+  const frames = stdout
+    .text()
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
   assert.deepEqual(frames.slice(0, 2), [
     { jsonrpc: "2.0", id: 1, result: { ok: true } },
     { jsonrpc: "2.0", id: 2, error: { code: -32601, message: "Method not found" } },
@@ -281,12 +282,17 @@ test("permission gates default to read-only and stay isolated by profile", async
       command("read", "Read state", async () => "read", {
         permission: Permission.ReadOnly,
       }),
-      command("write", "Change state", async () => {
-        writes += 1;
-        return "written";
-      }, {
-        permission: Permission.Update,
-      }),
+      command(
+        "write",
+        "Change state",
+        async () => {
+          writes += 1;
+          return "written";
+        },
+        {
+          permission: Permission.Update,
+        },
+      ),
     ],
     runtime: {
       input: Readable.from([]),
@@ -337,4 +343,78 @@ test("enabling the permission gate requires every service leaf to declare a cate
       }),
     /must declare a permission/,
   );
+});
+
+test("required options share parsing, defaults, help and JSON-RPC validation", async () => {
+  const stdout = capture();
+  let calls = 0;
+  const cli = createCli({
+    name: "options-cli",
+    description: "Required options example",
+    commands: [
+      command(
+        "create",
+        "Create a thing",
+        ({ options }) => {
+          calls += 1;
+          return options;
+        },
+        {
+          options: [
+            {
+              flags: "--name <name>",
+              description: "Thing name",
+              required: true,
+              parse: (v) => v.trim(),
+            },
+            {
+              flags: "--count <count>",
+              description: "Count",
+              required: true,
+              defaultValue: 1,
+              parse: Number,
+            },
+          ],
+        },
+      ),
+    ],
+    runtime: {
+      input: Readable.from([
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "cli.execute",
+          params: { argv: ["create"] },
+        }) + "\n",
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "cli.execute",
+          params: { argv: ["create", "--name", "rpc"] },
+        }) + "\n",
+      ]),
+      output: stdout.stream,
+      error: capture().stream,
+      profileStore: new MemoryProfiles(),
+      secretStore: new MemorySecretStore(),
+    },
+  });
+  await assert.rejects(cli.execute(["create"]), /required option.*--name/);
+  assert.equal(calls, 0);
+  assert.deepEqual(await cli.execute(["create", "--name", " example ", "--count", "2"]), {
+    name: "example",
+    count: 2,
+  });
+  const help = JSON.stringify(await cli.execute(["create", "--help"]));
+  assert.match(help, /--name <name>/);
+  assert.match(help, /Thing name \(required\)/);
+  assert.equal(await cli.run(["--json-rpc"]), 0);
+  const frames = stdout
+    .text()
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  assert.match(frames[0].error.message, /required option.*--name/);
+  assert.deepEqual(frames[1].result, { name: "rpc", count: 1 });
+  assert.equal(calls, 2);
 });

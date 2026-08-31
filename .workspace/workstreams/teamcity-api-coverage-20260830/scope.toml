@@ -1,0 +1,22 @@
+id = "teamcity-api-coverage-20260830"
+status = "complete"
+snapshot_date = "2026-08-30"
+source_commit = "e0d4d1b8dc615a969a0160f69a5fb34968d9ab3d"
+api_version = "2026.1 (current)"
+teamcity_version = "2026.1"
+roots = ["integrations/teamcity/src", "packages/core/src/auth.ts"]
+schema_relative_endpoint = "/app/rest/swagger.json"
+identity_rule = "HTTP method + Swagger path template; normalize placeholder names for route matching only"
+inventory_file = "api-inventory.csv"
+classification_file = "cli-map.csv"
+expected_operations = 449
+expected_exposed = 17
+expected_groups = 30
+include_deprecated = true
+observed_deprecated = 0
+excluded = ["non-Swagger routes", "other API versions", "parameter-combination coverage", "token-specific authorization coverage"]
+
+# Read-only metadata discovery, not a new product command or the local integration-proof runner.
+discovery_command = "GET <configured-profile-url>/app/rest/swagger.json using the profile token from the OS keyring"
+discovery_procedure = "Read the existing profile and keyring in memory; GET only schema and server version; project paths/methods/operationIds/tags/deprecation; never save host, credentials, raw responses, or entity data"
+recount_command = "Import-Csv .workspace/workstreams/teamcity-api-coverage-20260830/api-inventory.csv | Group-Object accounting_category,cli_exposed | Select-Object Name,Count"
