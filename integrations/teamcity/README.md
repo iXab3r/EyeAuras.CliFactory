@@ -422,7 +422,9 @@ teamcity-cli users avatar download 123 --size 64 --output avatar.png --profile u
 Downloads require a new basename and save only below
 `AppArguments.AppDataDirectory/downloads`, staging under `TempDirectory`. Result is
 `{path,bytes,sha256,mediaType}` for an actual retained file. Default actual-byte limit16MiB,
-maximum64MiB with `--max-bytes`; SVG is additionally limited to1MiB. No overwrite, redirect,
+maximum64MiB with `--max-bytes`; SVG is additionally limited to1MiB. HTTP206 partial responses are
+rejected without publication or automatic retry; downloads do not support ranges/resume.
+No overwrite, redirect,
 symlink/junction escape, automatic opening, execution or extraction. Atomic no-clobber publication
 requires same-profile hard-link support; unsupported filesystems fail closed. PNG/ZIP/SVG types
 and signatures are validated; SVG/icon success says nothing about the build's success.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, rm, readdir, mkdir, writeFile, symlink } from "node:fs/promises";
+import { mkdtemp, readFile, rm, readdir, mkdir, writeFile, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -17,8 +17,9 @@ const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function fileRuntime(input = "") {
-  const root = await mkdtemp(join(tmpdir(), "teamcity-files-test-"));
+async function fileRuntime(input = "", parent = tmpdir()) {
+  // Normalize only the newly created test root, never an untrusted profile child.
+  const root = await realpath(await mkdtemp(join(parent, "teamcity-files-test-")));
   const runtime = await createTestRuntime({ input });
   const appArguments = new AppArguments({
     AppName: "teamcity-cli",
@@ -112,6 +113,60 @@ const download = [
   "--output",
   "example.bin",
 ];
+test("file runtime canonicalizes its owned root through a platform directory alias", async () => {
+  const parent = await realpath(await mkdtemp(join(tmpdir(), "teamcity-root-test-")));
+  let t: Awaited<ReturnType<typeof fileRuntime>> | undefined;
+  try {
+    const actual = join(parent, "actual"),
+      alias = join(parent, "alias");
+    await mkdir(actual);
+    await symlink(actual, alias, process.platform === "win32" ? "junction" : "dir");
+    t = await fileRuntime("", alias);
+    assert.equal(t.root, await realpath(t.root));
+    server.use(
+      http.get(base + "/builds/id:7/artifacts/files/docs/example.bin", () =>
+        new HttpResponse(sourceBytes as never),
+      ),
+    );
+    const result = (await t.cli.execute(download)) as { path: string };
+    assert.equal(result.path, join(t.appArguments.AppDataDirectory, "downloads", "example.bin"));
+    assert.deepEqual(new Uint8Array(await readFile(result.path)), sourceBytes);
+  } finally {
+    await t?.cleanup();
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("whole-file downloads reject HTTP 206 without publishing or retrying partial content", async () => {
+  for (const withRange of [false, true]) {
+    const t = await fileRuntime();
+    let calls = 0;
+    try {
+      server.use(
+        http.get(base + "/builds/id:7/artifacts/files/docs/example.bin", ({ request }) => {
+          calls++;
+          assert.equal(request.headers.get("Range"), null);
+          return new HttpResponse(new Uint8Array([1, 2, 3]), {
+            status: 206,
+            headers: {
+              "Content-Length": "3",
+              ...(withRange ? { "Content-Range": "bytes 0-2/100" } : {}),
+            },
+          });
+        }),
+      );
+      assert.equal(await t.cli.run([...download, "--json"]), 1);
+      assert.equal(t.runtime.stdout(), "");
+      assert.match(t.runtime.stderr(), /no destination was published/);
+      assert.equal(calls, 1, "partial downloads must not be retried automatically");
+      assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
+      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+    } finally {
+      await t.cleanup();
+    }
+  }
+});
+
 test("S10 all gates and generated help run before network, keyring input or filesystem creation", async () => {
   const t = await fileRuntime();
   let calls = 0;

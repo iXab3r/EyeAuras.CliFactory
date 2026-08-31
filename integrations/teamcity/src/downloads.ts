@@ -136,7 +136,9 @@ export async function saveDownload(response: Response, target: Target, signal?: 
     };
   signal?.addEventListener("abort", cancel, { once: true });
   try {
-    if (!response.ok || signal?.aborted) throw new Error("Download failed or cancelled.");
+    // These are whole-file requests: no Range, resume or partial-response reassembly.
+    if (!response.ok || response.status === 206 || signal?.aborted)
+      throw new Error("Download failed, was partial, or was cancelled.");
     const media = mediaType(response, target.format),
       length = response.headers.get("Content-Length");
     if (length !== null && (!/^\d+$/.test(length) || Number(length) > target.limit))
