@@ -1,0 +1,26 @@
+# Block 100 user directory contract
+
+Research refreshed 2026-08-30 against current official references and the frozen `classification.json` / Issue 6 mappings. All eight operations are P1/v1 ReadOnly. This is a contract record, not implementation acceptance; source waits for the reviewed block-100 manifest release.
+
+| REST identity | Public CLI | Default fields | Pagination |
+|---|---|---|---|
+| GET /api/admin/customFieldSettings/bundles/user | `bundle user list` | `id,name,isUpdateable` | `$top`, `$skip` |
+| GET /api/admin/customFieldSettings/bundles/user/{bundleID} | `bundle user get <bundle>` | `id,name,isUpdateable` | None |
+| GET /api/admin/customFieldSettings/bundles/user/{bundleID}/aggregatedUsers | `bundle user member list <bundle>` | `id,login,fullName` | `$top`, `$skip` |
+| GET /api/admin/customFieldSettings/bundles/user/{bundleID}/groups | `bundle user group list <bundle>` | `id,name,usersCount,allUsersGroup` | `$top`, `$skip` |
+| GET /api/admin/customFieldSettings/bundles/user/{bundleID}/groups/{groupID} | `bundle user group get <bundle> <group>` | `id,name,usersCount,allUsersGroup` | None |
+| GET /api/admin/customFieldSettings/bundles/user/{bundleID}/individuals | `bundle user individual list <bundle>` | `id,login,fullName` | `$top`, `$skip` |
+| GET /api/admin/customFieldSettings/bundles/user/{bundleID}/individuals/{userID} | `bundle user individual get <bundle> <user>` | `id,login,fullName` | None |
+| GET /api/users/{userID} | `user get <user>` | `id,login,fullName` | None |
+
+Every leaf supports `--fields`. Collections return one array page; defaults are top50/skip0, top1–100 and nonnegative safe-integer skip. No `--all`, implicit continuation, query filter or invented cursor is exposed. Details return objects. Explicit projections remain sparse and nullable; the existing response scrubber removes active credentials and signed URL values. Empty arrays succeed; null/nonobject details and malformed collections fail. Each argument becomes one encoded path segment through the existing safe-ID helper, retaining the configured context path.
+
+User bundles contain both direct accounts and groups. `member list` uses the server's aggregatedUsers endpoint, including users added individually and through groups; it does not concatenate pages from other endpoints or label all members as direct. `group list/get` inspects groups attached to the bundle. `individual list/get` inspects accounts added directly, even if a direct account is also present through a group. No implicit deduplication, expansion or local membership inference is added. Default bundle/group projections deliberately omit nested membership arrays.
+
+Sources: [bundle collection](https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user.html), [bundle detail](https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-user.html), [aggregated members](https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user-bundleID-aggregatedUsers.html), [groups](https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user-bundleID-groups.html), [group detail](https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-user-bundleID-groups.html), [individuals](https://www.jetbrains.com/help/youtrack/devportal/resource-api-admin-customFieldSettings-bundles-user-bundleID-individuals.html), [individual detail](https://www.jetbrains.com/help/youtrack/devportal/operations-api-admin-customFieldSettings-bundles-user-bundleID-individuals.html).
+
+`user get` accepts the documented database ID or login in the same route. Bundle-specific individual/group details document database IDs; no extra lookup resolves a name. User tables document `fullName`, while older examples still use `name`; defaults follow `fullName`, consistently with the shipped `user list`. Nullable user fields include email, ringId, banBadge and banReason; group ringId/icon can be null. Defaults omit those fields and newer userType. Explicit requests preserve server nulls without treating them as missing authentication. [Specific user](https://www.jetbrains.com/help/youtrack/devportal/operations-api-users.html).
+
+Bundle `name` is present in official request/response samples although omitted from the UserBundle and inherited Bundle attribute tables. Its projection is pinned from those samples, without inventing an extra lookup. `isUpdateable` is server-reported bundle capability, not a local permission grant. User/bundle visibility remains server-authoritative: documentation describes different read/update-access requirements, and user-read prose contains differing basic-information permission wording. Do not promise universal availability with a restricted token; 403 stays an explicit sanitized failure.
+
+Implementation ownership after release: `user-directory.ts`, `user-directory-commands.ts`, and matching offline tests only. Composition exports `userDirectoryUserChildren` into the existing user branch and `userDirectoryBundleChildren` (one user branch) into the lead-owned bundle root. Reuse page/projection/encodedID/readObject/readCollection, CliFactory ReadOnly gates and the shared CLI fixture; no Core abstraction or live profile calls.

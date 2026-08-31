@@ -47,6 +47,7 @@ async function harness(
   if (options.tty === true) {
     input.isTTY = true;
     input.setRawMode = () => undefined;
+    output.isTTY = true;
     error.isTTY = true;
   }
   const appName = options.appName ?? "setup-cli";
@@ -302,4 +303,53 @@ test("generic profile configure onboarding", async (context) => {
     assert.match(frame.error.message, /stdin belongs to the transport/);
     assert.equal(testHarness.stderr(), "");
   });
+});
+
+test("required command options fail before onboarding in every execution mode", async (t) => {
+  for (const mode of ["tty", "json", "execute", "rpc"] as const) {
+    const request = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["send"] } });
+    const h = await harness(t, { tty: true, input: mode === "rpc" ? request + "\n" : "https://example.test\n" });
+    let touched = 0;
+    h.secrets.get = async () => { touched++; throw new Error("Unexpected keyring access"); };
+    h.runtime.fetch = async () => { touched++; throw new Error("Unexpected fetch"); };
+    const cli = createCli({
+      name: "setup-cli", description: "Required option example",
+      profile: { fields: [{ name: "url", flags: "--url <url>", description: "Service URL", required: true }] },
+      auth: tokenAuth(),
+      commands: [command("send", "Send", async () => { touched++; }, {
+        options: [{ flags: "--body <json>", description: "Required body", required: true }],
+      })],
+      runtime: h.runtime,
+    });
+    if (mode === "execute") {
+      await assert.rejects(cli.execute(["send"]), /required option/);
+    } else if (mode === "rpc") {
+      assert.equal(await cli.run(["--json-rpc"]), 0);
+      const reply = JSON.parse(h.stdout());
+      assert.equal(reply.error.code, -32000);
+      assert.match(reply.error.message, /required option/);
+    } else {
+      assert.equal(await cli.run(["send", ...(mode === "json" ? ["--json"] : [])]), 1);
+      assert.equal(h.stdout(), "");
+      assert.match(h.stderr(), /required option/);
+    }
+    assert.equal(touched, 0);
+    assert.doesNotMatch(h.stderr(), /Service URL:|Token:/);
+  }
+});
+
+test("required option metadata preserves defaults and custom parsing", async (t) => {
+  const h = await harness(t);
+  const cli = createCli({
+    name: "setup-cli", description: "Required option default example",
+    commands: [command("send", "Send", ({ options }) => options.body, {
+      options: [{
+        flags: "--body <value>", description: "Value", required: true,
+        defaultValue: "default-value", parse: (value) => value.toUpperCase(),
+      }],
+    })],
+    runtime: h.runtime,
+  });
+  assert.equal(await cli.execute(["send"]), "default-value");
+  assert.equal(await cli.execute(["send", "--body", "supplied"]), "SUPPLIED");
 });

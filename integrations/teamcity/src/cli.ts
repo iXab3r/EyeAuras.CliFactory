@@ -213,7 +213,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         command(
           "show <id>",
           "Show one project",
-          async ({ args }, context) => (await client(context)).getProject(String(args.id)),
+          async ({ args }, context) => (await client(context)).getProject(args.id),
           { permission: Permission.ReadOnly },
         ),
       ]),
@@ -239,13 +239,13 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         command(
           "show <id>",
           "Show one job",
-          async ({ args }, context) => (await client(context)).getJob(String(args.id)),
+          async ({ args }, context) => (await client(context)).getJob(args.id),
           { permission: Permission.ReadOnly },
         ),
         command(
           "status <id>",
           "Show the latest operational build status for a job",
-          async ({ args }, context) => (await client(context)).getJobStatus(String(args.id)),
+          async ({ args }, context) => (await client(context)).getJobStatus(args.id),
           { permission: Permission.ReadOnly },
         ),
         command(
@@ -254,7 +254,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           async ({ args, options }, context) => {
             const branch = stringOption(options, "branch");
             const comment = stringOption(options, "comment");
-            return (await client(context)).runJob(String(args.id), {
+            return (await client(context)).runJob(args.id, {
               ...(branch === undefined ? {} : { branch }),
               ...(comment === undefined ? {} : { comment }),
             });
@@ -308,7 +308,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "show <id>",
           "Show one build",
           async ({ args }, context) =>
-            (await client(context)).getBuild(positiveInteger(String(args.id))),
+            (await client(context)).getBuild(positiveInteger(args.id)),
           { permission: Permission.ReadOnly },
         ),
         command(
@@ -316,7 +316,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "List test occurrences for a build",
           async ({ args, options }, context) => {
             const status = stringOption(options, "status") as TeamCityTestStatus | undefined;
-            return (await client(context)).listBuildTests(positiveInteger(String(args.id)), {
+            return (await client(context)).listBuildTests(positiveInteger(args.id), {
               ...(status === undefined ? {} : { status }),
               ...pageValues(options),
             });
@@ -338,7 +338,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "List problem occurrences for a build",
           async ({ args, options }, context) =>
             (await client(context)).listBuildProblems(
-              positiveInteger(String(args.id)),
+              positiveInteger(args.id),
               pageValues(options),
             ),
           { permission: Permission.ReadOnly, options: pageOptions },
@@ -348,7 +348,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "List source changes associated with a build",
           async ({ args, options }, context) =>
             (await client(context)).listBuildChanges(
-              positiveInteger(String(args.id)),
+              positiveInteger(args.id),
               pageValues(options),
             ),
           { permission: Permission.ReadOnly, options: pageOptions },
@@ -358,7 +358,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "Cancel a running build",
           async ({ args, options }, context) => {
             const comment = stringOption(options, "comment");
-            return (await client(context)).cancelBuild(positiveInteger(String(args.id)), {
+            return (await client(context)).cancelBuild(positiveInteger(args.id), {
               ...(comment === undefined ? {} : { comment }),
             });
           },
@@ -395,7 +395,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "Cancel a queued build",
           async ({ args, options }, context) => {
             const comment = stringOption(options, "comment");
-            return (await client(context)).cancelQueuedBuild(positiveInteger(String(args.id)), {
+            return (await client(context)).cancelQueuedBuild(positiveInteger(args.id), {
               ...(comment === undefined ? {} : { comment }),
             });
           },
@@ -446,7 +446,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "show <id>",
           "Show one build agent",
           async ({ args }, context) =>
-            (await client(context)).getAgent(positiveInteger(String(args.id))),
+            (await client(context)).getAgent(positiveInteger(args.id)),
           { permission: Permission.ReadOnly },
         ),
       ]),

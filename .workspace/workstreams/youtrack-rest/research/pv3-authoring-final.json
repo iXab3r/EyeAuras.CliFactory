@@ -1,0 +1,2282 @@
+{
+  "schema": "pv3-authoring-final-v1",
+  "baseline_commit": "3df5066f8d3cc1038570bf6005db32aa4ff47655",
+  "baseline_manifest_sha256": "3ce3705d1387db6adeb928a219607cf5e6822bd31ae252453202570c5cadf8d7",
+  "captured_utc": "2026-08-30T13:05:35.692Z",
+  "stage": "Uncommitted working-tree snapshot after expanded conditional formatting; frozen implementation, independent technical PASS and root post-format npm test418PASS reported",
+  "method": "Baseline files come from git ls-tree/git show at baseline_commit; final paths come from git ls-files --cached --others --exclude-standard and final content/hashes are read directly from the working filesystem, not from a final commit. Count nonblank handwritten TypeScript including comments; exclude generated dist; tests/support and local proof are separate. Normalize text by removing a leading BOM and converting CRLF to LF for UTF-16 character/UTF-8 byte metrics. Retain raw filesystem-byte SHA256 for final files independently of normalized metrics; baseline raw Git blob SHA256 remains in the separate immutable baseline artifact.",
+  "files": [
+    {
+      "path": "integrations/teamcity/integration-tests/profile-proof.ts",
+      "owner": "TeamCity",
+      "kind": "local-proof",
+      "raw_sha256": "b84d7f1a5214b3d670d70e54b861942d438bfe7b6d4b32d5072d5885b24aa717",
+      "raw_bytes": 11913,
+      "nonblank_lines": 330,
+      "lf_utf16_characters": 11911,
+      "lf_utf8_bytes": 11913,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/src/bin.ts",
+      "owner": "TeamCity",
+      "kind": "source",
+      "raw_sha256": "19b6fd2b4d00d3f8da5ec76608e3c4fb946d42a00498692cf1d808169a53508d",
+      "raw_bytes": 119,
+      "nonblank_lines": 3,
+      "lf_utf16_characters": 119,
+      "lf_utf8_bytes": 119,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/src/cli.ts",
+      "owner": "TeamCity",
+      "kind": "source",
+      "raw_sha256": "e7f5ed9ce876824f83c9879edfc9e107f389de18af530c255990f4652f801dfd",
+      "raw_bytes": 15239,
+      "nonblank_lines": 443,
+      "lf_utf16_characters": 15239,
+      "lf_utf8_bytes": 15239,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/src/client.ts",
+      "owner": "TeamCity",
+      "kind": "source",
+      "raw_sha256": "f927c1dc1e5c8d949a16459a74384b571fd47f837c1c85d11ed7cd7e833d3d71",
+      "raw_bytes": 14386,
+      "nonblank_lines": 438,
+      "lf_utf16_characters": 14386,
+      "lf_utf8_bytes": 14386,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/src/index.ts",
+      "owner": "TeamCity",
+      "kind": "source",
+      "raw_sha256": "5a1e775a337006226d003b02c5aafc7bbc214efe168263e62401065282e8835a",
+      "raw_bytes": 709,
+      "nonblank_lines": 28,
+      "lf_utf16_characters": 709,
+      "lf_utf8_bytes": 709,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/src/locator.ts",
+      "owner": "TeamCity",
+      "kind": "source",
+      "raw_sha256": "d13c151fa5313fc3d7ab057fabaa0144d1b7f51b0b124a9ca4e19243f2bbbe73",
+      "raw_bytes": 2300,
+      "nonblank_lines": 62,
+      "lf_utf16_characters": 2300,
+      "lf_utf8_bytes": 2300,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/src/models.ts",
+      "owner": "TeamCity",
+      "kind": "source",
+      "raw_sha256": "d0908d9ab7ddd4600670ef822be5847bb6c5f721f39fd04c545ff24bb87e06be",
+      "raw_bytes": 2709,
+      "nonblank_lines": 126,
+      "lf_utf16_characters": 2709,
+      "lf_utf8_bytes": 2709,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/argument-errors.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "a18d4c2d35809d2775939269e617e7927202ac068d1f1402f2e738462f3b1c40",
+      "raw_bytes": 1909,
+      "nonblank_lines": 47,
+      "lf_utf16_characters": 1908,
+      "lf_utf8_bytes": 1908,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/auth-contract.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "d53d66032e6b5325a5c6a097f7a2d85086a6f31766f011003884f3fd555dd3c3",
+      "raw_bytes": 4025,
+      "nonblank_lines": 66,
+      "lf_utf16_characters": 4025,
+      "lf_utf8_bytes": 4025,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/cli.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "ff5e78f220068f0aa98d857f78fe4382d396da07cd2365c37f424e8ed48fffda",
+      "raw_bytes": 11726,
+      "nonblank_lines": 325,
+      "lf_utf16_characters": 11726,
+      "lf_utf8_bytes": 11726,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-builds.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "10b7a7b048ce89b91f2738846a0dc5865ee7afc9dc6c0e7be3ff6343062c565e",
+      "raw_bytes": 6607,
+      "nonblank_lines": 196,
+      "lf_utf16_characters": 6607,
+      "lf_utf8_bytes": 6607,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-foundation.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "4e9924e1ca7fe13eedff593f228148f9e2e453e4c92e4875af1016e251d9c79d",
+      "raw_bytes": 8514,
+      "nonblank_lines": 259,
+      "lf_utf16_characters": 8514,
+      "lf_utf8_bytes": 8514,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-operations.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "fbcb2382612ed3430a412d648b1cc1c2b52eaf80b3043076553a8c4c2dd6a1a2",
+      "raw_bytes": 5681,
+      "nonblank_lines": 165,
+      "lf_utf16_characters": 5681,
+      "lf_utf8_bytes": 5681,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/integration-proof.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "709946ab5d1f2f9eaea781f237a55b6c34395c41ba30e0cf5c4f97c09f1531c1",
+      "raw_bytes": 6330,
+      "nonblank_lines": 159,
+      "lf_utf16_characters": 6330,
+      "lf_utf8_bytes": 6330,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/process.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "6b54994cc3f2fc50d2a61b550f4e4eeb324ae3a7d6386e282f63c5ee35584ac5",
+      "raw_bytes": 2141,
+      "nonblank_lines": 51,
+      "lf_utf16_characters": 2141,
+      "lf_utf8_bytes": 2141,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/profile-isolation.test.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "be16c73160af65608856167cae26ed08d4d29c101654cd9a4af1f8d13dd8ba5a",
+      "raw_bytes": 7115,
+      "nonblank_lines": 135,
+      "lf_utf16_characters": 7115,
+      "lf_utf8_bytes": 7115,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/teamcity/tests/support.ts",
+      "owner": "TeamCity",
+      "kind": "tests-support",
+      "raw_sha256": "1aac49f6390c261b1d8820c5648086a0146277f767b0588c90d770b04ca3cdd7",
+      "raw_bytes": 4714,
+      "nonblank_lines": 153,
+      "lf_utf16_characters": 4714,
+      "lf_utf8_bytes": 4714,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/integration-tests/profile-proof.ts",
+      "owner": "YouTrack",
+      "kind": "local-proof",
+      "raw_sha256": "4a9a3f631939a69d250f01c0916dca64a98793fb76ab989fbd829fa6a8fc9f77",
+      "raw_bytes": 8797,
+      "nonblank_lines": 183,
+      "lf_utf16_characters": 8796,
+      "lf_utf8_bytes": 8796,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/agile-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "535a7154e7f297dc6e51c48555c811f708a51361c36db75ec8ba4a5871781757",
+      "raw_bytes": 2623,
+      "nonblank_lines": 58,
+      "lf_utf16_characters": 2622,
+      "lf_utf8_bytes": 2622,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/agile.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "db935447c41b36afe52a8b35e875142a656454e7aabf2bec46d3b3fb3801fa69",
+      "raw_bytes": 3808,
+      "nonblank_lines": 121,
+      "lf_utf16_characters": 3806,
+      "lf_utf8_bytes": 3806,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/article-extras-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "b0d9f1fd3886f18a21ff7406cd9a0100fd869a8da7a8ff855f9e5d04030e08b2",
+      "raw_bytes": 3045,
+      "nonblank_lines": 87,
+      "lf_utf16_characters": 3044,
+      "lf_utf8_bytes": 3044,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/article-extras.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "1e3a0860de97890dcbf15ffb621b359f11a0ef9b35065a4f50e4ac9e8946028b",
+      "raw_bytes": 2648,
+      "nonblank_lines": 88,
+      "lf_utf16_characters": 2647,
+      "lf_utf8_bytes": 2647,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/articles-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "6f98d03fcd26030571fe5a69f521af4fcf90eb05e5d9a298670ab7b77f6b7400",
+      "raw_bytes": 3878,
+      "nonblank_lines": 109,
+      "lf_utf16_characters": 3877,
+      "lf_utf8_bytes": 3877,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/articles.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "4d05c12bcff7c4d582e437387c2262fa99cb5b885f1cc052e7dbfd3bf2d96987",
+      "raw_bytes": 4230,
+      "nonblank_lines": 138,
+      "lf_utf16_characters": 4228,
+      "lf_utf8_bytes": 4228,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-download-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "249a48941e36aa95a71cfa457f0a950f5a85e2ce50de5f5a724859437693e016",
+      "raw_bytes": 1182,
+      "nonblank_lines": 33,
+      "lf_utf16_characters": 1180,
+      "lf_utf8_bytes": 1180,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-download.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "e4a1fbf59088f3b8e87ab064cc11c026329b5ec94734e8a328a62b7193c9382a",
+      "raw_bytes": 11776,
+      "nonblank_lines": 271,
+      "lf_utf16_characters": 11765,
+      "lf_utf8_bytes": 11771,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-form.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "20d74774675b5ad3b5e9029da07a7d7b3839dcfe1093587f19aa803dc2d365bf",
+      "raw_bytes": 570,
+      "nonblank_lines": 18,
+      "lf_utf16_characters": 569,
+      "lf_utf8_bytes": 569,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/bin.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "efd635ec7e8f3b3437973b3074656aedc6c1e92d258e4258c8d6577912c161da",
+      "raw_bytes": 120,
+      "nonblank_lines": 3,
+      "lf_utf16_characters": 119,
+      "lf_utf8_bytes": 119,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/bundle-values-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "fc17464fe7c86dec5845c4f628502fa274054b3b613b55c8f11b13d8aa3770fb",
+      "raw_bytes": 4739,
+      "nonblank_lines": 114,
+      "lf_utf16_characters": 4738,
+      "lf_utf8_bytes": 4738,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/bundle-values.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "3ed123c16b71e43efb8bce2a7942978e9e0ca2402dff1fe3797753d4cd85a0ac",
+      "raw_bytes": 4468,
+      "nonblank_lines": 151,
+      "lf_utf16_characters": 4467,
+      "lf_utf8_bytes": 4467,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli-support.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "14013884f0f830ce78c460cc4b5e0a792ebb2363ae7c07dadc6f9979d99b9c35",
+      "raw_bytes": 1882,
+      "nonblank_lines": 48,
+      "lf_utf16_characters": 1882,
+      "lf_utf8_bytes": 1882,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "a6edb5419a4c00d52cb03d973bb49599d3051e587b829cf78125b5d7704b39eb",
+      "raw_bytes": 6298,
+      "nonblank_lines": 164,
+      "lf_utf16_characters": 6293,
+      "lf_utf8_bytes": 6293,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/client.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "c266e82c432bcb56b1601a5f45a56c1d40c88937f1f3371dcc4d622bfeb02634",
+      "raw_bytes": 15832,
+      "nonblank_lines": 402,
+      "lf_utf16_characters": 15398,
+      "lf_utf8_bytes": 15398,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/field-catalog-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "acce61d646b0bc98b4e609c3384ebe1b230b232571c5969015ff859202cfd851",
+      "raw_bytes": 4256,
+      "nonblank_lines": 106,
+      "lf_utf16_characters": 4255,
+      "lf_utf8_bytes": 4255,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/field-catalog.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "aa963519e2d3c32a1b3a05a7ec19f157416b8067207210a074218c188f7c890d",
+      "raw_bytes": 3991,
+      "nonblank_lines": 137,
+      "lf_utf16_characters": 3990,
+      "lf_utf8_bytes": 3990,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/group-directory-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "e01509defd7b89e66d8b95564c136a711fbd4ad4be31da45a96807969ce4ccc1",
+      "raw_bytes": 3361,
+      "nonblank_lines": 85,
+      "lf_utf16_characters": 3360,
+      "lf_utf8_bytes": 3360,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/group-directory.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "def9f9332d369f0a84a3f572a62e8b17724ebdcb892f3b91a97ef4e8eaf1f087",
+      "raw_bytes": 2398,
+      "nonblank_lines": 72,
+      "lf_utf16_characters": 2397,
+      "lf_utf8_bytes": 2397,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/index.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "2604fafe9a40aae131c80ac537a864aa108a19425cf757f0e4b63a43d6e1f311",
+      "raw_bytes": 2988,
+      "nonblank_lines": 72,
+      "lf_utf16_characters": 2976,
+      "lf_utf8_bytes": 2976,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "417e374b59e4d524108e06614193cbf30584f0caf89d445c04bd28e983798380",
+      "raw_bytes": 1931,
+      "nonblank_lines": 58,
+      "lf_utf16_characters": 1928,
+      "lf_utf8_bytes": 1928,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "a21b7eac17752247278514730303a4d2ea18c2b1406895ae23e6c73a28721004",
+      "raw_bytes": 1285,
+      "nonblank_lines": 47,
+      "lf_utf16_characters": 1284,
+      "lf_utf8_bytes": 1284,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "75c49e5e65a6d924f25d60d0a4fb73f8b730e620eb7a1662d731ec0b6d227261",
+      "raw_bytes": 3930,
+      "nonblank_lines": 123,
+      "lf_utf16_characters": 3929,
+      "lf_utf8_bytes": 3929,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "cedecb0ad2862de31007eeebc54aefa5721d1b73b253ae5be596c9e2331c6e76",
+      "raw_bytes": 4649,
+      "nonblank_lines": 145,
+      "lf_utf16_characters": 4648,
+      "lf_utf8_bytes": 4648,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "d2d6b30494495c727da316df3bac5393039b1be7630be9387d22241f237f25a1",
+      "raw_bytes": 2796,
+      "nonblank_lines": 72,
+      "lf_utf16_characters": 2795,
+      "lf_utf8_bytes": 2795,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "b30dc0793fb7095af5b1a693fe6e346073277dbbfc6e4bbc8bb409cf6fc82652",
+      "raw_bytes": 6141,
+      "nonblank_lines": 172,
+      "lf_utf16_characters": 6140,
+      "lf_utf8_bytes": 6140,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "69fc9444097f95e917b907ad540fa6ba59aeb2049ae3d09d2ef78747fe681b3a",
+      "raw_bytes": 3822,
+      "nonblank_lines": 127,
+      "lf_utf16_characters": 3817,
+      "lf_utf8_bytes": 3821,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "14913245c3b02b0c5015196ca17f1d8421117132fe0435007b2bda33cd6652ad",
+      "raw_bytes": 4575,
+      "nonblank_lines": 164,
+      "lf_utf16_characters": 4572,
+      "lf_utf8_bytes": 4574,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "e98076da28d5f2d79803d980a79718cb80d1edd47692c9b2051be17c2435029a",
+      "raw_bytes": 4460,
+      "nonblank_lines": 136,
+      "lf_utf16_characters": 4459,
+      "lf_utf8_bytes": 4459,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "b3db01f978bfedf3ccc6f32711942400b5eedb70396a0854ddbcc062744a880f",
+      "raw_bytes": 3823,
+      "nonblank_lines": 126,
+      "lf_utf16_characters": 3822,
+      "lf_utf8_bytes": 3822,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "e68131efc2c5923dd4b8990eadd92291043da19ff5a7973eca9bcdddeb851154",
+      "raw_bytes": 3043,
+      "nonblank_lines": 86,
+      "lf_utf16_characters": 3041,
+      "lf_utf8_bytes": 3041,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "0059ab20b61d15543c9661e337b9df2c4173aebd91d25d46f0c01304ea0702dd",
+      "raw_bytes": 4995,
+      "nonblank_lines": 157,
+      "lf_utf16_characters": 4992,
+      "lf_utf8_bytes": 4992,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/time-settings-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "2216ebb156fd053f7e4c2a22916b07308bad1f9bab3f8570c95e3b8ef1be9872",
+      "raw_bytes": 3075,
+      "nonblank_lines": 80,
+      "lf_utf16_characters": 3074,
+      "lf_utf8_bytes": 3074,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/time-settings.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "1caf11290c8f322ad924535e7a1a3c643d1174e59df1dd0e695423a5ba7736a9",
+      "raw_bytes": 2371,
+      "nonblank_lines": 73,
+      "lf_utf16_characters": 2370,
+      "lf_utf8_bytes": 2370,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/user-directory-commands.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "2eea086d20f0d2a34c0fd180baf4107ba741cb24bc52918fd38b2473c630511c",
+      "raw_bytes": 3462,
+      "nonblank_lines": 89,
+      "lf_utf16_characters": 3461,
+      "lf_utf8_bytes": 3461,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/src/user-directory.ts",
+      "owner": "YouTrack",
+      "kind": "source",
+      "raw_sha256": "c2dad1158b3f63b9ecb7220b05af936d356fea5a9ed97eed023c1b7c4ec1fd7b",
+      "raw_bytes": 2721,
+      "nonblank_lines": 93,
+      "lf_utf16_characters": 2720,
+      "lf_utf8_bytes": 2720,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/agile.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "7212d9610ab83966b9067541c2a1dd1744d8cfef18baa094601f886a34fbb107",
+      "raw_bytes": 12175,
+      "nonblank_lines": 194,
+      "lf_utf16_characters": 12173,
+      "lf_utf8_bytes": 12173,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/article-extras.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "c16889fc7370f9fe9a3c25b0417b33bc2566705d2ba9321630325b3008a20af0",
+      "raw_bytes": 19118,
+      "nonblank_lines": 333,
+      "lf_utf16_characters": 19117,
+      "lf_utf8_bytes": 19117,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/articles.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "4893a6e0568154d21d735333f6c40b25b03d58b3e72938fc15269bc3f6749a68",
+      "raw_bytes": 21223,
+      "nonblank_lines": 379,
+      "lf_utf16_characters": 21222,
+      "lf_utf8_bytes": 21222,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/attachment-download.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "465e1be2169f25473abd70d27fd8a9fd40db3ed7b40e697611dfa01f44f5e7ec",
+      "raw_bytes": 22235,
+      "nonblank_lines": 395,
+      "lf_utf16_characters": 22229,
+      "lf_utf8_bytes": 22230,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/auth-contract.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "26f15ddc055e22058dacd1c63cec7e43650030093f96daf3453189239b531cd5",
+      "raw_bytes": 4455,
+      "nonblank_lines": 83,
+      "lf_utf16_characters": 4455,
+      "lf_utf8_bytes": 4455,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values-cases.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "08e6ea7ae5d63fda7c3058fce9a0ae7bc1c02abbfd50d7902b544b66cb2c1d5f",
+      "raw_bytes": 3703,
+      "nonblank_lines": 81,
+      "lf_utf16_characters": 3700,
+      "lf_utf8_bytes": 3702,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values-cli.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "f382b7bea0c38878f61d6f58e8dd9abd7ff26cd03de12404cb38cbf75f350957",
+      "raw_bytes": 7577,
+      "nonblank_lines": 140,
+      "lf_utf16_characters": 7574,
+      "lf_utf8_bytes": 7574,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "ac3238a72ffb16668cce8ff3aeb1fbc259fe522daaae5d42adfee9488b10e6d3",
+      "raw_bytes": 7094,
+      "nonblank_lines": 130,
+      "lf_utf16_characters": 7093,
+      "lf_utf8_bytes": 7093,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli-fixture.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "92c4a42505cfcd022d09f2efa03834ba02ff6d405b90247c72d980a7acacb4aa",
+      "raw_bytes": 1668,
+      "nonblank_lines": 35,
+      "lf_utf16_characters": 1668,
+      "lf_utf8_bytes": 1668,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "b81c9c00bcf784ef30c606707bf675b26a5c39e0ae0faf5b7792bdd02ae7a87a",
+      "raw_bytes": 25994,
+      "nonblank_lines": 452,
+      "lf_utf16_characters": 25949,
+      "lf_utf8_bytes": 25949,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/client.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "4770c19de4c61ee8a61016118763c8e760c3b19bab7245eb8a19adf24b71e068",
+      "raw_bytes": 8037,
+      "nonblank_lines": 141,
+      "lf_utf16_characters": 7969,
+      "lf_utf8_bytes": 7969,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog-cases.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "2c9652309fcc598225706dc191473bf56fcfef53de4e9d532a918913d8d4d02e",
+      "raw_bytes": 3311,
+      "nonblank_lines": 82,
+      "lf_utf16_characters": 3308,
+      "lf_utf8_bytes": 3310,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog-cli.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "dc272737a06efeda17d68cb47a06edc55982eec3b6fe829750e3b68c13abc360",
+      "raw_bytes": 7061,
+      "nonblank_lines": 131,
+      "lf_utf16_characters": 7060,
+      "lf_utf8_bytes": 7060,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "f1eec9e9ddbc4d7912cfedd82da965bf4e2e7925b4d3aef7e9cb9eeb139789c0",
+      "raw_bytes": 5714,
+      "nonblank_lines": 112,
+      "lf_utf16_characters": 5713,
+      "lf_utf8_bytes": 5713,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/group-directory.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "bdea5603ef3b3a0281866b0e964b0f311d5b89962b495ee936925677390669fc",
+      "raw_bytes": 11290,
+      "nonblank_lines": 227,
+      "lf_utf16_characters": 11288,
+      "lf_utf8_bytes": 11289,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-attachments.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "75500b3337dc99e3b8f9c6da74762786bb298131e7671f0e7f5d82110e031845",
+      "raw_bytes": 16405,
+      "nonblank_lines": 293,
+      "lf_utf16_characters": 16404,
+      "lf_utf8_bytes": 16404,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-context.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "9b14f1f1bfe527874c228d662eca203930e13a200e6c72bca890a41878f05dea",
+      "raw_bytes": 14444,
+      "nonblank_lines": 185,
+      "lf_utf16_characters": 14441,
+      "lf_utf8_bytes": 14441,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields-cli.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "5c0f68c263e51af92b36a80b0352948f706435589122be63acd2bd51088a7147",
+      "raw_bytes": 8588,
+      "nonblank_lines": 143,
+      "lf_utf16_characters": 8585,
+      "lf_utf8_bytes": 8587,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "abf018b1574600af7a4f0d257d9d219e4a331647a557cbcb2b95b0a3f1618740",
+      "raw_bytes": 13177,
+      "nonblank_lines": 205,
+      "lf_utf16_characters": 13170,
+      "lf_utf8_bytes": 13172,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-query.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "d5e8df7b6b6ec822127c5bd6d03dabd7d9b1b2268f8f2257857b60f4dcebd962",
+      "raw_bytes": 14229,
+      "nonblank_lines": 244,
+      "lf_utf16_characters": 14211,
+      "lf_utf8_bytes": 14226,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-relations.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "ddaead4bf9c9ff84e589354d7e1c13447bd8357c093f2022a8663cee3c91f556",
+      "raw_bytes": 15503,
+      "nonblank_lines": 277,
+      "lf_utf16_characters": 15497,
+      "lf_utf8_bytes": 15499,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time-cli.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "166bea32f5f3720b923c5cebcc27fd6831678eb655ab1af1d9b516a96ef44a63",
+      "raw_bytes": 8111,
+      "nonblank_lines": 148,
+      "lf_utf16_characters": 8108,
+      "lf_utf8_bytes": 8110,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "521ee7f2c349c9760008edc20c6ca0fa1a97c330494f134197c0dfbab64d4e14",
+      "raw_bytes": 11845,
+      "nonblank_lines": 213,
+      "lf_utf16_characters": 11840,
+      "lf_utf8_bytes": 11842,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/mutations.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "239be5da6ccedf4242bb9c8df6cc7663c7faf1736e166f92cd7d9df851f0bfec",
+      "raw_bytes": 5850,
+      "nonblank_lines": 114,
+      "lf_utf16_characters": 5848,
+      "lf_utf8_bytes": 5849,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/profile-isolation.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "e75eb21b9521f310efa44b54f0271bed40c3ffc2efc462cb0ce707b4b7227120",
+      "raw_bytes": 6072,
+      "nonblank_lines": 116,
+      "lf_utf16_characters": 6072,
+      "lf_utf8_bytes": 6072,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/profile-proof.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "4f2d4c04666fccb1129df136d62d1aa466702d47a56f7bb82e9aae3f7fe375a3",
+      "raw_bytes": 10341,
+      "nonblank_lines": 209,
+      "lf_utf16_characters": 10340,
+      "lf_utf8_bytes": 10340,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/reads.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "3b0bfdcfcffa90226556f899953595a34d8e43409ed0b08e6de8e0b4ea21e64c",
+      "raw_bytes": 11558,
+      "nonblank_lines": 217,
+      "lf_utf16_characters": 11514,
+      "lf_utf8_bytes": 11515,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/time-settings.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "7e5f9e9aa4fe3017e032815552d6f0553b9cb5aeede7f3b4586d8171b8c3824c",
+      "raw_bytes": 11904,
+      "nonblank_lines": 221,
+      "lf_utf16_characters": 11901,
+      "lf_utf8_bytes": 11903,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/transport.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "a335364709f4f4da7dd1b788d6c4951f6791a49c1a873a419b26dbe24e3d649f",
+      "raw_bytes": 5244,
+      "nonblank_lines": 87,
+      "lf_utf16_characters": 5244,
+      "lf_utf8_bytes": 5244,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "integrations/youtrack/tests/user-directory.test.ts",
+      "owner": "YouTrack",
+      "kind": "tests-support",
+      "raw_sha256": "069574185eff1f15f05b6ec53dc293200877ccf8ccc2d324d7b2ef3ca55f1b7f",
+      "raw_bytes": 14038,
+      "nonblank_lines": 289,
+      "lf_utf16_characters": 14033,
+      "lf_utf8_bytes": 14036,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/app-arguments.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "1c0fe3dc48adb17476b7546b09b8fbb06ae477279c082d7921e0298cd17f2101",
+      "raw_bytes": 5389,
+      "nonblank_lines": 136,
+      "lf_utf16_characters": 5389,
+      "lf_utf8_bytes": 5389,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/auth.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "3dbfefed87caabbdb0bcd5dee530cd4e161bfb5af5c49799810881e61c932636",
+      "raw_bytes": 3184,
+      "nonblank_lines": 103,
+      "lf_utf16_characters": 3183,
+      "lf_utf8_bytes": 3183,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/cli.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "9e1d62a0c79cdfab69069089bdb252d3f62a53c29ffbba4a5e8fd7eb1845a89c",
+      "raw_bytes": 31023,
+      "nonblank_lines": 804,
+      "lf_utf16_characters": 30185,
+      "lf_utf8_bytes": 30185,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/command-input.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "3163ed3cf3bb032f58842cab69bb161167dd43aa40cfb0d9a7218fbfc8b45d2c",
+      "raw_bytes": 1854,
+      "nonblank_lines": 48,
+      "lf_utf16_characters": 1854,
+      "lf_utf8_bytes": 1854,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": false
+    },
+    {
+      "path": "packages/core/src/command.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "f63bed78a5ee7bad8636f309fdd54c11b93d53d932885f34e933090cd35cce3f",
+      "raw_bytes": 1187,
+      "nonblank_lines": 36,
+      "lf_utf16_characters": 1187,
+      "lf_utf8_bytes": 1187,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "289ed8fc5656bfc033b4335901ed56b59267b5adcb6bb940db1c2b500750d63e",
+      "raw_bytes": 960,
+      "nonblank_lines": 40,
+      "lf_utf16_characters": 960,
+      "lf_utf8_bytes": 960,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/json-rpc.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "e979659734573c70c172c77e0d1ced0f8828dff73ef800c76dd1fbdb1577f2d4",
+      "raw_bytes": 2719,
+      "nonblank_lines": 94,
+      "lf_utf16_characters": 2719,
+      "lf_utf8_bytes": 2719,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/output.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "a07f1df7b24b66a61f183d38441785c7e1c89834b4b1db29eb86cf3c6b99fdba",
+      "raw_bytes": 1920,
+      "nonblank_lines": 57,
+      "lf_utf16_characters": 1920,
+      "lf_utf8_bytes": 1920,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/permissions.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "28e458ac139fe4d358ecfc98d777dc9c9cd23ff3811c0dbae502e8035a133ab2",
+      "raw_bytes": 2741,
+      "nonblank_lines": 81,
+      "lf_utf16_characters": 2741,
+      "lf_utf8_bytes": 2741,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/profile-store.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "dce5010d2b5788ff7ef95fca913286900a87b63ca85154b93bd1451840d10864",
+      "raw_bytes": 9030,
+      "nonblank_lines": 232,
+      "lf_utf16_characters": 9030,
+      "lf_utf8_bytes": 9030,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/secret-store.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "a63f6556c591f9e44bf11e33d9fb95f063eee98ba7d0632af01c514dd3fd7db4",
+      "raw_bytes": 2770,
+      "nonblank_lines": 75,
+      "lf_utf16_characters": 2770,
+      "lf_utf8_bytes": 2770,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "owner": "Core",
+      "kind": "source",
+      "raw_sha256": "796f9084b8815ecc58b699263446145d2c8abfc26d224e16c3c62725c27d8180",
+      "raw_bytes": 4065,
+      "nonblank_lines": 124,
+      "lf_utf16_characters": 4064,
+      "lf_utf8_bytes": 4064,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/app-arguments.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "9b8aae949ba4fa82b1a01776a0e830f213f616a06927349ffe3b731eac079f4e",
+      "raw_bytes": 2618,
+      "nonblank_lines": 78,
+      "lf_utf16_characters": 2618,
+      "lf_utf8_bytes": 2618,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/auth-contract.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "d2c0f4d4106e442708b3b36296d8d049b6c23f7948b1bcb47794786d08af58e0",
+      "raw_bytes": 13854,
+      "nonblank_lines": 275,
+      "lf_utf16_characters": 13854,
+      "lf_utf8_bytes": 13854,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/auth.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "ab2ed97bfe77df3334ca9cb5f9c3b3cbcf6ce10b5f87bd71044dfdb139e256b9",
+      "raw_bytes": 3204,
+      "nonblank_lines": 80,
+      "lf_utf16_characters": 3203,
+      "lf_utf8_bytes": 3203,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/builtin-process-fixture.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "ed69274238a33a6b65488bd98fac81c10e4cc9f4cc9a75bc59ecc583a4c69866",
+      "raw_bytes": 1687,
+      "nonblank_lines": 46,
+      "lf_utf16_characters": 1687,
+      "lf_utf8_bytes": 1687,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/builtin-process.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "7e39370ff96260fe1926f2f6775bcf5537e0484b72c16aa97b62d4760668e5f9",
+      "raw_bytes": 3647,
+      "nonblank_lines": 77,
+      "lf_utf16_characters": 3647,
+      "lf_utf8_bytes": 3647,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/cli.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "c53ded259e508e0c9d675645637d474b19f85cdb689eaf580c1d3f9529eb21dc",
+      "raw_bytes": 11756,
+      "nonblank_lines": 324,
+      "lf_utf16_characters": 11756,
+      "lf_utf8_bytes": 11756,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/command-input.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "f3143c4dd8905cc7dfa68ff745f52a35e6e720979baa00a682106adf2df925da",
+      "raw_bytes": 9828,
+      "nonblank_lines": 205,
+      "lf_utf16_characters": 9822,
+      "lf_utf8_bytes": 9827,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": false
+    },
+    {
+      "path": "packages/core/tests/profile-case-isolation.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "70f36d83ff6f257fe0fbcdd8cf58a206c2a6d1899842282e4a26b3998157e9e9",
+      "raw_bytes": 6755,
+      "nonblank_lines": 156,
+      "lf_utf16_characters": 6755,
+      "lf_utf8_bytes": 6755,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/profile-configure.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "d5949a17c5305c79a3947a98d2a6ae6c0bf3a6436be87caf65ef2dbdb858272e",
+      "raw_bytes": 11362,
+      "nonblank_lines": 334,
+      "lf_utf16_characters": 11360,
+      "lf_utf8_bytes": 11360,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    },
+    {
+      "path": "packages/core/tests/profile-store.test.ts",
+      "owner": "Core",
+      "kind": "tests-support",
+      "raw_sha256": "0e3e363101687f986c8eec12222f6227faef2720686088d7e0e952583070d4e3",
+      "raw_bytes": 2574,
+      "nonblank_lines": 65,
+      "lf_utf16_characters": 2574,
+      "lf_utf8_bytes": 2574,
+      "positional_string_wrappers": 0,
+      "baseline_path_present": true
+    }
+  ],
+  "totals": {
+    "TeamCity:local-proof": {
+      "files": 1,
+      "nonblank_lines": 330,
+      "lf_utf16_characters": 11911,
+      "lf_utf8_bytes": 11913,
+      "positional_string_wrappers": 0
+    },
+    "TeamCity:source": {
+      "files": 6,
+      "nonblank_lines": 1100,
+      "lf_utf16_characters": 35462,
+      "lf_utf8_bytes": 35462,
+      "positional_string_wrappers": 0
+    },
+    "TeamCity:tests-support": {
+      "files": 10,
+      "nonblank_lines": 1556,
+      "lf_utf16_characters": 58761,
+      "lf_utf8_bytes": 58761,
+      "positional_string_wrappers": 0
+    },
+    "YouTrack:local-proof": {
+      "files": 1,
+      "nonblank_lines": 183,
+      "lf_utf16_characters": 8796,
+      "lf_utf8_bytes": 8796,
+      "positional_string_wrappers": 0
+    },
+    "YouTrack:source": {
+      "files": 36,
+      "nonblank_lines": 4025,
+      "lf_utf16_characters": 140665,
+      "lf_utf8_bytes": 140677,
+      "positional_string_wrappers": 0
+    },
+    "YouTrack:tests-support": {
+      "files": 30,
+      "nonblank_lines": 5876,
+      "lf_utf16_characters": 327726,
+      "lf_utf8_bytes": 327764,
+      "positional_string_wrappers": 0
+    },
+    "Core:source": {
+      "files": 12,
+      "nonblank_lines": 1830,
+      "lf_utf16_characters": 66002,
+      "lf_utf8_bytes": 66002,
+      "positional_string_wrappers": 0
+    },
+    "Core:tests-support": {
+      "files": 10,
+      "nonblank_lines": 1640,
+      "lf_utf16_characters": 67276,
+      "lf_utf8_bytes": 67281,
+      "positional_string_wrappers": 0
+    }
+  },
+  "samples": [
+    {
+      "name": "YT collection unchanged control",
+      "command": "issues list",
+      "declaration": {
+        "path": "integrations/youtrack/src/cli.ts",
+        "start_line": 125,
+        "end_line": 136,
+        "lf_sha256": "cdb9ed040a6294e46d1a68bafad77d309b57dca58fa96e420f6856035a32079c",
+        "nonblank_lines": 12,
+        "lf_utf16_characters": 436,
+        "lf_utf8_bytes": 436,
+        "positional_string_wrappers": 0
+      },
+      "client": {
+        "path": "integrations/youtrack/src/client.ts",
+        "start_line": 310,
+        "end_line": 318,
+        "lf_sha256": "86e1f4a3698e2e4ef0dd09f6335650f0db3eab74a9738a1fc6961975dd29243d",
+        "nonblank_lines": 9,
+        "lf_utf16_characters": 319,
+        "lf_utf8_bytes": 319,
+        "positional_string_wrappers": 0
+      },
+      "delta": {
+        "declaration_nonblank_lines": 0,
+        "client_nonblank_lines": 0,
+        "declaration_lf_characters": 0,
+        "client_lf_characters": 0
+      },
+      "client_exact_unchanged": true
+    },
+    {
+      "name": "YT detail",
+      "command": "issues get <issueID>",
+      "declaration": {
+        "path": "integrations/youtrack/src/cli.ts",
+        "start_line": 137,
+        "end_line": 143,
+        "lf_sha256": "fc4161c2be1411a9f24c084d8f614ef469f46fd830b0672b17d817b832f4d741",
+        "nonblank_lines": 7,
+        "lf_utf16_characters": 317,
+        "lf_utf8_bytes": 317,
+        "positional_string_wrappers": 0
+      },
+      "client": {
+        "path": "integrations/youtrack/src/client.ts",
+        "start_line": 320,
+        "end_line": 328,
+        "lf_sha256": "df93cd5ff139e79e42476837392caa2b2acb15ec1c7fba6829a579dc152e8e71",
+        "nonblank_lines": 9,
+        "lf_utf16_characters": 264,
+        "lf_utf8_bytes": 264,
+        "positional_string_wrappers": 0
+      },
+      "delta": {
+        "declaration_nonblank_lines": 0,
+        "client_nonblank_lines": 0,
+        "declaration_lf_characters": -8,
+        "client_lf_characters": 0
+      },
+      "client_exact_unchanged": true
+    },
+    {
+      "name": "YT mutation with positional argument",
+      "command": "issues update <issueID>",
+      "declaration": {
+        "path": "integrations/youtrack/src/cli.ts",
+        "start_line": 118,
+        "end_line": 124,
+        "lf_sha256": "00ad91bb3c21211c8fd3e768d2e07c61b4e5393abb56bac2f8fe6f5f1cff0053",
+        "nonblank_lines": 7,
+        "lf_utf16_characters": 328,
+        "lf_utf8_bytes": 328,
+        "positional_string_wrappers": 0
+      },
+      "client": {
+        "path": "integrations/youtrack/src/client.ts",
+        "start_line": 410,
+        "end_line": 423,
+        "lf_sha256": "8dbdb1cdcefaedfefd1de98b95a0dea98233a0c81a858e504c227ebe77406112",
+        "nonblank_lines": 14,
+        "lf_utf16_characters": 613,
+        "lf_utf8_bytes": 613,
+        "positional_string_wrappers": 0
+      },
+      "delta": {
+        "declaration_nonblank_lines": 0,
+        "client_nonblank_lines": 0,
+        "declaration_lf_characters": -8,
+        "client_lf_characters": 0
+      },
+      "client_exact_unchanged": true
+    },
+    {
+      "name": "YT create unchanged control",
+      "command": "issues create",
+      "declaration": {
+        "path": "integrations/youtrack/src/cli.ts",
+        "start_line": 111,
+        "end_line": 117,
+        "lf_sha256": "a487b97496d8cebf018ecdd599bdc6bf5e8ed4bf58ec3457fb23fdd5d66fdfce",
+        "nonblank_lines": 7,
+        "lf_utf16_characters": 302,
+        "lf_utf8_bytes": 302,
+        "positional_string_wrappers": 0
+      },
+      "client": {
+        "path": "integrations/youtrack/src/client.ts",
+        "start_line": 397,
+        "end_line": 408,
+        "lf_sha256": "de32d257198968cb2cd97da29903316f14cba7f23f1e922646fc8ded43aafd38",
+        "nonblank_lines": 12,
+        "lf_utf16_characters": 551,
+        "lf_utf8_bytes": 551,
+        "positional_string_wrappers": 0
+      },
+      "delta": {
+        "declaration_nonblank_lines": 0,
+        "client_nonblank_lines": 0,
+        "declaration_lf_characters": 0,
+        "client_lf_characters": 0
+      },
+      "client_exact_unchanged": true
+    },
+    {
+      "name": "TC collection unchanged control",
+      "command": "projects list",
+      "declaration": {
+        "path": "integrations/teamcity/src/cli.ts",
+        "start_line": 193,
+        "end_line": 212,
+        "lf_sha256": "1c1d78e85745a775d2509547b46e5c98b0a00229c6cb0a53a957372ad1aac1ac",
+        "nonblank_lines": 20,
+        "lf_utf16_characters": 769,
+        "lf_utf8_bytes": 769,
+        "positional_string_wrappers": 0
+      },
+      "client": {
+        "path": "integrations/teamcity/src/client.ts",
+        "start_line": 168,
+        "end_line": 185,
+        "lf_sha256": "369c981e62a736b1b19f890c5a36343219cff6e96137c37b489bdd4601df5cd1",
+        "nonblank_lines": 18,
+        "lf_utf16_characters": 586,
+        "lf_utf8_bytes": 586,
+        "positional_string_wrappers": 0
+      },
+      "delta": {
+        "declaration_nonblank_lines": 0,
+        "client_nonblank_lines": 0,
+        "declaration_lf_characters": 0,
+        "client_lf_characters": 0
+      },
+      "client_exact_unchanged": true
+    },
+    {
+      "name": "TC detail",
+      "command": "projects show <id>",
+      "declaration": {
+        "path": "integrations/teamcity/src/cli.ts",
+        "start_line": 213,
+        "end_line": 218,
+        "lf_sha256": "4d2858dadecebd640e0397ad2abe41964b0db217f10dbc9ad5e51a57d5616b51",
+        "nonblank_lines": 6,
+        "lf_utf16_characters": 212,
+        "lf_utf8_bytes": 212,
+        "positional_string_wrappers": 0
+      },
+      "client": {
+        "path": "integrations/teamcity/src/client.ts",
+        "start_line": 187,
+        "end_line": 193,
+        "lf_sha256": "85e783d039b6c2a3e7632dfb56a8a151cef4b8f51b6e0b80606cdc5784175b45",
+        "nonblank_lines": 7,
+        "lf_utf16_characters": 229,
+        "lf_utf8_bytes": 229,
+        "positional_string_wrappers": 0
+      },
+      "delta": {
+        "declaration_nonblank_lines": 0,
+        "client_nonblank_lines": 0,
+        "declaration_lf_characters": -8,
+        "client_lf_characters": 0
+      },
+      "client_exact_unchanged": true
+    },
+    {
+      "name": "TC mutation",
+      "command": "jobs run <id>",
+      "declaration": {
+        "path": "integrations/teamcity/src/cli.ts",
+        "start_line": 251,
+        "end_line": 269,
+        "lf_sha256": "ed4e29c94da01e3d2027a666eac24156af729a2ab182602051a88d8d8f233ffa",
+        "nonblank_lines": 19,
+        "lf_utf16_characters": 747,
+        "lf_utf8_bytes": 747,
+        "positional_string_wrappers": 0
+      },
+      "client": {
+        "path": "integrations/teamcity/src/client.ts",
+        "start_line": 363,
+        "end_line": 379,
+        "lf_sha256": "ae03a13302b8f44a25eb7283b01c3628927415663a373ee2deaa79779853e61f",
+        "nonblank_lines": 17,
+        "lf_utf16_characters": 600,
+        "lf_utf8_bytes": 600,
+        "positional_string_wrappers": 0
+      },
+      "delta": {
+        "declaration_nonblank_lines": 0,
+        "client_nonblank_lines": 0,
+        "declaration_lf_characters": -8,
+        "client_lf_characters": 0
+      },
+      "client_exact_unchanged": true
+    }
+  ],
+  "comparisons": [
+    {
+      "path": "integrations/teamcity/integration-tests/profile-proof.ts",
+      "kind": "local-proof",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/src/bin.ts",
+      "kind": "source",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/teamcity/src/cli.ts",
+      "kind": "source",
+      "owner": "TeamCity",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/teamcity/src/client.ts",
+      "kind": "source",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/teamcity/src/index.ts",
+      "kind": "source",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/teamcity/src/locator.ts",
+      "kind": "source",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/teamcity/src/models.ts",
+      "kind": "source",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/teamcity/tests/argument-errors.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/auth-contract.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/cli.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-builds.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-foundation.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/client-operations.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/integration-proof.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/process.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/profile-isolation.test.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/tests/support.ts",
+      "kind": "tests-support",
+      "owner": "TeamCity",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/integration-tests/profile-proof.ts",
+      "kind": "local-proof",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/src/agile-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/agile.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/article-extras-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/article-extras.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/articles-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/articles.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-download-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-download.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/attachment-form.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/bin.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/bundle-values-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/bundle-values.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli-support.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/cli.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/client.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/field-catalog-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/field-catalog.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/group-directory-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/group-directory.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/index.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-attachments.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-context.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-fields.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-query.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-relations.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/issue-time.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/time-settings-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/time-settings.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/user-directory-commands.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": false,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/src/user-directory.ts",
+      "kind": "source",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true,
+      "exact_positional_conversion_removal_only": true
+    },
+    {
+      "path": "integrations/youtrack/tests/agile.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/article-extras.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/articles.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/attachment-download.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/auth-contract.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values-cases.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values-cli.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/bundle-values.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli-fixture.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/cli.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/client.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog-cases.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog-cli.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/field-catalog.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/group-directory.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-attachments.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-context.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields-cli.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-fields.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-query.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-relations.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time-cli.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/issue-time.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/mutations.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/profile-isolation.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/profile-proof.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/reads.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/time-settings.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/transport.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/tests/user-directory.test.ts",
+      "kind": "tests-support",
+      "owner": "YouTrack",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/app-arguments.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/auth.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/cli.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/command.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": false
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/json-rpc.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/output.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/permissions.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/profile-store.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/secret-store.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/src/types.ts",
+      "kind": "source",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/app-arguments.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/auth-contract.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/auth.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/builtin-process-fixture.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/builtin-process.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/cli.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/profile-case-isolation.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/profile-configure.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/tests/profile-store.test.ts",
+      "kind": "tests-support",
+      "owner": "Core",
+      "unchanged_lf_content": true
+    }
+  ],
+  "manifests": [
+    {
+      "path": "package.json",
+      "raw_sha256": "50274e1cecb5582dd6438d61db5163ae978c29c319fa5ca9faae08ea6330799e",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "packages/core/package.json",
+      "raw_sha256": "1630d94970a49348da417ed3dbf4a08c5d450d5bcf888f2476ebc68767cb6682",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/teamcity/package.json",
+      "raw_sha256": "e70c2dd26e1ebed402d9761334c88be8b29b80798f748bbc7228df760ad449a1",
+      "unchanged_lf_content": true
+    },
+    {
+      "path": "integrations/youtrack/package.json",
+      "raw_sha256": "7677fd6fdc44fe57389d14728d2c85144a348667f8138bd5b931e6b395e743c5",
+      "unchanged_lf_content": true
+    }
+  ],
+  "docs": [
+    {
+      "path": "docs/DESIGN.md",
+      "raw_sha256": "5d2acc83ccec9ca89269a9984669c35dbdf37322260f0b51837b91b11598dfda",
+      "nonblank_lines": 265,
+      "lf_utf16_characters": 19171,
+      "lf_utf8_bytes": 19171,
+      "delta_nonblank_lines": 12,
+      "delta_lf_characters": 1060
+    }
+  ],
+  "checks": {
+    "all_existing_integration_source_exact_conversion_removal": true,
+    "existing_tests_proof_unchanged": true,
+    "missing_baseline_files": [],
+    "new_paths": [
+      "packages/core/src/command-input.ts",
+      "packages/core/tests/command-input.test.ts"
+    ],
+    "type_format_token_equivalent": true
+  },
+  "technical_evidence": {
+    "independent_reviewer": "review_common_types",
+    "new_runtime_tests_passed": 4,
+    "independent_compiler_fallback_probe_cases": 24,
+    "reported_root_full_suite_passed": 418,
+    "reported_root_suite_breakdown": {
+      "Core": 44,
+      "TeamCity": 41,
+      "YouTrack": 333
+    },
+    "authoring_reviewer_build_or_live_calls": 0
+  }
+}

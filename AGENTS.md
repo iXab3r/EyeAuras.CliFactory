@@ -55,6 +55,12 @@ More specific `AGENTS.md` files override this router only inside their directory
    sensitive values; unresolved findings block commit and push. Only explicit owner approval can
    permit specific non-secret metadata; it never permits credentials or unrelated new disclosures.
 
+13. **Less authoring code, still simple.** API expansion workstreams declare a baseline and honor
+   the authoring-review cadence (normally every 50 new operations). Review same-capability examples,
+   total Core + integration code, and conceptual complexity—not just endpoint coverage or shorter
+   handlers. Close the checkpoint before the next batch. Follow
+   [integration authoring reviews](docs/practices/integration-authoring-reviews.md).
+
 ## Function role: Reconciliation Lead
 
 Use **Reconciliation Lead** when work has multiple useful phases, a declared inventory, or needs

@@ -25,7 +25,7 @@ export interface ProfileStoreOptions {
 
 const profileNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-function assertProfileName(name: string): void {
+export function assertProfileName(name: string): void {
   if (!profileNamePattern.test(name)) {
     throw new Error(
       "Profile names must start with a letter or number and contain at most 64 letters, numbers, dots, dashes, or underscores.",
@@ -33,6 +33,14 @@ function assertProfileName(name: string): void {
   }
   if (name.toLowerCase() === "profiles.json") {
     throw new Error("Profile name 'profiles.json' is reserved for the application profile index.");
+  }
+}
+
+export function assertUniqueProfileName(name: string, existingNames: readonly string[]): void {
+  if (existingNames.some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+    throw new Error(
+      `Profile '${name}' already exists ignoring letter case. Use its exact spelling or choose a different name.`,
+    );
   }
 }
 
@@ -74,7 +82,7 @@ export class ProfileStore implements ProfileStoreContract {
     const document = await this.#load();
     const selectedName = name ?? document.active;
     const values = document.profiles[selectedName];
-    if (!values) {
+    if (!Object.hasOwn(document.profiles, selectedName) || !values) {
       throw new Error(`Profile '${selectedName}' does not exist.`);
     }
 
@@ -95,9 +103,7 @@ export class ProfileStore implements ProfileStoreContract {
   public async create(name: string, values: ProfileValues = {}): Promise<Profile> {
     assertProfileName(name);
     const document = await this.#load();
-    if (document.profiles[name]) {
-      throw new Error(`Profile '${name}' already exists.`);
-    }
+    assertUniqueProfileName(name, Object.keys(document.profiles));
     const nextValues = { ...this.#defaults, ...values };
     await this.#validate?.(nextValues);
     document.profiles[name] = nextValues;
@@ -108,7 +114,7 @@ export class ProfileStore implements ProfileStoreContract {
   public async set(name: string, values: ProfileValues): Promise<Profile> {
     assertProfileName(name);
     const document = await this.#load();
-    if (!document.profiles[name]) {
+    if (!Object.hasOwn(document.profiles, name)) {
       throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
     }
     const nextValues = {
@@ -126,7 +132,7 @@ export class ProfileStore implements ProfileStoreContract {
     assertProfileName(name);
     const document = await this.#load();
     const values = document.profiles[name];
-    if (!values) {
+    if (!Object.hasOwn(document.profiles, name) || !values) {
       throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
     }
 
@@ -138,7 +144,7 @@ export class ProfileStore implements ProfileStoreContract {
   public async delete(name: string): Promise<{ deleted: string; default: string }> {
     assertProfileName(name);
     const document = await this.#load();
-    if (!document.profiles[name]) {
+    if (!Object.hasOwn(document.profiles, name)) {
       throw new Error(`Profile '${name}' does not exist.`);
     }
     if (Object.keys(document.profiles).length === 1) {
@@ -164,10 +170,12 @@ export class ProfileStore implements ProfileStoreContract {
   public async getPermissions(name?: string): Promise<readonly string[] | undefined> {
     const document = await this.#load();
     const selectedName = name ?? document.active;
-    if (!document.profiles[selectedName]) {
+    if (!Object.hasOwn(document.profiles, selectedName)) {
       throw new Error(`Profile '${selectedName}' does not exist.`);
     }
-    const permissions = document.permissions?.[selectedName];
+    const permissions = document.permissions && Object.hasOwn(document.permissions, selectedName)
+      ? document.permissions[selectedName]
+      : undefined;
     return permissions === undefined ? undefined : [...permissions];
   }
 
@@ -177,7 +185,7 @@ export class ProfileStore implements ProfileStoreContract {
   ): Promise<readonly string[]> {
     assertProfileName(name);
     const document = await this.#load();
-    if (!document.profiles[name]) {
+    if (!Object.hasOwn(document.profiles, name)) {
       throw new Error(`Profile '${name}' does not exist.`);
     }
     const uniquePermissions = [...new Set(permissions)];
@@ -212,6 +220,15 @@ export class ProfileStore implements ProfileStoreContract {
             )))
       ) {
         throw new Error(`Unsupported profile document at '${this.#filePath}'.`);
+      }
+
+      const names = Object.keys(document.profiles);
+      if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) {
+        throw new Error(
+          "Profile document contains names that differ only by letter case. " +
+          "Back up profiles.json and profile-owned data, then resolve the conflicting names " +
+          "manually and reconfigure renamed profiles. No data was changed.",
+        );
       }
 
       return document as ProfileDocument;

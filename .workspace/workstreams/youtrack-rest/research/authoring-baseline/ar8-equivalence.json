@@ -1,0 +1,109 @@
+{
+  "final_snapshot": "authoring-final.json",
+  "client_changes_confined_to_request": true,
+  "request": {
+    "before": {
+      "name": "request",
+      "start": 139,
+      "end": 200,
+      "nonblank": 62,
+      "body": "async function request(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n  responseName = \"JSON\",\n  body?: YouTrackObject,\n): Promise<YouTrackValue> {\n  const url = new URL(path, youTrackUrl(connection.baseUrl));\n  url.search = new URLSearchParams(query).toString();\n  const token = connection.token.trim();\n  if (!token || /[\\r\\n]/.test(token)) {\n    throw new Error(\"YouTrack authentication requires a non-empty single-line token.\");\n  }\n  let response: Response;\n  try {\n    response = await (connection.fetch ?? globalThis.fetch)(url, {\n      headers: {\n        Accept: \"application/json\",\n        Authorization: `Bearer ${token}`,\n        ...(body === undefined ? {} : { \"Content-Type\": \"application/json\" }),\n      },\n      ...(body === undefined ? {} : { method: \"POST\", body: JSON.stringify(body) }),\n      redirect: \"error\",\n      ...(connection.signal === undefined ? {} : { signal: connection.signal }),\n    });\n  } catch {\n    throw new Error(\"YouTrack request failed; check connectivity, TLS and the configured URL.\");\n  }\n  if (!response.ok) {\n    const retryAfter = response.headers.get(\"retry-after\");\n    let retry = \"\";\n    if (response.status === 429 && retryAfter) {\n      if (/^\\d{1,10}$/.test(retryAfter)) {\n        retry = ` Retry after ${Number(retryAfter)} seconds.`;\n      } else if (/^[A-Z][a-z]{2}, \\d{2} [A-Z][a-z]{2} \\d{4} \\d{2}:\\d{2}:\\d{2} GMT$/.test(retryAfter)) {\n        const date = new Date(retryAfter);\n        if (!Number.isNaN(date.getTime())) {\n          retry = ` Retry after ${date.toUTCString()}.`;\n        }\n      }\n    }\n    throw new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`);\n  }\n  let value: YouTrackValue;\n  try {\n    if (body !== undefined) {\n      const text = await response.text();\n      if (!text.trim()) {\n        return null;\n      }\n      value = JSON.parse(text) as YouTrackValue;\n    } else {\n      value = await response.json() as YouTrackValue;\n    }\n  } catch {\n    throw new Error(`YouTrack returned an invalid ${responseName} response.`);\n  }\n  if (body !== undefined && value === null) {\n    throw new Error(\"YouTrack returned an invalid mutation response.\");\n  }\n  return value;\n}"
+    },
+    "after": {
+      "name": "request",
+      "start": 139,
+      "end": 196,
+      "nonblank": 58,
+      "body": "async function request(\n  connection: Connection,\n  path: string,\n  query: Record<string, string>,\n  responseName = \"JSON\",\n  body?: YouTrackObject,\n): Promise<YouTrackValue> {\n  const url = new URL(path, youTrackUrl(connection.baseUrl));\n  url.search = new URLSearchParams(query).toString();\n  const token = connection.token.trim();\n  if (!token || /[\\r\\n]/.test(token)) {\n    throw new Error(\"YouTrack authentication requires a non-empty single-line token.\");\n  }\n  let response: Response;\n  try {\n    response = await (connection.fetch ?? globalThis.fetch)(url, {\n      headers: {\n        Accept: \"application/json\",\n        Authorization: `Bearer ${token}`,\n        ...(body === undefined ? {} : { \"Content-Type\": \"application/json\" }),\n      },\n      ...(body === undefined ? {} : { method: \"POST\", body: JSON.stringify(body) }),\n      redirect: \"error\",\n      ...(connection.signal === undefined ? {} : { signal: connection.signal }),\n    });\n  } catch {\n    throw new Error(\"YouTrack request failed; check connectivity, TLS and the configured URL.\");\n  }\n  if (!response.ok) {\n    const retryAfter = response.headers.get(\"retry-after\");\n    let retry = \"\";\n    if (response.status === 429 && retryAfter) {\n      if (/^\\d{1,10}$/.test(retryAfter)) {\n        retry = ` Retry after ${Number(retryAfter)} seconds.`;\n      } else if (/^[A-Z][a-z]{2}, \\d{2} [A-Z][a-z]{2} \\d{4} \\d{2}:\\d{2}:\\d{2} GMT$/.test(retryAfter)) {\n        const date = new Date(retryAfter);\n        if (!Number.isNaN(date.getTime())) {\n          retry = ` Retry after ${date.toUTCString()}.`;\n        }\n      }\n    }\n    throw new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`);\n  }\n  let value: YouTrackValue;\n  try {\n    const text = await response.text();\n    if (body !== undefined && !text.trim()) {\n      return null;\n    }\n    value = JSON.parse(text) as YouTrackValue;\n  } catch {\n    throw new Error(`YouTrack returned an invalid ${responseName} response.`);\n  }\n  if (body !== undefined && value === null) {\n    throw new Error(\"YouTrack returned an invalid mutation response.\");\n  }\n  return value;\n}"
+    },
+    "nonblank_delta": -4
+  },
+  "samples": [
+    {
+      "name": "listIssues",
+      "final": {
+        "name": "listIssues",
+        "start": 251,
+        "end": 259,
+        "nonblank": 9,
+        "body": "export async function listIssues(\n  connection: Connection,\n  options: IssueSearchOptions = {},\n): Promise<YouTrackObject[]> {\n  return readCollection(connection, \"api/issues\", {\n    ...page(options, issueListFields),\n    ...(options.query === undefined ? {} : { query: requiredText(options.query, \"query\") }),\n  });\n}"
+      },
+      "same_as_direct_c": true,
+      "same_as_b_fixed": true
+    },
+    {
+      "name": "getIssue",
+      "final": {
+        "name": "getIssue",
+        "start": 261,
+        "end": 269,
+        "nonblank": 9,
+        "body": "export async function getIssue(\n  connection: Connection,\n  id: string,\n  options: ProjectionOptions = {},\n): Promise<YouTrackObject> {\n  return readObject(connection, issuePath(id), {\n    fields: fields(options, `${issueListFields},description,created`),\n  });\n}"
+      },
+      "same_as_direct_c": true,
+      "same_as_b_fixed": true
+    },
+    {
+      "name": "updateIssue",
+      "final": {
+        "name": "updateIssue",
+        "start": 327,
+        "end": 340,
+        "nonblank": 14,
+        "body": "export async function updateIssue(\n  connection: Connection,\n  id: string,\n  input: unknown,\n): Promise<YouTrackObject | null> {\n  const body = mutationBody(input, [\"summary\", \"description\"]);\n  if (Object.keys(body).length === 0) {\n    throw new Error(\"YouTrack issue update requires summary or description.\");\n  }\n  return mutate(connection, issuePath(id), {\n    ...(Object.hasOwn(body, \"summary\") ? { summary: narrative(body.summary, \"summary\") } : {}),\n    ...(Object.hasOwn(body, \"description\") ? { description: description(body.description) } : {}),\n  }, \"id,idReadable,summary,updated\");\n}"
+      },
+      "same_as_direct_c": true,
+      "same_as_b_fixed": null
+    }
+  ],
+  "declarations": [
+    {
+      "name": "issues list",
+      "before": {
+        "start": 107,
+        "end": 118,
+        "nonblank": 12,
+        "body": "        command(\n          \"list\",\n          \"Search one page of issues using YouTrack query syntax\",\n          async ({ options }, context) => listIssues(await connection(context), readOptions(options)),\n          {\n            permission: Permission.ReadOnly,\n            options: [\n              ...pageOptions,\n              { flags: \"--query <query>\", description: \"YouTrack search query\" },\n            ],\n          },\n        ),"
+      },
+      "after": {
+        "start": 141,
+        "end": 152,
+        "nonblank": 12,
+        "body": "        command(\n          \"list\",\n          \"Search one page of issues using YouTrack query syntax\",\n          async ({ options }, context) => listIssues(await connection(context), readOptions(options)),\n          {\n            permission: Permission.ReadOnly,\n            options: [\n              ...pageOptions,\n              { flags: \"--query <query>\", description: \"YouTrack search query\" },\n            ],\n          },\n        ),"
+      },
+      "identical": true
+    },
+    {
+      "name": "issues get",
+      "before": {
+        "start": 119,
+        "end": 125,
+        "nonblank": 7,
+        "body": "        command(\n          \"get <issueID>\",\n          \"Show an issue by database or readable ID\",\n          async ({ args, options }, context) =>\n            getIssue(await connection(context), String(args.issueID), readOptions(options)),\n          { permission: Permission.ReadOnly, options: projectionOptions },\n        ),"
+      },
+      "after": {
+        "start": 153,
+        "end": 159,
+        "nonblank": 7,
+        "body": "        command(\n          \"get <issueID>\",\n          \"Show an issue by database or readable ID\",\n          async ({ args, options }, context) =>\n            getIssue(await connection(context), String(args.issueID), readOptions(options)),\n          { permission: Permission.ReadOnly, options: projectionOptions },\n        ),"
+      },
+      "identical": true
+    },
+    {
+      "name": "issues update",
+      "before": {
+        "start": 132,
+        "end": 138,
+        "nonblank": 7,
+        "body": "        command(\n          \"update <issueID>\",\n          \"Update summary and/or description; description null clears it\",\n          async ({ args, options }, context) =>\n            updateIssue(await connection(context), String(args.issueID), parseBody(options.body)),\n          { permission: Permission.Update, options: bodyOptions },\n        ),"
+      },
+      "after": {
+        "start": 134,
+        "end": 140,
+        "nonblank": 7,
+        "body": "        command(\n          \"update <issueID>\",\n          \"Update summary and/or description; description null clears it\",\n          async ({ args, options }, context) =>\n            updateIssue(await connection(context), String(args.issueID), options.body),\n          { permission: Permission.Update, options: bodyOptions },\n        ),"
+      },
+      "identical": false
+    }
+  ]
+}

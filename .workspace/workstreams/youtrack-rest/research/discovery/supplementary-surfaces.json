@@ -1,0 +1,123 @@
+{
+  "retrieved": "2026-08-30",
+  "note": "Manually researched supplemental official surface facts; not generated-reference operation rows. Priorities and permission policy remain human decisions.",
+  "surfaces": [
+    {
+      "id": "GET /api/openapi.json",
+      "method": "GET",
+      "path": "/api/openapi.json",
+      "kind": "metadata",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/youtrack-openapi-specification.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "GET returned attachment URL",
+      "method": "GET",
+      "path": "<attachment.url>",
+      "documentedExamplePathShape": "/api/files/{fileID}",
+      "kind": "binary-download",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/api-usecase-download-issue-attachment.html",
+      "inGeneratedCensus": false,
+      "securityNote": "Returned signed URL is credential-bearing; never persist actual signature values."
+    },
+    {
+      "id": "app-scope:issue",
+      "scope": "issue",
+      "pathPattern": "/api/issues/{issueID}/extensionEndpoints/{app}/{handler}/{endpoint}",
+      "method": "application-defined",
+      "kind": "dynamic-extension",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/api-url-and-endpoints.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "app-scope:article",
+      "scope": "article",
+      "pathPattern": "/api/articles/{articleID}/extensionEndpoints/{app}/{handler}/{endpoint}",
+      "method": "application-defined",
+      "kind": "dynamic-extension",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/api-url-and-endpoints.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "app-scope:project",
+      "scope": "project",
+      "pathPattern": "/api/admin/projects/{projectID}/extensionEndpoints/{app}/{handler}/{endpoint}",
+      "method": "application-defined",
+      "kind": "dynamic-extension",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/api-url-and-endpoints.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "app-scope:user",
+      "scope": "user",
+      "pathPattern": "/api/users/{userID}/extensionEndpoints/{app}/{handler}/{endpoint}",
+      "method": "application-defined",
+      "kind": "dynamic-extension",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/api-url-and-endpoints.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "app-scope:global",
+      "scope": "global",
+      "pathPattern": "/api/extensionEndpoints/{app}/{handler}/{endpoint}",
+      "method": "application-defined",
+      "kind": "dynamic-extension",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/api-url-and-endpoints.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "boundary:hub-rest",
+      "pathPattern": "<HubServiceURL>/api/rest/...",
+      "kind": "separate-api",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/Hub-Rest-Api-URL.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "boundary:oauth-auth",
+      "path": "<HubServiceURL>/api/rest/oauth2/auth",
+      "kind": "authentication-protocol",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/OAuth-authorization-in-youtrack.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "boundary:oauth-token",
+      "path": "<HubServiceURL>/api/rest/oauth2/token",
+      "kind": "authentication-protocol",
+      "source": "https://www.jetbrains.com/help/youtrack/devportal/OAuth-authorization-in-youtrack.html",
+      "inGeneratedCensus": false
+    },
+    {
+      "id": "GET /api/reports/{reportID}",
+      "method": "GET",
+      "path": "/api/reports/{reportID}",
+      "kind": "official-support-candidate",
+      "source": "https://youtrack-support.jetbrains.com/hc/en-us/community/posts/17238863984402-Time-report-query",
+      "sourceDate": "2024-02-26",
+      "inGeneratedCensus": false,
+      "semantics": "read existing report",
+      "caveat": "Outside current generated reference; incomplete report schema and version-specific support not validated."
+    },
+    {
+      "id": "GET /api/reports/{reportID}/status",
+      "method": "GET",
+      "path": "/api/reports/{reportID}/status",
+      "kind": "official-support-candidate",
+      "source": "https://youtrack-support.jetbrains.com/hc/en-us/community/posts/17238863984402-Time-report-query",
+      "sourceDate": "2024-02-26",
+      "inGeneratedCensus": false,
+      "semantics": "read calculation status",
+      "caveat": "Outside current generated reference; incomplete report schema and version-specific support not validated."
+    },
+    {
+      "id": "POST /api/reports/{reportID}/status",
+      "method": "POST",
+      "path": "/api/reports/{reportID}/status",
+      "kind": "official-support-candidate",
+      "source": "https://youtrack-support.jetbrains.com/hc/en-us/community/posts/17238863984402-Time-report-query",
+      "sourceDate": "2024-02-26",
+      "inGeneratedCensus": false,
+      "semantics": "trigger report recalculation",
+      "caveat": "Outside current generated reference; incomplete report schema and version-specific support not validated."
+    }
+  ]
+}

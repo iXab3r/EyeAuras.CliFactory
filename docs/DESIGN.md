@@ -22,6 +22,26 @@ A CLI is a recursive command declaration. Every node has a name and description;
 contain children and leaf nodes execute handlers. The framework generates help at every node.
 Authors must not hand-write a dispatch switch or separate help pages.
 
+A service option may declare `required: true` in its existing `OptionDefinition`. The parser
+rejects a missing required value before profile onboarding, keyring access or the handler, in
+ordinary CLI, programmatic and JSON-RPC execution. A declared default satisfies this requirement;
+existing option parsing still applies to supplied values. This is distinct from required profile
+fields, which the interactive configurator may prompt for.
+
+Literal leaf declarations infer required positional strings in their inline callback from the
+existing command name. The small inferred grammar uses ASCII letters, digits, underscores and
+hyphens in names, with single spaces between the command and required `<argument>` tokens.
+A supported declaration without arguments has an empty argument object. Options keep their broad
+unknown-record type; service validators still own numeric IDs and other domain constraints.
+
+The complete declaration falls back to `Record<string, unknown>` for dynamic or union names,
+duplicate arguments, optional/variadic tokens, other whitespace or unsupported syntax. Runtime
+parsing remains unchanged, including its wider Commander syntax. Existing explicitly annotated
+`CommandInput` and `CommandHandler` callbacks retain their broad types. Inference describes the
+literal callback when invoked through the factory parser. The stored mutable `CommandDefinition`
+remains broad; changing its name/run or manually invoking its erased handler is outside that
+inference guarantee.
+
 ### Handlers return domain data
 
 Command handlers return values and do not decide whether output is human-readable or JSON. The
@@ -51,6 +71,16 @@ an existing profile, `profile set-default <name>` chooses the default, and `prof
 removes a non-default profile. The default profile cannot be deleted until another profile is made
 default; the final remaining profile cannot be deleted. Deletion also removes the integration's
 known stored authentication credential for that profile.
+
+Profile names are ASCII and must be unique ignoring letter case on every supported platform, so
+names such as `Fixture` and `fixture` cannot share a case-insensitive filesystem directory.
+A single existing mixed-case name keeps its spelling, data path and credential identity; explicit
+profile lookup remains exact and does not introduce case-insensitive aliases. Creating or
+configuring a new colliding name fails before prompting, validation or any persisted change.
+An existing document containing case-colliding names fails closed before profile or credential
+mutation, including deletion. Core never chooses a winner or automatically migrates, renames or
+deletes data. To recover, first back up `profiles.json` and profile-owned data, then manually
+resolve conflicting names to distinct identities and reconfigure credentials for renamed profiles.
 
 Profile identity is part of the secret key. Switching from `uat` to `production` must never reuse
 the other profile's credential accidentally.
@@ -194,6 +224,25 @@ The built-in token flow resolves a candidate in this order during `profile confi
 1. stdin when `--token-stdin` is present;
 2. the integration-specific environment variable;
 3. a masked interactive terminal prompt.
+
+Stored credentials are not configure/login candidates. Prompting requires ordinary rendered
+execution without `--json`, with stdin, stdout and stderr all attached to a TTY. JSON-RPC and
+programmatic execution never prompt or consume `--token-stdin`; an explicit rendered CLI stdin
+flow remains available.
+
+`profile configure` validates the profile name, non-secret configuration and new authentication
+candidate before changing persistent state. Missing or rejected candidates preserve the existing
+profile and credential and do not create a new profile. After successful authentication validation,
+configure removes the previous credential, saves the candidate profile, then saves the validated
+credential. A removal failure leaves configuration unchanged. A later storage failure can leave
+an unauthenticated profile; the error directs the user to `profile configure <name> --token-stdin`.
+This fails closed across two stores; it is not an atomic transaction, and it never rolls back an
+old credential onto a new endpoint. `auth login` validates against the current profile and changes
+only the credential. Configure/login storage failures expose no backend error details or causes.
+Ordinary `profile set` remains a non-auth configuration operation.
+
+No-auth integrations and profiles that opt out of token authentication configure without accessing
+credentials. `auth login` rejects such profiles.
 
 The token is validated by the integration before it is persisted. An integration may declare
 that a configured profile does not require a token, for example TeamCity guest access; the
