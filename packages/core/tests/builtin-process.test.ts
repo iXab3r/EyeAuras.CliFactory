@@ -12,7 +12,10 @@ const cases = [
   { argv: ["auth", "login", "--help"], help: /Usage: builtin-test-cli auth login/ },
   { argv: ["permissions", "list", "--help"], help: /Usage: builtin-test-cli permissions list/ },
   ...["profile", "auth", "permissions"].map((name) => ({
-    argv: [name], error: new RegExp("Usage: builtin-test-cli " + name),
+    argv: [name], help: new RegExp("Usage: builtin-test-cli " + name),
+  })),
+  ...["profile", "auth", "permissions"].map((name) => ({
+    argv: [name, "--unknown"], error: /unknown option '--unknown'/,
   })),
 ];
 

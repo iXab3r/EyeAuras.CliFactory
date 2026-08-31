@@ -272,7 +272,8 @@ test("directory RPC interleaves all eight reads across isolated profiles and sur
   assert.equal(replies[0].error.code, -32000);
   assert.match(replies[0].error.message, /ReadOnly/);
   assert.deepEqual(replies.slice(1).map((reply) => reply.result), rows.map((row) => row.result));
-  assert.deepEqual(f.paths, frames.map(({ profile }) => join(f.appArguments.RoamingAppDataDirectory, profile)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, frames.filter(({ profile }) => profile !== "locked").map(({ profile }) => join(f.appArguments.RoamingAppDataDirectory, profile)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");
   assert.equal(calls, 8);
 });

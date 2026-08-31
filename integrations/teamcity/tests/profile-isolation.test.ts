@@ -12,7 +12,7 @@ import { createTestRuntime } from "./support.js";
 async function fixture(t: TestContext, input = "") {
   const directory = await mkdtemp(join(tmpdir(), "teamcity-profile-isolation-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const h = await createTestRuntime({ input, tokens: {} });
+  const h = await createTestRuntime(t, { input, tokens: {} });
   const appArguments = new AppArguments({ AppName: "teamcity-cli", Environment: {
     AppDomainDirectory: join(directory, "executable"),
     ApplicationExecutablePath: join(directory, "executable", "teamcity-cli.js"),

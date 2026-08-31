@@ -30,8 +30,8 @@ for (const example of [
   ...adminCases,
   ...infrastructureCases,
 ]) {
-  test(`authoring contract: ${example.method} ${example.path}`, async () => {
-    const runtime = await createTestRuntime();
+  test(`authoring contract: ${example.method} ${example.path}`, async (testContext) => {
+    const runtime = await createTestRuntime(testContext);
     for (const [key, value] of Object.entries(example.storedSecrets ?? {}))
       await runtime.secretStore.set("ai-cli-factory:teamcity-cli", "default:" + key, value);
     const cli = createTeamCityCli(runtime.runtime);
@@ -103,8 +103,8 @@ for (const example of [
   });
 }
 
-test("authoring uses gated JSON, text and empty responses through the real tree", async () => {
-  const runtime = await createTestRuntime();
+test("authoring uses gated JSON, text and empty responses through the real tree", async (testContext) => {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   let requests = 0;
   server.use(
@@ -147,7 +147,7 @@ test("authoring uses gated JSON, text and empty responses through the real tree"
   assert.equal(requests, 3);
 });
 
-test("all authoring leaves reject unknown options before HTTP and surface remote errors without payloads", async () => {
+test("all authoring leaves reject unknown options before HTTP and surface remote errors without payloads", async (testContext) => {
   assert.equal(authoringCases.length, 32);
   assert.equal(authoringCases.filter((c) => c.method !== "GET").length, 21);
   assert.equal(configurationCases.length, 18);
@@ -168,7 +168,7 @@ test("all authoring leaves reject unknown options before HTTP and surface remote
     ...adminCases,
     ...infrastructureCases,
   ]) {
-    const runtime = await createTestRuntime();
+    const runtime = await createTestRuntime(testContext);
     for (const [key, value] of Object.entries(example.storedSecrets ?? {}))
       await runtime.secretStore.set("ai-cli-factory:teamcity-cli", "default:" + key, value);
     const cli = createTeamCityCli(runtime.runtime);
@@ -206,8 +206,8 @@ test("all authoring leaves reject unknown options before HTTP and surface remote
   }
 });
 
-test("authoring validates fields, required options, paging, paths and plain properties before HTTP", async () => {
-  const runtime = await createTestRuntime();
+test("authoring validates fields, required options, paging, paths and plain properties before HTTP", async (testContext) => {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   let requests = 0;
@@ -280,7 +280,7 @@ test("authoring validates fields, required options, paging, paths and plain prop
   assert.equal(requests, 0);
 });
 
-test("parameter reads redact passwords, hidden/unknown types and credential-shaped data", async () => {
+test("parameter reads redact passwords, hidden/unknown types and credential-shaped data", async (testContext) => {
   const properties = [
     { name: "plain", value: "debug" },
     { name: "password-type", value: "synthetic-hidden", type: { rawValue: "password" } },
@@ -299,7 +299,7 @@ test("parameter reads redact passwords, hidden/unknown types and credential-shap
       HttpResponse.json({ property: properties }),
     ),
   );
-  const runtime = await createTestRuntime();
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   assert.equal(await cli.run(["projects", "parameters", "list", "Example", "--json"]), 0);
   const result = JSON.parse(runtime.stdout());
@@ -316,8 +316,8 @@ test("parameter reads redact passwords, hidden/unknown types and credential-shap
   assert.equal(runtime.stdout().includes("synthetic-hidden"), false);
 });
 
-test("parameter writes preflight metadata, reject protected/unknown types and only tolerate create 404", async () => {
-  const runtime = await createTestRuntime();
+test("parameter writes preflight metadata, reject protected/unknown types and only tolerate create 404", async (testContext) => {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   let writes = 0;
@@ -371,8 +371,8 @@ test("parameter writes preflight metadata, reject protected/unknown types and on
   assert.equal(writes, 1);
 });
 
-test("steps replace does not read/merge, unknown properties are redacted and VCS excludes connection data", async () => {
-  const runtime = await createTestRuntime();
+test("steps replace does not read/merge, unknown properties are redacted and VCS excludes connection data", async (testContext) => {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   let requests = 0;
@@ -424,7 +424,7 @@ test("steps replace does not read/merge, unknown properties are redacted and VCS
   });
 });
 
-test("literal path segments and locators cannot broaden authoring targets", async () => {
+test("literal path segments and locators cannot broaden authoring targets", async (testContext) => {
   const paths: string[] = [];
   const client = new TeamCityClient({
     baseUrl: "https://teamcity.test",
@@ -443,7 +443,7 @@ test("literal path segments and locators cannot broaden authoring targets", asyn
   assert.equal(paths.length, 1);
 });
 
-test("JSON-RPC survives nested help and errors and isolates new Update commands by profile", async () => {
+test("JSON-RPC survives nested help and errors and isolates new Update commands by profile", async (testContext) => {
   const commands = [
     ["jobs", "steps", "replace", "--help"],
     ["projects", "create", "Example", "--profile", "uat"],
@@ -451,7 +451,7 @@ test("JSON-RPC survives nested help and errors and isolates new Update commands 
     ["projects", "create", "Example", "--name", "Example", "--profile", "uat"],
     ["vcs", "roots", "show", "Root"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test" },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Update"] },
@@ -494,8 +494,8 @@ test("JSON-RPC survives nested help and errors and isolates new Update commands 
   assert.equal(runtime.stderr(), "");
 });
 
-test("empty scoped lists, missing deletes and malformed JSON have explicit safe behavior", async () => {
-  const runtime = await createTestRuntime();
+test("empty scoped lists, missing deletes and malformed JSON have explicit safe behavior", async (testContext) => {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   server.use(
@@ -527,8 +527,8 @@ test("empty scoped lists, missing deletes and malformed JSON have explicit safe 
   });
 });
 
-test("offline workflow authors a project/job, launches it and cleans up explicitly", async () => {
-  const runtime = await createTestRuntime();
+test("offline workflow authors a project/job, launches it and cleans up explicitly", async (testContext) => {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   let project: Record<string, unknown> | undefined;

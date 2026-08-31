@@ -123,7 +123,8 @@ test("field RPC survives a profile denial and remote rejection with isolated URL
   assert.equal(replies[2].error.message, "YouTrack request failed (HTTP 403).");
   assert.deepEqual(replies[3].result, []);
   assert.deepEqual(calls, ["POST dev.example.com", "GET production.example.com", "GET dev.example.com"]);
-  assert.deepEqual(f.paths, ["production", "dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, ["dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic-|private-message/);
   assert.equal(f.stderr(), "");
 });

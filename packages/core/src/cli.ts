@@ -1,26 +1,31 @@
 import { Command, CommanderError, Option } from "commander";
-import { rm } from "node:fs/promises";
-import type { Readable, Writable } from "node:stream";
 import { AppArguments } from "./app-arguments.js";
-import { canPrompt, promptSecret, promptText, readStdin } from "./auth.js";
+import { canPrompt } from "./auth.js";
 import { runJsonRpc } from "./json-rpc.js";
 import { writeResult } from "./output.js";
 import {
   resolvePermissionCategories,
   validateCommandPermissions,
   validatePermissionsDisabled,
+  createPermissionCommand,
 } from "./permissions.js";
-import { assertProfileName, assertUniqueProfileName, ProfileStore } from "./profile-store.js";
+import { ProfileStore } from "./profile-store.js";
+import { createProfileCommands } from "./profile-commands.js";
+import { CommandGate } from "./command-gate.js";
+import { validateArgv } from "./input-limits.js";
+import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import type {
   CliApplication,
+  CliInvocation,
+  CliIo,
   CliDefinition,
   CommandContext,
   CommandDefinition,
   CommandInput,
   PermissionCategory,
+  OptionDefinition,
   Profile,
-  ProfileField,
   ProfileStoreContract,
   SecretStore,
 } from "./types.js";
@@ -28,17 +33,9 @@ import type {
 interface ExecutionOptions {
   render: boolean;
   signal: AbortSignal;
-}
-
-interface ConfigurationState {
-  missingFields: readonly ProfileField[];
-  authenticationMissing: boolean;
-}
-
-interface ConfigureProfileOptions {
-  values: Record<string, unknown>;
-  tokenStdin: boolean;
-  interactive: boolean;
+  io: CliIo;
+  cwd: string;
+  environment: Readonly<NodeJS.ProcessEnv>;
 }
 
 interface GlobalOptions {
@@ -46,23 +43,20 @@ interface GlobalOptions {
   profile?: string;
 }
 
-function hasProfileValue(value: unknown): boolean {
-  return value !== undefined && value !== null && (typeof value !== "string" || value.trim() !== "");
-}
-
-function configureSyntax(field: ProfileField): string {
-  return field.flags.match(/--[a-z0-9-]+(?:[ =](?:<[^>]+>|\[[^\]]+\]))?/i)?.[0] ?? field.flags;
-}
-
-function optionKey(flags: string): string {
-  const longFlag = flags.split(/[ ,|]+/).find((part) => part.startsWith("--"));
-  if (!longFlag) {
-    throw new Error(`Option '${flags}' must include a long flag.`);
-  }
-  return longFlag
-    .replace(/^--(?:no-)?/, "")
-    .replace(/[ <[].*$/, "")
-    .replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+function declaredOption(specification: OptionDefinition): Option {
+  const requiredHint =
+    specification.required && specification.defaultValue === undefined
+      ? " (required)"
+      : "";
+  const option = new Option(
+    specification.flags,
+    specification.description + requiredHint,
+  );
+  if (specification.required) option.makeOptionMandatory();
+  if (specification.defaultValue !== undefined)
+    option.default(specification.defaultValue);
+  if (specification.parse) option.argParser(specification.parse);
+  return option;
 }
 
 function commandParts(syntax: string): { name: string; arguments: string[] } {
@@ -74,9 +68,30 @@ function commandParts(syntax: string): { name: string; arguments: string[] } {
 }
 
 export function createCli(definition: CliDefinition): CliApplication {
-  const input = definition.runtime?.input ?? process.stdin;
-  const output = definition.runtime?.output ?? process.stdout;
-  const error = definition.runtime?.error ?? process.stderr;
+  const rpcModeError = new Error(
+    "The --json-rpc transport must be started without a CLI command.",
+  );
+  const defaultIo: CliIo = {
+    input: definition.runtime?.input ?? process.stdin,
+    output: definition.runtime?.output ?? process.stdout,
+    error: definition.runtime?.error ?? process.stderr,
+  };
+  const gate = new CommandGate(definition.concurrency);
+  const resources = [...new Set(definition.resources ?? [])];
+  const lifetime = new AbortController();
+  const active = new Set<Promise<unknown>>();
+  let disposal: Promise<void> | undefined;
+  const track = <T>(operation: () => Promise<T>): Promise<T> => {
+    if (disposal || lifetime.signal.aborted)
+      return Promise.reject(new Error("CLI application is disposed."));
+    const work = Promise.resolve().then(operation);
+    active.add(work);
+    void work.then(
+      () => active.delete(work),
+      () => active.delete(work),
+    );
+    return work;
+  };
   const fetchImplementation = definition.runtime?.fetch ?? globalThis.fetch;
   const applicationId = definition.applicationId ?? definition.name;
   const profileDefinition = definition.profile ?? {};
@@ -84,7 +99,9 @@ export function createCli(definition: CliDefinition): CliApplication {
     definition.runtime?.appArguments ??
     new AppArguments({
       AppName: applicationId,
-      ...(definition.version === undefined ? {} : { Version: definition.version }),
+      ...(definition.version === undefined
+        ? {}
+        : { Version: definition.version }),
       Profile: profileDefinition.defaultName ?? "default",
     });
   if (appArguments.AppName !== applicationId) {
@@ -113,69 +130,52 @@ export function createCli(definition: CliDefinition): CliApplication {
       ...(profileDefinition.defaultName === undefined
         ? {}
         : { defaultName: profileDefinition.defaultName }),
-      ...(profileDefinition.defaults === undefined ? {} : { defaults: profileDefinition.defaults }),
-      ...(profileDefinition.validate === undefined ? {} : { validate: profileDefinition.validate }),
+      ...(profileDefinition.defaults === undefined
+        ? {}
+        : { defaults: profileDefinition.defaults }),
+      ...(profileDefinition.validate === undefined
+        ? {}
+        : { validate: profileDefinition.validate }),
     });
-  const secretStore: SecretStore = definition.runtime?.secretStore ?? new KeyringSecretStore();
+  const secretStore: SecretStore =
+    definition.runtime?.secretStore ?? new KeyringSecretStore();
 
   const resolveProfile = async (requestedName?: string): Promise<Profile> =>
     profileStore.get(requestedName);
-  const enabledPermissions = async (profileName: string): Promise<Set<string>> =>
-    new Set((await profileStore.getPermissions(profileName)) ?? defaultPermissions);
-  const missingRequiredFields = (profile: Profile): readonly ProfileField[] =>
-    (profileDefinition.fields ?? []).filter(
-      (field) => field.required === true && !hasProfileValue(profile.values[field.name]),
+  const invalidateProfile = (profile: Profile) =>
+    visitResources(resources, (resource) =>
+      resource.invalidateProfile?.(appArguments.WithProfile(profile.name)),
     );
-  const authenticationRequired = (profile: Profile): boolean =>
-    definition.auth !== undefined && (definition.auth.required?.(profile) ?? true);
-  const configurationState = async (profile: Profile): Promise<ConfigurationState> => {
-    const missingFields = missingRequiredFields(profile);
-    const authenticationMissing =
-      missingFields.length === 0 &&
-      authenticationRequired(profile) &&
-      (await new ProfileSecrets(secretStore, applicationId, profile.name).get(
-        definition.auth!.secretName,
-      )) === undefined;
-    return {
-      missingFields,
-      authenticationMissing,
-    };
-  };
-  const configurationError = (
+  const enabledPermissions = async (
+    profileName: string,
+  ): Promise<Set<string>> =>
+    new Set(
+      (await profileStore.getPermissions(profileName)) ?? defaultPermissions,
+    );
+  const contextFor = (
     profile: Profile,
-    state: ConfigurationState,
-  ): Error => {
-    const missing = [
-      ...state.missingFields.map((field) => configureSyntax(field)),
-      ...(state.authenticationMissing ? ["--token-stdin"] : []),
-    ];
-    const details = [
-      ...(state.missingFields.length > 0
-        ? [`missing fields: ${state.missingFields.map((field) => field.name).join(", ")}`]
-        : []),
-      ...(state.authenticationMissing ? ["authentication is missing"] : []),
-    ].join("; ");
-    return new Error(
-      `Profile '${profile.name}' is not configured (${details}). ` +
-        `Run '${definition.name} profile configure ${profile.name}${missing.length > 0 ? ` ${missing.join(" ")}` : ""}'.`,
-    );
-  };
-  const contextFor = (profile: Profile, signal: AbortSignal): CommandContext => ({
+    execution: ExecutionOptions,
+  ): CommandContext => ({
     appArguments: appArguments.WithProfile(profile.name),
     profile,
     secrets: new ProfileSecrets(secretStore, applicationId, profile.name),
     fetch: fetchImplementation,
-    signal,
+    signal: execution.signal,
+    io: execution.io,
+    cwd: execution.cwd,
+    environment: execution.environment,
   });
-
   const execute = async (
     argv: readonly string[],
     execution: ExecutionOptions,
   ): Promise<unknown> => {
+    validateArgv(argv);
+    execution.signal.throwIfAborted();
+    const { input, output, error } = execution.io;
     let result: unknown;
-    let handled = false;
     let capturedOutput = "";
     let capturedError = "";
+    const needsConfiguration = Symbol("needs exclusive onboarding");
     const program = new Command()
       .name(definition.name)
       .description(definition.description)
@@ -183,8 +183,18 @@ export function createCli(definition: CliDefinition): CliApplication {
       .showSuggestionAfterError()
       .helpCommand(true)
       .option("--json", "Emit machine-readable JSON")
-      .option("--json-rpc", "Start a persistent newline-delimited JSON-RPC session")
-      .option("-p, --profile <name>", "Use a profile for this command without switching the default");
+      .option(
+        "--json-rpc",
+        "Start a persistent newline-delimited JSON-RPC session",
+      )
+      .on("option:json-rpc", () => {
+        // The sole transport invocation is handled by run; parsed occurrences here are misuse.
+        throw rpcModeError;
+      })
+      .option(
+        "-p, --profile <name>",
+        "Use a profile for this command without switching the default",
+      );
 
     if (definition.version) {
       program.version(definition.version);
@@ -202,141 +212,47 @@ export function createCli(definition: CliDefinition): CliApplication {
     });
     program.exitOverride();
 
-    const canInteract = (globals: GlobalOptions): boolean =>
-      execution.render &&
-      globals.json !== true &&
-      canPrompt(input, output) &&
-      canPrompt(input, error);
-
-    const resolveToken = async (
-      profile: Profile,
-      tokenStdin: boolean,
-      interactive: boolean,
-    ): Promise<string> => {
-      let token: string | undefined;
-      if (tokenStdin) {
-        if (!execution.render) {
-          throw new Error(
-            "--token-stdin is unavailable through JSON-RPC or programmatic execution because stdin belongs to the transport.",
-          );
-        }
-        token = await readStdin(input);
-      } else {
-        const variable = definition.auth!.environmentVariable;
-        token = variable === undefined ? undefined : process.env[variable];
-        if (!token && interactive) {
-          token = await promptSecret(input, error);
-        }
-      }
-      if (!token) {
-        throw configurationError(profile, {
-          missingFields: [],
-          authenticationMissing: true,
-        });
-      }
-      return token;
-    };
-
-    const configureProfile = async (
-      profileName: string,
-      options: ConfigureProfileOptions,
-    ): Promise<{
-      configured: true;
-      profile: string;
-      authenticated: true;
-      identity: unknown;
-    }> => {
-      assertProfileName(profileName);
-      const listed = await profileStore.list();
-      const existing = listed.profiles.find((profile) => profile.name === profileName);
-      if (!existing) {
-        assertUniqueProfileName(profileName, listed.profiles.map((profile) => profile.name));
-      }
-      const values = {
-        ...(profileDefinition.defaults ?? {}),
-        ...(existing?.values ?? {}),
-        ...options.values,
-      };
-      let candidate: Profile = { name: profileName, values };
-      let missing = missingRequiredFields(candidate);
-
-      if (missing.length > 0 && options.interactive) {
-        for (const field of missing) {
-          const value = await promptText(input, error, field.description);
-          if (hasProfileValue(value)) {
-            values[field.name] = value;
-          }
-        }
-        candidate = { name: profileName, values };
-        missing = missingRequiredFields(candidate);
-      }
-      if (missing.length > 0) {
-        throw configurationError(candidate, {
-          missingFields: missing,
-          authenticationMissing: false,
-        });
-      }
-
-      await profileDefinition.validate?.(values);
-      const saveProfile = () =>
-        existing
-          ? profileStore.set(profileName, values)
-          : profileStore.create(profileName, values);
-      if (!definition.auth || !authenticationRequired(candidate)) {
-        await saveProfile();
-        return {
-          configured: true,
-          profile: candidate.name,
-          authenticated: true,
-          identity: null,
-        };
-      }
-
-      const auth = definition.auth;
-      const token = await resolveToken(candidate, options.tokenStdin, options.interactive);
-      const context = contextFor(candidate, execution.signal);
-      const identity = await auth.validate?.({
-        appArguments: context.appArguments,
-        profile: candidate,
-        token,
-        fetch: context.fetch,
-        signal: context.signal,
-      });
-      try {
-        // Remove the old credential before changing its connection, including on save failure.
-        await context.secrets.delete(auth.secretName);
-        await saveProfile();
-        await context.secrets.set(auth.secretName, token);
-      } catch {
-        throw new Error(
-          "Could not save profile configuration or authentication. " +
-            "Check profile storage and the OS credential store. Authentication may be incomplete. " +
-            `Run '${definition.name} profile configure ${profileName} --token-stdin' to complete configuration.`,
-        );
-      }
-      return {
-        configured: true,
-        profile: candidate.name,
-        authenticated: true,
-        identity: identity ?? null,
-      };
-    };
+    const {
+      commands: profileCommands,
+      configureProfile,
+      configurationState,
+      configurationError,
+    } = createProfileCommands(
+      definition,
+      profileStore,
+      {
+        contextFor: (profile) => contextFor(profile, execution),
+        stdinAvailable: execution.render,
+        interactive: () =>
+          execution.render &&
+          program.opts().json !== true &&
+          canPrompt(input, output) &&
+          canPrompt(input, error),
+      },
+      invalidateProfile,
+    );
 
     const ensureConfigured = async (
       profile: Profile,
       globals: GlobalOptions,
+      exclusive: boolean,
     ): Promise<Profile> => {
       const state = await configurationState(profile);
       if (state.missingFields.length === 0 && !state.authenticationMissing) {
         return profile;
       }
-      const interactive = canInteract(globals);
+      const interactive =
+        execution.render &&
+        globals.json !== true &&
+        canPrompt(input, output) &&
+        canPrompt(input, error);
       if (!interactive) {
         throw configurationError(profile, state);
       }
+      if (!exclusive) throw needsConfiguration;
       await configureProfile(profile.name, {
         values: {},
-        tokenStdin: false,
+        authOptions: {},
         interactive: true,
       });
       return resolveProfile(profile.name);
@@ -348,67 +264,71 @@ export function createCli(definition: CliDefinition): CliApplication {
       commandInput: CommandInput,
       requiredPermission?: string,
       requiresConfiguredProfile = false,
+      exclusive = false,
     ): Promise<void> => {
       if (!handler) {
         const help = command.helpInformation().trimEnd();
         result = { help };
-        handled = true;
         if (execution.render) {
           output.write(`${help}\n`);
         }
         return;
       }
-      const globals = command.optsWithGlobals() as GlobalOptions;
-      let profile = await resolveProfile(globals.profile);
-      if (requiresConfiguredProfile) {
-        profile = await ensureConfigured(profile, globals);
-      }
-      const context = contextFor(profile, execution.signal);
-      if (requiredPermission) {
-        const enabled = await enabledPermissions(profile.name);
-        if (!enabled.has(requiredPermission)) {
-          throw new Error(
-            `Permission '${requiredPermission}' is disabled for profile '${profile.name}'. ` +
-              `Enable it explicitly with '${definition.name} permissions grant ${requiredPermission} --profile ${profile.name}'.`,
-          );
+      const invoke = async (ownsExclusive: boolean) => {
+        const globals = command.optsWithGlobals() as GlobalOptions;
+        let profile = await resolveProfile(globals.profile);
+        if (requiredPermission) {
+          const enabled = await enabledPermissions(profile.name);
+          if (!enabled.has(requiredPermission)) {
+            throw new Error(
+              `Permission '${requiredPermission}' is disabled for profile '${profile.name}'. ` +
+                `Enable it explicitly with '${definition.name} permissions grant ${requiredPermission} --profile ${profile.name}'.`,
+            );
+          }
         }
-      }
-      result = await handler(commandInput, context);
-      handled = true;
-      if (execution.render) {
-        writeResult(output, result, globals.json === true);
+        if (requiresConfiguredProfile)
+          profile = await ensureConfigured(profile, globals, ownsExclusive);
+        const context = contextFor(profile, execution);
+        context.signal.throwIfAborted();
+        result = await handler(commandInput, context);
+        if (execution.render) {
+          writeResult(output, result, globals.json === true);
+        }
+      };
+      try {
+        await gate.run(() => invoke(exclusive), execution.signal, exclusive);
+      } catch (error) {
+        if (error !== needsConfiguration) throw error;
+        // Release the shared slot before rechecking/onboarding; the handler has not run yet.
+        await gate.run(() => invoke(true), execution.signal, true);
       }
     };
 
-    const addDefinition = (parent: Command, item: CommandDefinition): void => {
+    const addDefinition = (
+      parent: Command,
+      item: CommandDefinition,
+      configured = true,
+      exclusive = false,
+    ): void => {
       const parts = commandParts(item.name);
       const current = new Command(parts.name)
         .copyInheritedSettings(parent)
         .description(item.description)
         .configureOutput(parent.configureOutput());
       if (item.permission) {
-        current.addHelpText("after", `\nRequired permission: ${item.permission}\n`);
+        current.addHelpText(
+          "after",
+          `\nRequired permission: ${item.permission}\n`,
+        );
       }
       for (const argument of parts.arguments) {
         current.argument(argument);
       }
       for (const specification of item.options ?? []) {
-        const requiredHint = specification.required && specification.defaultValue === undefined
-          ? " (required)" : "";
-        const option = new Option(specification.flags, specification.description + requiredHint);
-        if (specification.defaultValue !== undefined) {
-          option.default(specification.defaultValue);
-        }
-        if (specification.parse) {
-          option.argParser(specification.parse);
-        }
-        if (specification.required) {
-          option.makeOptionMandatory();
-        }
-        current.addOption(option);
+        current.addOption(declaredOption(specification));
       }
       for (const child of item.children ?? []) {
-        addDefinition(current, child);
+        addDefinition(current, child, configured, exclusive);
       }
       current.action(async (...parameters: unknown[]) => {
         const actionCommand = parameters.at(-1) as Command;
@@ -420,370 +340,70 @@ export function createCli(definition: CliDefinition): CliApplication {
             positional[index],
           ]),
         );
-        await runHandler(item.run, actionCommand, { args, options }, item.permission, true);
+        await runHandler(
+          item.run,
+          actionCommand,
+          { args, options },
+          item.permission,
+          configured,
+          exclusive,
+        );
       });
       parent.addCommand(current);
     };
 
-    const profileCommand = new Command("profile")
-      .copyInheritedSettings(program)
-      .description("Manage service profiles")
-      .configureOutput(program.configureOutput());
-    profileCommand
-      .command("list")
-      .description("List profiles")
-      .action(async (_options: unknown, command: Command) => {
-        await runHandler(
-          async () => {
-            const list = await profileStore.list();
-            return list.profiles.map((profile) => ({
-              default: profile.name === list.active,
-              name: profile.name,
-              ...profile.values,
-            }));
-          },
-          command,
-          { args: {}, options: {} },
-        );
-      });
-    profileCommand
-      .command("show [name]")
-      .description("Show one profile")
-      .action(async (name: string | undefined, _options: unknown, command: Command) => {
-        await runHandler(
-          async () => profileStore.get(name),
-          command,
-          { args: { name }, options: {} },
-        );
-      });
-
-    const addProfileFields = (target: Command): void => {
-      for (const field of profileDefinition.fields ?? []) {
-        target.addOption(new Option(field.flags, field.description));
-      }
-    };
-    const profileValues = (options: Record<string, unknown>) =>
-      Object.fromEntries(
-        (profileDefinition.fields ?? [])
-          .map((field) => [field.name, options[optionKey(field.flags)]])
-          .filter((entry) => entry[1] !== undefined),
+    for (const item of profileCommands)
+      addDefinition(program, item, false, true);
+    if (permissionCategories)
+      addDefinition(
+        program,
+        createPermissionCommand(
+          permissionCategories,
+          profileStore,
+          enabledPermissions,
+        ),
+        false,
+        true,
       );
-
-    const configureProfileCommand = profileCommand
-      .command("configure [name]")
-      .description("Complete profile settings and authentication");
-    addProfileFields(configureProfileCommand);
-    if (definition.auth) {
-      configureProfileCommand.option("--token-stdin", "Read the token from stdin");
-    }
-    configureProfileCommand.action(
-      async (
-        name: string | undefined,
-        options: Record<string, unknown> & { tokenStdin?: boolean },
-        command: Command,
-      ) => {
-        await runHandler(
-          async (_commandInput, context) => {
-            const globals = command.optsWithGlobals() as GlobalOptions;
-            return configureProfile(name ?? context.profile.name, {
-              values: profileValues(options),
-              tokenStdin: options.tokenStdin === true,
-              interactive: canInteract(globals),
-            });
-          },
-          command,
-          { args: { name }, options },
-        );
-      },
-    );
-
-    const createProfile = profileCommand
-      .command("create <name>")
-      .description("Create a profile without changing the default");
-    addProfileFields(createProfile);
-    createProfile.action(
-      async (name: string, options: Record<string, unknown>, command: Command) => {
-        await runHandler(async () => profileStore.create(name, profileValues(options)), command, {
-          args: { name },
-          options,
-        });
-      },
-    );
-
-    const setProfile = profileCommand
-      .command("set <name>")
-      .description("Update an existing profile");
-    addProfileFields(setProfile);
-    setProfile.action(async (name: string, options: Record<string, unknown>, command: Command) => {
-      await runHandler(async () => profileStore.set(name, profileValues(options)), command, {
-        args: { name },
-        options,
-      });
-    });
-    profileCommand
-      .command("set-default <name>")
-      .description("Choose the default profile")
-      .action(async (name: string, _options: unknown, command: Command) => {
-        await runHandler(async () => profileStore.setDefault(name), command, {
-          args: { name },
-          options: {},
-        });
-      });
-    profileCommand
-      .command("delete <name>")
-      .description("Delete a non-default profile and its stored credential")
-      .action(async (name: string, _options: unknown, command: Command) => {
-        await runHandler(
-          async () => {
-            const list = await profileStore.list();
-            if (!list.profiles.some((profile) => profile.name === name)) {
-              throw new Error(`Profile '${name}' does not exist.`);
-            }
-            if (list.profiles.length === 1) {
-              throw new Error(
-                "Cannot delete the only profile. At least one default profile must exist.",
-              );
-            }
-            if (list.active === name) {
-              throw new Error(
-                `Cannot delete default profile '${name}'. ` +
-                  "Set another default with 'profile set-default <name>' first.",
-              );
-            }
-            if (definition.auth) {
-              const targetSecrets = new ProfileSecrets(secretStore, applicationId, name);
-              if ((await targetSecrets.get(definition.auth.secretName)) !== undefined) {
-                await targetSecrets.delete(definition.auth.secretName);
-              }
-            }
-            const deleted = await profileStore.delete(name);
-            await rm(appArguments.WithProfile(name).AppDataDirectory, {
-              recursive: true,
-              force: true,
-            });
-            return deleted;
-          },
-          command,
-          { args: { name }, options: {} },
-        );
-      });
-    program.addCommand(profileCommand);
-
-    if (permissionCategories) {
-      const permissionByName = new Map(
-        permissionCategories.map((category) => [category.name, category]),
-      );
-      const permissionRows = async (profileName: string) => {
-        const enabled = await enabledPermissions(profileName);
-        return permissionCategories.map((category) => ({
-          name: category.name,
-          enabled: enabled.has(category.name),
-          description: category.description,
-        }));
-      };
-      const requireKnownPermission = (name: string): void => {
-        if (!permissionByName.has(name)) {
-          throw new Error(
-            `Unknown permission '${name}'. Available permissions: ${[...permissionByName.keys()].join(", ")}.`,
-          );
-        }
-      };
-
-      const permissionsCommand = new Command("permissions")
-        .copyInheritedSettings(program)
-        .description("Manage profile-specific safety permissions")
-        .configureOutput(program.configureOutput());
-      permissionsCommand
-        .command("list")
-        .description("List permissions for the selected profile")
-        .action(async (_options: unknown, command: Command) => {
-          await runHandler(
-            async (_commandInput, context) => permissionRows(context.profile.name),
-            command,
-            { args: {}, options: {} },
-          );
-        });
-      permissionsCommand
-        .command("grant <permission>")
-        .description("Enable a permission for the selected profile")
-        .action(async (permission: string, _options: unknown, command: Command) => {
-          await runHandler(
-            async (_commandInput, context) => {
-              requireKnownPermission(permission);
-              const enabled = await enabledPermissions(context.profile.name);
-              enabled.add(permission);
-              await profileStore.setPermissions(
-                context.profile.name,
-                permissionCategories
-                  .map((category) => category.name)
-                  .filter((name) => enabled.has(name)),
-              );
-              return {
-                profile: context.profile.name,
-                permission,
-                enabled: true,
-              };
-            },
-            command,
-            { args: { permission }, options: {} },
-          );
-        });
-      permissionsCommand
-        .command("revoke <permission>")
-        .description("Disable a permission for the selected profile")
-        .action(async (permission: string, _options: unknown, command: Command) => {
-          await runHandler(
-            async (_commandInput, context) => {
-              requireKnownPermission(permission);
-              const enabled = await enabledPermissions(context.profile.name);
-              enabled.delete(permission);
-              await profileStore.setPermissions(
-                context.profile.name,
-                permissionCategories
-                  .map((category) => category.name)
-                  .filter((name) => enabled.has(name)),
-              );
-              return {
-                profile: context.profile.name,
-                permission,
-                enabled: false,
-              };
-            },
-            command,
-            { args: { permission }, options: {} },
-          );
-        });
-      program.addCommand(permissionsCommand);
-    }
-
-    if (definition.auth) {
-      const auth = definition.auth;
-      const authCommand = new Command("auth")
-        .copyInheritedSettings(program)
-        .description("Manage authentication")
-        .configureOutput(program.configureOutput());
-      authCommand
-        .command("login")
-        .description("Validate and securely store a credential for the active profile")
-        .option("--token-stdin", "Read the token from stdin")
-        .action(async (options: { tokenStdin?: boolean }, command: Command) => {
-          await runHandler(
-            async (_commandInput, context) => {
-              const missingFields = missingRequiredFields(context.profile);
-              if (missingFields.length > 0) {
-                throw configurationError(context.profile, {
-                  missingFields,
-                  authenticationMissing: false,
-                });
-              }
-              if (!authenticationRequired(context.profile)) {
-                throw new Error(
-                  `Profile '${context.profile.name}' does not require a token. Change its profile configuration before using auth login.`,
-                );
-              }
-              const token = await resolveToken(
-                context.profile,
-                options.tokenStdin === true,
-                canInteract(command.optsWithGlobals() as GlobalOptions),
-              );
-              const identity = await auth.validate?.({
-                appArguments: context.appArguments,
-                profile: context.profile,
-                token,
-                fetch: context.fetch,
-                signal: context.signal,
-              });
-              try {
-                await context.secrets.set(auth.secretName, token);
-              } catch {
-                throw new Error(
-                  "Could not save authentication in the OS credential store. " +
-                    `Run '${definition.name} auth login --profile ${context.profile.name} --token-stdin' to retry.`,
-                );
-              }
-              return { authenticated: true, profile: context.profile.name, identity: identity ?? null };
-            },
-            command,
-            { args: {}, options },
-          );
-        });
-      authCommand
-        .command("status")
-        .description("Show authentication status without revealing the credential")
-        .action(async (_options: unknown, command: Command) => {
-          await runHandler(
-            async (_commandInput, context) => {
-              if (!authenticationRequired(context.profile)) {
-                return {
-                  authenticated: true,
-                  profile: context.profile.name,
-                  identity: null,
-                };
-              }
-              const token = await context.secrets.get(auth.secretName);
-              if (!token) {
-                return { authenticated: false, profile: context.profile.name };
-              }
-              const identity = await auth.validate?.({
-                appArguments: context.appArguments,
-                profile: context.profile,
-                token,
-                fetch: context.fetch,
-                signal: context.signal,
-              });
-              return { authenticated: true, profile: context.profile.name, identity: identity ?? null };
-            },
-            command,
-            { args: {}, options: {} },
-          );
-        });
-      authCommand
-        .command("logout")
-        .description("Delete the stored credential for the active profile")
-        .action(async (_options: unknown, command: Command) => {
-          await runHandler(
-            async (_commandInput, context) => {
-              await context.secrets.delete(auth.secretName);
-              return {
-                authenticated: !authenticationRequired(context.profile),
-                profile: context.profile.name,
-              };
-            },
-            command,
-            { args: {}, options: {} },
-          );
-        });
-      program.addCommand(authCommand);
-    }
 
     for (const item of definition.commands) {
       addDefinition(program, item);
     }
+    for (const item of definition.builtins ?? [])
+      addDefinition(program, item, false);
 
-    program.action(async () => {
-      const globals = program.opts() as GlobalOptions;
-      const profile = await resolveProfile(globals.profile);
-      const state = await configurationState(profile);
-      if (
-        (state.missingFields.length > 0 || state.authenticationMissing) &&
-        canInteract(globals)
-      ) {
-        result = await configureProfile(profile.name, {
-          values: {},
-          tokenStdin: false,
-          interactive: true,
-        });
-        handled = true;
-        writeResult(output, result, false);
-        return;
-      }
-      const help = program.helpInformation().trimEnd();
-      result = { help };
-      handled = true;
-      if (execution.render) {
-        output.write(`${help}\n`);
-      }
-    });
+    program.action(async () =>
+      gate.run(
+        async () => {
+          const globals = program.opts() as GlobalOptions;
+          if (
+            execution.render &&
+            globals.json !== true &&
+            canPrompt(input, output) &&
+            canPrompt(input, error)
+          ) {
+            const profile = await resolveProfile(globals.profile);
+            const state = await configurationState(profile);
+            if (state.missingFields.length > 0 || state.authenticationMissing) {
+              result = await configureProfile(profile.name, {
+                values: {},
+                authOptions: {},
+                interactive: true,
+              });
+              writeResult(output, result, false);
+              return;
+            }
+          }
+          const help = program.helpInformation().trimEnd();
+          result = { help };
+          if (execution.render) {
+            output.write(`${help}\n`);
+          }
+        },
+        execution.signal,
+        true,
+      ),
+    );
 
     try {
       await program.parseAsync(["node", definition.name, ...argv]);
@@ -800,43 +420,88 @@ export function createCli(definition: CliDefinition): CliApplication {
       throw error_;
     }
 
-    if (!handled && argv.length === 0) {
-      const help = program.helpInformation().trimEnd();
-      if (execution.render) {
-        output.write(`${help}\n`);
-      } else {
-        result = { help };
-      }
-    }
     return result;
   };
 
-  return {
-    async run(argv = process.argv.slice(2)): Promise<number> {
-      if (argv.includes("--json-rpc")) {
-        if (argv.length !== 1) {
-          error.write("The --json-rpc transport must be started without a CLI command.\n");
-          return 2;
-        }
-        await runJsonRpc({
-          input,
-          output,
-          execute: (rpcArguments) =>
-            execute(rpcArguments, { render: false, signal: AbortSignal.timeout(5 * 60_000) }),
-        });
-        return 0;
-      }
+  const executionFor = (
+    render: boolean,
+    invocation: CliInvocation = {},
+  ): ExecutionOptions => ({
+    render,
+    io: {
+      input: invocation.input ?? defaultIo.input,
+      output: invocation.output ?? defaultIo.output,
+      error: invocation.error ?? defaultIo.error,
+    },
+    signal: invocation.signal
+      ? AbortSignal.any([lifetime.signal, invocation.signal])
+      : lifetime.signal,
+    cwd: invocation.cwd ?? process.cwd(),
+    environment: Object.freeze({ ...(invocation.environment ?? process.env) }),
+  });
 
+  return {
+    async run(argv = process.argv.slice(2), invocation = {}): Promise<number> {
+      const execution = executionFor(true, invocation);
       try {
-        await execute(argv, { render: true, signal: new AbortController().signal });
-        return 0;
-      } catch (error_) {
-        error.write(`${error_ instanceof Error ? error_.message : String(error_)}\n`);
-        return 1;
+        return await track(async () => {
+          validateArgv(argv);
+          if (argv.length === 1 && argv[0] === "--json-rpc") {
+            await runJsonRpc({
+              input: execution.io.input,
+              output: execution.io.output,
+              signal: execution.signal,
+              execute: (rpcArguments) =>
+                execute(rpcArguments, {
+                  ...execution,
+                  render: false,
+                  signal: AbortSignal.any([
+                    execution.signal,
+                    AbortSignal.timeout(5 * 60_000),
+                  ]),
+                }),
+            });
+            return 0;
+          }
+          await execute(argv, execution);
+          return 0;
+        });
+      } catch (error) {
+        execution.io.error.write(
+          `${error instanceof Error ? error.message : String(error)}\n`,
+        );
+        return error === rpcModeError ? 2 : 1;
       }
     },
-    execute(argv, signal = new AbortController().signal): Promise<unknown> {
-      return execute(argv, { render: false, signal });
+    execute(argv, signal): Promise<unknown> {
+      const execution = executionFor(false, signal ? { signal } : {});
+      return track(() => execute(argv, execution));
+    },
+    dispose(): Promise<void> {
+      if (!disposal) {
+        disposal = Promise.resolve().then(async () => {
+          lifetime.abort(new Error("CLI application is closing."));
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([
+              Promise.allSettled([...active]),
+              new Promise((_, reject) => {
+                timer = setTimeout(
+                  () =>
+                    reject(
+                      new Error("CLI shutdown timed out waiting for commands."),
+                    ),
+                  5000,
+                );
+              }),
+            ]);
+          } finally {
+            clearTimeout(timer);
+            await visitResources(resources, (resource) => resource.dispose());
+          }
+        });
+      }
+      return disposal;
     },
   };
 }

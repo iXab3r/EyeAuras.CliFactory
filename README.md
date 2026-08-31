@@ -12,8 +12,9 @@ Factory**.
 
 > Status: foundation stage. The common npm package and TeamCity operations/authoring integration
 > are implemented, exposing all 449 routes in the frozen TeamCity 2026.1 REST inventory,
-> with mocked REST contracts, permission gates,
-> profiles, JSON, JSON-RPC, and a local profile-backed integration proof. The APIs are not stable yet.
+> with mocked REST contracts, permission gates, profiles, JSON, JSON-RPC, and a local profile-backed
+> integration proof. Two RANDOM.ORG examples demonstrate optional IPC servers and headless
+> Playwright with a shared command contract. The APIs are not stable yet.
 
 ```mermaid
 flowchart LR
@@ -29,6 +30,17 @@ flowchart LR
     permissions --> integration
     integration --> service["TeamCity · future services"]
 ```
+
+## Browser-backed CLI example
+
+[HTTP](integrations/random-rest/README.md) and [Playwright](integrations/random-pw/README.md)
+implement the same two RANDOM.ORG commands without API keys. Both reuse a self-starting local
+host; only PW starts Chromium. Install test browsers explicitly with `npm run browser:install`
+(`-- --with-deps` on Linux when needed), then run `npm test`. Browser tests use synthetic pages,
+not the live service. Headed tests on display-less Linux use `xvfb-run --auto-servernum npm test`.
+PW adds `--headed` and `--record-video` with automatic idle-boundary browser/context switching.
+See [optional runtime contracts](docs/runtime-modules.md) and the detailed
+[browser observation guide](docs/browser-observation.md).
 
 ## Why a factory?
 
@@ -141,6 +153,7 @@ state remain available for the whole session.
 | `packages/core` | Reusable CLI tree, AppArguments, output, profile, auth, permissions, and JSON-RPC primitives |
 | `integrations/teamcity` | First in-house product and executable example |
 | `integrations/teamcity/README.md` | Shipped TeamCity command tree and operating guide |
+| `integrations/random-rest` | Minimal anonymous RANDOM.ORG HTTP example (two commands) |
 | `docs/DESIGN.md` | Canonical architecture and invariants |
 | `docs/integrations.md` | How to build an in-repo or external integration |
 | `docs/testing.md` | Mock-first and opt-in integration-test workflow |
@@ -158,11 +171,12 @@ Requirements: Node.js 22+ and npm 11+. .NET 10 is only needed for the one-comman
 
 ```text
 dotnet run --file scripts/bootstrap.cs
+npm run browser:install
 npm test
 npm run teamcity -- --help
 ```
 
-No service URL is compiled into the public CLI. Configure an authenticated profile explicitly
+No service URL is compiled into the TeamCity CLI. Configure an authenticated profile explicitly
 before making a real request:
 
 ```text
@@ -196,6 +210,14 @@ See the [TeamCity CLI guide](integrations/teamcity/README.md) and
 [final local reconciliation](.workspace/workstreams/teamcity-v2/final-review.md).
 
 On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login --token-stdin`.
+
+## RANDOM.ORG example
+
+The [RANDOM.ORG example](integrations/random-rest/README.md) provides `random-rest-cli integers`
+and `random-rest-cli sequence` using the older public HTTP API without an API key. Configure only
+an operator contact for User-Agent; the public service URL has an explicit default. It demonstrates
+the existing factory without adding IPC or a browser dependency. Both commands support `--json`
+and stdio JSON-RPC. Run `npm exec -- random-rest-cli --help` after installing/building the workspace.
 
 ## Development principles
 

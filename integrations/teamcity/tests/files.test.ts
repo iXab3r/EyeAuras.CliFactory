@@ -17,10 +17,10 @@ const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function fileRuntime(input = "", parent = tmpdir()) {
+async function fileRuntime(testContext: test.TestContext, input = "", parent = tmpdir()) {
   // Normalize only the newly created test root, never an untrusted profile child.
   const root = await realpath(await mkdtemp(join(parent, "teamcity-files-test-")));
-  const runtime = await createTestRuntime({ input });
+  const runtime = await createTestRuntime(testContext, { input });
   const appArguments = new AppArguments({
     AppName: "teamcity-cli",
     Environment: {
@@ -41,8 +41,8 @@ async function fileRuntime(input = "", parent = tmpdir()) {
   };
 }
 for (const c of fileCases)
-  test(`S10 contract: ${c.method} ${c.path}`, async () => {
-    const t = await fileRuntime();
+  test(`S10 contract: ${c.method} ${c.path}`, async (testContext) => {
+    const t = await fileRuntime(testContext);
     let calls = 0;
     try {
       for (const [key, value] of Object.entries(c.storedSecrets ?? {}))
@@ -113,7 +113,7 @@ const download = [
   "--output",
   "example.bin",
 ];
-test("file runtime canonicalizes its owned root through a platform directory alias", async () => {
+test("file runtime canonicalizes its owned root through a platform directory alias", async (testContext) => {
   const parent = await realpath(await mkdtemp(join(tmpdir(), "teamcity-root-test-")));
   let t: Awaited<ReturnType<typeof fileRuntime>> | undefined;
   try {
@@ -121,7 +121,7 @@ test("file runtime canonicalizes its owned root through a platform directory ali
       alias = join(parent, "alias");
     await mkdir(actual);
     await symlink(actual, alias, process.platform === "win32" ? "junction" : "dir");
-    t = await fileRuntime("", alias);
+    t = await fileRuntime(testContext, "", alias);
     assert.equal(t.root, await realpath(t.root));
     server.use(
       http.get(base + "/builds/id:7/artifacts/files/docs/example.bin", () =>
@@ -137,9 +137,9 @@ test("file runtime canonicalizes its owned root through a platform directory ali
   }
 });
 
-test("whole-file downloads reject HTTP 206 without publishing or retrying partial content", async () => {
+test("whole-file downloads reject HTTP 206 without publishing or retrying partial content", async (testContext) => {
   for (const withRange of [false, true]) {
-    const t = await fileRuntime();
+    const t = await fileRuntime(testContext);
     let calls = 0;
     try {
       server.use(
@@ -167,8 +167,8 @@ test("whole-file downloads reject HTTP 206 without publishing or retrying partia
   }
 });
 
-test("S10 all gates and generated help run before network, keyring input or filesystem creation", async () => {
-  const t = await fileRuntime();
+test("S10 all gates and generated help run before network, keyring input or filesystem creation", async (testContext) => {
+  const t = await fileRuntime(testContext);
   let calls = 0;
   try {
     await t.runtime.profileStore.setPermissions("default", []);
@@ -188,8 +188,8 @@ test("S10 all gates and generated help run before network, keyring input or file
     await t.cleanup();
   }
 });
-test("S10 rejects traversal, encoded/absolute paths, devices, unsafe areas and missing output before HTTP", async () => {
-  const t = await fileRuntime();
+test("S10 rejects traversal, encoded/absolute paths, devices, unsafe areas and missing output before HTTP", async (testContext) => {
+  const t = await fileRuntime(testContext);
   let calls = 0;
   try {
     server.use(
@@ -228,8 +228,8 @@ test("S10 rejects traversal, encoded/absolute paths, devices, unsafe areas and m
     await t.cleanup();
   }
 });
-test("S10 existing destinations and publication races never overwrite another file", async () => {
-  const t = await fileRuntime(),
+test("S10 existing destinations and publication races never overwrite another file", async (testContext) => {
+  const t = await fileRuntime(testContext),
     dir = join(t.appArguments.AppDataDirectory, "downloads"),
     path = join(dir, "example.bin");
   let calls = 0;
@@ -255,9 +255,9 @@ test("S10 existing destinations and publication races never overwrite another fi
     await t.cleanup();
   }
 });
-test("S10 symlink or junction download/temp directories fail closed without touching target", async () => {
+test("S10 symlink or junction download/temp directories fail closed without touching target", async (testContext) => {
   for (const name of ["downloads", "temp"]) {
-    const t = await fileRuntime();
+    const t = await fileRuntime(testContext);
     let calls = 0;
     try {
       const outside = join(t.root, "outside");
@@ -282,9 +282,9 @@ test("S10 symlink or junction download/temp directories fail closed without touc
     }
   }
 });
-test("S10 size limits apply to actual streams and all failed staging bytes are removed", async () => {
+test("S10 size limits apply to actual streams and all failed staging bytes are removed", async (testContext) => {
   for (const declared of [false, true]) {
-    const t = await fileRuntime();
+    const t = await fileRuntime(testContext);
     try {
       server.use(
         http.get(
@@ -310,7 +310,7 @@ test("S10 size limits apply to actual streams and all failed staging bytes are r
     }
   }
 });
-test("S10 invalid PNG ZIP SVG content/media never becomes a successful file", async () => {
+test("S10 invalid PNG ZIP SVG content/media never becomes a successful file", async (testContext) => {
   const samples = [
     {
       argv: ["users", "avatar", "download", "3", "--output", "x.png"],
@@ -334,7 +334,7 @@ test("S10 invalid PNG ZIP SVG content/media never becomes a successful file", as
     },
   ];
   for (const c of samples) {
-    const t = await fileRuntime();
+    const t = await fileRuntime(testContext);
     try {
       server.use(
         http.all(
@@ -350,8 +350,8 @@ test("S10 invalid PNG ZIP SVG content/media never becomes a successful file", as
     }
   }
 });
-test("S10 empty ordinary files are retained and metadata keeps absent directory size", async () => {
-  const t = await fileRuntime();
+test("S10 empty ordinary files are retained and metadata keeps absent directory size", async (testContext) => {
+  const t = await fileRuntime(testContext);
   try {
     server.use(
       http.get(
@@ -368,8 +368,8 @@ test("S10 empty ordinary files are retained and metadata keeps absent directory 
     await t.cleanup();
   }
 });
-test("S10 cancellation during a response discards owned staging and suppresses abort reason", async () => {
-  const t = await fileRuntime(),
+test("S10 cancellation during a response discards owned staging and suppresses abort reason", async (testContext) => {
+  const t = await fileRuntime(testContext),
     controller = new AbortController();
   let pulls = 0;
   try {
@@ -401,8 +401,8 @@ test("S10 cancellation during a response discards owned staging and suppresses a
     await t.cleanup();
   }
 });
-test("S10 redirects are refused without forwarding auth or following a signed URL", async () => {
-  const t = await fileRuntime();
+test("S10 redirects are refused without forwarding auth or following a signed URL", async (testContext) => {
+  const t = await fileRuntime(testContext);
   let foreign = 0;
   try {
     server.use(
@@ -429,7 +429,7 @@ test("S10 redirects are refused without forwarding auth or following a signed UR
     await t.cleanup();
   }
 });
-test("S10 persistent RPC keeps downloaded bytes and paths isolated by active profile", async () => {
+test("S10 persistent RPC keeps downloaded bytes and paths isolated by active profile", async (testContext) => {
   const commands = [download, [...download, "--profile", "uat"]];
   const input =
     commands
@@ -437,7 +437,7 @@ test("S10 persistent RPC keeps downloaded bytes and paths isolated by active pro
         JSON.stringify({ jsonrpc: "2.0", id, method: "cli.execute", params: { argv } }),
       )
       .join("\n") + "\n";
-  const t = await fileRuntime(input);
+  const t = await fileRuntime(testContext, input);
   let calls = 0;
   try {
     await t.runtime.profileStore.create("uat", { url: "https://uat.test" });
@@ -473,8 +473,8 @@ test("S10 persistent RPC keeps downloaded bytes and paths isolated by active pro
     await t.cleanup();
   }
 });
-test("S10 secure resolution rejects collisions and unresolved expressions and reports store failures", async () => {
-  const t = await fileRuntime();
+test("S10 secure resolution rejects collisions and unresolved expressions and reports store failures", async (testContext) => {
+  const t = await fileRuntime(testContext);
   let calls = 0;
   try {
     await t.cli.execute(["permissions", "grant", "Credentials"]);
@@ -513,8 +513,8 @@ test("S10 secure resolution rejects collisions and unresolved expressions and re
     await t.cleanup();
   }
 });
-test("S10 secure-reference aliases are isolated from auth/input aliases and exact text survives", async () => {
-  const t = await fileRuntime();
+test("S10 secure-reference aliases are isolated from auth/input aliases and exact text survives", async (testContext) => {
+  const t = await fileRuntime(testContext);
   try {
     await t.cli.execute(["permissions", "grant", "Credentials"]);
     await t.runtime.secretStore.set(

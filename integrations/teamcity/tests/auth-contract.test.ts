@@ -23,7 +23,7 @@ function environment(t: TestContext, value?: string): void {
 
 test("TeamCity configure validates the environment candidate at the new endpoint before replacing stored auth", async (t) => {
   environment(t, "synthetic-replacement");
-  const h = await createTestRuntime({
+  const h = await createTestRuntime(t, {
     profiles: [{ name: "default", url: "https://old.teamcity.test" }, { name: "other", url: "https://other.teamcity.test" }],
     tokens: { default: "synthetic-old", other: "synthetic-other" },
   });
@@ -47,7 +47,7 @@ test("TeamCity configure validates the environment candidate at the new endpoint
 
 test("TeamCity rejected endpoint replacement preserves the original profile and credential", async (t) => {
   environment(t, "synthetic-rejected");
-  const h = await createTestRuntime({ tokens: { default: "synthetic-old" } });
+  const h = await createTestRuntime(t, { tokens: { default: "synthetic-old" } });
   const cli = createTeamCityCli(h.runtime);
   server.use(http.get("https://new.teamcity.test/app/rest/users/current", () => new HttpResponse(null, { status: 401 })));
   await assert.rejects(cli.execute(["profile", "configure", "default", "--url", "https://new.teamcity.test"]), /401/);
@@ -57,7 +57,7 @@ test("TeamCity rejected endpoint replacement preserves the original profile and 
 
 test("TeamCity guest configuration and guest login refusal never touch credentials or auth HTTP", async (t) => {
   environment(t, "synthetic-unused");
-  const h = await createTestRuntime({ tokens: {} });
+  const h = await createTestRuntime(t, { tokens: {} });
   h.secretStore.get = async () => { assert.fail("Guest configuration read credentials"); };
   h.secretStore.set = async () => { assert.fail("Guest configuration wrote credentials"); };
   h.secretStore.delete = async () => { assert.fail("Guest configuration deleted credentials"); };
@@ -67,5 +67,5 @@ test("TeamCity guest configuration and guest login refusal never touch credentia
     "profile", "configure", "guest", "--url", "https://guest.teamcity.test", "--guest",
   ]), { configured: true, profile: "guest", authenticated: true, identity: null });
   assert.equal((await h.profileStore.get("guest")).values.guest, true);
-  await assert.rejects(cli.execute(["auth", "login", "--profile", "guest"]), /does not require a token/);
+  await assert.rejects(cli.execute(["auth", "login", "--profile", "guest"]), /does not require authentication/);
 });

@@ -10,6 +10,11 @@ The factory exists to make each new service CLI cheaper to build, easier for a h
 and predictable for an AI to operate. Reuse is successful only when it removes code from a real
 integration without hiding the service's domain.
 
+**Authoring simplicity is a first-class requirement alongside reliability.** Integrations describe
+their service, not factory internals. Common lifecycle, scheduling, persistence and input safety
+must work by default, not through boilerplate each author must remember. Count required concepts
+and total Core-plus-consumer implementation cost, not only shorter handlers.
+
 The first proving consumer is TeamCity. In-house integrations
 live beside the framework under `integrations/`; they are products, executable examples, and the
 source of evidence for extracting reusable features.
@@ -68,6 +73,11 @@ profile field options and completes authentication when required. JSON, JSON-RPC
 stdin/stdout, and programmatic execution never prompt; they fail before the handler with an
 actionable configuration command.
 
+Outside interactive onboarding, a root invocation only shows help and does not read profile or
+authentication storage. Service leaves still check configuration/readiness before their handler.
+`profile show [name]` uses the selected `--profile` (or default) when the positional name is absent;
+an explicit name chooses the profile to display without changing the default.
+
 The standard lifecycle is explicit: `profile create <name>` creates, `profile set <name>` updates
 an existing profile, `profile set-default <name>` chooses the default, and `profile delete <name>`
 removes a non-default profile. The default profile cannot be deleted until another profile is made
@@ -99,19 +109,24 @@ one known category or CLI construction fails. The standard categories are `ReadO
 operator boundary needs more precision.
 
 Permission selection follows the profile. Granting an update category for UAT must not grant it
-for Production. The runner checks the category before calling the handler, so denial happens before
-the HTTP boundary.
+for Production. The runner checks the category before configuration/authentication side effects and the handler.
 
 The gate is defense-in-depth for humans and AI agents, not an authentication or authorization
 boundary. A remote service still enforces actual identity and rights. Built-in configuration
 commands remain ungated so users can inspect and recover their local setup.
 
-### Secrets use the operating system
+### Credential persistence is explicit
 
 The default secret store delegates to the platform credential facility through a native binding:
 Windows Credential Manager backed by DPAPI, macOS Keychain, and a system keyring on Linux.
-There is no plaintext fallback. If the secure store is unavailable, authentication fails with an
-actionable error.
+There is no plaintext fallback for standalone secrets. If the secure store is needed and unavailable,
+the operation fails with an actionable error. The owner explicitly permits browser authentication
+state under the selected profile's AppDataDirectory: cookies/origin storage from Playwright
+storageState may persist without mandatory application-level encryption. These are credential files,
+not profile JSON, logs or fixtures. Restrict access to the current user, replace snapshots atomically,
+and serialize each complete snapshot-capture/write checkpoint per profile, coordinated with
+logout/deletion. Runtime disposal retains login state; logout removes
+it. Never attach to the user's personal browser profile or use these files for arbitrary secrets.
 
 Integrations define the authorization protocol and validation call. The factory defines the
 storage lifecycle and standard `auth login`, `auth status`, and `auth logout` commands. The first
@@ -131,6 +146,18 @@ together; it must not retain a parallel old format.
 `cli.execute` with `{ "argv": string[] }`. A request executes the same command tree as a normal
 invocation and returns the command's domain value.
 
+Transport startup is exactly `run(["--json-rpc"])`. Other parsed uses of that global option are
+rejected before handlers (CLI exit code 2); execute/RPC requests cannot start a nested transport.
+A literal argument after `--`, or an attached option value such as `--value=--json-rpc`, is data
+and has the same command semantics on CLI, execute and JSON-RPC paths. For an option value that
+matches a global flag, use the attached `--option=value` form; normal global-option parsing is
+unchanged and there is no second custom argv parser.
+
+Each line is limited to 256 KiB before UTF-8 decoding and JSON parsing. All execution paths
+share argv limits: 256 arguments, 8 KiB per argument and 32 KiB total, measured in UTF-8 bytes.
+Oversized lines end only that invocation; invalid argv returns an invalid-params response in RPC.
+Reading follows command completion and output backpressure, without a queue of parsed future requests.
+
 The process remains alive until stdin closes or it receives a termination signal. Protocol output
 owns stdout while the transport is active; logs and diagnostics belong on stderr. Server-pushed
 notifications and long-running subscriptions are **planned** and will build on the same channel.
@@ -138,8 +165,8 @@ notifications and long-running subscriptions are **planned** and will build on t
 ### Service boundaries stay visible
 
 The core package knows nothing about TeamCity resources. Integrations own endpoint paths, DTOs,
-pagination rules, and service terminology. A service client depends on `fetch`, which makes the
-network boundary replaceable in tests without inventing another HTTP abstraction.
+pagination rules, browser selectors, and service terminology. HTTP clients depend on `fetch`;
+browser clients use the optional Playwright owner. Tests replace the actual HTTP/browser boundary.
 
 ## Runtime shape
 
@@ -158,6 +185,68 @@ flowchart TB
 
 Commander is used for parsing and automatic nested help. `@napi-rs/keyring` is the native secret
 store binding. Both are replaceable implementation choices, not APIs exposed to integrations.
+Core's profile/auth/permissions commands use the same recursive declarations and adapter as
+service commands. Their configuration and exclusive-admission policies are private Core details,
+not additional command types that an integration author needs to learn.
+Invoking a group without a leaf displays its help successfully, for built-in and service groups
+alike. Unknown options and missing required leaf arguments remain parser failures on every path.
+
+## Application lifecycle and optional runtimes
+
+A CLI application supports async idempotent `dispose()`. Executable/embedding owners dispose in
+finally; a hosted application's lifetime belongs to its server. Invocation I/O, cancellation,
+cwd and environment are local to each call. Cleanup retains credentials and persisted browser
+state; explicit logout/deletion owns removal. Help/errors never exit an embedding process.
+
+Definitions declare flat owned `resources`: each has `dispose()` and optionally
+`invalidateProfile(appArguments)`. Core deduplicates them, invalidates the affected profile on
+configuration/update/deletion, and attempts all disposals in reverse order even after an error.
+No resource lookup, scopes, DI or manual forwarding of profile hooks is required.
+
+`concurrency` limits logical commands (positive integer, otherwise unbounded), not connections.
+Parsed command identity determines exclusive profile/auth/permission coordination, never argument
+values or profile names. Interactive onboarding releases shared admission and rechecks configuration
+and policy under exclusive admission before effects, without replaying the service handler.
+IPC and Playwright are independently optional packages. The gRPC host relays stdio bytes with
+backpressure, self-starts, detects incompatible builds, and shuts down after idle time. Browser
+contexts are profile-owned and operation pages are short-lived. Their detailed implemented
+contract, bounds and tested-platform matrix live in [runtime-modules.md](runtime-modules.md).
+
+IPC is an explicit feature selected by using the optional package's `runHosted` entry point.
+A standalone `createCli` application imports neither IPC nor Playwright and has no IPC commands.
+The IPC package owns its frontend, server lifecycle and `ipc-server status/stop` management
+commands. The service namespace `server` remains available to applications. There is no
+legacy management alias or runtime-plugin registry; the same definition works in either runner.
+
+Hosted entry points supply a factory of the same `CliDefinition`, not an already-created app.
+The runner owns application construction, built-ins, resources and identity derivation. Shared
+npm/TypeScript tooling publishes a compatibility manifest after the complete workspace build;
+service Run requires a current manifest and matching build/protocol. Status/Stop require only
+matching control protocol so an updated executable can stop an old host. No competing writer,
+automatic command replay, hand-maintained application hash list or universal packager is introduced.
+
+Browser disposal cancels and drains its own operations including requested video finalization
+before closing contexts. A five-second operation-drain deadline forces browser cleanup and reports
+failure; it never silently claims complete artifacts. Custom callbacks must still cooperate;
+arbitrary JavaScript and external OS/browser I/O cannot be given an absolute shutdown guarantee.
+
+### Browser observation and automatic mode changes
+
+The optional Playwright module owns per-operation headed and video options. Defaults are headless
+and no capture; a prior caller cannot silently enable recording for another caller. Compatible
+operations reuse resources concurrently. Incompatible mode requests wait fairly for active browser
+operations, then replace only the necessary resources: Chromium for visibility, a profile context
+for recording. The host and its IPC connections remain alive. Applications may prohibit automatic
+mode-driven replacement when transient state is essential. Queued cancellation does not cancel
+peers; running actions are never replayed. Restart restores only explicitly persisted supported
+auth state, not arbitrary page/JavaScript state.
+
+Explicit video capture is a separate, user-requested sensitive-artifact exception: recordings may
+contain credentials or personal data visible in the page. Store them under the selected profile's
+AppDataDirectory/browser/artifacts with current-user access, never in profile JSON, logs or fixtures.
+No implicit capture, upload or redaction guarantee. Report paths on stderr, not in domain results.
+Finalize recordings before operation completion where possible, without shutting down the browser.
+Document retention and crash/finalization limits in the operating guide.
 
 ## AppArguments and current-user application data
 
@@ -176,8 +265,9 @@ AppDataDirectory/log                       = LogDirectory()
 credential namespace. Document the required reconfiguration rather than adding old-namespace
 fallbacks, and leave existing user data untouched. `profiles.json` is application-wide and lives directly in
 `RoamingAppDataDirectory`. All other profile-owned files derive from `AppDataDirectory` using
-ordinary `node:path` composition. Secrets remain in the OS credential store and never enter these
-directories.
+ordinary `node:path` composition. Standalone secrets remain in the OS credential store; explicitly
+declared browser auth files and explicitly requested sensitive browser videos are the only
+credential-bearing file exceptions in profile AppData.
 
 The environment roots belong to the current OS user:
 
@@ -196,8 +286,8 @@ Unlike a PoeShared desktop process, a persistent CLI process may execute command
 profiles. Core therefore creates a profile-specific `AppArguments` view for every command and exposes
 it as `context.appArguments`. There is no mutable process-wide active AppData directory.
 
-Profile-document writes use a temporary file followed by rename so an interrupted write cannot
-leave half a JSON document. Deleting a profile deletes its known credential and its complete
+Profile-document mutations serialize read-modify-write within the owner process, then use a
+temporary file and rename. Case-colliding profile names are rejected without automatic migration. Deleting a profile deletes its known credential and its complete
 `AppDataDirectory`; default-profile and final-profile protections run before deletion.
 
 The profile document has a versioned shape:
@@ -220,12 +310,41 @@ defaults. An explicit empty array means every service permission is disabled for
 
 ## Authentication contract
 
+`AuthDefinition` delegates login/status/logout and optional login options to the integration.
+Core supplies the standard command tree and persistence; it does not infer an authorization
+protocol. `tokenAuth` is one implementation of that contract. Browser authentication may compose
+the optional Playwright owner with application-specific login completion and logout semantics.
+See [runtime modules](runtime-modules.md) for lifecycle, IPC and browser state details.
+
+Service commands never implicitly call `status(context)`: it belongs to explicit `auth status`
+and may contact the service or browser. Optional `isReady(context)` supplies only a cheap local
+preflight after permission checks and required-field checks. It must not launch/reconfigure browser
+resources or contact a service. Its narrow context provides the selected profile, AppArguments,
+scoped secrets, cancellation and caller environment, not fetch/streams. False enters ordinary
+configuration/onboarding handling. `tokenAuth` checks scoped secret presence; it does not validate
+on every command. Readiness is only a local hint, never proof of remote authorization.
+
+If passive readiness is unavailable, omit `isReady`: the service handler owns authentication
+enforcement and actionable errors (for example, asking the user to run auth login). Core does not
+guess browser login state or automatically trigger login for such a definition. Explicit
+`auth login`/`profile configure` still call app-owned login. There is no status validation boolean.
+
+`CliDefinition.environmentKeys` declares extra invocation inputs. `AuthDefinition.environmentKeys`
+declares auth-owned inputs; `tokenAuth({env})` contributes its key automatically. Hosted calls union
+these declarations, snapshot only those values from each caller and reject undeclared keys.
+Handlers/auth read `context.environment`, never the long-lived host's process.env. Hosting adds
+no second public env list or secret persistence mechanism.
+
+Profile deletion calls app-owned logout/revocation before resource invalidation and deletion.
+If logout fails, Core leaves the profile and resources available for retry; effects already made
+by the application's logout cannot be rolled back. All of this runs under exclusive admission.
+
 The built-in token flow resolves a candidate in this order during `profile configure` or
 `auth login`:
 
 1. stdin when `--token-stdin` is present;
 2. the integration-specific environment variable;
-3. a masked interactive terminal prompt.
+3. a masked interactive terminal prompt when a real TTY is available.
 
 Stored credentials are not configure/login candidates. Prompting requires ordinary rendered
 execution without `--json`, with stdin, stdout and stderr all attached to a TTY. JSON-RPC and
@@ -243,14 +362,42 @@ old credential onto a new endpoint. `auth login` validates against the current p
 only the credential. Configure/login storage failures expose no backend error details or causes.
 Ordinary `profile set` remains a non-auth configuration operation.
 
+For app-owned auth, configure supplies candidate profile values and defers `context.secrets`
+set/delete operations until login returns authenticated. Reads see pending writes; failed login
+discards them. Commit removes replaced credentials before saving the profile and new credentials.
+This protection covers only the injected secret store, not app-owned browser files or remote
+effects. Invalidation runs before configure login (after non-secret validation), so a fresh login
+is not immediately invalidated. Failed login can therefore retire cached resources; it cannot
+roll back browser or remote changes made by the application. Auth implementations use the supplied
+context and await all their work before returning; do not retain it or bypass its secret store.
+
 No-auth integrations and profiles that opt out of token authentication configure without accessing
 credentials. `auth login` rejects such profiles.
 
 The token is validated by the integration before it is persisted. An integration may declare
 that a configured profile does not require a token, for example TeamCity guest access; the
-service-specific switch and HTTP behavior stay in that integration. Authentication status may
-optionally revalidate the stored token, but must never print it. Logout deletes only the active
+service-specific switch and HTTP behavior stay in that integration. Explicit authentication status
+uses the supplied validator for the stored token, but must never print it. Logout deletes only the active
 profile's credential.
+
+## RANDOM.ORG examples
+
+`random-rest-cli` is an anonymous example using the owner-selected older HTTP interface, despite
+its obsolete status. Its two service commands, `integers` and `sequence`, share the `random-common`
+client contract and return `{ values: number[] }`. They support normal human/JSON/JSON-RPC output
+and profile-specific ReadOnly permission checks. ReadOnly here means no user-record mutation;
+generation consumes the service's IP-based random-bit quota. Output is bounded to 100 integers.
+Both commands require `min < max`; the legacy service does not accept equal bounds.
+
+The normal profile defaults to the explicitly selected public RANDOM.ORG HTTPS origin and requires
+operator contact information for User-Agent, not credentials. It has no auth flow or keyring proof
+requirement. HTTP behavior includes a quota check, timeout, cancellation and strict result parsing.
+`random-pw-cli` exposes the identical declarations through real browser forms and DOM extraction.
+Both examples compose the optional gRPC host and choose command concurrency one. The host reuses
+HTTP clients or headless Chromium between invocations; HTTP does not depend on Playwright.
+Each application has a separate profile namespace. Neither coordinates quota across application IDs.
+See the [HTTP guide](../integrations/random-rest/README.md),
+[browser guide](../integrations/random-pw/README.md), and [runtime contract](runtime-modules.md).
 
 ## Permission contract
 
@@ -305,6 +452,13 @@ does not exist.
 Owns recursive command construction, standard commands, output, profile persistence, permission
 gates, secret persistence, the `AppArguments` current-user data contract, and JSON-RPC transport.
 It must remain service-agnostic.
+
+### `packages/ipc` and `packages/playwright`
+
+Optional local gRPC application hosting and browser ownership respectively. Both depend on Core,
+never on an integration or on each other. Protobuf generation is official transport tooling,
+not a service/code-generation framework. `integrations/random-common` shares only the two proven
+RANDOM.ORG consumers' service contract and proof inventory.
 
 ### `integrations/<service>`
 

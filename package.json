@@ -10,12 +10,15 @@
   ],
   "scripts": {
     "bootstrap": "dotnet run --file scripts/bootstrap.cs",
-    "build": "npm run build --workspace @eyeauras/cli-factory && npm run build --workspace @eyeauras/teamcity-cli && npm run build --workspace @eyeauras/youtrack-cli",
+    "build": "node scripts/build.mjs",
     "typecheck": "npm run build",
     "test": "npm run build && npm run test:compiled --workspaces --if-present",
     "check": "npm run test",
     "teamcity": "npm run start --workspace @eyeauras/teamcity-cli --",
-    "youtrack": "npm run start --workspace @eyeauras/youtrack-cli --"
+    "youtrack": "npm run start --workspace @eyeauras/youtrack-cli --",
+    "random-rest": "npm run start --workspace @eyeauras/random-rest-cli --",
+    "random-pw": "npm run start --workspace @eyeauras/random-pw-cli --",
+    "browser:install": "playwright install chromium"
   },
   "engines": {
     "node": ">=22"

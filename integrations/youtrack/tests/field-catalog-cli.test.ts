@@ -114,8 +114,9 @@ test("catalog RPC isolates profile URLs, tokens, permissions and AppData and sur
     "production.example.com/context/api/admin/customFieldSettings/bundles/enum/fixture-bundle",
     "dev.example.com/context/api/admin/customFieldSettings/bundles/state/fixture-bundle/values/fixture-value",
   ]);
-  assert.deepEqual(f.paths, ["dev", "production", "disabled", "dev"].map((profile) =>
-    join(f.appArguments.RoamingAppDataDirectory, profile)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, ["dev", "production", "dev"].map((profile) =>
+    join(f.appArguments.RoamingAppDataDirectory, profile)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");
   assert.doesNotMatch(f.stdout(), /synthetic-|private-response/);
 });

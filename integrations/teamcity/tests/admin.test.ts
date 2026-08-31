@@ -12,8 +12,8 @@ const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function administrator() {
-  const runtime = await createTestRuntime();
+async function administrator(testContext: test.TestContext) {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Admin"]);
   await cli.execute(["permissions", "grant", "Credentials"]);
@@ -30,8 +30,8 @@ const create = [
   "--same-permissions",
 ];
 
-test("S7 all new gates deny before HTTP; Update grants neither Admin nor Credentials", async () => {
-  const runtime = await createTestRuntime({
+test("S7 all new gates deny before HTTP; Update grants neither Admin nor Credentials", async (testContext) => {
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: ["Update"] }],
   });
   const cli = createTeamCityCli(runtime.runtime);
@@ -50,8 +50,8 @@ test("S7 all new gates deny before HTTP; Update grants neither Admin nor Credent
   assert.equal(calls, 0);
 });
 
-test("S7 invalid identities, scopes, replacements, field names and node booleans fail locally", async () => {
-  const { cli } = await administrator();
+test("S7 invalid identities, scopes, replacements, field names and node booleans fail locally", async (testContext) => {
+  const { cli } = await administrator(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -90,8 +90,8 @@ test("S7 invalid identities, scopes, replacements, field names and node booleans
   assert.equal(calls, 0);
 });
 
-test("S7 explicit token expiry/permission choices and existing alias fail before issuance", async () => {
-  const { cli, runtime } = await administrator();
+test("S7 explicit token expiry/permission choices and existing alias fail before issuance", async (testContext) => {
+  const { cli, runtime } = await administrator(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -132,8 +132,8 @@ test("S7 explicit token expiry/permission choices and existing alias fail before
   assert.equal(calls, 0);
 });
 
-test("S7 issued token is a profile-scoped secure record; revoke and forget have separate ownership", async () => {
-  const { cli, runtime } = await administrator();
+test("S7 issued token is a profile-scoped secure record; revoke and forget have separate ownership", async (testContext) => {
+  const { cli, runtime } = await administrator(testContext);
   let posts = 0;
   let deletes = 0;
   server.use(
@@ -181,8 +181,8 @@ test("S7 issued token is a profile-scoped secure record; revoke and forget have 
   assert.equal(await runtime.secretStore.get(service, "default:token"), "fixture-token");
 });
 
-test("S7 restricted token body is explicit and local persistence failure never leaks or retries", async () => {
-  const { cli, runtime } = await administrator();
+test("S7 restricted token body is explicit and local persistence failure never leaks or retries", async (testContext) => {
+  const { cli, runtime } = await administrator(testContext);
   let calls = 0;
   server.use(
     http.post(base + "/users/current/tokens", async ({ request }) => {
@@ -222,8 +222,8 @@ test("S7 restricted token body is explicit and local persistence failure never l
   assert.equal(runtime.stderr(), "");
 });
 
-test("S7 malformed one-time token replies never reach output or secure storage", async () => {
-  const { cli, runtime } = await administrator();
+test("S7 malformed one-time token replies never reach output or secure storage", async (testContext) => {
+  const { cli, runtime } = await administrator(testContext);
   for (const response of [
     { name: "Wrong", value: "synthetic-issued-token" },
     { name: "ExampleToken", value: "" },
@@ -238,8 +238,8 @@ test("S7 malformed one-time token replies never reach output or secure storage",
   }
 });
 
-test("S7 full direct-role/group replacements and user identity update preserve explicit bodies", async () => {
-  const { cli } = await administrator();
+test("S7 full direct-role/group replacements and user identity update preserve explicit bodies", async (testContext) => {
+  const { cli } = await administrator(testContext);
   const bodies: unknown[] = [];
   server.use(
     http.put(base + "/*", async ({ request }) => {
@@ -254,8 +254,8 @@ test("S7 full direct-role/group replacements and user identity update preserve e
   assert.deepEqual(bodies, [{ name: "Example" }, { group: [] }, { group: [] }, { role: [] }]);
 });
 
-test("S7 node/account/role projections discard URLs, credentials and unexpected nested data", async () => {
-  const { cli } = await administrator();
+test("S7 node/account/role projections discard URLs, credentials and unexpected nested data", async (testContext) => {
+  const { cli } = await administrator(testContext);
   server.use(
     http.get(base + "/server/nodes/id:node1", () =>
       HttpResponse.json({
@@ -281,13 +281,13 @@ test("S7 node/account/role projections discard URLs, credentials and unexpected 
   assert.deepEqual(await cli.execute(["users", "tokens", "list"]), [{ name: "ExampleToken" }]);
 });
 
-test("S7 JSON-RPC token issuance isolates credentials and custom gates across profiles", async () => {
+test("S7 JSON-RPC token issuance isolates credentials and custom gates across profiles", async (testContext) => {
   const commands = [
     ["users", "tokens", "create", "--help"],
     create,
     [...create, "--profile", "uat"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test", permissions: ["ReadOnly", "Update"] },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Credentials"] },
@@ -326,7 +326,7 @@ test("S7 JSON-RPC token issuance isolates credentials and custom gates across pr
   assert.equal(calls, 1);
 });
 
-test("S7 network failures cannot echo secret bodies or nested causes", async () => {
+test("S7 network failures cannot echo secret bodies or nested causes", async (testContext) => {
   const client = new TeamCityClient({
     baseUrl: "https://teamcity.test",
     token: "fixture-token",
@@ -342,8 +342,8 @@ test("S7 network failures cannot echo secret bodies or nested causes", async () 
   });
 });
 
-test("S7 failed secure-store preflight and post-revocation cleanup expose no backend details", async () => {
-  const { cli, runtime } = await administrator();
+test("S7 failed secure-store preflight and post-revocation cleanup expose no backend details", async (testContext) => {
+  const { cli, runtime } = await administrator(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -377,7 +377,7 @@ test("S7 failed secure-store preflight and post-revocation cleanup expose no bac
   assert.equal(calls, 1);
 });
 
-test("S7 failed response streams cannot expose secret values in ordinary or discard mode", async () => {
+test("S7 failed response streams cannot expose secret values in ordinary or discard mode", async (testContext) => {
   const client = new TeamCityClient({
     baseUrl: "https://teamcity.test",
     token: "fixture-token",

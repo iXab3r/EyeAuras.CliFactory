@@ -114,8 +114,9 @@ test("bundle RPC isolates profile URLs, tokens, permissions and AppData and surv
     "production.example.com/context/api/admin/customFieldSettings/bundles/ownedField/fixture-bundle",
     "dev.example.com/context/api/admin/customFieldSettings/bundles/version/fixture-bundle/values/fixture-value",
   ]);
-  assert.deepEqual(f.paths, ["dev", "production", "disabled", "dev"].map((profile) =>
-    join(f.appArguments.RoamingAppDataDirectory, profile)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, ["dev", "production", "dev"].map((profile) =>
+    join(f.appArguments.RoamingAppDataDirectory, profile)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");
   assert.doesNotMatch(f.stdout(), /synthetic-|private-response/);
 });
@@ -145,4 +146,3 @@ test("version value help states the startDate availability without accessing pro
   assert.match(f.stdout(), /get/);
   assert.equal(f.stderr(), "");
 });
-

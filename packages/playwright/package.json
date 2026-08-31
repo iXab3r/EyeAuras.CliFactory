@@ -1,0 +1,18 @@
+{
+  "name": "@eyeauras/cli-factory-playwright",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "cliFactory": {"runtimeInputs": ["playwright-core/lib/coreBundle"]},
+  "scripts": {
+    "postinstall": "node scripts/patch-process-launcher.mjs",
+    "build": "node scripts/patch-process-launcher.mjs && tsc --project tsconfig.json",
+    "test:compiled": "node --test dist/tests/*.test.js"
+  },
+  "dependencies": {
+    "@eyeauras/cli-factory": "0.1.0",
+    "playwright": "1.62.1"
+  }
+}

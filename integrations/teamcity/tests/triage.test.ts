@@ -12,8 +12,8 @@ const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function writable() {
-  const runtime = await createTestRuntime();
+async function writable(testContext: test.TestContext) {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
@@ -26,8 +26,8 @@ const investigation = {
   resolution: "whenFixed",
 };
 
-test("S6 all 50 gates deny before any HTTP", async () => {
-  const runtime = await createTestRuntime({
+test("S6 all 50 gates deny before any HTTP", async (testContext) => {
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
   let calls = 0;
@@ -46,8 +46,8 @@ test("S6 all 50 gates deny before any HTTP", async () => {
   assert.equal(calls, 0);
 });
 
-test("S6 validates bounded identities, controls, typed bodies and timestamps before HTTP", async () => {
-  const { cli } = await writable();
+test("S6 validates bounded identities, controls, typed bodies and timestamps before HTTP", async (testContext) => {
+  const { cli } = await writable(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -110,8 +110,8 @@ test("S6 validates bounded identities, controls, typed bodies and timestamps bef
   assert.equal(calls, 0);
 });
 
-test("S6 partial and malformed bulk/status results never become unconditional success", async () => {
-  const { cli } = await writable();
+test("S6 partial and malformed bulk/status results never become unconditional success", async (testContext) => {
+  const { cli } = await writable(testContext);
   for (const result of [
     { count: 2, errorCount: 0, operationResult: [] },
     {
@@ -155,8 +155,8 @@ test("S6 partial and malformed bulk/status results never become unconditional su
   );
 });
 
-test("S6 typed investigation replacement uses one exact target and no hidden reads or retries", async () => {
-  const { cli } = await writable();
+test("S6 typed investigation replacement uses one exact target and no hidden reads or retries", async (testContext) => {
+  const { cli } = await writable(testContext);
   const bodies: unknown[] = [];
   server.use(
     http.put(base + "/investigations/*", async ({ request }) => {
@@ -201,8 +201,8 @@ test("S6 typed investigation replacement uses one exact target and no hidden rea
   assert.equal(failures, 1);
 });
 
-test("S6 mute stateful create/read/delete uses explicit scope, atTime and text deletion", async () => {
-  const { cli } = await writable();
+test("S6 mute stateful create/read/delete uses explicit scope, atTime and text deletion", async (testContext) => {
+  const { cli } = await writable(testContext);
   let saved: Record<string, unknown> | undefined;
   const calls: string[] = [];
   server.use(
@@ -238,7 +238,7 @@ test("S6 mute stateful create/read/delete uses explicit scope, atTime and text d
   assert.deepEqual(calls, ["POST", "GET", "DELETE"]);
 });
 
-test("S6 metadata probes discard private bytes and bound reading even on an unending body", async () => {
+test("S6 metadata probes discard private bytes and bound reading even on an unending body", async (testContext) => {
   let pulled = 0;
   let canceled = false;
   const client = new TeamCityClient({
@@ -263,7 +263,7 @@ test("S6 metadata probes discard private bytes and bound reading even on an unen
   });
   assert.ok(pulled <= 5);
   assert.equal(canceled, true);
-  const runtime = await createTestRuntime();
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   server.use(
     http.get(base + "/builds/id:42/resulting-properties/env.MODE", () =>
@@ -287,8 +287,8 @@ test("S6 metadata probes discard private bytes and bound reading even on an unen
   );
 });
 
-test("S6 unknown nested data and malformed entities never leak payload excerpts", async () => {
-  const { cli } = await writable();
+test("S6 unknown nested data and malformed entities never leak payload excerpts", async (testContext) => {
+  const { cli } = await writable(testContext);
   server.use(
     http.get(base + "/testOccurrences/*", () =>
       HttpResponse.json({
@@ -311,14 +311,14 @@ test("S6 unknown nested data and malformed entities never leak payload excerpts"
   });
 });
 
-test("S6 persistent RPC keeps profile auth/gates and generated help isolated", async () => {
+test("S6 persistent RPC keeps profile auth/gates and generated help isolated", async (testContext) => {
   const commands = [
     ["investigations", "replace", "--help"],
     ["builds", "batch", "delete", "--build", "42"],
     ["builds", "batch", "delete", "--build", "42", "--profile", "uat"],
     ["tests", "show", "9223372036854775807"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test" },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Update"] },

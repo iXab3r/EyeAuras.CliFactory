@@ -181,7 +181,8 @@ test("persistent RPC preserves context profiles and recovers after sanitized rem
   assert.equal(replies[0].result.id, "fixture-comment"); assert.equal(replies[1].error.code, -32000);
   assert.match(replies[1].error.message, /HTTP 403/); assert.deepEqual(replies[2].result, envelope);
   assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic-|private-response/);
-  assert.deepEqual(f.paths, ["dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, ["dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.equal(calls, 3);
 });
 
@@ -194,5 +195,3 @@ test("comment update and cursor failures report status without payloads or retri
     assert.equal(calls, 2);
   }
 });
-
-

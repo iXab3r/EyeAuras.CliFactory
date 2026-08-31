@@ -104,7 +104,8 @@ test("persistent RPC uses the actual declaration with profile-specific identity 
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(replies.map((reply) => reply.result.login), ["user-dev", "user-production", "user-dev"]);
-  assert.deepEqual(f.paths, ["dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, ["dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");
 });
 
@@ -232,7 +233,8 @@ test("all read leaves share profile-isolated URLs, credentials and AppData in pe
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(replies.map((reply) => reply.result), readCommands.map((row) => row.array ? [{ id: "fixture-id" }] : { id: "fixture-id" }));
-  assert.deepEqual(f.paths, selectedProfiles.map((name) => join(f.appArguments.RoamingAppDataDirectory, name)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, selectedProfiles.map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.equal(calls, readCommands.length);
   assert.equal(f.stderr(), "");
 });
@@ -379,7 +381,8 @@ test("mutation RPC preserves per-profile Update gates, URLs, credentials, AppDat
   assert.equal(replies[2].result, null);
   assert.equal(replies[3].result, null);
   assert.equal(calls, 3);
-  assert.deepEqual(f.paths, frames.map(({ profile }) => join(f.appArguments.RoamingAppDataDirectory, profile)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, frames.filter(({ profile }) => profile === "dev").map(({ profile }) => join(f.appArguments.RoamingAppDataDirectory, profile)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");
 });
 

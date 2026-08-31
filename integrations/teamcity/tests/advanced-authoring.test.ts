@@ -11,15 +11,15 @@ const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function writable() {
-  const runtime = await createTestRuntime();
+async function writable(testContext: test.TestContext) {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
 
-test("all 50 S3 leaves deny before HTTP when their profile has no permissions", async () => {
-  const runtime = await createTestRuntime({
+test("all 50 S3 leaves deny before HTTP when their profile has no permissions", async (testContext) => {
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
   let calls = 0;
@@ -38,8 +38,8 @@ test("all 50 S3 leaves deny before HTTP when their profile has no permissions", 
   assert.equal(calls, 0);
 });
 
-test("S3 validates flags, fields, booleans, paths, secret-like properties and self-dependencies locally", async () => {
-  const { cli } = await writable();
+test("S3 validates flags, fields, booleans, paths, secret-like properties and self-dependencies locally", async (testContext) => {
+  const { cli } = await writable(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -127,8 +127,8 @@ test("S3 validates flags, fields, booleans, paths, secret-like properties and se
   assert.equal(calls, 0);
 });
 
-test("S3 artifact options and requirement activation preserve exact typed bodies", async () => {
-  const { cli } = await writable();
+test("S3 artifact options and requirement activation preserve exact typed bodies", async (testContext) => {
+  const { cli } = await writable(testContext);
   const bodies: unknown[] = [];
   server.use(
     http.post(`${base}/buildTypes/id:Build/*`, async ({ request }) => {
@@ -189,8 +189,8 @@ test("S3 artifact options and requirement activation preserve exact typed bodies
   ]);
 });
 
-test("S3 output parameter writes never downgrade protected metadata and create alone tolerates 404", async () => {
-  const { cli } = await writable();
+test("S3 output parameter writes never downgrade protected metadata and create alone tolerates 404", async (testContext) => {
+  const { cli } = await writable(testContext);
   let writes = 0;
   server.use(
     http.all(`${base}/buildTypes/id:Build/output-parameters*`, ({ request }) => {
@@ -220,8 +220,8 @@ test("S3 output parameter writes never downgrade protected metadata and create a
   assert.equal(writes, 1);
 });
 
-test("S3 handles empty lists, full property clearing and safe malformed/delete errors", async () => {
-  const { cli } = await writable();
+test("S3 handles empty lists, full property clearing and safe malformed/delete errors", async (testContext) => {
+  const { cli } = await writable(testContext);
   server.use(
     http.all(`${base}/*`, ({ request }) =>
       request.method === "DELETE"
@@ -259,7 +259,7 @@ test("S3 handles empty lists, full property clearing and safe malformed/delete e
   }
 });
 
-test("S3 JSON-RPC keeps two profiles isolated and resumes after validation and permission errors", async () => {
+test("S3 JSON-RPC keeps two profiles isolated and resumes after validation and permission errors", async (testContext) => {
   const commands = [
     ["jobs", "artifact-dependencies", "replace", "--help"],
     ["projects", "templates", "create", "Example", "Template", "--profile", "uat"],
@@ -277,7 +277,7 @@ test("S3 JSON-RPC keeps two profiles isolated and resumes after validation and p
     ],
     ["jobs", "aliases", "Build"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test" },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Update"] },
@@ -319,8 +319,8 @@ test("S3 JSON-RPC keeps two profiles isolated and resumes after validation and p
   assert.equal(runtime.stderr(), "");
 });
 
-test("S3 stateful workflow creates a template, selects it as default, and safely removes the default", async () => {
-  const { cli } = await writable();
+test("S3 stateful workflow creates a template, selects it as default, and safely removes the default", async (testContext) => {
+  const { cli } = await writable(testContext);
   let template: { id: string; name: string } | undefined;
   let selected: string | undefined;
   server.use(

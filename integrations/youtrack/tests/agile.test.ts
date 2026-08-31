@@ -199,8 +199,8 @@ test("persistent agile/sprint RPC isolates profile URLs and AppData and survives
   assert.equal(replies[1].error.code, -32000);
   assert.match(replies[1].error.message, /Permission 'Update' is disabled/);
   assert.equal(replies[2].result.id, "fixture-production");
-  assert.deepEqual(f.paths, ["dev", "production", "production"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, ["dev", "production"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.equal(calls, 2);
   assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic-/);
 });
-

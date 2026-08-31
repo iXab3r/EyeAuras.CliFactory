@@ -31,8 +31,8 @@ test("property protection decodes credential-bearing URL keys and fragments", ()
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function writable() {
-  const runtime = await createTestRuntime();
+async function writable(testContext: test.TestContext) {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   await cli.execute(["permissions", "grant", "Credentials"]);
@@ -40,8 +40,8 @@ async function writable() {
 }
 const versioned = ["projects", "versioned-settings"];
 
-test("S8 all50 gates deny before network or secret-input reads", async () => {
-  const runtime = await createTestRuntime({
+test("S8 all50 gates deny before network or secret-input reads", async (testContext) => {
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
   let calls = 0;
@@ -62,8 +62,8 @@ test("S8 all50 gates deny before network or secret-input reads", async () => {
   assert.equal(calls, 0);
 });
 
-test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields and secret-to-VCS settings", async () => {
-  const { cli } = await writable();
+test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields and secret-to-VCS settings", async (testContext) => {
+  const { cli } = await writable(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -178,8 +178,8 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
   assert.equal(calls, 0);
 });
 
-test("S8 composite cloud identities cannot inject another profile/image or expose network fields", async () => {
-  const { cli } = await writable();
+test("S8 composite cloud identities cannot inject another profile/image or expose network fields", async (testContext) => {
+  const { cli } = await writable(testContext);
   let posted: unknown;
   server.use(
     http.post(base + "/cloud/instances", async ({ request }) => {
@@ -225,8 +225,8 @@ test("S8 composite cloud identities cannot inject another profile/image or expos
   );
 });
 
-test("S8 commit-hook only reports scheduling for202 and never retries unexpected success or failure", async () => {
-  const { cli } = await writable();
+test("S8 commit-hook only reports scheduling for202 and never retries unexpected success or failure", async (testContext) => {
+  const { cli } = await writable(testContext);
   for (const status of [200, 201, 202, 404]) {
     let calls = 0;
     server.use(
@@ -243,8 +243,8 @@ test("S8 commit-hook only reports scheduling for202 and never retries unexpected
   }
 });
 
-test("S8 full repository/context replacements preserve empty and false values without hidden reads", async () => {
-  const { cli } = await writable();
+test("S8 full repository/context replacements preserve empty and false values without hidden reads", async (testContext) => {
+  const { cli } = await writable(testContext);
   const bodies: unknown[] = [];
   server.use(
     http.put(base + "/*", async ({ request }) => {
@@ -279,8 +279,8 @@ test("S8 full repository/context replacements preserve empty and false values wi
   ]);
 });
 
-test("S8 config reset may fail after mutation: no retry or false rollback acknowledgement", async () => {
-  const { cli } = await writable();
+test("S8 config reset may fail after mutation: no retry or false rollback acknowledgement", async (testContext) => {
+  const { cli } = await writable(testContext);
   let changed = false;
   let calls = 0;
   server.use(
@@ -298,8 +298,8 @@ test("S8 config reset may fail after mutation: no retry or false rollback acknow
   assert.equal(calls, 1);
 });
 
-test("S8 input-secret import/forget uses only explicit env input and never replaces auth", async () => {
-  const { cli, runtime } = await writable();
+test("S8 input-secret import/forget uses only explicit env input and never replaces auth", async (testContext) => {
+  const { cli, runtime } = await writable(testContext);
   const envName = "CLIFACTORY_SYNTHETIC_SECRET_INPUT";
   const previous = process.env[envName];
   process.env[envName] = "synthetic-input-secret";
@@ -330,8 +330,8 @@ test("S8 input-secret import/forget uses only explicit env input and never repla
   }
 });
 
-test("S8 secure mapping resolves every input before HTTP and remote deletion retains local secrets", async () => {
-  const { cli, runtime } = await writable();
+test("S8 secure mapping resolves every input before HTTP and remote deletion retains local secrets", async (testContext) => {
+  const { cli, runtime } = await writable(testContext);
   await runtime.secretStore.set(service, "default:input-secret:one", "synthetic-one");
   let calls = 0;
   server.use(
@@ -374,8 +374,8 @@ test("S8 secure mapping resolves every input before HTTP and remote deletion ret
   assert.equal(calls, 2);
 });
 
-test("S8 effective/status/context projections reject nested private data and malformed response text", async () => {
-  const { cli } = await writable();
+test("S8 effective/status/context projections reject nested private data and malformed response text", async (testContext) => {
+  const { cli } = await writable(testContext);
   const path = base + "/projects/id:Example/versionedSettings";
   server.use(
     http.get(path + "/config/effective", () =>
@@ -416,14 +416,14 @@ test("S8 effective/status/context projections reject nested private data and mal
   });
 });
 
-test("S8 persistent RPC isolates secure mappings and cloud Update between profiles", async () => {
+test("S8 persistent RPC isolates secure mappings and cloud Update between profiles", async (testContext) => {
   const mapping = [...versioned, "tokens", "set", "Example", "--mapping", "Remote=deployment"];
   const commands = [
     [...versioned, "tokens", "set", "--help"],
     mapping,
     [...mapping, "--profile", "uat"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test", permissions: ["ReadOnly", "Update"] },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Credentials"] },

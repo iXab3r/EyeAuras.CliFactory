@@ -17,8 +17,8 @@ test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 for (const c of systemCases)
-  test(`S9 contract: ${c.method} ${c.path}`, async () => {
-    const runtime = await createTestRuntime();
+  test(`S9 contract: ${c.method} ${c.path}`, async (testContext) => {
+    const runtime = await createTestRuntime(testContext);
     for (const [key, value] of Object.entries(c.storedSecrets ?? {}))
       await runtime.secretStore.set("ai-cli-factory:teamcity-cli", "default:" + key, value);
     const cli = createTeamCityCli(runtime.runtime);
@@ -97,9 +97,9 @@ for (const c of systemCases)
     }
   });
 
-test("S9 all gates, help and error paths avoid network/preflight leaks", async () => {
+test("S9 all gates, help and error paths avoid network/preflight leaks", async (testContext) => {
   for (const c of systemCases) {
-    const runtime = await createTestRuntime({
+    const runtime = await createTestRuntime(testContext, {
       profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
     });
     const cli = createTeamCityCli(runtime.runtime);
@@ -128,8 +128,8 @@ test("S9 all gates, help and error paths avoid network/preflight leaks", async (
     assert.doesNotMatch(runtime.stderr() + runtime.stdout(), /synthetic-private-error/);
   }
 });
-test("S9 strict settings reject unknown fields, invalid sentinels and unsafe auth before HTTP", async () => {
-  const r = await createTestRuntime();
+test("S9 strict settings reject unknown fields, invalid sentinels and unsafe auth before HTTP", async (testContext) => {
+  const r = await createTestRuntime(testContext);
   const cli = createTeamCityCli(r.runtime);
   await cli.execute(["permissions", "grant", "Admin"]);
   await cli.execute(["permissions", "grant", "Update"]);
@@ -197,7 +197,7 @@ test("S9 strict settings reject unknown fields, invalid sentinels and unsafe aut
   ])
     assert.throws(() => cleanupPatch(v));
 });
-test("S9 plugin XML rejects entities, DTD, malformed media and oversized streams", async () => {
+test("S9 plugin XML rejects entities, DTD, malformed media and oversized streams", async (testContext) => {
   assert.deepEqual(pluginXml('<plugin name="rest&amp;api" loaded="false"/>'), {
     name: "rest&api",
     loaded: false,
@@ -211,7 +211,7 @@ test("S9 plugin XML rejects entities, DTD, malformed media and oversized streams
     '<plugin name="x" loaded="oops"/>',
   ])
     assert.throws(() => pluginXml(xml));
-  const r = await createTestRuntime(),
+  const r = await createTestRuntime(testContext),
     cli = createTeamCityCli(r.runtime);
   server.use(http.get(base + "/info", () => HttpResponse.text('<plugin name="rest"/>')));
   await assert.rejects(cli.execute(["server", "rest-plugin"]), /media/);
@@ -232,8 +232,8 @@ test("S9 plugin XML rejects entities, DTD, malformed media and oversized streams
   );
   await assert.rejects(cli.execute(["server", "rest-plugin"]), /2MiB/);
 });
-test("S9 one-time issuance validates aliases and reports partial persistence without retry", async () => {
-  const r = await createTestRuntime(),
+test("S9 one-time issuance validates aliases and reports partial persistence without retry", async (testContext) => {
+  const r = await createTestRuntime(testContext),
     cli = createTeamCityCli(r.runtime);
   await cli.execute(["permissions", "grant", "Credentials"]);
   let calls = 0;
@@ -282,8 +282,8 @@ test("S9 one-time issuance validates aliases and reports partial persistence wit
     "fixture-token",
   );
 });
-test("S9 secure module inputs and license paths never leak on rejected requests", async () => {
-  const r = await createTestRuntime(),
+test("S9 secure module inputs and license paths never leak on rejected requests", async (testContext) => {
+  const r = await createTestRuntime(testContext),
     cli = createTeamCityCli(r.runtime);
   await cli.execute(["permissions", "grant", "Admin"]);
   await r.secretStore.set(
@@ -343,8 +343,8 @@ test("S9 secure module inputs and license paths never leak on rejected requests"
     (e) => e instanceof Error && !e.message.includes("synthetic-secret") && e.cause === undefined,
   );
 });
-test("S9 bulk unmute reconstructs exact full preflight model and never retries failure", async () => {
-  const r = await createTestRuntime(),
+test("S9 bulk unmute reconstructs exact full preflight model and never retries failure", async (testContext) => {
+  const r = await createTestRuntime(testContext),
     cli = createTeamCityCli(r.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   let gets = 0,
@@ -372,7 +372,7 @@ test("S9 bulk unmute reconstructs exact full preflight model and never retries f
   assert.equal(writes, 1);
   assert.equal(gets, 2);
 });
-test("S9 persistent RPC isolates license input aliases and Admin permissions", async () => {
+test("S9 persistent RPC isolates license input aliases and Admin permissions", async (testContext) => {
   const requests = [
     {
       jsonrpc: "2.0",
@@ -389,7 +389,7 @@ test("S9 persistent RPC isolates license input aliases and Admin permissions", a
       params: { argv: ["server", "licenses", "show", "license", "--profile", "prod"] },
     },
   ];
-  const r = await createTestRuntime({
+  const r = await createTestRuntime(testContext, {
     profiles: [
       { name: "uat", url: "https://teamcity.test" },
       { name: "prod", url: "https://teamcity.test" },

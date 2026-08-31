@@ -11,15 +11,15 @@ const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function writable() {
-  const runtime = await createTestRuntime();
+async function writable(testContext: test.TestContext) {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
 
-test("all 50 S4 leaves deny before HTTP without their declared profile permission", async () => {
-  const runtime = await createTestRuntime({
+test("all 50 S4 leaves deny before HTTP without their declared profile permission", async (testContext) => {
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
   const cli = createTeamCityCli(runtime.runtime);
@@ -39,8 +39,8 @@ test("all 50 S4 leaves deny before HTTP without their declared profile permissio
   assert.equal(calls, 0);
 });
 
-test("S4 validates IDs, required options, fields, booleans, policy, tags and credential-shaped inputs locally", async () => {
-  const { cli } = await writable();
+test("S4 validates IDs, required options, fields, booleans, policy, tags and credential-shaped inputs locally", async (testContext) => {
+  const { cli } = await writable(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -102,8 +102,8 @@ test("S4 validates IDs, required options, fields, booleans, policy, tags and cre
   assert.equal(calls, 0);
 });
 
-test("S4 preserves false, empty selected policy, empty tag replacement and pool zero without hidden calls", async () => {
-  const { cli } = await writable();
+test("S4 preserves false, empty selected policy, empty tag replacement and pool zero without hidden calls", async (testContext) => {
+  const { cli } = await writable(testContext);
   const bodies: unknown[] = [];
   server.use(
     http.put(`${base}/*`, async ({ request }) => {
@@ -151,8 +151,8 @@ test("S4 preserves false, empty selected policy, empty tag replacement and pool 
     });
 });
 
-test("S4 projects every JSON result instead of leaking extra nested credentials or server data", async () => {
-  const { cli } = await writable();
+test("S4 projects every JSON result instead of leaking extra nested credentials or server data", async (testContext) => {
+  const { cli } = await writable(testContext);
   function withPrivateExtras(value: unknown): unknown {
     if (Array.isArray(value)) return value.map(withPrivateExtras);
     if (value !== null && typeof value === "object")
@@ -176,8 +176,8 @@ test("S4 projects every JSON result instead of leaking extra nested credentials 
   }
 });
 
-test("S4 handles empty collections, optional JSON/204, malformed JSON and safe delete errors", async () => {
-  const { cli } = await writable();
+test("S4 handles empty collections, optional JSON/204, malformed JSON and safe delete errors", async (testContext) => {
+  const { cli } = await writable(testContext);
   server.use(http.get(`${base}/*`, () => HttpResponse.json({})));
   const lists = operatorCases.filter((e) => e.method === "GET" && Array.isArray(e.expected));
   for (const example of lists) assert.deepEqual(await cli.execute(example.argv), []);
@@ -211,8 +211,8 @@ test("S4 handles empty collections, optional JSON/204, malformed JSON and safe d
     await assert.rejects(cli.execute(example.argv), /HTTP 404/);
 });
 
-test("S4 acknowledgement commands discard successful response bodies instead of exposing them", async () => {
-  const { cli } = await writable();
+test("S4 acknowledgement commands discard successful response bodies instead of exposing them", async (testContext) => {
+  const { cli } = await writable(testContext);
   // Tag POST can return Tags; the CLI contract deliberately returns a local acknowledgement.
   server.use(http.all(`${base}/*`, () => HttpResponse.json({ authToken: "synthetic-hidden" })));
   for (const example of operatorCases.filter((e) => e.response === null)) {
@@ -220,8 +220,8 @@ test("S4 acknowledgement commands discard successful response bodies instead of 
   }
 });
 
-test("S4 statistics preserve numeric precision and refuse nonnumeric payloads without echoing them", async () => {
-  const { cli } = await writable();
+test("S4 statistics preserve numeric precision and refuse nonnumeric payloads without echoing them", async (testContext) => {
+  const { cli } = await writable(testContext);
   for (const value of ["900719925474099312345", "-1.25e+12", ".5", "0"]) {
     server.use(
       http.get(`${base}/builds/id:42/statistics/Duration`, () => HttpResponse.text(value)),
@@ -250,7 +250,7 @@ test("S4 statistics preserve numeric precision and refuse nonnumeric payloads wi
   }
 });
 
-test("S4 JSON-RPC isolates profiles, credentials and permission failures and continues the session", async () => {
+test("S4 JSON-RPC isolates profiles, credentials and permission failures and continues the session", async (testContext) => {
   const commands = [
     ["agents", "policy", "set", "--help"],
     ["agents", "fields", "show", "7", "authToken"],
@@ -258,7 +258,7 @@ test("S4 JSON-RPC isolates profiles, credentials and permission failures and con
     ["builds", "pin", "set", "42", "false", "--profile", "uat"],
     ["agents", "pool", "show", "7"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test" },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Update"] },
@@ -301,8 +301,8 @@ test("S4 JSON-RPC isolates profiles, credentials and permission failures and con
   assert.equal(runtime.stderr(), "");
 });
 
-test("S4 stateful operator workflow mutates and cleans up only explicitly named mocked resources", async () => {
-  const { cli } = await writable();
+test("S4 stateful operator workflow mutates and cleans up only explicitly named mocked resources", async (testContext) => {
+  const { cli } = await writable(testContext);
   let pool: { id: number; name: string } | undefined;
   let project: string | undefined;
   let agentPool = 0;
@@ -409,8 +409,8 @@ test("S4 stateful operator workflow mutates and cleans up only explicitly named 
   );
 });
 
-test("S4 help for every operation and version require no profile configuration, keyring or HTTP", async () => {
-  const runtime = await createTestRuntime({
+test("S4 help for every operation and version require no profile configuration, keyring or HTTP", async (testContext) => {
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", permissions: [] }],
     tokens: {},
   });

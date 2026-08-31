@@ -224,7 +224,8 @@ test("time metadata RPC isolates profiles and AppData and continues after safe r
     ["fixture-dev", -32000, "fixture-production", "fixture-dev"]);
   assert.match(replies[1].error.message, /HTTP 403/);
   assert.deepEqual(hosts, ["dev", "production", "production", "dev"]);
-  assert.deepEqual(f.paths, hosts.map((name) => join(f.appArguments.RoamingAppDataDirectory, name)));
+  // Readiness and handler contexts follow admission; denied requests create neither.
+  assert.deepEqual(f.paths, hosts.map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");
   assert.doesNotMatch(f.stdout(), /synthetic-dev|synthetic-production|synthetic-private/);
 });

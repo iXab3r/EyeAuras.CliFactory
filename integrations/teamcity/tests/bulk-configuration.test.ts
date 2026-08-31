@@ -11,15 +11,15 @@ const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
-async function writable() {
-  const runtime = await createTestRuntime();
+async function writable(testContext: test.TestContext) {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
 
-test("S5 all 50 permission gates deny before HTTP", async () => {
-  const runtime = await createTestRuntime({
+test("S5 all 50 permission gates deny before HTTP", async (testContext) => {
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
   let calls = 0;
@@ -38,8 +38,8 @@ test("S5 all 50 permission gates deny before HTTP", async () => {
   assert.equal(calls, 0);
 });
 
-test("S5 validates typed items, IDs, booleans, confirmation and bounded queue scope locally", async () => {
-  const { cli } = await writable();
+test("S5 validates typed items, IDs, booleans, confirmation and bounded queue scope locally", async (testContext) => {
+  const { cli } = await writable(testContext);
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -126,8 +126,8 @@ test("S5 validates typed items, IDs, booleans, confirmation and bounded queue sc
   assert.equal(calls, 0);
 });
 
-test("S5 protected metadata prevents downgrade and raw value reads; bulk replacement only preflights metadata", async () => {
-  const { cli } = await writable();
+test("S5 protected metadata prevents downgrade and raw value reads; bulk replacement only preflights metadata", async (testContext) => {
+  const { cli } = await writable(testContext);
   const requests: string[] = [];
   server.use(
     http.all(`${base}/*`, ({ request }) => {
@@ -159,8 +159,8 @@ test("S5 protected metadata prevents downgrade and raw value reads; bulk replace
   assert.ok(requests.every((r) => !r.endsWith("/value") && !r.endsWith("/type")));
 });
 
-test("S5 empty replacements and explicit template flags preserve full replacement contracts", async () => {
-  const { cli } = await writable();
+test("S5 empty replacements and explicit template flags preserve full replacement contracts", async (testContext) => {
+  const { cli } = await writable(testContext);
   let writes = 0;
   server.use(
     http.put(`${base}/*`, async ({ request }) => {
@@ -205,8 +205,8 @@ test("S5 empty replacements and explicit template flags preserve full replacemen
   await cli.execute(["jobs", "templates", "clear", "Build", "--confirm", "--inline-settings"]);
 });
 
-test("S5 typed item validation preserves false and refuses duplicates without hidden mutations", async () => {
-  const { cli } = await writable();
+test("S5 typed item validation preserves false and refuses duplicates without hidden mutations", async (testContext) => {
+  const { cli } = await writable(testContext);
   const bodies: unknown[] = [];
   server.use(
     http.put(`${base}/*`, async ({ request }) => {
@@ -258,8 +258,8 @@ test("S5 typed item validation preserves false and refuses duplicates without hi
   assert.equal(bodies.length, 2);
 });
 
-test("S5 JSON and text output exclude unknown nested fields and malformed payload excerpts", async () => {
-  const { cli } = await writable();
+test("S5 JSON and text output exclude unknown nested fields and malformed payload excerpts", async (testContext) => {
+  const { cli } = await writable(testContext);
   server.use(
     http.get(`${base}/agentTypes/id:7`, () =>
       HttpResponse.json({
@@ -280,14 +280,14 @@ test("S5 JSON and text output exclude unknown nested fields and malformed payloa
   });
 });
 
-test("S5 JSON-RPC isolates replacement permissions and credentials across two profiles", async () => {
+test("S5 JSON-RPC isolates replacement permissions and credentials across two profiles", async (testContext) => {
   const commands = [
     ["jobs", "steps", "replace-all", "--help"],
     ["jobs", "steps", "replace-all", "Build"],
     ["jobs", "steps", "replace-all", "Build", "--profile", "uat"],
     ["agents", "types", "show", "7"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test" },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Update"] },
@@ -327,8 +327,8 @@ test("S5 JSON-RPC isolates replacement permissions and credentials across two pr
   assert.deepEqual(calls, ["uat", "default"]);
 });
 
-test("S5 stateful parameter replacement/value/type/clear workflow uses the exact metadata boundary", async () => {
-  const { cli } = await writable();
+test("S5 stateful parameter replacement/value/type/clear workflow uses the exact metadata boundary", async (testContext) => {
+  const { cli } = await writable(testContext);
   let value = "initial";
   let exists = true;
   let writes = 0;

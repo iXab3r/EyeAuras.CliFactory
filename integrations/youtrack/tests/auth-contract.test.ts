@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -20,7 +22,7 @@ function environment(t: TestContext, value?: string): void {
   });
 }
 
-test("YouTrack configure replaces stored credentials only after validating the environment candidate and new endpoint", async (t) => {
+test("YouTrack configure replaces stored credentials only after validating the environment candidate and new endpoint", { timeout: 5000 }, async (t) => {
   environment(t, "synthetic-replacement");
   const f = await fixture(t);
   await f.cli.execute(["profile", "create", "dev", "--url", "https://old.youtrack.test/track"]);
@@ -31,7 +33,9 @@ test("YouTrack configure replaces stored credentials only after validating the e
   server.use(http.get("https://new.youtrack.test/track/api/users/me", async ({ request }) => {
     calls++;
     assert.equal(request.headers.get("authorization"), "Bearer synthetic-replacement");
-    assert.equal((await f.cli.execute(["profile", "show", "dev"]) as { values: { url: string } }).values.url,
+    // Configure owns exclusive admission; inspect persistence without re-entering the CLI.
+    const stored = JSON.parse(await readFile(join(f.appArguments.RoamingAppDataDirectory, "profiles.json"), "utf8"));
+    assert.equal(stored.profiles.dev.url,
       "https://old.youtrack.test/track");
     assert.equal(await f.secrets.get(service, "dev:token"), "synthetic-old");
     return HttpResponse.json({ id: "1-1", login: "fixture-user" });

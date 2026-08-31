@@ -13,16 +13,16 @@ test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 
-async function writableCli() {
-  const runtime = await createTestRuntime();
+async function writableCli(testContext: test.TestContext) {
+  const runtime = await createTestRuntime(testContext);
   const cli = createTeamCityCli(runtime.runtime);
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
 
-test("all S2 leaves declare their gate and deny before HTTP", async () => {
+test("all S2 leaves declare their gate and deny before HTTP", async (testContext) => {
   let requests = 0;
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
   server.use(
@@ -41,8 +41,8 @@ test("all S2 leaves declare their gate and deny before HTTP", async () => {
   assert.equal(requests, 0);
 });
 
-test("S2 rejects missing fields, secret properties, duplicate keys, self-dependencies and raw locators before HTTP", async () => {
-  const { cli } = await writableCli();
+test("S2 rejects missing fields, secret properties, duplicate keys, self-dependencies and raw locators before HTTP", async (testContext) => {
+  const { cli } = await writableCli(testContext);
   let requests = 0;
   server.use(
     http.all("*", () => {
@@ -99,8 +99,8 @@ test("S2 rejects missing fields, secret properties, duplicate keys, self-depende
   assert.equal(requests, 0);
 });
 
-test("S2 replacement sends an empty property set without GET/merge and extensions default disabled", async () => {
-  const { cli } = await writableCli();
+test("S2 replacement sends an empty property set without GET/merge and extensions default disabled", async (testContext) => {
+  const { cli } = await writableCli(testContext);
   let requests = 0;
   server.use(
     http.put(`${base}/*`, async ({ request }) => {
@@ -133,8 +133,8 @@ test("S2 replacement sends an empty property set without GET/merge and extension
   assert.equal(requests, 3);
 });
 
-test("enabling triggers and features is explicit for both create and replace", async () => {
-  const { cli } = await writableCli();
+test("enabling triggers and features is explicit for both create and replace", async (testContext) => {
+  const { cli } = await writableCli(testContext);
   let requests = 0;
   server.use(
     http.all(`${base}/*`, async ({ request }) => {
@@ -168,8 +168,8 @@ test("enabling triggers and features is explicit for both create and replace", a
   assert.equal(requests, 4);
 });
 
-test("template flags are explicit and affect only the named attachment", async () => {
-  const { cli } = await writableCli();
+test("template flags are explicit and affect only the named attachment", async (testContext) => {
+  const { cli } = await writableCli(testContext);
   const methods: string[] = [];
   server.use(
     http.all(`${base}/templates*`, async ({ request }) => {
@@ -229,8 +229,8 @@ test("template flags are explicit and affect only the named attachment", async (
   assert.deepEqual(methods, ["POST", "DELETE"]);
 });
 
-test("S2 results redact all plugin values and unknown nested fields, preserving inherited/source identity", async () => {
-  const { cli, runtime } = await writableCli();
+test("S2 results redact all plugin values and unknown nested fields, preserving inherited/source identity", async (testContext) => {
+  const { cli, runtime } = await writableCli(testContext);
   server.use(
     http.all(`${base}/*`, () =>
       HttpResponse.json({
@@ -277,8 +277,8 @@ test("S2 results redact all plugin values and unknown nested fields, preserving 
   assert.equal(runtime.stdout().includes("synthetic-hidden"), false);
 });
 
-test("S2 empty lists, delete 404s and malformed response errors are deterministic and sanitized", async () => {
-  const { cli } = await writableCli();
+test("S2 empty lists, delete 404s and malformed response errors are deterministic and sanitized", async (testContext) => {
+  const { cli } = await writableCli(testContext);
   server.use(
     http.all(`${base}/*`, ({ request }) =>
       request.method === "DELETE"
@@ -301,7 +301,7 @@ test("S2 empty lists, delete 404s and malformed response errors are deterministi
   }
 });
 
-test("S2 JSON-RPC preserves profile URL/token/gates and continues after help and denied mutation", async () => {
+test("S2 JSON-RPC preserves profile URL/token/gates and continues after help and denied mutation", async (testContext) => {
   const commands = [
     ["jobs", "triggers", "replace", "--help"],
     ["jobs", "triggers", "create", "Example_Build", "--profile", "uat"],
@@ -309,7 +309,7 @@ test("S2 JSON-RPC preserves profile URL/token/gates and continues after help and
     ["jobs", "features", "create", "Example_Build", "--type", "swabra", "--profile", "uat"],
     ["jobs", "templates", "list", "Example_Build"],
   ];
-  const runtime = await createTestRuntime({
+  const runtime = await createTestRuntime(testContext, {
     profiles: [
       { name: "default", url: "https://teamcity.test" },
       { name: "uat", url: "https://uat.test", permissions: ["ReadOnly", "Update"] },
@@ -353,8 +353,8 @@ test("S2 JSON-RPC preserves profile URL/token/gates and continues after help and
   assert.equal(runtime.stderr(), "");
 });
 
-test("offline S2 workflow configures, inspects, replaces and removes settings without launching builds", async () => {
-  const { cli } = await writableCli();
+test("offline S2 workflow configures, inspects, replaces and removes settings without launching builds", async (testContext) => {
+  const { cli } = await writableCli(testContext);
   const state = new Map<string, Record<string, unknown>>();
   let requests = 0;
   server.use(

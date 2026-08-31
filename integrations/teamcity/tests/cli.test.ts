@@ -12,12 +12,19 @@ test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 
-test("exposes the complete recursive tree and permission in leaf help", async () => {
-  const testRuntime = await createTestRuntime();
+test("exposes the complete recursive tree and permission in leaf help", async (t) => {
+  const testRuntime = await createTestRuntime(t);
   const cli = createTeamCityCli(testRuntime.runtime);
 
   assert.equal(await cli.run([]), 0);
-  for (const branch of ["server", "projects", "jobs", "builds", "queue", "agents"]) {
+  for (const branch of [
+    "server",
+    "projects",
+    "jobs",
+    "builds",
+    "queue",
+    "agents",
+  ]) {
     assert.match(testRuntime.stdout(), new RegExp(`\\b${branch}\\b`));
   }
 
@@ -39,7 +46,7 @@ test("exposes the complete recursive tree and permission in leaf help", async ()
   assert.match(testRuntime.stdout(), /Required permission: Update/);
 });
 
-test("renders representative values for every read branch in human and JSON modes", async () => {
+test("renders representative values for every read branch in human and JSON modes", async (t) => {
   server.use(
     http.get("https://teamcity.test/app/rest/server", () =>
       HttpResponse.json({
@@ -54,7 +61,9 @@ test("renders representative values for every read branch in human and JSON mode
       }),
     ),
     http.get("https://teamcity.test/app/rest/projects", () =>
-      HttpResponse.json({ project: [{ id: "Example", name: "Example", archived: false }] }),
+      HttpResponse.json({
+        project: [{ id: "Example", name: "Example", archived: false }],
+      }),
     ),
     http.get("https://teamcity.test/app/rest/buildTypes", () =>
       HttpResponse.json({
@@ -70,10 +79,14 @@ test("renders representative values for every read branch in human and JSON mode
       }),
     ),
     http.get("https://teamcity.test/app/rest/builds", () =>
-      HttpResponse.json({ build: [{ id: 101, state: "finished", status: "SUCCESS" }] }),
+      HttpResponse.json({
+        build: [{ id: 101, state: "finished", status: "SUCCESS" }],
+      }),
     ),
     http.get("https://teamcity.test/app/rest/buildQueue", () =>
-      HttpResponse.json({ build: [{ id: 201, state: "queued", queuePosition: 1 }] }),
+      HttpResponse.json({
+        build: [{ id: 201, state: "queued", queuePosition: 1 }],
+      }),
     ),
     http.get("https://teamcity.test/app/rest/agents", () =>
       HttpResponse.json({
@@ -100,21 +113,24 @@ test("renders representative values for every read branch in human and JSON mode
   ];
 
   for (const path of paths) {
-    const humanRuntime = await createTestRuntime();
+    const humanRuntime = await createTestRuntime(t);
     assert.equal(await createTeamCityCli(humanRuntime.runtime).run(path), 0);
     assert.notEqual(humanRuntime.stdout().trim(), "");
     assert.equal(humanRuntime.stderr(), "");
 
-    const jsonRuntime = await createTestRuntime();
-    assert.equal(await createTeamCityCli(jsonRuntime.runtime).run([...path, "--json"]), 0);
+    const jsonRuntime = await createTestRuntime(t);
+    assert.equal(
+      await createTeamCityCli(jsonRuntime.runtime).run([...path, "--json"]),
+      0,
+    );
     assert.doesNotThrow(() => JSON.parse(jsonRuntime.stdout()));
     assert.equal(jsonRuntime.stderr(), "");
   }
 });
 
-test("rejects invalid TeamCity options before fetch", async () => {
+test("rejects invalid TeamCity options before fetch", async (t) => {
   let fetchCalls = 0;
-  const testRuntime = await createTestRuntime();
+  const testRuntime = await createTestRuntime(t);
   testRuntime.runtime.fetch = async () => {
     fetchCalls += 1;
     return HttpResponse.json({});
@@ -142,7 +158,7 @@ test("rejects invalid TeamCity options before fetch", async () => {
   }
 });
 
-test("denies every side effect before fetch, then performs one request after Update grant", async () => {
+test("denies every side effect before fetch, then performs one request after Update grant", async (t) => {
   let postCalls = 0;
   server.use(
     http.post("https://teamcity.test/app/rest/buildQueue", () => {
@@ -164,7 +180,7 @@ test("denies every side effect before fetch, then performs one request after Upd
     ["builds", "cancel", "101"],
     ["queue", "cancel", "201"],
   ];
-  const testRuntime = await createTestRuntime();
+  const testRuntime = await createTestRuntime(t);
   const cli = createTeamCityCli(testRuntime.runtime);
 
   for (const argv of mutations) {
@@ -184,7 +200,7 @@ test("denies every side effect before fetch, then performs one request after Upd
   assert.equal(postCalls, 3);
 });
 
-test("keeps URL, token, and Update permission isolated by profile", async () => {
+test("keeps URL, token, and Update permission isolated by profile", async (t) => {
   let alphaCalls = 0;
   let betaCalls = 0;
   server.use(
@@ -198,27 +214,37 @@ test("keeps URL, token, and Update permission isolated by profile", async () => 
       return HttpResponse.json({ id: 302, state: "queued" });
     }),
   );
-  const testRuntime = await createTestRuntime({
+  const testRuntime = await createTestRuntime(t, {
     profiles: [
       {
         name: "alpha",
         url: "https://alpha.test",
         permissions: [Permission.ReadOnly, Permission.Update],
       },
-      { name: "beta", url: "https://beta.test", permissions: [Permission.ReadOnly] },
+      {
+        name: "beta",
+        url: "https://beta.test",
+        permissions: [Permission.ReadOnly],
+      },
     ],
     tokens: { alpha: "alpha-token", beta: "beta-token" },
   });
   const cli = createTeamCityCli(testRuntime.runtime);
 
-  assert.equal(await cli.run(["jobs", "run", "Example_Build", "--profile", "alpha"]), 0);
+  assert.equal(
+    await cli.run(["jobs", "run", "Example_Build", "--profile", "alpha"]),
+    0,
+  );
   testRuntime.resetOutput();
-  assert.equal(await cli.run(["jobs", "run", "Example_Build", "--profile", "beta"]), 1);
+  assert.equal(
+    await cli.run(["jobs", "run", "Example_Build", "--profile", "beta"]),
+    1,
+  );
   assert.equal(alphaCalls, 1);
   assert.equal(betaCalls, 0);
 });
 
-test("a persistent JSON-RPC session can interleave profiles and commands", async () => {
+test("a persistent JSON-RPC session can interleave profiles and commands", async (t) => {
   server.use(
     http.get("https://alpha.test/app/rest/server", ({ request }) => {
       assert.equal(request.headers.get("authorization"), "Bearer alpha-token");
@@ -251,7 +277,7 @@ test("a persistent JSON-RPC session can interleave profiles and commands", async
   const input =
     '{"jsonrpc":"2.0","id":1,"method":"cli.execute","params":{"argv":["server","status","--profile","alpha"]}}\n' +
     '{"jsonrpc":"2.0","id":2,"method":"cli.execute","params":{"argv":["jobs","list","--profile","beta"]}}\n';
-  const testRuntime = await createTestRuntime({
+  const testRuntime = await createTestRuntime(t, {
     profiles: [
       { name: "alpha", url: "https://alpha.test" },
       { name: "beta", url: "https://beta.test" },
@@ -260,38 +286,56 @@ test("a persistent JSON-RPC session can interleave profiles and commands", async
     input,
   });
 
-  assert.equal(await createTeamCityCli(testRuntime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(
+    await createTeamCityCli(testRuntime.runtime).run(["--json-rpc"]),
+    0,
+  );
   const frames = testRuntime
     .stdout()
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line) as { id: number; result: unknown });
-  assert.deepEqual(frames.map((frame) => frame.id), [1, 2]);
-  assert.equal((frames[0]?.result as { version: string }).version, "alpha-version");
-  assert.equal((frames[1]?.result as Array<{ id: string }>)[0]?.id, "Beta_Build");
+  assert.deepEqual(
+    frames.map((frame) => frame.id),
+    [1, 2],
+  );
+  assert.equal(
+    (frames[0]?.result as { version: string }).version,
+    "alpha-version",
+  );
+  assert.equal(
+    (frames[1]?.result as Array<{ id: string }>)[0]?.id,
+    "Beta_Build",
+  );
   assert.equal(testRuntime.stderr(), "");
 });
 
-test("auth login validates and stores a token without printing it", async () => {
+test("auth login validates and stores a token without printing it", async (t) => {
   server.use(
     http.get("https://teamcity.test/app/rest/users/current", ({ request }) => {
       assert.equal(request.headers.get("authorization"), "Bearer login-token");
       return HttpResponse.json({ id: 7, username: "fixture-user" });
     }),
   );
-  const testRuntime = await createTestRuntime({ tokens: {}, input: "login-token" });
+  const testRuntime = await createTestRuntime(t, {
+    tokens: {},
+    input: "login-token",
+  });
   const cli = createTeamCityCli(testRuntime.runtime);
 
   assert.equal(await cli.run(["auth", "login", "--token-stdin", "--json"]), 0);
   assert.equal(
-    await testRuntime.secretStore.get("ai-cli-factory:teamcity-cli", "default:token"),
+    await testRuntime.secretStore.get(
+      "ai-cli-factory:teamcity-cli",
+      "default:token",
+    ),
     "login-token",
   );
   assert.equal(testRuntime.stdout().includes("login-token"), false);
   assert.equal(testRuntime.stderr().includes("login-token"), false);
 });
 
-test("explicit guest profile configuration needs no token and uses guest REST", async () => {
+test("explicit guest profile configuration needs no token and uses guest REST", async (t) => {
   const publicServer = "https://teamcity.jetbrains.com";
   server.use(
     http.get(`${publicServer}/guestAuth/app/rest/server`, ({ request }) => {
@@ -303,7 +347,7 @@ test("explicit guest profile configuration needs no token and uses guest REST", 
       });
     }),
   );
-  const testRuntime = await createTestRuntime({
+  const testRuntime = await createTestRuntime(t, {
     profiles: [{ name: "default" }],
     tokens: {},
   });
@@ -327,10 +371,13 @@ test("explicit guest profile configuration needs no token and uses guest REST", 
     authenticated: true,
     identity: null,
   });
-  assert.deepEqual((await testRuntime.profileStore.get("jetbrains-demo")).values, {
-    url: publicServer,
-    guest: true,
-  });
+  assert.deepEqual(
+    (await testRuntime.profileStore.get("jetbrains-demo")).values,
+    {
+      url: publicServer,
+      guest: true,
+    },
+  );
 
   testRuntime.resetOutput();
   assert.equal(
@@ -345,7 +392,13 @@ test("explicit guest profile configuration needs no token and uses guest REST", 
 
   testRuntime.resetOutput();
   assert.equal(
-    await cli.run(["server", "status", "--profile", "jetbrains-demo", "--json"]),
+    await cli.run([
+      "server",
+      "status",
+      "--profile",
+      "jetbrains-demo",
+      "--json",
+    ]),
     0,
   );
   assert.equal(JSON.parse(testRuntime.stdout()).buildNumber, "238763");

@@ -42,6 +42,9 @@ export interface CommandContext {
   secrets: ScopedSecrets;
   fetch: typeof globalThis.fetch;
   signal: AbortSignal;
+  io: CliIo;
+  cwd: string;
+  environment: Readonly<NodeJS.ProcessEnv>;
 }
 
 export interface CommandInput {
@@ -96,13 +99,52 @@ export interface TokenValidationContext {
   signal: AbortSignal;
 }
 
-export interface TokenAuthDefinition {
-  kind: "token";
-  secretName: string;
-  environmentVariable?: string;
-  /** Allows a configured profile (for example guest access) to opt out of token auth. */
+export interface AuthStatus {
+  authenticated: boolean;
+  identity?: unknown;
+}
+
+export interface AuthContext extends CommandContext {
+  interactive: boolean;
+  stdinAvailable: boolean;
+}
+
+/** Applications own the protocol. Core owns the common command surface. */
+export interface AuthDefinition {
   required?: (profile: Profile) => boolean;
-  validate?: (context: TokenValidationContext) => unknown | Promise<unknown>;
+  /** Optional local-only preflight. Must not launch/change browser resources or contact services.
+   * Omit when readiness cannot be determined passively; the service handler then enforces auth. */
+  isReady?: (context: AuthReadinessContext) => boolean | Promise<boolean>;
+  /** Environment inputs consumed by this auth implementation; hosts forward only declared keys. */
+  environmentKeys?: readonly string[];
+  loginOptions?: readonly OptionDefinition[];
+  login: (
+    context: AuthContext,
+    options: Record<string, unknown>,
+  ) => Promise<AuthStatus>;
+  /** Explicit auth status command only; may actively validate with the service. */
+  status: (context: AuthContext) => Promise<AuthStatus>;
+  logout: (context: AuthContext) => Promise<void>;
+}
+
+export type AuthReadinessContext = Pick<
+  CommandContext,
+  "appArguments" | "profile" | "secrets" | "signal" | "environment"
+>;
+
+export interface CliIo {
+  input: Readable;
+  output: Writable;
+  error: Writable;
+}
+
+export interface CliInvocation {
+  input?: Readable;
+  output?: Writable;
+  error?: Writable;
+  signal?: AbortSignal;
+  cwd?: string;
+  environment?: Readonly<NodeJS.ProcessEnv>;
 }
 
 export interface CliRuntime {
@@ -121,10 +163,25 @@ export interface CliDefinition {
   version?: string;
   applicationId?: string;
   profile?: ProfileDefinition;
-  auth?: TokenAuthDefinition;
+  auth?: AuthDefinition;
+  /** Extra per-invocation environment inputs; combined with auth.environmentKeys by the host. */
+  environmentKeys?: readonly string[];
+  /** Maximum executing logical commands; omitted means no extra limit. */
+  concurrency?: number;
+  /** Owned instances, closed in reverse registration order. Never register caller-owned I/O. */
+  resources?: readonly CliResource[];
   permissions?: PermissionGateDefinition;
   commands: readonly CommandDefinition[];
+  /** Module-owned local management commands, not service leaves. */
+  builtins?: readonly CommandDefinition[];
   runtime?: CliRuntime;
+}
+
+/** Flat ownership only: no service lookup, scopes or dependency graph. */
+export interface CliResource {
+  dispose(): void | Promise<void>;
+  /** Called before configure login, after non-auth updates, and before deletion; commands are excluded. */
+  invalidateProfile?(appArguments: IAppArguments): void | Promise<void>;
 }
 
 export interface ProfileStoreContract {
@@ -135,10 +192,14 @@ export interface ProfileStoreContract {
   setDefault(name: string): Promise<Profile>;
   delete(name: string): Promise<{ deleted: string; default: string }>;
   getPermissions(name?: string): Promise<readonly string[] | undefined>;
-  setPermissions(name: string, permissions: readonly string[]): Promise<readonly string[]>;
+  setPermissions(
+    name: string,
+    permissions: readonly string[],
+  ): Promise<readonly string[]>;
 }
 
 export interface CliApplication {
-  run(argv?: readonly string[]): Promise<number>;
+  run(argv?: readonly string[], invocation?: CliInvocation): Promise<number>;
+  dispose(): Promise<void>;
   execute(argv: readonly string[], signal?: AbortSignal): Promise<unknown>;
 }

@@ -1,4 +1,9 @@
 #!/usr/bin/env node
 import { createYouTrackCli } from "./cli.js";
 
-process.exitCode = await createYouTrackCli().run();
+const app = createYouTrackCli();
+try {
+  process.exitCode = await app.run();
+} finally {
+  await app.dispose();
+}
