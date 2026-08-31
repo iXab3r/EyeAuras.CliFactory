@@ -31,7 +31,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         "List root files, not recursively",
         R,
         (c, { args, options }) =>
-          c.listFiles(kind, text(args, "id"), undefined, Number(options.limit)),
+          c.listFiles(kind, args.id, undefined, Number(options.limit)),
         [count],
       ),
       leaf(
@@ -39,11 +39,11 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         "List immediate children at a relative path",
         R,
         (c, { args, options }) =>
-          c.listFiles(kind, text(args, "id"), text(args, "path"), Number(options.limit)),
+          c.listFiles(kind, args.id, args.path, Number(options.limit)),
         [count],
       ),
       leaf("metadata <id> <path>", "Read one file metadata object", R, (c, { args }) =>
-        c.getFileMetadata(kind, text(args, "id"), text(args, "path")),
+        c.getFileMetadata(kind, args.id, args.path),
       ),
       ...(["download", "archive"] as const).map((action) =>
         command(
@@ -89,15 +89,15 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
       "artifacts-path <id>",
       "Read absolute SERVER directory path; do not open locally",
       R,
-      (c, { args }) => c.getArtifactsPath(text(args, "id")),
+      (c, { args }) => c.getArtifactsPath(args.id),
     ),
     command(
       "source <id> <path>",
       "Save one source file from selected build",
       async ({ args, options }, context) =>
         (await clientFor(context)).downloadSource(
-          text(args, "id"),
-          text(args, "path"),
+          args.id,
+          args.path,
           context.appArguments,
           destination(options),
         ),
@@ -123,8 +123,8 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
       "Resolve one parameter to a new keyring alias; never print value",
       async ({ args, options }, context) =>
         (await clientFor(context)).resolveBuildParameter(
-          text(args, "id"),
-          text(args, "name"),
+          args.id,
+          args.name,
           text(options, "storeAs"),
           context.secrets,
         ),
@@ -139,7 +139,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
       "settings-path <id>",
       "Read absolute SERVER configuration path, not file contents",
       R,
-      (c, { args }) => c.getSettingsPath(kind, text(args, "id")),
+      (c, { args }) => c.getSettingsPath(kind, args.id),
     );
   const projects = [
     settings("projects"),
@@ -149,7 +149,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         "Create/reuse reference from an input-secret alias and store it in keyring",
         async ({ args, options }, context) =>
           (await clientFor(context)).createSecureReference(
-            text(args, "id"),
+            args.id,
             text(options, "valueSecret"),
             text(options, "storeAs"),
             context.secrets,
@@ -167,7 +167,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         "Resolve secret reference into a new input-secret alias; never print",
         async ({ args, options }, context) =>
           (await clientFor(context)).resolveSecureReference(
-            text(args, "id"),
+            args.id,
             text(options, "reference"),
             text(options, "storeAs"),
             context.secrets,
@@ -184,7 +184,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         "forget-reference <alias>",
         "Delete only a local secure-reference entry, not remote value",
         async ({ args }, context) => {
-          const alias = text(args, "alias");
+          const alias = args.alias;
           try {
             await context.secrets.delete(referenceKey(alias));
           } catch {

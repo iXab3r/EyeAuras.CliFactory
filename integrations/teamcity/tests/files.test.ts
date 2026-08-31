@@ -2,12 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtemp, readFile, rm, readdir, mkdir, writeFile, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 import { AppArguments } from "@eyeauras/cli-factory";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 import { fileCases, sourceBytes, pngBytes } from "./files-cases.js";
 import { safeFile, remotePath } from "../src/file-models.js";
@@ -36,8 +35,13 @@ async function fileRuntime(testContext: test.TestContext, input = "", parent = t
     root,
     runtime,
     appArguments,
-    cli: createTeamCityCli(runtime.runtime),
-    cleanup: () => rm(root, { recursive: true, force: true }),
+    cli: runtime.createCli(),
+    cleanup: async () => {
+      await runtime.dispose();
+      assert.equal(await realpath(root), root);
+      assert.equal(dirname(root), await realpath(parent));
+      await rm(root, { recursive: true, force: true });
+    },
   };
 }
 for (const c of fileCases)
@@ -386,7 +390,7 @@ test("S10 cancellation during a response discards owned staging and suppresses a
           },
         }),
       );
-    const cli = createTeamCityCli(t.runtime.runtime);
+    const cli = t.runtime.createCli();
     await assert.rejects(
       cli.execute(download, controller.signal),
       (e) =>

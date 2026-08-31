@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 test("packaged bin: help, configuration, HTTP output, errors and JSON-RPC", async (context) => {
-  const root = await mkdtemp(join(tmpdir(), "random-cli-process-"));
+  const root = await mkdtemp(join(tmpdir(), "rr-"));
 
   const bin = fileURLToPath(new URL("../src/bin.js", import.meta.url));
   const preload = new URL("./fixtures/process-preload.js", import.meta.url)

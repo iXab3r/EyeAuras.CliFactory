@@ -383,7 +383,7 @@ test("persistent article RPC isolates profiles and mutation gates while retainin
   const input = commands.map((argv, i) => JSON.stringify({
     jsonrpc: "2.0", id: i + 1, method: "cli.execute", params: { argv },
   })).join("\n") + "\n";
-  const rpc = createYouTrackCli({ ...f.runtime, input: Readable.from([input]) });
+  const rpc = f.createApplication(runtime => createYouTrackCli({ ...runtime, input: Readable.from([input]) }));
   assert.equal(await rpc.run(["--json-rpc"]), 0);
   const rows = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.equal(rows.length, 4);

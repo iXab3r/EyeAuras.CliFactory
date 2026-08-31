@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { TeamCityClient } from "../src/client.js";
 import { createTestRuntime } from "./support.js";
 import { adminCases } from "./admin-cases.js";
@@ -14,7 +13,7 @@ test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 async function administrator(testContext: test.TestContext) {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Admin"]);
   await cli.execute(["permissions", "grant", "Credentials"]);
   return { cli, runtime };
@@ -34,7 +33,7 @@ test("S7 all new gates deny before HTTP; Update grants neither Admin nor Credent
   const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: ["Update"] }],
   });
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -308,7 +307,7 @@ test("S7 JSON-RPC token issuance isolates credentials and custom gates across pr
       return HttpResponse.json({ name: "ExampleToken", value: "synthetic-issued-token" });
     }),
   );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()

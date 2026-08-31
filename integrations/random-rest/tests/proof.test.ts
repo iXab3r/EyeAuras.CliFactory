@@ -101,7 +101,7 @@ test("live assertions reject bad results and never print payloads or subprocess 
 });
 
 test("same live runner and CLI processes pass under MSW, stop after failure, and refuse CI", async (context) => {
-  const root = await mkdtemp(join(tmpdir(), "random-live-runner-test-"));
+  const root = await mkdtemp(join(tmpdir(), "rr-"));
 
   const preload = new URL("./fixtures/process-preload.js", import.meta.url)
     .href;

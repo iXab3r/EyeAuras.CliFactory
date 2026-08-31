@@ -145,6 +145,75 @@ Mock the boundary, not the implementation.
 For the end-to-end authoring sequence and repository placement, see
 [`integrations.md`](integrations.md).
 
+## Shared offline CLI fixture
+
+Import `createCliFixture` from `@eyeauras/cli-factory/testing`; the ordinary package export
+does not initialize or re-export testing utilities. The fixture creates a canonical temporary
+root, isolated AppArguments, memory secrets and a real ProfileStore view. Omitted `profiles`
+leaves the virtual default unconfigured. Explicit profile entries contain `name`, non-secret
+`values`, optional exact `permissions` and optional synthetic `secrets` keyed by credential name.
+Nothing logs in, launches a browser, grants Update, installs mocks or contacts a service.
+
+Create every application through `fixture.createApplication(runtime => ...)`. It passes the
+isolated runtime to the real integration factory and records its application for disposal.
+The exposed ProfileStore supports preparation/inspection of the real document; it is not injected
+by default, because Core must preserve the integration's profile defaults and validation.
+A non-default `defaultProfile` requires explicit profile preparation to persist that identity.
+
+Register the fixture with the current node:test context before other setup. Cleanup is registered
+before profile preparation and application creation; it disposes all registered applications in
+reverse order before checking the root's identity and removing only that owned directory.
+A changed root is retained and reported. A failed application shutdown also retains temporary data,
+since resources may still use it. Failed test assertions still run the registered cleanup.
+
+Use the application's `execute` for domain results and the fixture's `stdout()`, `stderr()` and
+`resetOutput()` for existing runtime-stream tests. `run(app, argv, invocation?)` returns
+`{ exitCode, stdout, stderr }` using fresh captured streams, fixture cwd and an empty environment
+unless explicitly supplied. `json(app, argv, invocation?)` parses successful JSON output;
+`rpc(app, commandArgvList, invocation?)` sends successive requests through one real RPC session.
+Both require a successful transport/CLI exit; RPC command errors remain response objects.
+The raw application's `execute` and `run` retain their normal environment semantics; auth tests
+must explicitly provide synthetic environment inputs when those inputs are under test.
+
+TeamCity's support adapter retains its declared synthetic URL/token and existing independent
+ProfileStore/AppArguments overrides; `createCli()` registers each application with the fixture.
+Its profile-isolation suite uses the unconfigured shared fixture directly. YouTrack's adapter is
+unconfigured and retains only profile-path observation plus its actual application factory.
+Both integrations' ordinary, authentication and persistent RPC suites use these adapters.
+
+Specialized fixtures remain where their purpose differs: TeamCity's hostile download roots and
+YouTrack's direct download roots exercise path replacement and filesystem publication; upload
+tests create separate synthetic input files; TeamCity packaged-process tests require process-owned
+AppData. These do not become service-aware options on the shared fixture. TeamCity's separate
+download-root cleanup disposes its applications before removing the root. Existing Core lifecycle
+and optional runtime fixtures remain focused on their own lower-level/process/browser contracts.
+### Shared command-contract assertions
+
+The testing entry point also exports small independent assertions. `assertHttpRequest` checks
+an independently authored method, origin/path, exact query (including repeated values), selected
+headers and optional JSON/text body. Omitted body means no request body. Service response shaping,
+unusual multipart/preflight behavior and MSW handlers remain ordinary integration callbacks.
+
+Wrap a catch-all MSW handler with `trackRequests(t, expectedCount, respond)` and delegate to its
+`handle(request)`. It records every request, rejects excess calls and registers final verification
+with the test context. Resolver assertion failures are rethrown outside MSW, rather than disappearing
+behind the CLI's sanitized HTTP error. Tests still compare the independently authored domain result.
+
+`assertPermissionDenied(app, argv, category, requests)` requires an explicit category and zero
+service requests. It never infers permissions or grants them. `assertCliOutput(fixture, app, argv,
+expected, humanPattern, requests)` is specifically for repeatable mocked commands with exactly one
+HTTP request per invocation: it verifies human and JSON output separately on the same application,
+including the per-mode request count. Multi-request workflows retain their direct assertions.
+`assertSafeCliFailure` checks exit status, empty stdout, expected stderr and caller-supplied forbidden
+patterns. No automatic redaction or broad snapshot comparison is implied.
+
+Current samples cover TeamCity's explicit Update JSON/text/204 authoring workflow and operator
+list/detail/create, RPC and sanitized failures, plus YouTrack catalog and work-time reads/mutations,
+disabled ReadOnly/Update and multi-profile RPC recovery. The larger pre-existing TeamCity case loops
+and specialized endpoint/security tests remain direct tests; their legacy method-based permission
+selection is not a feature or guarantee of these helpers.
+
+
 ## Browser observation regressions
 
 Headed tests require a real or virtual graphical display: use

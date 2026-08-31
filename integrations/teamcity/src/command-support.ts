@@ -2,7 +2,7 @@ import {
   command,
   type CommandContext,
   type CommandDefinition,
-  type CommandInput,
+  type InferredCommandHandler,
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
 import type { TeamCityClient } from "./client.js";
@@ -62,11 +62,11 @@ export const propertyOption: OptionDefinition = {
   parse: collectProperty,
 };
 
-export type ClientLeaf = (
-  name: string,
+export type ClientLeaf = <const Syntax extends string>(
+  name: Syntax,
   description: string,
   permission: string,
-  run: (client: TeamCityClient, input: CommandInput) => unknown,
+  run: (client: TeamCityClient, input: Parameters<InferredCommandHandler<Syntax>>[0]) => unknown,
   options?: readonly OptionDefinition[],
 ) => CommandDefinition;
 

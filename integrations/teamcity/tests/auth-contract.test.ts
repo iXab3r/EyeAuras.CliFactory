@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 
 const server = setupServer();
@@ -27,7 +26,7 @@ test("TeamCity configure validates the environment candidate at the new endpoint
     profiles: [{ name: "default", url: "https://old.teamcity.test" }, { name: "other", url: "https://other.teamcity.test" }],
     tokens: { default: "synthetic-old", other: "synthetic-other" },
   });
-  const cli = createTeamCityCli(h.runtime);
+  const cli = h.createCli();
   let calls = 0;
   server.use(http.get("https://new.teamcity.test/app/rest/users/current", async ({ request }) => {
     calls++;
@@ -48,7 +47,7 @@ test("TeamCity configure validates the environment candidate at the new endpoint
 test("TeamCity rejected endpoint replacement preserves the original profile and credential", async (t) => {
   environment(t, "synthetic-rejected");
   const h = await createTestRuntime(t, { tokens: { default: "synthetic-old" } });
-  const cli = createTeamCityCli(h.runtime);
+  const cli = h.createCli();
   server.use(http.get("https://new.teamcity.test/app/rest/users/current", () => new HttpResponse(null, { status: 401 })));
   await assert.rejects(cli.execute(["profile", "configure", "default", "--url", "https://new.teamcity.test"]), /401/);
   assert.equal((await h.profileStore.get()).values.url, "https://teamcity.test");
@@ -62,7 +61,7 @@ test("TeamCity guest configuration and guest login refusal never touch credentia
   h.secretStore.set = async () => { assert.fail("Guest configuration wrote credentials"); };
   h.secretStore.delete = async () => { assert.fail("Guest configuration deleted credentials"); };
   h.runtime.fetch = async () => { assert.fail("Guest configuration reached auth HTTP"); };
-  const cli = createTeamCityCli(h.runtime);
+  const cli = h.createCli();
   assert.deepEqual(await cli.execute([
     "profile", "configure", "guest", "--url", "https://guest.teamcity.test", "--guest",
   ]), { configured: true, profile: "guest", authenticated: true, identity: null });

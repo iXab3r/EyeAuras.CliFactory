@@ -1,23 +1,6 @@
-import { Readable, Writable } from "node:stream";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { TestContext } from "node:test";
-import {
-  MemorySecretStore,
-  type CliRuntime,
-  AppArguments,
-  ProfileStore,
-} from "@eyeauras/cli-factory";
-
-export interface TestRuntime {
-  runtime: CliRuntime;
-  profileStore: ProfileStore;
-  secretStore: MemorySecretStore;
-  stdout(): string;
-  stderr(): string;
-  resetOutput(): void;
-}
+import { createCliFixture } from "@eyeauras/cli-factory/testing";
+import { createTeamCityCli } from "../src/cli.js";
 
 export async function createTestRuntime(
   t: TestContext,
@@ -31,76 +14,22 @@ export async function createTestRuntime(
     tokens?: Record<string, string>;
     input?: string;
   } = {},
-): Promise<TestRuntime> {
-  const profiles = options.profiles ?? [
-    { name: "default", url: "https://teamcity.test" },
-  ];
+) {
+  const profiles = options.profiles ?? [{ name: "default", url: "https://teamcity.test" }];
   const first = profiles[0];
   if (!first) throw new Error("At least one test profile is required.");
-  const root = await mkdtemp(join(tmpdir(), "teamcity-cli-test-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const appArguments = new AppArguments({
-    AppName: "teamcity-cli",
-    Profile: first.name,
-    Environment: {
-      EnvironmentAppData: root,
-      EnvironmentLocalAppData: root,
-      AppDomainDirectory: root,
-      ApplicationExecutablePath: join(root, "bin.js"),
-      ProcessId: process.pid,
-    },
-  });
-  const profileStore = new ProfileStore({
+  const fixture = await createCliFixture(t, {
     applicationId: "teamcity-cli",
-    appArguments,
-    defaultName: first.name,
+    defaultProfile: first.name,
+    profiles: profiles.map(({ name, permissions, ...values }) => ({
+      name, values, ...(permissions === undefined ? {} : { permissions }),
+    })),
+    ...(options.input === undefined ? {} : { input: options.input }),
   });
-  for (const { name, permissions, ...values } of profiles) {
-    if (name === first.name) await profileStore.set(name, values);
-    else await profileStore.create(name, values);
-    if (permissions !== undefined)
-      await profileStore.setPermissions(name, permissions);
+  // Keep the existing TeamCity tests' independent profile-store/AppArguments overrides.
+  fixture.runtime.profileStore = fixture.profileStore;
+  for (const [profile, token] of Object.entries(options.tokens ?? { default: "fixture-token" })) {
+    await fixture.secretStore.set("ai-cli-factory:teamcity-cli", `${profile}:token`, token);
   }
-  const secretStore = new MemorySecretStore();
-  for (const [profile, token] of Object.entries(
-    options.tokens ?? { default: "fixture-token" },
-  )) {
-    await secretStore.set(
-      "ai-cli-factory:teamcity-cli",
-      `${profile}:token`,
-      token,
-    );
-  }
-  let stdout = "";
-  let stderr = "";
-  const output = new Writable({
-    write(chunk, _encoding, callback) {
-      stdout += chunk.toString();
-      callback();
-    },
-  });
-  const error = new Writable({
-    write(chunk, _encoding, callback) {
-      stderr += chunk.toString();
-      callback();
-    },
-  });
-  return {
-    runtime: {
-      appArguments,
-      input: Readable.from([options.input ?? ""]),
-      output,
-      error,
-      profileStore,
-      secretStore,
-    },
-    profileStore,
-    secretStore,
-    stdout: () => stdout,
-    stderr: () => stderr,
-    resetOutput() {
-      stdout = "";
-      stderr = "";
-    },
-  };
+  return { ...fixture, createCli: () => fixture.createApplication(createTeamCityCli) };
 }

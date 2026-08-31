@@ -49,6 +49,11 @@ literal callback when invoked through the factory parser. The stored mutable `Co
 remains broad; changing its name/run or manually invoking its erased handler is outside that
 inference guarantee.
 
+Thin integration wrappers preserve this inference by keeping the command name generic and using
+the exported `InferredCommandHandler<Syntax>` callback type (or its input parameter type).
+The same complete-declaration fallbacks and broad stored definitions apply. TeamCity's client
+binding uses this type without changing runtime parsing, options or domain validation.
+
 ### Handlers return domain data
 
 Command handlers return values and do not decide whether output is human-readable or JSON. The
@@ -426,6 +431,14 @@ Development follows a thin vertical TDD loop:
 
 MSW intercepts the native `fetch` boundary in Node tests. Fixtures are data, not a second client
 implementation. Full rules are in [`testing.md`](testing.md).
+
+The separate `@eyeauras/cli-factory/testing` entry point supplies offline fixture mechanics
+without entering the default production export. It owns canonical temporary AppArguments,
+memory credentials, a real profile-document view, output capture and registered application
+disposal before guarded directory cleanup. Service definitions, auth protocols, synthetic HTTP
+contracts and explicit permission choices remain with integrations. Preparation never logs in
+or grants permissions implicitly; unconfigured state is supported. An application's normal profile
+store retains its service validation rather than being replaced by a generic fixture store.
 
 A profile-backed integration proof is development evidence, not regression coverage. It uses a
 named profile from the current user's normal AppData and credentials from the normal OS keyring; it

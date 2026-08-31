@@ -5,6 +5,7 @@ export { privateDirectory, privateEndpoint } from "./private-storage.js";
 export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
 export { command } from "./command.js";
+export type { InferredCommandHandler } from "./command-input.js";
 export { formatHuman, writeResult } from "./output.js";
 export { Permission } from "./permissions.js";
 export { ProfileStore } from "./profile-store.js";

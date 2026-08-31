@@ -3,7 +3,6 @@ import test from "node:test";
 import { Permission } from "@eyeauras/cli-factory";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 
 const server = setupServer();
@@ -14,7 +13,7 @@ test.after(() => server.close());
 
 test("exposes the complete recursive tree and permission in leaf help", async (t) => {
   const testRuntime = await createTestRuntime(t);
-  const cli = createTeamCityCli(testRuntime.runtime);
+  const cli = testRuntime.createCli();
 
   assert.equal(await cli.run([]), 0);
   for (const branch of [
@@ -114,13 +113,13 @@ test("renders representative values for every read branch in human and JSON mode
 
   for (const path of paths) {
     const humanRuntime = await createTestRuntime(t);
-    assert.equal(await createTeamCityCli(humanRuntime.runtime).run(path), 0);
+    assert.equal(await humanRuntime.createCli().run(path), 0);
     assert.notEqual(humanRuntime.stdout().trim(), "");
     assert.equal(humanRuntime.stderr(), "");
 
     const jsonRuntime = await createTestRuntime(t);
     assert.equal(
-      await createTeamCityCli(jsonRuntime.runtime).run([...path, "--json"]),
+      await jsonRuntime.createCli().run([...path, "--json"]),
       0,
     );
     assert.doesNotThrow(() => JSON.parse(jsonRuntime.stdout()));
@@ -135,7 +134,7 @@ test("rejects invalid TeamCity options before fetch", async (t) => {
     fetchCalls += 1;
     return HttpResponse.json({});
   };
-  const cli = createTeamCityCli(testRuntime.runtime);
+  const cli = testRuntime.createCli();
 
   assert.equal(await cli.run(["builds", "list", "--limit", "101"]), 1);
   assert.match(testRuntime.stderr(), /between 1 and 100/);
@@ -181,7 +180,7 @@ test("denies every side effect before fetch, then performs one request after Upd
     ["queue", "cancel", "201"],
   ];
   const testRuntime = await createTestRuntime(t);
-  const cli = createTeamCityCli(testRuntime.runtime);
+  const cli = testRuntime.createCli();
 
   for (const argv of mutations) {
     testRuntime.resetOutput();
@@ -229,7 +228,7 @@ test("keeps URL, token, and Update permission isolated by profile", async (t) =>
     ],
     tokens: { alpha: "alpha-token", beta: "beta-token" },
   });
-  const cli = createTeamCityCli(testRuntime.runtime);
+  const cli = testRuntime.createCli();
 
   assert.equal(
     await cli.run(["jobs", "run", "Example_Build", "--profile", "alpha"]),
@@ -287,7 +286,7 @@ test("a persistent JSON-RPC session can interleave profiles and commands", async
   });
 
   assert.equal(
-    await createTeamCityCli(testRuntime.runtime).run(["--json-rpc"]),
+    await testRuntime.createCli().run(["--json-rpc"]),
     0,
   );
   const frames = testRuntime
@@ -321,7 +320,7 @@ test("auth login validates and stores a token without printing it", async (t) =>
     tokens: {},
     input: "login-token",
   });
-  const cli = createTeamCityCli(testRuntime.runtime);
+  const cli = testRuntime.createCli();
 
   assert.equal(await cli.run(["auth", "login", "--token-stdin", "--json"]), 0);
   assert.equal(
@@ -351,7 +350,7 @@ test("explicit guest profile configuration needs no token and uses guest REST", 
     profiles: [{ name: "default" }],
     tokens: {},
   });
-  const cli = createTeamCityCli(testRuntime.runtime);
+  const cli = testRuntime.createCli();
 
   assert.equal(
     await cli.run([

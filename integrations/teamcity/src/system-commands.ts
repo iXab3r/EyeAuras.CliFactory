@@ -47,15 +47,15 @@ export function createSystemCommands(
         "Create a dashboard",
         U,
         (c, { args, options }) =>
-          c.createDashboard(text(args, "id"), text(options, "name"), text(options, "project")),
+          c.createDashboard(args.id, text(options, "name"), text(options, "project")),
         [option("--name <text>", "Name", true), { ...project, required: true }],
       ),
-      leaf("show <id>", "Read one dashboard", R, (c, { args }) => c.getDashboard(text(args, "id"))),
+      leaf("show <id>", "Read one dashboard", R, (c, { args }) => c.getDashboard(args.id)),
       leaf(
         "delete <id>",
         "Delete dashboard",
         U,
-        (c, { args }) => c.deleteDashboard(text(args, "id")),
+        (c, { args }) => c.deleteDashboard(args.id),
         [confirm],
       ),
       command("instances", "One parent dashboard; no implicit traversal", [
@@ -64,7 +64,7 @@ export function createSystemCommands(
           "Read one instance page",
           R,
           (c, { args, options }) =>
-            c.listDeploymentInstances(text(args, "dashboard"), page(options)),
+            c.listDeploymentInstances(args.dashboard, page(options)),
           pageOptions,
         ),
         leaf(
@@ -73,8 +73,8 @@ export function createSystemCommands(
           U,
           (c, { args, options }) =>
             c.upsertDeploymentInstance(
-              text(args, "dashboard"),
-              text(args, "id"),
+              args.dashboard,
+              args.id,
               text(options, "state"),
               text(options, "date"),
               optional(options, "build"),
@@ -82,7 +82,7 @@ export function createSystemCommands(
           [...stateOptions, confirm],
         ),
         leaf("show <dashboard> <id>", "Read one instance", R, (c, { args }) =>
-          c.getDeploymentInstance(text(args, "dashboard"), text(args, "id")),
+          c.getDeploymentInstance(args.dashboard, args.id),
         ),
         leaf(
           "append-state <dashboard> <id>",
@@ -90,8 +90,8 @@ export function createSystemCommands(
           U,
           (c, { args, options }) =>
             c.appendDeploymentState(
-              text(args, "dashboard"),
-              text(args, "id"),
+              args.dashboard,
+              args.id,
               text(options, "state"),
               text(options, "date"),
               optional(options, "build"),
@@ -102,7 +102,7 @@ export function createSystemCommands(
           "delete <dashboard> <id>",
           "Remove selected instance",
           U,
-          (c, { args }) => c.deleteDeploymentInstance(text(args, "dashboard"), text(args, "id")),
+          (c, { args }) => c.deleteDeploymentInstance(args.dashboard, args.id),
           [confirm],
         ),
       ]),
@@ -127,13 +127,13 @@ export function createSystemCommands(
       ],
     ),
     leaf("show <id>", "Read role definition", R, (c, { args }) =>
-      c.getRoleDefinition(text(args, "id")),
+      c.getRoleDefinition(args.id),
     ),
     leaf(
       "delete <id>",
       "Delete role definition",
       "Admin",
-      (c, { args }) => c.deleteRoleDefinition(text(args, "id")),
+      (c, { args }) => c.deleteRoleDefinition(args.id),
       [confirm],
     ),
     ...(["included", "permissions"] as const).map((kind) =>
@@ -169,7 +169,7 @@ export function createSystemCommands(
         "start <name>",
         "Schedule config/database backup with timestamp, no logs/personal/running/supplementary data",
         "Admin",
-        (c, { args }) => c.startBackup(text(args, "name")),
+        (c, { args }) => c.startBackup(args.name),
         [confirm],
       ),
     ]),
@@ -210,14 +210,14 @@ export function createSystemCommands(
         "show <alias>",
         "Inspect alias-referenced license",
         async ({ args }, context) =>
-          (await clientFor(context)).getLicense(text(args, "alias"), context.secrets),
+          (await clientFor(context)).getLicense(args.alias, context.secrets),
         { permission: R },
       ),
       command(
         "delete <alias>",
         "Remove remote license; retain local alias",
         async ({ args }, context) =>
-          (await clientFor(context)).deleteLicense(text(args, "alias"), context.secrets),
+          (await clientFor(context)).deleteLicense(args.alias, context.secrets),
         { permission: "Admin", options: [confirm] },
       ),
     ]),
@@ -229,28 +229,28 @@ export function createSystemCommands(
       "field <field>",
       "Read allowlisted version/clock/role field; never superuser token",
       R,
-      (c, { args }) => c.getServerField(text(args, "field")),
+      (c, { args }) => c.getServerField(args.field),
     ),
   ];
   const projects = [
     leaf("default-value-sets <id>", "Read named value-set types, not values", R, (c, { args }) =>
-      c.getDefaultValueSets(text(args, "id")),
+      c.getDefaultValueSets(args.id),
     ),
     command("deployments", "Dashboards within the explicit parent project", [
       leaf("list <id>", "Read native project dashboard list", R, (c, { args }) =>
-        c.listProjectDashboards(text(args, "id")),
+        c.listProjectDashboards(args.id),
       ),
       leaf("show <project> <id>", "Read one child dashboard", R, (c, { args }) =>
-        c.getProjectDashboard(text(args, "project"), text(args, "id")),
+        c.getProjectDashboard(args.project, args.id),
       ),
     ]),
   ];
   const jobs = [
     leaf("investigations <id>", "Read scoped investigations", R, (c, { args }) =>
-      c.getJobInvestigations(text(args, "id")),
+      c.getJobInvestigations(args.id),
     ),
     leaf("vcs-instances <id>", "Read attached VCS instances", R, (c, { args }) =>
-      c.getJobVcsInstances(text(args, "id")),
+      c.getJobVcsInstances(args.id),
     ),
   ];
   const users = [
@@ -260,10 +260,10 @@ export function createSystemCommands(
         "replace <id>",
         "Upload selected regular PNG/JPEG up to4MiB",
         U,
-        (c, { args, options }) => c.replaceAvatar(text(args, "id"), text(options, "file")),
+        (c, { args, options }) => c.replaceAvatar(args.id, text(options, "file")),
         [option("--file <path>", "Explicit local image path", true)],
       ),
-      leaf("delete <id>", "Remove avatar", U, (c, { args }) => c.deleteAvatar(text(args, "id"))),
+      leaf("delete <id>", "Remove avatar", U, (c, { args }) => c.deleteAvatar(args.id)),
     ]),
   ];
   const pools = [
@@ -273,7 +273,7 @@ export function createSystemCommands(
         "Mint and store each token under an unused profile input-secret alias",
         async ({ args, options }, context) =>
           (await clientFor(context)).createPoolTokens(
-            text(args, "id"),
+            args.id,
             Number(options.ttl),
             options.storeAs as string[],
             context.secrets,
@@ -312,7 +312,7 @@ export function createSystemCommands(
         (c, { options }) => c.listAudit(page(options), optional(options, "project")),
         [...pageOptions, project],
       ),
-      leaf("show <id>", "Read one audit event", R, (c, { args }) => c.getAudit(text(args, "id"))),
+      leaf("show <id>", "Read one audit event", R, (c, { args }) => c.getAudit(args.id)),
     ]),
     command("health", "Typed scope and category, no invented identity locator", [
       leaf(
@@ -333,7 +333,7 @@ export function createSystemCommands(
       command("categories", "Discover native health categories", [
         leaf("list", "Read category metadata", R, (c) => c.listHealthCategories()),
         leaf("show <id>", "Read one category", R, (c, { args }) =>
-          c.getHealthCategory(text(args, "id")),
+          c.getHealthCategory(args.id),
         ),
       ]),
     ]),

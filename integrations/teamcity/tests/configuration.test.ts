@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { TeamCityClient } from "../src/client.js";
 import { createTestRuntime } from "./support.js";
 import { configurationCases } from "./configuration-cases.js";
@@ -15,7 +14,7 @@ test.after(() => server.close());
 
 async function writableCli(testContext: test.TestContext) {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
@@ -31,7 +30,7 @@ test("all S2 leaves declare their gate and deny before HTTP", async (testContext
       return HttpResponse.json({});
     }),
   );
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   for (const example of configurationCases) {
     await assert.rejects(
       cli.execute(example.argv),
@@ -335,7 +334,7 @@ test("S2 JSON-RPC preserves profile URL/token/gates and continues after help and
       return HttpResponse.json({});
     }),
   );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()

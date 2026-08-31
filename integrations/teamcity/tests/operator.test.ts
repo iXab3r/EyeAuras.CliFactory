@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { assertHttpRequest, trackRequests, assertPermissionDenied, assertCliOutput, assertSafeCliFailure } from "@eyeauras/cli-factory/testing";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 import { operatorCases } from "./operator-cases.js";
 
@@ -13,7 +13,7 @@ test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 async function writable(testContext: test.TestContext) {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
@@ -22,7 +22,7 @@ test("all 50 S4 leaves deny before HTTP without their declared profile permissio
   const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -272,20 +272,25 @@ test("S4 JSON-RPC isolates profiles, credentials and permission failures and con
         .join("\n") + "\n",
   });
   const calls: string[] = [];
-  server.use(
-    http.put("https://uat.test/app/rest/builds/id:42/pinInfo", async ({ request }) => {
-      assert.equal(request.headers.get("Authorization"), "Bearer fixture-uat-token");
-      assert.deepEqual(await request.json(), { status: false });
+  const requests = trackRequests(testContext, 2, async (request, index) => {
+    if (index === 0) {
+      await assertHttpRequest(request, {
+        method: "PUT", url: "https://uat.test/app/rest/builds/id:42/pinInfo",
+        query: { fields: "status,comment(text,timestamp)" },
+        headers: { authorization: "Bearer fixture-uat-token" }, body: { json: { status: false } },
+      });
       calls.push("uat");
       return HttpResponse.json({ status: false });
-    }),
-    http.get(`${base}/agents/id:7/pool`, ({ request }) => {
-      assert.equal(request.headers.get("Authorization"), "Bearer fixture-token");
-      calls.push("default");
-      return HttpResponse.json({ id: 0 });
-    }),
-  );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+    }
+    await assertHttpRequest(request, {
+      method: "GET", url: base + "/agents/id:7/pool", query: { fields: "id,name" },
+      headers: { authorization: "Bearer fixture-token" },
+    });
+    calls.push("default");
+    return HttpResponse.json({ id: 0 });
+  });
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()
@@ -414,7 +419,7 @@ test("S4 help for every operation and version require no profile configuration, 
     profiles: [{ name: "default", permissions: [] }],
     tokens: {},
   });
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   let calls = 0;
   server.use(
     http.all("*", () => {
@@ -430,4 +435,59 @@ test("S4 help for every operation and version require no profile configuration, 
   assert.match(runtime.stdout().trim(), /^\d+\.\d+\.\d+$/);
   assert.equal(calls, 0);
   assert.equal(runtime.stderr(), "");
+});
+test("operator list/detail/create contracts have one request in each human and JSON mode", async t => {
+  const pool = { id: 1, name: "Pool" };
+  const samples: Array<{
+    argv: string[]; permission: string; method: string; path: string; query: Record<string, string>;
+    response: unknown; expected: unknown; body?: unknown;
+  }> = [
+    { argv: ["pools", "list"], permission: "ReadOnly", method: "GET", path: "/agentPools",
+      query: { locator: "start:0,count:100", fields: "agentPool(id,name)" }, response: { agentPool: [pool] }, expected: [pool] },
+    { argv: ["pools", "show", "1"], permission: "ReadOnly", method: "GET", path: "/agentPools/id:1",
+      query: { fields: "id,name" }, response: pool, expected: pool },
+    { argv: ["pools", "create", "--name", "Pool"], permission: "Update", method: "POST", path: "/agentPools",
+      query: {}, response: pool, expected: pool, body: { name: "Pool" } },
+  ];
+  for (const sample of samples) {
+    const f = await createTestRuntime(t);
+    const cli = f.createCli();
+    const requests = trackRequests(t, 2, async request => {
+      await assertHttpRequest(request, {
+        method: sample.method, url: base + sample.path, query: sample.query,
+        headers: { authorization: "Bearer fixture-token" },
+        ...(sample.body ? { body: { json: sample.body } } : {}),
+      });
+      return Response.json(sample.response);
+    });
+    server.use(http.all("*", ({ request }) => requests.handle(request)));
+    await cli.execute(["permissions", "revoke", sample.permission]);
+    await assertPermissionDenied(cli, sample.argv, sample.permission, requests);
+    await cli.execute(["permissions", "grant", sample.permission]);
+    await assertCliOutput(f, cli, sample.argv, sample.expected, /Pool/, requests);
+  }
+});
+
+test("operator JSON failure output excludes the remote payload", async t => {
+  const f = await createTestRuntime(t);
+  const requests = trackRequests(t, 1, () =>
+    HttpResponse.text("fixture-token synthetic-private-response", { status: 403 }));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  await assertSafeCliFailure(f, f.createCli(), ["pools", "show", "1", "--json"],
+    /TeamCity request failed with HTTP 403/, /fixture-token|synthetic-private/);
+});
+
+test("MSW resolver assertion failures remain visible after the CLI sanitizes the HTTP error", async t => {
+  const f = await createTestRuntime(t);
+  const hooks: (() => void)[] = [];
+  const context = { after(callback: () => void) { hooks.push(callback); } } as Pick<test.TestContext, "after">;
+  const requests = trackRequests(context, 1, async request => {
+    await assertHttpRequest(request, { method: "GET", url: base + "/deliberately-wrong" });
+    return HttpResponse.json({ id: 1 });
+  });
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  assert.equal(await f.createCli().run(["pools", "show", "1", "--json"]), 1);
+  assert.match(f.stderr(), /HTTP 500/);
+  assert.equal(hooks.length, 1);
+  assert.throws(hooks[0]!, /HTTP origin\/path/);
 });

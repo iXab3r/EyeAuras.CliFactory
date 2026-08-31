@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import test from "node:test";
 import { AppArguments } from "@eyeauras/cli-factory";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 
 test("missing nested TeamCity argument returns RPC error without ending the session", async (testContext) => {
@@ -34,7 +33,7 @@ test("missing nested TeamCity argument returns RPC error without ending the sess
     assert.fail("Argument errors and help must not call TeamCity.");
   };
 
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.equal(frames.length, 2);
   assert.equal(frames[0].jsonrpc, "2.0");

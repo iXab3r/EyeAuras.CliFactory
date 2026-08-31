@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertHttpRequest, trackRequests, assertPermissionDenied, assertCliOutput, assertSafeCliFailure } from "@eyeauras/cli-factory/testing";
 import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -13,31 +14,23 @@ after(() => server.close());
 const service = "ai-cli-factory:youtrack-cli";
 
 for (const row of catalogCases) test(`catalog CLI ${row.argv.join(" ")} binds its route and human/JSON output`, async (t) => {
-  for (const json of [false, true]) {
-    const f = await fixture(t);
-    await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-    await f.secrets.set(service, "dev:token", "synthetic-token");
-    let calls = 0;
-    const result = row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" };
-    server.use(http.get("*", ({ request }) => {
-      calls++;
-      const url = new URL(request.url);
-      assert.equal(url.pathname, row.path);
-      assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
-      assert.deepEqual(Object.fromEntries(url.searchParams), {
-        fields: "id", ...(row.collection ? { $top: "2", $skip: "3" } : {}),
-      });
-      return HttpResponse.json(result);
-    }));
-    assert.equal(await f.cli.run([
-      ...row.argv, "--fields", "id", ...(row.collection ? ["--top", "2", "--skip", "3"] : []),
-      "--profile", "dev", ...(json ? ["--json"] : []),
-    ]), 0);
-    if (json) assert.deepEqual(JSON.parse(f.stdout()), result);
-    else assert.match(f.stdout(), /fixture-result/);
-    assert.equal(f.stderr(), "");
-    assert.equal(calls, 1);
-  }
+  const f = await fixture(t);
+  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
+  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const result = row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" };
+  const requests = trackRequests(t, 2, async request => {
+    await assertHttpRequest(request, {
+      method: "GET", url: "https://youtrack.example.com" + row.path,
+      headers: { authorization: "Bearer synthetic-token" },
+      query: { fields: "id", ...(row.collection ? { $top: "2", $skip: "3" } : {}) },
+    });
+    return HttpResponse.json(result);
+  });
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  await assertCliOutput(f, f.cli, [
+    ...row.argv, "--fields", "id", ...(row.collection ? ["--top", "2", "--skip", "3"] : []),
+    "--profile", "dev",
+  ], result, /fixture-result/, requests);
 });
 
 test("every catalog leaf requires ReadOnly even when Update is enabled", async (t) => {
@@ -46,12 +39,10 @@ test("every catalog leaf requires ReadOnly even when Update is enabled", async (
   await f.secrets.set(service, "dev:token", "synthetic-token");
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
-  let calls = 0;
-  server.use(http.all("*", () => { calls++; return HttpResponse.json({}); }));
-  for (const row of catalogCases) {
-    await assert.rejects(f.cli.execute([...row.argv, "--profile", "dev"]), /Permission 'ReadOnly' is disabled/);
-  }
-  assert.equal(calls, 0);
+  const requests = trackRequests(t, 0, () => HttpResponse.json({}));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  for (const row of catalogCases)
+    await assertPermissionDenied(f.cli, [...row.argv, "--profile", "dev"], "ReadOnly", requests);
 });
 
 test("catalog CLI rejects unsupported filters, detail pagination and malformed paging before fetch", async (t) => {
@@ -91,15 +82,17 @@ test("catalog RPC isolates profile URLs, tokens, permissions and AppData and sur
   }
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "disabled"]);
   const calls: string[] = [];
-  server.use(http.get("*", ({ request }) => {
+  const tracked = trackRequests(t, 3, request => {
     const url = new URL(request.url);
     const profile = url.hostname.split(".")[0];
+    assert.equal(request.method, "GET");
     assert.equal(request.headers.get("authorization"), `Bearer synthetic-${profile}`);
     calls.push(`${url.hostname}${url.pathname}`);
     if (profile === "production") return new HttpResponse("synthetic-production private-response", { status: 403 });
     if (url.pathname.endsWith("/types")) return HttpResponse.json([]);
     return HttpResponse.json({ id: "fixture-value", description: "synthetic-dev", localizedName: null });
-  }));
+  });
+  server.use(http.all("*", ({ request }) => tracked.handle(request)));
   f.paths.length = 0;
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
@@ -125,14 +118,10 @@ test("catalog ordinary JSON errors stay on stderr with one failed request and no
   const f = await fixture(t);
   await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
   await f.secrets.set(service, "dev:token", "synthetic-token");
-  let calls = 0;
-  server.use(http.get("*", () => {
-    calls++;
-    return new HttpResponse("synthetic-token private-response", { status: 403 });
-  }));
-  assert.equal(await f.cli.run(["field", "get", "fixture-field", "--profile", "dev", "--json"]), 1);
-  assert.equal(calls, 1);
-  assert.equal(f.stdout(), "");
-  assert.match(f.stderr(), /YouTrack request failed \(HTTP 403\)/);
-  assert.doesNotMatch(f.stderr(), /synthetic-|private-response/);
+  const requests = trackRequests(t, 1, () =>
+    new HttpResponse("synthetic-token private-response", { status: 403 }));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  await assertSafeCliFailure(f, f.cli,
+    ["field", "get", "fixture-field", "--profile", "dev", "--json"],
+    /YouTrack request failed \(HTTP 403\)/, /synthetic-|private-response/);
 });

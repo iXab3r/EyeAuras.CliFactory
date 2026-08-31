@@ -59,10 +59,10 @@ export function createOperatorCommands(
     ),
     command("fields", "Read/set pool name", [
       leaf("show <pool-id> <field>", "Read name", Permission.ReadOnly, (c, { args }) =>
-        c.getPoolField(number(args, "pool-id"), text(args, "field")),
+        c.getPoolField(number(args, "pool-id"), args.field),
       ),
       leaf("set <pool-id> <field> <value>", "Set name", Permission.Update, (c, { args }) =>
-        c.setPoolField(number(args, "pool-id"), text(args, "field"), text(args, "value")),
+        c.setPoolField(number(args, "pool-id"), args.field, args.value),
       ),
     ]),
     command("agents", "Manage agents assigned to a pool", [
@@ -92,13 +92,13 @@ export function createOperatorCommands(
         "assign <pool-id> <project-id>",
         "Assign a project to the pool",
         Permission.Update,
-        (c, { args }) => c.assignPoolProject(number(args, "pool-id"), text(args, "project-id")),
+        (c, { args }) => c.assignPoolProject(number(args, "pool-id"), args["project-id"]),
       ),
       leaf(
         "unassign <pool-id> <project-id>",
         "Remove membership; never delete the project",
         Permission.Update,
-        (c, { args }) => c.unassignPoolProject(number(args, "pool-id"), text(args, "project-id")),
+        (c, { args }) => c.unassignPoolProject(number(args, "pool-id"), args["project-id"]),
       ),
     ]),
   ]);
@@ -118,7 +118,7 @@ export function createOperatorCommands(
           c.setAgentStatus(
             number(args, "agent-id"),
             kind,
-            booleanText(text(args, "status")) === "true",
+            booleanText(args.status) === "true",
             comment(options),
           ),
         [commentOption],
@@ -158,7 +158,7 @@ export function createOperatorCommands(
         (c, { args, options }) =>
           c.setAgentPolicy(
             number(args, "agent-id"),
-            text(args, "policy"),
+            args.policy,
             (options.job ?? []) as string[],
           ),
         [repeatOption("--job <job-id>", "Repeat for selected jobs; forbidden with any")],
@@ -183,14 +183,14 @@ export function createOperatorCommands(
         "show <agent-id> <field>",
         "Read id, name, connected, enabled or authorized",
         Permission.ReadOnly,
-        (c, { args }) => c.getAgentField(number(args, "agent-id"), text(args, "field")),
+        (c, { args }) => c.getAgentField(number(args, "agent-id"), args.field),
       ),
       leaf(
         "set <agent-id> <field> <value>",
         "Set enabled or authorized to true/false",
         Permission.Update,
         (c, { args }) =>
-          c.setAgentField(number(args, "agent-id"), text(args, "field"), text(args, "value")),
+          c.setAgentField(number(args, "agent-id"), args.field, args.value),
       ),
     ]),
   ];
@@ -239,14 +239,14 @@ export function createOperatorCommands(
         "show <position>",
         "Show build at a positive position, first or last",
         Permission.ReadOnly,
-        (c, { args }) => c.getQueuePosition(text(args, "position")),
+        (c, { args }) => c.getQueuePosition(args.position),
       ),
       leaf(
         "set <position>",
         "Move a build to 1, first or last only",
         Permission.Update,
         (c, { args, options }) =>
-          c.setQueuePosition(text(args, "position"), number(options, "build")),
+          c.setQueuePosition(args.position, number(options, "build")),
         [option("--build <build-id>", "Queued build ID", true)],
       ),
     ]),
@@ -260,7 +260,7 @@ export function createOperatorCommands(
         "set <build-id> <value>",
         "Set the value; server requires a running build",
         Permission.Update,
-        (c, { args }) => c.setBuildScalar(number(args, "build-id"), field, text(args, "value")),
+        (c, { args }) => c.setBuildScalar(number(args, "build-id"), field, args.value),
       ),
     ]);
   }
@@ -314,7 +314,7 @@ export function createOperatorCommands(
         (c, { args, options }) =>
           c.setBuildPin(
             number(args, "build-id"),
-            booleanText(text(args, "status")) === "true",
+            booleanText(args.status) === "true",
             comment(options),
           ),
         [commentOption],
@@ -331,7 +331,7 @@ export function createOperatorCommands(
         "show <build-id> <name>",
         "Read one statistic as numeric text",
         Permission.ReadOnly,
-        (c, { args }) => c.getBuildStatistic(number(args, "build-id"), text(args, "name")),
+        (c, { args }) => c.getBuildStatistic(number(args, "build-id"), args.name),
       ),
     ]),
     command("fields", "Read id, buildTypeId, state or branchName", [
@@ -342,7 +342,7 @@ export function createOperatorCommands(
         (c, { args }) =>
           c.getBuildScalar(
             number(args, "build-id"),
-            allowedField(text(args, "field"), ["id", "buildTypeId", "state", "branchName"]),
+            allowedField(args.field, ["id", "buildTypeId", "state", "branchName"]),
           ),
       ),
     ]),

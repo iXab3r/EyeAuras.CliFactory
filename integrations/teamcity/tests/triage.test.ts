@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { TeamCityClient } from "../src/client.js";
 import { createTestRuntime } from "./support.js";
 import { triageCases } from "./triage-cases.js";
@@ -14,7 +13,7 @@ test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 async function writable(testContext: test.TestContext) {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
@@ -37,7 +36,7 @@ test("S6 all 50 gates deny before any HTTP", async (testContext) => {
       return HttpResponse.json({});
     }),
   );
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   for (const example of triageCases)
     await assert.rejects(
       cli.execute(example.argv),
@@ -264,7 +263,7 @@ test("S6 metadata probes discard private bytes and bound reading even on an unen
   assert.ok(pulled <= 5);
   assert.equal(canceled, true);
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   server.use(
     http.get(base + "/builds/id:42/resulting-properties/env.MODE", () =>
       HttpResponse.text("synthetic-private-value"),
@@ -344,7 +343,7 @@ test("S6 persistent RPC keeps profile auth/gates and generated help isolated", a
       return HttpResponse.json({ id: "9223372036854775807" });
     }),
   );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()

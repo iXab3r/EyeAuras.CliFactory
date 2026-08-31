@@ -394,6 +394,32 @@ The default suite never calls the real service. Local proof is opt-in, uses the 
 an explicit real current-user profile/keyring, and executes only a fixed bounded ReadOnly inventory.
 It refuses CI. New sensitive/expensive reads do not automatically join that inventory.
 
+### A shared offline fixture
+
+Use the separate testing entry point for synthetic state and application ownership:
+
+```ts
+import { createCliFixture } from "@eyeauras/cli-factory/testing";
+
+const fixture = await createCliFixture(t, {
+  applicationId: "acme-cli",
+  profiles: [{
+    name: "default",
+    values: { url: "https://acme.example.com" },
+    secrets: { token: "synthetic-test-token" },
+  }],
+});
+const app = fixture.createApplication(runtime =>
+  createCli({ ...createDefinition(), runtime }),
+);
+const value = await fixture.json(app, ["resources", "list"]);
+```
+
+The test installs its own MSW handlers before invoking the app and independently asserts the
+request and result. Omit `profiles` to test unconfigured onboarding, and declare permission changes
+explicitly. The fixture does not assume token authentication; credential names belong to the
+integration. Every created app is disposed before the fixture deletes its temporary AppData.
+See [the testing guide](testing.md#shared-offline-cli-fixture) for invocation and cleanup details.
 ## Native wire formats and private results
 
 CLI output format is independent of REST media. A text/XML/multipart/binary service contract does

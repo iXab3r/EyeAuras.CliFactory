@@ -138,7 +138,7 @@ export function createAdvancedAuthoringCommands(
       bulk.replaceAll(kind),
       entityFields(kind),
       leaf("list <job-id>", "List rules in server order", Permission.ReadOnly, (c, { args }) =>
-        c.listRules(kind, text(args, "job-id")),
+        c.listRules(kind, args["job-id"]),
       ),
       leaf(
         `show <job-id> <${arg}>`,
@@ -150,7 +150,7 @@ export function createAdvancedAuthoringCommands(
         "create <job-id>",
         "Add a rule",
         Permission.Update,
-        (c, { args, options }) => c.createRule(text(args, "job-id"), input(options)),
+        (c, { args, options }) => c.createRule(args["job-id"], input(options)),
         options,
       ),
       leaf(
@@ -173,13 +173,13 @@ export function createAdvancedAuthoringCommands(
   const features = command("features", "Manage project features; changes are active immediately", [
     bulk.replaceAll("projectFeatures"),
     leaf("list <project-id>", "List redacted features", Permission.ReadOnly, (c, { args }) =>
-      c.listProjectFeatures(text(args, "project-id")),
+      c.listProjectFeatures(args["project-id"]),
     ),
     leaf(
       "show <project-id> <feature-id>",
       "Show a redacted feature",
       Permission.ReadOnly,
-      (c, { args }) => c.getProjectFeature(text(args, "project-id"), text(args, "feature-id")),
+      (c, { args }) => c.getProjectFeature(args["project-id"], args["feature-id"]),
     ),
     leaf(
       "create <project-id>",
@@ -187,7 +187,7 @@ export function createAdvancedAuthoringCommands(
       Permission.Update,
       (c, { args, options }) =>
         c.createProjectFeature(
-          text(args, "project-id"),
+          args["project-id"],
           text(options, "type"),
           (options.property ?? []) as PlainProperty[],
         ),
@@ -199,8 +199,8 @@ export function createAdvancedAuthoringCommands(
       Permission.Update,
       (c, { args, options }) =>
         c.replaceProjectFeature(
-          text(args, "project-id"),
-          text(args, "feature-id"),
+          args["project-id"],
+          args["feature-id"],
           text(options, "type"),
           (options.property ?? []) as PlainProperty[],
         ),
@@ -210,12 +210,12 @@ export function createAdvancedAuthoringCommands(
       "delete <project-id> <feature-id>",
       "Delete one project feature",
       Permission.Update,
-      (c, { args }) => c.deleteProjectFeature(text(args, "project-id"), text(args, "feature-id")),
+      (c, { args }) => c.deleteProjectFeature(args["project-id"], args["feature-id"]),
     ),
   ]);
   const templates = command("templates", "Create templates and manage the project default", [
     leaf("list <project-id>", "List own templates", Permission.ReadOnly, (c, { args }) =>
-      c.listProjectTemplates(text(args, "project-id")),
+      c.listProjectTemplates(args["project-id"]),
     ),
     leaf(
       "create <project-id> <template-id>",
@@ -223,8 +223,8 @@ export function createAdvancedAuthoringCommands(
       Permission.Update,
       (c, { args, options }) =>
         c.createProjectTemplate(
-          text(args, "project-id"),
-          text(args, "template-id"),
+          args["project-id"],
+          args["template-id"],
           text(options, "name"),
         ),
       [option("--name <name>", "Template display name", true)],
@@ -234,21 +234,21 @@ export function createAdvancedAuthoringCommands(
         "show <project-id>",
         "Show the effective default template",
         Permission.ReadOnly,
-        (c, { args }) => c.getDefaultTemplate(text(args, "project-id")),
+        (c, { args }) => c.getDefaultTemplate(args["project-id"]),
       ),
       leaf(
         "set <project-id>",
         "Set the default template",
         Permission.Update,
         (c, { args, options }) =>
-          c.setDefaultTemplate(text(args, "project-id"), text(options, "template")),
+          c.setDefaultTemplate(args["project-id"], text(options, "template")),
         [option("--template <template-id>", "Existing template ID", true)],
       ),
       leaf(
         "clear <project-id>",
         "Remove the own default; inherited defaults may remain",
         Permission.Update,
-        (c, { args }) => c.clearDefaultTemplate(text(args, "project-id")),
+        (c, { args }) => c.clearDefaultTemplate(args["project-id"]),
       ),
     ]),
   ]);
@@ -278,7 +278,7 @@ export function createAdvancedAuthoringCommands(
         "parent <project-id>",
         "Show parent project identity",
         Permission.ReadOnly,
-        (c, { args }) => c.getProjectParent(text(args, "project-id")),
+        (c, { args }) => c.getProjectParent(args["project-id"]),
       ),
     ],
     jobs: [
@@ -286,14 +286,14 @@ export function createAdvancedAuthoringCommands(
       rules("artifact-dependencies"),
       fields("jobs"),
       leaf("aliases <job-id>", "List historical external IDs", Permission.ReadOnly, (c, { args }) =>
-        c.listJobAliases(text(args, "job-id")),
+        c.listJobAliases(args["job-id"]),
       ),
       leaf(
         "branches <job-id>",
         "List one bounded page of branches",
         Permission.ReadOnly,
         (c, { args, options }) =>
-          c.listJobBranches(text(args, "job-id"), {
+          c.listJobBranches(args["job-id"], {
             limit: Number(options.limit),
             start: Number(options.start),
           }),
@@ -303,7 +303,7 @@ export function createAdvancedAuthoringCommands(
         "tags <job-id>",
         "List tags used by this job's builds",
         Permission.ReadOnly,
-        (c, { args }) => c.listJobTags(text(args, "job-id")),
+        (c, { args }) => c.listJobTags(args["job-id"]),
       ),
     ],
   };
