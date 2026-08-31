@@ -85,6 +85,26 @@ Safety comes from construction:
 Mocked tests remain the durable regression suite because they are deterministic and safe. The local
 proof answers a different question: “Does the real built product work with this real profile now?”
 
+TeamCity and YouTrack import the separate `@eyeauras/cli-factory/proof` entry. Their runners call
+`parseProofProfile(argv, environment)` before invoking even an injected test invoker. It accepts
+only `--profile <name>` using Core's profile-name rules. CI preflight recognizes nonempty `CI`,
+`GITHUB_ACTIONS`, `TF_BUILD`, `BUILD_BUILDID`, `TEAMCITY_VERSION`, `JENKINS_URL` and `BUILDKITE`
+variables regardless of casing; a value of `false` still means the variable is present.
+
+`createProofInvoker({ executable, environment?, credentialEnvironment?, timeoutMs?, maxOutputBytes? })`
+takes a packaged-entry file URL and returns a function accepting code-owned `{ argv, stdin? }`.
+It checks CI again before every spawn, removes named credential variables case-insensitively,
+closes stdin after writing, and returns stdout only on exit zero. Defaults are 30 seconds per child
+and 65,536 bytes **per stream**, with stderr drained without retention. Limits must be positive
+safe integers; timeout is at most 2,147,483,647 ms. Startup/input/output failure, timeout and byte
+overflow terminate the child and close its pipes before settlement; errors never include raw child
+diagnostics. Integration code parses JSON/RPC and prints only its own safe method/count summaries.
+
+Offline Core tests use synthetic Node children to exercise this process boundary without profiles,
+keyrings or a network. Integration tests still assert their complete fixed inventories and service
+shapes. Success requires the expected number of rows, at least one passed row, and no failed rows;
+dependent skips cannot hide a failed source read. There is no shared endpoint registry or report DSL.
+
 ### TeamCity
 
 Configure a local profile through `profile configure`, then run:
@@ -96,8 +116,19 @@ npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
 The command builds Core and TeamCity first, then invokes the compiled CLI through that profile. Its
 19 proof rows cover local permission inspection, authentication, bounded collection/detail reads,
 build diagnostics, VCS root discovery and a two-request JSON-RPC session. Unpaged scoped authoring
-lists are not included; their behavior and all mutations are proven with MSW. It accepts no endpoint or token override and
-refuses `CI` or `GITHUB_ACTIONS` environments before launching the CLI.
+lists are not included; their behavior and all mutations are proven with MSW. It accepts no endpoint
+or token override, removes `TEAMCITY_TOKEN` regardless of casing, and uses the shared CI preflight.
+The 64 KiB per-stream bound replaces TeamCity's formerly unbounded capture; oversized responses now
+fail the affected row instead of accumulating indefinitely. The two RPC requests still share one
+child process and both response envelopes and service results must validate.
+
+### YouTrack
+
+`npm run test:integration --workspace @eyeauras/youtrack-cli -- --profile <name>` runs the existing
+24 fixed ReadOnly rows. Service projections, ID validation, bounded pages and dependent skips stay
+in the integration. It uses the same 30-second/64-KiB process bounds and removes `YOUTRACK_TOKEN`
+regardless of casing. Failed/denied reads remain failures; empty prerequisite lists skip only their
+dependent reads. The proof neither prints service payloads nor expands its inventory dynamically.
 
 ### RANDOM.ORG examples
 
@@ -125,6 +156,13 @@ Transport tests run on real local named pipes/Unix sockets, not TCP substitutes.
 [platform evidence](../.workspace/workstreams/random-playwright/implementation-ledger.md).
 
 ## Required evidence
+
+Shared option-parser regressions cover signed/unsigned decimal spelling, leading zeros, safe bounds,
+invalid JSON and non-echoing errors without causes. Core exercises required options and declared
+defaults through CLI, execute and persistent RPC. TeamCity and YouTrack exercise real native-fetch
+paging plus invalid input in unconfigured TTY, JSON, execute and RPC calls before credentials or HTTP.
+TeamCity also retains repeated JSON order and strict numeric-ID validation. YouTrack range/overflow
+rejection now occurs before onboarding; direct-client domain validation stays covered separately.
 
 Changes to application-data behavior use an injected `AppArgumentsEnvironment`; tests never redirect
 the real user's folders. Cover the exact `RoamingAppDataDirectory/Profile` composition, separation of

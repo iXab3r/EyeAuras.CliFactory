@@ -1,26 +1,12 @@
-import { spawn } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { createProofInvoker, parseProofProfile, type ProofInvoker } from "@eyeauras/cli-factory/proof";
 
 const pageLimit = "3";
-const profileNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 export interface ProofOptions {
   profile: string;
 }
-
-export interface CliInvocation {
-  argv: readonly string[];
-  stdin?: string;
-}
-
-export interface CliInvocationResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-export type CliInvoker = (invocation: CliInvocation) => Promise<CliInvocationResult>;
 
 export interface ProofEntry {
   method: string;
@@ -35,23 +21,7 @@ export interface ProofReport {
 
 export interface ProofDependencies {
   environment: NodeJS.ProcessEnv;
-  invoke: CliInvoker;
-}
-
-export function parseProofOptions(argv: readonly string[]): ProofOptions {
-  if (argv.length !== 2 || argv[0] !== "--profile" || !argv[1]) {
-    throw new Error("Usage: test:integration -- --profile <name>");
-  }
-  if (!profileNamePattern.test(argv[1])) {
-    throw new Error("The profile name is invalid.");
-  }
-  return { profile: argv[1] };
-}
-
-export function assertLocalProofEnvironment(environment: NodeJS.ProcessEnv): void {
-  if (environment.CI || environment.GITHUB_ACTIONS) {
-    throw new Error("Profile-backed integration proof is local-only and cannot run in CI/CD.");
-  }
+  invoke: ProofInvoker;
 }
 
 function objectValue(value: unknown, description: string): Record<string, unknown> {
@@ -89,7 +59,7 @@ export async function runProfileProof(
   options: ProofOptions,
   dependencies: ProofDependencies,
 ): Promise<ProofReport> {
-  assertLocalProofEnvironment(dependencies.environment);
+  parseProofProfile(["--profile", options.profile], dependencies.environment);
   const entries: ProofEntry[] = [];
 
   const executeJson = async (
@@ -97,29 +67,15 @@ export async function runProfileProof(
     argv: readonly string[],
     inspect: (value: unknown) => string,
   ): Promise<unknown | undefined> => {
-    let invocation: CliInvocationResult;
     try {
-      invocation = await dependencies.invoke({
+      const stdout = await dependencies.invoke({
         argv: [...argv, "--profile", options.profile, "--json"],
       });
-    } catch {
-      entries.push({ method, status: "failed", detail: "CLI process could not start" });
-      return undefined;
-    }
-    if (invocation.exitCode !== 0) {
-      entries.push({
-        method,
-        status: "failed",
-        detail: `CLI exited with code ${invocation.exitCode}`,
-      });
-      return undefined;
-    }
-    try {
-      const value: unknown = JSON.parse(invocation.stdout);
+      const value: unknown = JSON.parse(stdout);
       entries.push({ method, status: "passed", detail: inspect(value) });
       return value;
     } catch {
-      entries.push({ method, status: "failed", detail: "invalid JSON or response shape" });
+      entries.push({ method, status: "failed", detail: "CLI failed or returned an invalid response" });
       return undefined;
     }
   };
@@ -269,44 +225,37 @@ export async function runProfileProof(
     .map((frame) => JSON.stringify(frame))
     .join("\n");
   try {
-    const invocation = await dependencies.invoke({
+    const stdout = await dependencies.invoke({
       argv: ["--json-rpc"],
       stdin: `${rpcInput}\n`,
     });
-    if (invocation.exitCode !== 0) {
-      entries.push({
-        method: "JSON-RPC session",
-        status: "failed",
-        detail: `CLI exited with code ${invocation.exitCode}`,
-      });
-    } else {
-      const frames = invocation.stdout
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => objectValue(JSON.parse(line) as unknown, "JSON-RPC frame"));
-      if (
-        frames.length !== 2 ||
-        frames[0]?.id !== 1 ||
-        frames[1]?.id !== 2 ||
-        frames.some((frame) => frame.error !== undefined)
-      ) {
-        throw new Error("Unexpected JSON-RPC response.");
-      }
-      if (
-        typeof objectValue(frames[0]!.result, "JSON-RPC server response").version !== "string" ||
-        arrayValue(frames[1]!.result, "JSON-RPC queue response").length > 1
-      ) {
-        throw new Error("Unexpected JSON-RPC result shape.");
-      }
-      entries.push({ method: "JSON-RPC session", status: "passed", detail: "2 responses" });
+    const frames = stdout
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => objectValue(JSON.parse(line) as unknown, "JSON-RPC frame"));
+    if (
+      frames.length !== 2 ||
+      frames[0]?.id !== 1 ||
+      frames[1]?.id !== 2 ||
+      frames.some((frame) => frame.jsonrpc !== "2.0" || "error" in frame || !("result" in frame))
+    ) {
+      throw new Error("Unexpected JSON-RPC response.");
     }
+    if (
+      typeof objectValue(frames[0]!.result, "JSON-RPC server response").version !== "string" ||
+      arrayValue(frames[1]!.result, "JSON-RPC queue response").length > 1
+    ) {
+      throw new Error("Unexpected JSON-RPC result shape.");
+    }
+    entries.push({ method: "JSON-RPC session", status: "passed", detail: "2 responses" });
   } catch {
     entries.push({ method: "JSON-RPC session", status: "failed", detail: "invalid response" });
   }
 
   return {
-    success: entries.every((entry) => entry.status !== "failed"),
+    success: entries.length === 19 && entries.some((entry) => entry.status === "passed") &&
+      entries.every((entry) => entry.status !== "failed"),
     entries,
   };
 }
@@ -323,40 +272,15 @@ export function formatProofReport(report: ProofReport): string {
   return `${lines.join("\n")}\n`;
 }
 
-export function createProcessInvoker(): CliInvoker {
-  const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../src/bin.js");
-  return ({ argv, stdin }) =>
-    new Promise<CliInvocationResult>((resolveInvocation, reject) => {
-      const child = spawn(process.execPath, [cliPath, ...argv], {
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-        timeout: 30_000,
-      });
-      let stdout = "";
-      let stderr = "";
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
-      child.stdout.on("data", (chunk: string) => {
-        stdout += chunk;
-      });
-      child.stderr.on("data", (chunk: string) => {
-        stderr += chunk;
-      });
-      child.once("error", reject);
-      child.stdin.once("error", reject);
-      child.once("close", (exitCode) => {
-        resolveInvocation({ exitCode: exitCode ?? 1, stdout, stderr });
-      });
-      child.stdin.end(stdin);
-    });
-}
-
 async function main(): Promise<void> {
   try {
-    const options = parseProofOptions(process.argv.slice(2));
-    const report = await runProfileProof(options, {
+    const profile = parseProofProfile(process.argv.slice(2));
+    const report = await runProfileProof({ profile }, {
       environment: process.env,
-      invoke: createProcessInvoker(),
+      invoke: createProofInvoker({
+        executable: new URL("../src/bin.js", import.meta.url),
+        credentialEnvironment: ["TEAMCITY_TOKEN"],
+      }),
     });
     process.stdout.write(formatProofReport(report));
     if (!report.success) {

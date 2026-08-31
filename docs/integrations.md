@@ -380,6 +380,36 @@ Use small local functions for proven repetition, such as TeamCity's project/job 
 and profile-scoped client binding. Do not promote its HTTP or property semantics into Core.
 For expansion work, follow the [50-operation authoring review practice](practices/integration-authoring-reviews.md).
 
+Use the small Core parser factories when an option needs decimal integer bounds or JSON syntax:
+
+```ts
+import { integerParser, jsonParser } from "@eyeauras/cli-factory";
+
+const options = [
+  {
+    flags: "--count <number>", description: "Maximum results", defaultValue: 50,
+    parse: integerParser({
+      min: 1, max: 100, signed: false,
+      errorMessage: "Count must be a decimal integer between 1 and 100.",
+    }),
+  },
+  {
+    flags: "--body <json>", description: "Supported service fields", required: true,
+    parse: jsonParser("Body must be valid JSON."),
+  },
+];
+```
+
+Pass these options through the existing command settings. Keep defaults, bounds and signed syntax
+service-owned; `signed: true` permits a minus, never a plus. Neither parser trims input, and numeric
+parsing rejects decimals, exponents and unsafe values. Choose valid defaults: Commander does not
+parse them. Use literal, non-secret error messages rather than interpolated input. JSON values are
+`unknown`, so the service still validates objects, fields and null/omitted semantics. Repeat handling
+also remains local, as in TeamCity's `jsonOption`. Keep validation in directly callable clients.
+The JSON parser returns `null` for the JSON literal `null`, but Commander's existing required-value
+option handling converts a null callback result to `""`. Nested null fields and array items survive;
+do not treat a top-level option value as proof of a validated JSON body.
+
 For each command, prefer a test that runs the real client and, when useful, the real CLI command
 tree against MSW. Assert:
 

@@ -13,6 +13,10 @@
     "./testing": {
       "types": "./dist/src/testing.d.ts",
       "import": "./dist/src/testing.js"
+    },
+    "./proof": {
+      "types": "./dist/src/proof.d.ts",
+      "import": "./dist/src/proof.js"
     }
   },
   "files": [

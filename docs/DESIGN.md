@@ -35,6 +35,25 @@ fields, which the interactive configurator may prompt for.
 Generated help marks required options without defaults. Help and argument errors never terminate
 the host process.
 
+Core's `integerParser({ min, max, signed, errorMessage })` and `jsonParser(errorMessage)`
+return callbacks for the existing `OptionDefinition.parse`; they add no declaration layer.
+Integer parsing accepts decimal digits (including leading zeros), with an optional minus only
+when `signed` is true. Whitespace, plus signs, fractions, exponents and nondecimal notation reject.
+The result must be a safe integer within the inclusive caller-supplied bounds; invalid bounds
+reject when the parser is created. JSON parsing returns `unknown`, not a body schema. Callers
+supply static, non-secret error messages; rejected input and native error causes are never included.
+Defaults remain in the option declaration and are not passed through the parser. Independently
+callable service methods keep their own domain validation.
+
+`jsonParser` itself preserves JSON `null`. Existing Commander handling of required-value options
+normalizes a null callback result to an empty string; this helper does not change that behavior.
+Null fields inside objects and null items inside returned arrays are unaffected.
+
+TeamCity's strict numeric parsers remain signed, including `-0` for nonnegative paging start;
+YouTrack paging remains unsigned. Each configured parser now uses one static diagnostic for syntax,
+safety and range failures. Invalid YouTrack paging ranges and unsafe integers now reject during
+option parsing before onboarding/authentication, consistently on CLI, execute and JSON-RPC.
+
 Literal leaf declarations infer required positional strings in their inline callback from the
 existing command name. The small inferred grammar uses ASCII letters, digits, underscores and
 hyphens in names, with single spaces between the command and required `<argument>` tokens.
@@ -446,6 +465,20 @@ does not accept a test URL or token. It invokes the packaged CLI boundary and a 
 inventory of `ReadOnly` commands. It is a separate explicit script, refuses CI environments before
 networking, never prints or persists raw responses, and is never included in `npm test`. Mocked tests
 remain the only service-contract tests required in CI.
+
+TeamCity and YouTrack share `@eyeauras/cli-factory/proof`, separate from both the runtime and
+offline-fixture exports. `parseProofProfile` performs strict profile/CI preflight before the
+inventory runs. `createProofInvoker` launches the packaged Node entry point with code-owned argv
+and optional stdin, refusing known CI variables case-insensitively before every spawn and removing
+declared credential environment overrides. Each child defaults to 30 seconds and 64 KiB separately
+for stdout and stderr, counted as bytes before decoding. Positive integer limits may be declared
+in proof source, never supplied as user arguments. Failures terminate the child, close its pipes
+and await process closure; errors contain static diagnostics, never captured output or causes.
+Only successful stdout is returned for in-memory validation. These helpers do not discover
+commands, manage service state, or turn raw responses into safe reports. Integrations own fixed
+inventories, response validation, dependency skips and compact reporting; a failed prerequisite,
+incomplete inventory or zero successful executions cannot pass. RANDOM retains its existing
+service-specific proof and quota behavior.
 
 ## Submodules and CliWrap.ts
 

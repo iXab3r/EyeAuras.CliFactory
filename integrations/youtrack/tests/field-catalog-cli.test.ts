@@ -56,7 +56,7 @@ test("catalog CLI rejects unsupported filters, detail pagination and malformed p
       await assert.rejects(f.cli.execute([...row.argv, flag, "--profile", "dev"]), /unknown option/);
     }
     if (row.collection) {
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /decimal integers/);
+      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /decimal integer/);
       await assert.rejects(f.cli.execute([...row.argv, "--top", "101", "--profile", "dev"]), /between 1 and 100/);
     } else {
       await assert.rejects(f.cli.execute([...row.argv, "--top", "2", "--profile", "dev"]), /unknown option/);

@@ -1,19 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { parseProofProfile, type ProofInvocation, type ProofInvoker } from "@eyeauras/cli-factory/proof";
 import {
-  assertLocalProofEnvironment,
   formatProofReport,
-  parseProofOptions,
   runProfileProof,
-  type CliInvocation,
-  type CliInvocationResult,
 } from "../integration-tests/profile-proof.js";
 
 test("profile proof accepts only an explicit profile", () => {
-  assert.deepEqual(parseProofOptions(["--profile", "default"]), { profile: "default" });
-  assert.throws(() => parseProofOptions([]), /Usage/);
-  assert.throws(() => parseProofOptions(["--profile", "default", "jobs", "run"]), /Usage/);
-  assert.throws(() => parseProofOptions(["--profile", "../escape"]), /invalid/);
+  assert.equal(parseProofProfile(["--profile", "default"], {}), "default");
+  assert.throws(() => parseProofProfile([], {}), /Usage/);
+  assert.throws(() => parseProofProfile(["--profile", "default", "jobs", "run"], {}), /Usage/);
+  assert.throws(() => parseProofProfile(["--profile", "../escape"], {}), /Usage/);
 });
 
 test("profile proof refuses CI before invoking the CLI", async () => {
@@ -22,7 +19,7 @@ test("profile proof refuses CI before invoking the CLI", async () => {
     runProfileProof(
       { profile: "default" },
       {
-        environment: { CI: "true" },
+        environment: { ci: "true" },
         invoke: async () => {
           invocations += 1;
           throw new Error("must not run");
@@ -32,15 +29,17 @@ test("profile proof refuses CI before invoking the CLI", async () => {
     /local-only/,
   );
   assert.equal(invocations, 0);
-  assert.throws(() => assertLocalProofEnvironment({ GITHUB_ACTIONS: "true" }), /local-only/);
+  await assert.rejects(runProfileProof({ profile: "profiles.json" }, {
+    environment: {}, invoke: async () => { assert.fail("Invalid profile invoked CLI"); },
+  }), /Usage/);
 });
 
-function json(value: unknown): CliInvocationResult {
-  return { exitCode: 0, stdout: JSON.stringify(value), stderr: "" };
+function json(value: unknown): string {
+  return JSON.stringify(value);
 }
 
 test("profile proof uses a fixed bounded read-only inventory and safe summaries", async () => {
-  const invocations: CliInvocation[] = [];
+  const invocations: ProofInvocation[] = [];
   const privateValues = {
     project: "private-project-id",
     job: "private-job-id",
@@ -48,16 +47,13 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     agent: 73,
     root: "private-root-id",
   };
-  const invoke = async (invocation: CliInvocation): Promise<CliInvocationResult> => {
+  const invoke: ProofInvoker = async (invocation) => {
     invocations.push(invocation);
     if (invocation.argv[0] === "--json-rpc") {
-      return {
-        exitCode: 0,
-        stdout:
+      return (
           '{"jsonrpc":"2.0","id":1,"result":{"version":"private"}}\n' +
-          '{"jsonrpc":"2.0","id":2,"result":[]}\n',
-        stderr: "",
-      };
+          '{"jsonrpc":"2.0","id":2,"result":[]}\n'
+      );
     }
     const command = invocation.argv.slice(0, -3).join(" ");
     if (command === "permissions list") {
@@ -115,6 +111,10 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     assert.equal(invocation.argv.includes("cancel"), false);
   }
   assert.deepEqual(invocations.at(-1)?.argv, ["--json-rpc"]);
+  assert.deepEqual(invocations.at(-1)?.stdin?.trim().split("\n").map(line => JSON.parse(line)), [
+    { jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["server", "status", "--profile", "default"] } },
+    { jsonrpc: "2.0", id: 2, method: "cli.execute", params: { argv: ["queue", "list", "--limit", "1", "--profile", "default"] } },
+  ]);
 
   const output = formatProofReport(report);
   assert.match(output, /Summary: 19 passed, 0 skipped, 0 failed/);
@@ -129,13 +129,9 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
 });
 
 test("profile proof treats empty pages as safe dependent skips", async () => {
-  const invoke = async (invocation: CliInvocation): Promise<CliInvocationResult> => {
+  const invoke: ProofInvoker = async (invocation) => {
     if (invocation.argv[0] === "--json-rpc") {
-      return {
-        exitCode: 0,
-        stdout: '{"jsonrpc":"2.0","id":1,"result":{"version":"version"}}\n{"jsonrpc":"2.0","id":2,"result":[]}\n',
-        stderr: "",
-      };
+      return '{"jsonrpc":"2.0","id":1,"result":{"version":"version"}}\n{"jsonrpc":"2.0","id":2,"result":[]}\n';
     }
     const command = invocation.argv.slice(0, -3).join(" ");
     if (command === "permissions list") return json([{ name: "ReadOnly", enabled: true }]);
@@ -157,11 +153,10 @@ test("profile proof never copies failed CLI output into its report", async () =>
     { profile: "default" },
     {
       environment: {},
-      invoke: async () => ({
-        exitCode: 1,
+      invoke: async () => { throw Object.assign(new Error("synthetic-child-failure"), {
         stdout: '{"token":"secret-value","id":"private-id"}',
         stderr: "request to https://private.example.test failed",
-      }),
+      }); },
     },
   );
   const output = formatProofReport(report);
@@ -169,4 +164,31 @@ test("profile proof never copies failed CLI output into its report", async () =>
   assert.equal(output.includes("secret-value"), false);
   assert.equal(output.includes("private-id"), false);
   assert.equal(output.includes("private.example.test"), false);
+  assert.equal(report.entries.length, 19);
+  assert.equal(report.entries.some(entry => entry.status === "passed"), false);
+  assert.equal(report.entries.filter(entry => entry.status === "skipped").length, 9);
+});
+
+test("persistent RPC rejects malformed envelopes, missing/extra frames and invalid service results", async () => {
+  const good = [
+    { jsonrpc: "2.0", id: 1, result: { version: "synthetic" } },
+    { jsonrpc: "2.0", id: 2, result: [] },
+  ];
+  for (const frames of [
+    [], [good[0]], [...good, good[1]], [good[1], good[0]],
+    [{ id: 1, result: {} }, good[1]],
+    [{ ...good[0], jsonrpc: "1.0" }, good[1]],
+    [{ ...good[0], error: null }, good[1]],
+    [{ jsonrpc: "2.0", id: 1 }, good[1]],
+    [{ ...good[0], result: [] }, good[1]],
+    [good[0], { ...good[1], result: [{}, {}] }],
+  ]) {
+    const report = await runProfileProof({ profile: "synthetic" }, {
+      environment: {}, invoke: async ({ argv }) => argv[0] === "--json-rpc"
+        ? frames.map(frame => JSON.stringify(frame)).join("\n") : "synthetic-invalid-json",
+    });
+    assert.equal(report.success, false);
+    assert.equal(report.entries.at(-1)?.status, "failed");
+    assert.doesNotMatch(formatProofReport(report), /synthetic/);
+  }
 });

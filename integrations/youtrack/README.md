@@ -18,6 +18,12 @@ The foundational read projections are:
 REST reads support explicit `--fields <projection>`. Projection results retain the server's
 field names, `$type` and nullable values; authentication always validates fixed `id,login`.
 Offset collections use `--top 50 --skip 0` by default; top is 1–100 and skip a nonnegative integer.
+Paging accepts unsigned decimal digits, including leading zeros; signs (including `-0`), whitespace,
+fractions, exponents and unsafe integers reject. Invalid syntax, range and overflow now fail before
+onboarding or credential access on CLI, execute and RPC. The static errors are
+`YouTrack top must be a decimal integer between 1 and 100.` and
+`YouTrack skip must be a nonnegative safe decimal integer.`; they never include the supplied input.
+Directly callable service methods retain their own range validation.
 Each collection command makes one request, and rejects an oversized server page. No `--all`
 or implicit nested follow-up requests are provided. Issue IDs are encoded as opaque path
 segments, including readable IDs such as `DEMO-1`.
@@ -308,6 +314,8 @@ attempted reads fail. Reads without a usable project/issue prerequisite are skip
 are not availability evidence, and failed prerequisites still fail the overall proof. No real
 writes, automatic pagination or further resource discovery occur. CI and arbitrary URL/token/
 command arguments are refused; inherited `YOUTRACK_TOKEN` is removed case-insensitively.
+The shared Core proof invoker keeps the 30-second timeout and separate 64-KiB stdout/stderr bounds;
+see the [shared CI and process contract](../../docs/testing.md).
 Do not run it in CI or add it to generic test commands. A failed proof requires local
 configuration/TLS/permission investigation; its payloads are deliberately not logged.
 

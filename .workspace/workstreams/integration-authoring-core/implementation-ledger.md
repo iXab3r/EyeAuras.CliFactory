@@ -1,16 +1,16 @@
 # Integration authoring Core — implementation ledger
 
 **Lifecycle:** active. **Issue:** [#14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14).
-**Current phase:** P1/F02 accepted; first checkpoint ready for privacy/commit. P2/F03 pending release after that commit; P3 partial. **Accepted findings:** 4/8 (F01, F02, F06, F07).
+**Current phase:** P3/F05 accepted; second checkpoint commit pending, then P4/F08 before F04 upon root release. Checkpoint 952d621a CI passed all six platforms; final-head P6 checks remain pending. **Accepted findings:** 6/8 (F01, F02, F03, F05, F06, F07).
 **New REST operations:** 0; endpoint inventory is unchanged.
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
 | P0 | Exact baseline, F01–F08 reconciliation and samples | done | scope_manager / four scouts / root | Independent/root PASS: all 234 file records and 15 samples exact; owned pre-existing macOS exception explicit |
 | P1 | F01 fixtures then F02 contract helpers | done | authoring_testing / independent reviewer / root | F01/F02 independent technical/authoring PASS and root accepted; 1004 affected tests PASS for F02 |
-| P2 | F03 proof mechanics | pending | proof owner / reviewer | Pending explicit release after first checkpoint commit; fixed inventories and bounded rehearsal required |
-| P3 | F05 parsers / F06 wrapper inference | in progress | authoring_types / reviewer | F06 accepted technical/authoring/root PASS; F05 unreleased, so P3 remains partial |
-| P4 | F04 file publication / F08 response bound | pending | stream/file owner / security reviewer | Separate security/behavior costs and platform evidence required |
+| P2 | F03 proof mechanics | done | authoring_proof / independent reviewer / root | Independent technical/security/authoring PASS; root accepted with all-workspace build and 1012 affected tests PASS |
+| P3 | F05 parsers / F06 wrapper inference | done | authoring_types / reviewer / root | F05/F06 independently reviewed and root accepted; F05 all-workspace build and 1020 affected tests PASS |
+| P4 | F08 response bound, then F04 file publication | pending release | stream/file owner / security reviewer | Release after second checkpoint commit; separate security/behavior costs and platform evidence required |
 | P5 | F07 option-typing experiment | done | option_experiment / independent reviewer / root | Reviewed rejection accepted; measured evidence retained; prototype removed safely and shared dependencies unchanged |
 | P6 | Consolidation, exports, PR/review/CI and clean merge | pending | source owners / reviewers / root | All acceptance/privacy/final-head checks before close-out |
 
@@ -19,23 +19,26 @@
 - Branch `codex/integration-authoring-core` uses immutable baseline `b5762f242ff1ea074e33a1c1739190ac4d0ee523`.
   `baseline.json` remains 207 handwritten TS / 234 included files across eight workspaces, with eight
   generated exclusions: 18,964 source / 22,585 tests-support / 535 proof. Older workstreams stay untouched.
-- **F01, F02, F06 and F07 are accepted (4/8)**. `checkpoint-f01-f06.md` and `checkpoint-f02.md`
-  hold independent technical/authoring and root verdicts. P1 is done; P3 remains partial (F05 open).
-  F07 completed by reviewed rejection with safe prototype cleanup and shared dependencies unchanged;
-  no option-typing production change was retained.
-- F02's all-workspace build and affected suite passed 1004/1004 (95 Core / 574 TC / 335 YT),
-  zero skips. Independent recount confirms +206 TS: 91 test-helper/export +84 Core tests +31 consumer
-  lines; local decreases partly include reflow and are not pure savings. Root accepted F02.
-  First checkpoint privacy/commit is next; F03/P2 is pending release afterward, not yet implemented.
+- **F01/F02/F03/F05/F06/F07 are accepted (6/8)**. P1/P2/P3/P5 are done; F07 completed by
+  reviewed rejection without retained production changes. F03/F05 await the second checkpoint
+  commit. P4 remains unreleased: F08 first, then F04.
+- Latest F05 evidence: all eight workspaces built and 1020/1020 affected tests passed (105 Core /
+  578 TeamCity / 337 YouTrack), zero failures/skips. Independent technical and authoring PASS;
+  `checkpoint-f05.md` records isolated production +6, tests +231, total +237 TS, with no LOC saving.
+- `checkpoint-f03.md` retains the F03 proof-cost and real-tarball consumer/exports/strict
+  TypeScript/cleanup PASS receipt. Final package verification must rerun after later source changes.
 - The [behavioral decision comment](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14#issuecomment-5482554668)
   was published with exact readback: F05 YouTrack pre-onboarding integer rejection, F08 YouTrack
   8 MiB decoded response bound / TeamCity 2 MiB preserved, and profile-owned temp staging. This
-  publication approves decisions before implementation; it does not accept F05/F08.
-- The three baseline CI fixture fixes are implemented and included in the passing Windows suite.
-  They canonicalize/shorten owned test paths only; production behavior is unchanged. Actual macOS
-  CI remains pending, so existing main run 33416848105 is still historical failure evidence.
-- Kickoff publication/readback and P0 independent recount passed. Root serializes builds/tests
-  and owns git/GitHub; management edits only this workstream. Each retained extraction needs its
+  publication approved decisions before implementation; F05 is now separately accepted, while F08 remains gated.
+- The three baseline CI fixture fixes passed actual macOS and all other checkpoint jobs:
+  [run 33425122763](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33425122763), all six
+  jobs SUCCESS / 1089 tests each at `952d621a`. This resolves that earlier fixture exception only;
+  final-head platform CI is still required after subsequent changes.
+- [Draft PR #15](https://github.com/iXab3r/EyeAuras.CliFactory/pull/15) references Issue #14 and
+  supplied successful early platform CI for the fixture prerequisite; it does not complete P6/final review.
+  Kickoff readback and P0 recount passed. Root serializes builds/tests and owns git/GitHub;
+  management edits only this workstream. Each retained extraction needs its
   own independent correctness and authoring gate; no new endpoint counter or speculative framework.
 
 ## 2026-08-31 — P0 reconciliation against current main
@@ -141,3 +144,14 @@ Final technical confirmation arrived and root accepted F01/F06 after independent
 authoring PASS plus the coherent 1081/1081 suite. Accepted findings are now 2/8. F02 is released to
 `authoring_testing`; P1 remains in progress and P3 partial (F05 unreleased). No commit is needed for
 this checkpoint alone; later coherent batch/privacy/review gates remain root-owned.
+
+
+## 2026-08-31 — first checkpoint pushed; F03 released
+
+Root committed/pushed `952d621a1f9db76ebe8d44aa57017438e9f886ab`, tree
+`0d95088721b2a7bc7d0a0d4053c2d55afcbee58e`; final privacy PASS covered 464 files and 878 historical
+decoded records, with a clean worktree afterward. Root trimmed only the extra EOF blank in
+`checkpoint-f02.md` before commit; immutable baseline and experiment evidence were not changed.
+Draft PR #15 is for early platform CI, References #14 (not Closes); actual CI and P6 review remain
+pending. F03 is released to authoring_proof within the existing Core/proof + TC/YT boundaries,
+not RANDOM migration. Accepted findings remain 4/8; F05 and P4 remain gated.

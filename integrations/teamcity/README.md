@@ -58,6 +58,15 @@ Top-level collection commands accept `--limit <count>` from 1 to 100 and `--star
 zero. They return one plain array page and never auto-page. Run a branch without a leaf, such as
 `teamcity-cli builds`, to see its generated help and options.
 
+Paging defaults remain `--limit 100 --start 0`. These options accept decimal digits with an optional
+minus and leading zeros, but reject whitespace, plus signs, fractions and exponents. The start must
+be a nonnegative safe integer (`-0` remains valid); limit remains 1–100. Invalid options fail before
+profile onboarding or credential access. Each option now reports one static error for syntax, unsafe
+integers and range failures. The existing strict numeric build/queue-cancel/agent-show ID parsers
+retain positive safe-integer validation and use the same decimal grammar; other numeric service
+validators are unchanged. JSON options retain their existing non-echoing errors, repeat order and
+service-specific body validation.
+
 Single-owner parameter, step, extension, dependency and attachment lists use the native scoped endpoints and preserve
 server order; these endpoints do not support paging options. `vcs roots list --project <id>`
 filters by direct project. Local v2 coverage is **449/449 unique REST method/path pairs (100%)**:
@@ -552,6 +561,9 @@ summaries, never raw payloads or discovered identifiers. No fixture or artifact 
 
 The proof is outside `npm test` and refuses CI/CD environments before launching the CLI. It is a
 local development tool, not a regression suite or production availability monitor.
+The shared Core proof invoker limits each child to 30 seconds and each stdout/stderr stream to
+64 KiB. Oversized responses now fail instead of using unbounded capture. It strips inherited
+`TEAMCITY_TOKEN` case-insensitively and applies the [shared CI preflight](../../docs/testing.md).
 
 See [the integration authoring guide](../../docs/integrations.md) for how this product references
 the common package and how to start the next in-repo or external integration.

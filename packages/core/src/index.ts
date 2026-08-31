@@ -6,6 +6,7 @@ export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
 export { command } from "./command.js";
 export type { InferredCommandHandler } from "./command-input.js";
+export { integerParser, jsonParser } from "./option-parsers.js";
 export { formatHuman, writeResult } from "./output.js";
 export { Permission } from "./permissions.js";
 export { ProfileStore } from "./profile-store.js";
