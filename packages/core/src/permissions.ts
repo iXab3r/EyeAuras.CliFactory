@@ -2,7 +2,57 @@ import type {
   CommandDefinition,
   PermissionCategory,
   PermissionGateDefinition,
+  ProfileStoreContract,
 } from "./types.js";
+import { command } from "./command.js";
+
+/** Core-only declarations; admission policy stays in the shared command adapter. */
+export function createPermissionCommand(
+  categories: readonly PermissionCategory[],
+  store: ProfileStoreContract,
+  enabledPermissions: (profile: string) => Promise<Set<string>>,
+): CommandDefinition {
+  const names = categories.map((category) => category.name);
+  return command("permissions", "Manage profile-specific safety permissions", [
+    command(
+      "list",
+      "List permissions for the selected profile",
+      async (_input, context) => {
+        const enabled = await enabledPermissions(context.profile.name);
+        return categories.map((category) => ({
+          name: category.name,
+          enabled: enabled.has(category.name),
+          description: category.description,
+        }));
+      },
+    ),
+    ...(["grant", "revoke"] as const).map((action) =>
+      command(
+        `${action} <permission>`,
+        `${action === "grant" ? "Enable" : "Disable"} a permission for the selected profile`,
+        async ({ args }, context) => {
+          const permission = String(args.permission);
+          if (!names.includes(permission))
+            throw new Error(
+              `Unknown permission '${permission}'. Available permissions: ${names.join(", ")}.`,
+            );
+          const enabled = await enabledPermissions(context.profile.name);
+          if (action === "grant") enabled.add(permission);
+          else enabled.delete(permission);
+          await store.setPermissions(
+            context.profile.name,
+            names.filter((name) => enabled.has(name)),
+          );
+          return {
+            profile: context.profile.name,
+            permission,
+            enabled: action === "grant",
+          };
+        },
+      ),
+    ),
+  ]);
+}
 
 export const Permission = Object.freeze({
   ReadOnly: "ReadOnly",
@@ -36,7 +86,9 @@ export function resolvePermissionCategories(
       );
     }
     if (names.has(category.name)) {
-      throw new Error(`Permission category '${category.name}' is declared more than once.`);
+      throw new Error(
+        `Permission category '${category.name}' is declared more than once.`,
+      );
     }
     names.add(category.name);
   }
@@ -70,7 +122,9 @@ export function validateCommandPermissions(
   }
 }
 
-export function validatePermissionsDisabled(commands: readonly CommandDefinition[]): void {
+export function validatePermissionsDisabled(
+  commands: readonly CommandDefinition[],
+): void {
   const visit = (command: CommandDefinition): void => {
     if (command.permission) {
       throw new Error(

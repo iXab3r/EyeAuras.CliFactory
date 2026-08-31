@@ -13,6 +13,9 @@ export interface RandomValues {
 
 /** Service contract shared by command declarations; no HTTP or browser types. */
 export interface RandomClient {
-  integers(request: IntegerRequest, signal?: AbortSignal): Promise<RandomValues>;
+  integers(
+    request: IntegerRequest,
+    signal?: AbortSignal,
+  ): Promise<RandomValues>;
   sequence(request: RandomRange, signal?: AbortSignal): Promise<RandomValues>;
 }

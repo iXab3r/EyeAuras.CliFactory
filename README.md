@@ -12,7 +12,9 @@ Factory**.
 
 > Status: foundation stage. The common npm package and the TeamCity operational v1 integration
 > are implemented, including 17 service commands, mocked REST contracts, permission gates,
-> profiles, JSON, JSON-RPC, and a local profile-backed integration proof. The APIs are not stable yet.
+> profiles, JSON, JSON-RPC, and a local profile-backed integration proof. Two RANDOM.ORG examples
+> now demonstrate optional gRPC hosting and headless Playwright with a shared command contract.
+> The APIs are not stable yet.
 
 ```mermaid
 flowchart LR
@@ -28,6 +30,17 @@ flowchart LR
     permissions --> integration
     integration --> service["TeamCity · future services"]
 ```
+
+## Browser-backed CLI example
+
+[HTTP](integrations/random-rest/README.md) and [Playwright](integrations/random-pw/README.md)
+implement the same two RANDOM.ORG commands without API keys. Both reuse a self-starting local
+host; only PW starts Chromium. Install test browsers explicitly with `npm run browser:install`
+(`-- --with-deps` on Linux when needed), then run `npm test`. Browser tests use synthetic pages,
+not the live service. Headed tests on display-less Linux use `xvfb-run --auto-servernum npm test`.
+PW adds `--headed` and `--record-video` with automatic idle-boundary browser/context switching.
+See [optional runtime contracts](docs/runtime-modules.md) and the detailed
+[browser observation guide](docs/browser-observation.md).
 
 ## Why a factory?
 
@@ -157,6 +170,7 @@ Requirements: Node.js 22+ and npm 11+. .NET 10 is only needed for the one-comman
 
 ```text
 dotnet run --file scripts/bootstrap.cs
+npm run browser:install
 npm test
 npm run teamcity -- --help
 ```

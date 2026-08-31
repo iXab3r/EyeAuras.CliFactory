@@ -1,4 +1,7 @@
 export { tokenAuth } from "./auth.js";
+export { inputLimits, validateArgv } from "./input-limits.js";
+export { visitResources } from "./resources.js";
+export { privateDirectory, privateEndpoint } from "./private-storage.js";
 export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
 export { command } from "./command.js";
@@ -20,6 +23,7 @@ export type {
   CliApplication,
   CliDefinition,
   CliRuntime,
+  CliResource,
   CommandContext,
   CommandDefinition,
   CommandHandler,
@@ -35,6 +39,11 @@ export type {
   ProfileValues,
   ScopedSecrets,
   SecretStore,
-  TokenAuthDefinition,
+  AuthDefinition,
+  AuthContext,
+  AuthReadinessContext,
+  AuthStatus,
+  CliIo,
+  CliInvocation,
   TokenValidationContext,
 } from "./types.js";

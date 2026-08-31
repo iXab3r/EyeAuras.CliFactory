@@ -1,4 +1,9 @@
 #!/usr/bin/env node
 import { createTeamCityCli } from "./cli.js";
 
-process.exitCode = await createTeamCityCli().run();
+const app = createTeamCityCli();
+try {
+  process.exitCode = await app.run();
+} finally {
+  await app.dispose();
+}

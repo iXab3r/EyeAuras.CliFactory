@@ -1,0 +1,19 @@
+syntax = "proto3";
+package clifactory;
+service CliHost {
+  rpc Run(stream RunInput) returns (stream RunOutput);
+  rpc Status(Control) returns (HostStatus);
+  rpc Stop(Control) returns (HostStatus);
+}
+message Start {
+  repeated string argv = 1;
+  string protocol = 2;
+  string build = 3;
+  string cwd = 4;
+  map<string, string> environment = 5;
+}
+message RunInput { oneof payload { Start start = 1; bytes stdin = 2; } }
+message Exit { int32 code = 1; }
+message RunOutput { oneof payload { bytes stdout = 1; bytes stderr = 2; Exit exit = 3; } }
+message Control { string protocol = 1; string build = 2; }
+message HostStatus { int32 pid = 1; string build = 2; bool closing = 3; }

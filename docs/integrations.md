@@ -3,6 +3,56 @@
 This is the practical path from an API to an AI-friendly CLI. The canonical runtime contract
 remains [`DESIGN.md`](DESIGN.md); fixture and real-service rules remain [`testing.md`](testing.md).
 
+## Start with one definition and a standalone entry point
+
+A normal CLI only needs Core. Define commands once; Core supplies help, profiles, human/JSON
+output and JSON-RPC. Authentication, permission gates, IPC and a browser are explicit additions,
+not prerequisites. A complete small example:
+
+```ts
+// src/cli.ts
+import { command, type CliDefinition } from "@eyeauras/cli-factory";
+
+export function createDefinition(): CliDefinition {
+  return {
+    name: "acme-cli",
+    description: "Small example CLI",
+    commands: [
+      command("echo <text>", "Return the supplied text", ({ args }) => ({
+        text: args.text,
+      })),
+    ],
+  };
+}
+```
+
+The standalone `src/bin.ts`:
+
+```ts
+#!/usr/bin/env node
+import { createCli } from "@eyeauras/cli-factory";
+import { createDefinition } from "./cli.js";
+
+const app = createCli(createDefinition());
+try {
+  process.exitCode = await app.run();
+} finally {
+  await app.dispose();
+}
+```
+
+After the package setup below, run `acme-cli echo hello --json`, `acme-cli --help`, or start
+`acme-cli --json-rpc`. Handlers return data; they do not print JSON or select output formats.
+Tests can use `createCli(createDefinition()).execute(argv)` and dispose their application afterward.
+
+Use a factory so the same definition can run standalone, embedded, or in an optional IPC server.
+Construction must be cheap: create lazy resource owners, not browser processes or network requests.
+If your app owns long-lived resources, list them in `resources`; Core handles disposal and profile
+invalidation. Do not write forwarding wrappers or use process-global current-profile state.
+Add profile/auth/permission settings only when the service needs them; the sections below explain
+each. For IPC, change only the entry point as shown in [Optional IPC](#optional-ipc); service
+handlers and their declaration remain unchanged.
+
 ## Where the project lives
 
 ### Inside this repository
@@ -48,8 +98,9 @@ A minimal package starts like this (replace `acme` and the executable name):
 ```
 
 Reuse the TypeScript compiler wiring from `integrations/teamcity/tsconfig.json`; do not duplicate
-TeamCity command/client code. Add the new workspace to root `build` until build orchestration is
-made generic by a second real integration.
+TeamCity command/client code. Run `npm install` to register the workspace, then the root
+`npm run build`: the build script discovers workspaces and orders local dependencies automatically.
+No root build-command edit or application hash list is needed.
 
 ### In an external repository
 
@@ -214,8 +265,9 @@ inside one JSON-RPC process.
 
 Do not derive application state from `process.cwd()`, the source checkout, the executable directory,
 or a custom `--data-folder`. CliFactory CLIs are bound to the current OS user and are not portable.
-Do not place credentials in AppData: use `context.secrets` so the OS credential store and profile
-namespace remain authoritative. Sanitized fixtures intended for Git remain in `tests/fixtures`;
+For standalone credentials use `context.secrets` so the OS credential store and profile
+namespace remain authoritative. Explicit browser auth snapshots and user-requested sensitive
+videos are the narrow protected-AppData exceptions described in [DESIGN](DESIGN.md). Sanitized fixtures intended for Git remain in `tests/fixtures`;
 runtime captures and unsanitized service data do not.
 
 ## Permission gates
@@ -337,3 +389,92 @@ and use credentials supplied outside Git.
 - MSW covers the actual network boundary; fixtures are minimal and sanitized.
 - Public docs name shipped behavior honestly; planned behavior is marked planned.
 - Focused tests and `npm test` are green.
+
+
+## Optional IPC
+
+Install/use `@eyeauras/cli-factory-ipc` only when repeated CLI processes should share state or
+expensive resources. Replace the standalone bin.ts above with:
+
+```ts
+#!/usr/bin/env node
+import { runHosted } from "@eyeauras/cli-factory-ipc";
+import { createDefinition } from "./cli.js";
+
+process.exitCode = await runHosted({ entryPoint: import.meta.url, createDefinition });
+```
+
+The runner adds `ipc-server status` and `ipc-server stop`, starts the IPC server on demand, forwards
+stdio/exit code and owns cleanup in both processes. These commands never start a server themselves.
+A service may still declare its own `server` commands. Ordinary Core applications have no IPC
+commands or dependency; there is no runtime registration API. Keep the same definition for tests.
+
+Set `concurrency` in the definition only if the application's handlers cannot safely overlap:
+`1` serializes logical commands, a positive integer allows that many, and omission adds no limit.
+The transport supports multiple clients; an idle JSON-RPC client consumes no command slot.
+Profile/auth/permission mutations coordinate automatically. Handler state still belongs to the app;
+the transport cannot make a service client thread-safe.
+
+Run the **root** `npm run build` before invoking an IPC app; individual tsc builds do not publish
+the whole-workspace compatibility manifest. Changed builds require `ipc-server stop` before
+service work can resume. No manual forwarding, dispose/profile-change adapter, or dependency hash
+list belongs in the integration. See [IPC lifecycle and limits](runtime-modules.md).
+When upgrading from the old management name, see the migration note there; do not delete AppData.
+
+## Optional browser automation
+
+Use `@eyeauras/cli-factory-playwright` when the service requires actual browser interaction.
+It does not require IPC. For a standalone app the browser lives until that run's finally/dispose;
+with IPC the same browser can be reused across shell calls. A complete browser definition can
+replace the echo definition above without changing either entry point:
+
+```ts
+import { command, Permission, type CliDefinition } from "@eyeauras/cli-factory";
+import {
+  BrowserRuntime,
+  browserCommandOptions,
+  browserOperationOptions,
+} from "@eyeauras/cli-factory-playwright";
+
+export function createDefinition(): CliDefinition {
+  const browser = new BrowserRuntime(); // lazy: construction does not launch Chromium
+  return {
+    name: "acme-cli",
+    description: "Read a page through a browser",
+    permissions: {},
+    resources: [browser],
+    profile: {
+      fields: [{
+        name: "url", flags: "--url <url>", description: "Service URL", required: true,
+      }],
+    },
+    commands: [
+      command("title", "Read the page title", (input, context) =>
+        browser.withPage(
+          { appArguments: context.appArguments, baseURL: String(context.profile.values.url) },
+          context.signal,
+          async page => {
+            await page.goto("/");
+            return { title: await page.title() };
+          },
+          browserOperationOptions(input.options, context),
+        ),
+        { permission: Permission.ReadOnly, options: browserCommandOptions },
+      ),
+    ],
+  };
+}
+```
+
+The browser defaults to headless. The shared options add `--headed` and `--record-video`; compatible
+calls reuse resources, conflicting settings switch only between browser operations. The helper
+reports finalized video paths on stderr, never in the domain DTO. See [browser observation](browser-observation.md)
+for mode changes, profile/auth persistence, concurrency and sensitive-artifact handling.
+
+The integration owns selectors, login completion and service postconditions. Anonymous apps do
+not need fake auth commands. Authenticated apps implement `AuthDefinition` and explicitly opt into
+browser auth persistence; Core does not infer a universal browser login protocol.
+The two RANDOM.ORG definitions ([HTTP](../integrations/random-rest/src/cli.ts),
+[PW](../integrations/random-pw/src/cli.ts)) are working examples with the same two service commands.
+They create cheap clients per invocation; only browser resources and service-specific quota/backoff
+persist. Do not extract a generic client cache from this service-specific state.

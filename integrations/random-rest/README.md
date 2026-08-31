@@ -2,8 +2,8 @@
 
 A deliberately small example using RANDOM.ORG's **older, keyless HTTP interface**. No account,
 API key, token or browser is required. The obsolete API is an explicit demonstration choice, not
-a fallback from the newer JSON-RPC service. This version runs in-process: IPC hosting and the
-Playwright companion are not implemented yet.
+a fallback from the newer JSON-RPC service. The packaged executable uses the optional gRPC host; repeated invocations reuse one application.
+The [Playwright companion](../random-pw/README.md) exposes the identical service contract.
 
 ## Run
 
@@ -35,6 +35,13 @@ For scripts requiring completely clean stdout, invoke the built executable direc
 node integrations/random-rest/dist/src/bin.js integers --count 3 --min 1 --max 6 --json
 ```
 
+## Host lifetime
+
+`ipc-server status --json` and `ipc-server stop --json` never start a host. Normal invocations self-start
+one if necessary; it stops after 60 seconds with no active invocation. The HTTP executable does
+not import or start a browser. For a direct library call, own `app.dispose()` in finally.
+See [runtime behavior, access controls and limits](../../docs/runtime-modules.md).
+
 ## Two commands
 
 | Command | Defaults | Meaning |
@@ -50,8 +57,8 @@ Equal bounds are rejected before networking: both legacy endpoints return HTTP 5
 Strings and other generators are intentionally deferred.
 
 Factory-generated human output, `--json`, `--profile`, permissions and `--json-rpc` all use the
-same two command declarations. `RandomClient` in `src/models.ts` is the small service contract;
-`createRandomCommands` is independent of HTTP and can later be reused by the Playwright client.
+same two command declarations. `RandomClient` and `createRandomCommands` now live in
+`integrations/random-common` and are used by both HTTP and Playwright.
 No RANDOM.ORG concepts were added to Core.
 
 ## Service behavior and limits
@@ -62,10 +69,10 @@ No RANDOM.ORG concepts were added to Core.
   wait at least ten minutes; the same client instance suppresses polling during that period.
 - Each HTTP request has a two-minute timeout. There are no automatic retries, redirect following,
   cached random values, or fallback random generators. A rerun is a new draw, not a replay.
-- One client's quota/generation operations are sequential. **Separate CLI processes or different
-  profile clients are not coordinated in this pre-IPC example.** Run them sequentially against the
-  live service, and do not restart the CLI to bypass quota backoff. Quota is shared by public IP,
-  not isolated by CLI profile. Parallel/stress tests must use mocked boundaries, not RANDOM.ORG.
+- The hosted application serializes commands across its CLI processes/profiles and retains client
+  backoff while alive. Different application IDs (REST versus PW), machines and a restarted host
+  do not share that in-memory cooldown. Do not restart to bypass backoff; quota is shared by IP.
+  Run live proofs sequentially; concurrency/stress tests use only synthetic boundaries.
 - Browser authentication persistence is not demonstrated by these anonymous operations.
 
 Official references: [HTTP API](https://www.random.org/clients/http/) and
@@ -74,8 +81,7 @@ Official references: [HTTP API](https://www.random.org/clients/http/) and
 ## Verify
 
 ```text
-npm run build --workspace @eyeauras/cli-factory
-npm run build --workspace @eyeauras/random-rest-cli
+npm run build
 npm run test:compiled --workspace @eyeauras/random-rest-cli
 npm test
 ```

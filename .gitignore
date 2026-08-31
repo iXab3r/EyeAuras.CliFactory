@@ -11,3 +11,6 @@ coverage/
 
 # Local CLI state used during development.
 .cli-factory/
+output/
+.cli-build.json
+.cli-build.json.*.tmp

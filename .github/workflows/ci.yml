@@ -25,4 +25,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run browser:install -- --with-deps
+      - if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm test
+      - if: runner.os != 'Linux'
+        run: npm test

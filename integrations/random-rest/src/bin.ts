@@ -1,4 +1,8 @@
 #!/usr/bin/env node
-import { createRandomRestCli } from "./cli.js";
+import { runHosted } from "@eyeauras/cli-factory-ipc";
+import { createRandomRestDefinition } from "./cli.js";
 
-process.exitCode = await createRandomRestCli().run();
+process.exitCode = await runHosted({
+  entryPoint: import.meta.url,
+  createDefinition: createRandomRestDefinition,
+});

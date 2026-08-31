@@ -1,11 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { AppArguments, type IAppArguments } from "./app-arguments.js";
-import type {
-  Profile,
-  ProfileStoreContract,
-  ProfileValues,
-} from "./types.js";
+import type { Profile, ProfileStoreContract, ProfileValues } from "./types.js";
 
 interface ProfileDocument {
   version: 1;
@@ -25,22 +21,39 @@ export interface ProfileStoreOptions {
 
 const profileNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-function assertProfileName(name: string): void {
+export function assertProfileName(name: string): void {
   if (!profileNamePattern.test(name)) {
     throw new Error(
       "Profile names must start with a letter or number and contain at most 64 letters, numbers, dots, dashes, or underscores.",
     );
   }
   if (name.toLowerCase() === "profiles.json") {
-    throw new Error("Profile name 'profiles.json' is reserved for the application profile index.");
+    throw new Error(
+      "Profile name 'profiles.json' is reserved for the application profile index.",
+    );
+  }
+}
+
+/** Ported from reviewed profile-isolation fix 3df5066 (#9). */
+export function assertUniqueProfileName(
+  name: string,
+  names: readonly string[],
+): void {
+  if (names.some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+    throw new Error(
+      `Profile '${name}' already exists ignoring letter case. Use its exact spelling or choose a different name.`,
+    );
   }
 }
 
 export class ProfileStore implements ProfileStoreContract {
+  static #writes = new Map<string, Promise<void>>();
   readonly #filePath: string;
   readonly #defaultName: string;
   readonly #defaults: ProfileValues;
-  readonly #validate: ((values: ProfileValues) => void | Promise<void>) | undefined;
+  readonly #validate:
+    | ((values: ProfileValues) => void | Promise<void>)
+    | undefined;
 
   public constructor(options: ProfileStoreOptions) {
     this.#defaultName = options.defaultName ?? "default";
@@ -67,7 +80,10 @@ export class ProfileStore implements ProfileStoreContract {
         `ProfileStore applicationId '${options.applicationId}' does not match AppArguments.AppName '${appArguments.AppName}'.`,
       );
     }
-    this.#filePath = join(appArguments.RoamingAppDataDirectory, "profiles.json");
+    this.#filePath = join(
+      appArguments.RoamingAppDataDirectory,
+      "profiles.json",
+    );
   }
 
   public async get(name?: string): Promise<Profile> {
@@ -92,76 +108,95 @@ export class ProfileStore implements ProfileStoreContract {
     };
   }
 
-  public async create(name: string, values: ProfileValues = {}): Promise<Profile> {
+  public async create(
+    name: string,
+    values: ProfileValues = {},
+  ): Promise<Profile> {
     assertProfileName(name);
-    const document = await this.#load();
-    if (document.profiles[name]) {
-      throw new Error(`Profile '${name}' already exists.`);
-    }
-    const nextValues = { ...this.#defaults, ...values };
-    await this.#validate?.(nextValues);
-    document.profiles[name] = nextValues;
-    await this.#save(document);
-    return { name, values: structuredClone(nextValues) };
+    return this.#mutate(async () => {
+      const document = await this.#load();
+      assertUniqueProfileName(name, Object.keys(document.profiles));
+      const nextValues = { ...this.#defaults, ...values };
+      await this.#validate?.(nextValues);
+      document.profiles[name] = nextValues;
+      await this.#save(document);
+      return { name, values: structuredClone(nextValues) };
+    });
   }
 
   public async set(name: string, values: ProfileValues): Promise<Profile> {
     assertProfileName(name);
-    const document = await this.#load();
-    if (!document.profiles[name]) {
-      throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
-    }
-    const nextValues = {
-      ...this.#defaults,
-      ...document.profiles[name],
-      ...values,
-    };
-    await this.#validate?.(nextValues);
-    document.profiles[name] = nextValues;
-    await this.#save(document);
-    return { name, values: structuredClone(nextValues) };
+    return this.#mutate(async () => {
+      const document = await this.#load();
+      if (!document.profiles[name]) {
+        throw new Error(
+          `Profile '${name}' does not exist. Create it with 'profile create ${name}'.`,
+        );
+      }
+      const nextValues = {
+        ...this.#defaults,
+        ...document.profiles[name],
+        ...values,
+      };
+      await this.#validate?.(nextValues);
+      document.profiles[name] = nextValues;
+      await this.#save(document);
+      return { name, values: structuredClone(nextValues) };
+    });
   }
 
   public async setDefault(name: string): Promise<Profile> {
     assertProfileName(name);
-    const document = await this.#load();
-    const values = document.profiles[name];
-    if (!values) {
-      throw new Error(`Profile '${name}' does not exist. Create it with 'profile create ${name}'.`);
-    }
-
-    document.active = name;
-    await this.#save(document);
-    return { name, values: structuredClone(values) };
-  }
-
-  public async delete(name: string): Promise<{ deleted: string; default: string }> {
-    assertProfileName(name);
-    const document = await this.#load();
-    if (!document.profiles[name]) {
-      throw new Error(`Profile '${name}' does not exist.`);
-    }
-    if (Object.keys(document.profiles).length === 1) {
-      throw new Error("Cannot delete the only profile. At least one default profile must exist.");
-    }
-    if (document.active === name) {
-      throw new Error(
-        `Cannot delete default profile '${name}'. Set another default with 'profile set-default <name>' first.`,
-      );
-    }
-
-    delete document.profiles[name];
-    if (document.permissions) {
-      delete document.permissions[name];
-      if (Object.keys(document.permissions).length === 0) {
-        delete document.permissions;
+    return this.#mutate(async () => {
+      const document = await this.#load();
+      const values = document.profiles[name];
+      if (!values) {
+        throw new Error(
+          `Profile '${name}' does not exist. Create it with 'profile create ${name}'.`,
+        );
       }
-    }
-    await this.#save(document);
-    return { deleted: name, default: document.active };
+
+      document.active = name;
+      await this.#save(document);
+      return { name, values: structuredClone(values) };
+    });
   }
 
-  public async getPermissions(name?: string): Promise<readonly string[] | undefined> {
+  public async delete(
+    name: string,
+  ): Promise<{ deleted: string; default: string }> {
+    assertProfileName(name);
+    return this.#mutate(async () => {
+      const document = await this.#load();
+      if (!document.profiles[name]) {
+        throw new Error(`Profile '${name}' does not exist.`);
+      }
+      if (Object.keys(document.profiles).length === 1) {
+        throw new Error(
+          "Cannot delete the only profile. At least one default profile must exist.",
+        );
+      }
+      if (document.active === name) {
+        throw new Error(
+          `Cannot delete default profile '${name}'. Set another default with 'profile set-default <name>' first.`,
+        );
+      }
+
+      delete document.profiles[name];
+      if (document.permissions) {
+        delete document.permissions[name];
+        if (Object.keys(document.permissions).length === 0) {
+          delete document.permissions;
+        }
+      }
+      await this.#save(document);
+      return { deleted: name, default: document.active };
+    });
+  }
+
+  public async getPermissions(
+    name?: string,
+  ): Promise<readonly string[] | undefined> {
     const document = await this.#load();
     const selectedName = name ?? document.active;
     if (!document.profiles[selectedName]) {
@@ -176,15 +211,33 @@ export class ProfileStore implements ProfileStoreContract {
     permissions: readonly string[],
   ): Promise<readonly string[]> {
     assertProfileName(name);
-    const document = await this.#load();
-    if (!document.profiles[name]) {
-      throw new Error(`Profile '${name}' does not exist.`);
-    }
-    const uniquePermissions = [...new Set(permissions)];
-    document.permissions ??= {};
-    document.permissions[name] = uniquePermissions;
-    await this.#save(document);
-    return [...uniquePermissions];
+    return this.#mutate(async () => {
+      const document = await this.#load();
+      if (!document.profiles[name]) {
+        throw new Error(`Profile '${name}' does not exist.`);
+      }
+      const uniquePermissions = [...new Set(permissions)];
+      document.permissions ??= {};
+      document.permissions[name] = uniquePermissions;
+      await this.#save(document);
+      return [...uniquePermissions];
+    });
+  }
+
+  #mutate<T>(work: () => Promise<T>): Promise<T> {
+    const previous =
+      ProfileStore.#writes.get(this.#filePath) ?? Promise.resolve();
+    const result = previous.then(work);
+    const tail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    ProfileStore.#writes.set(this.#filePath, tail);
+    void tail.then(() => {
+      if (ProfileStore.#writes.get(this.#filePath) === tail)
+        ProfileStore.#writes.delete(this.#filePath);
+    });
+    return result;
   }
 
   async #load(): Promise<ProfileDocument> {
@@ -200,7 +253,10 @@ export class ProfileStore implements ProfileStoreContract {
         Object.keys(document.profiles).length === 0 ||
         !Object.hasOwn(document.profiles, document.active) ||
         Object.values(document.profiles).some(
-          (values) => values === null || typeof values !== "object" || Array.isArray(values),
+          (values) =>
+            values === null ||
+            typeof values !== "object" ||
+            Array.isArray(values),
         ) ||
         (document.permissions !== undefined &&
           (document.permissions === null ||
@@ -208,12 +264,24 @@ export class ProfileStore implements ProfileStoreContract {
             Object.values(document.permissions).some(
               (permissions) =>
                 !Array.isArray(permissions) ||
-                permissions.some((permission) => typeof permission !== "string"),
+                permissions.some(
+                  (permission) => typeof permission !== "string",
+                ),
             )))
       ) {
         throw new Error(`Unsupported profile document at '${this.#filePath}'.`);
       }
 
+      const names = Object.keys(document.profiles);
+      names.forEach(assertProfileName);
+      if (
+        new Set(names.map((name) => name.toLowerCase())).size !== names.length
+      ) {
+        throw new Error(
+          "Profile document contains names that differ only by letter case. " +
+            "Back up profiles.json and profile-owned data, then resolve the conflicting names manually and reconfigure renamed profiles. No data was changed.",
+        );
+      }
       return document as ProfileDocument;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
