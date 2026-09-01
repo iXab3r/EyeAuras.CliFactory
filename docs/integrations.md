@@ -508,6 +508,8 @@ Successful publication returns the real path, byte count and SHA-256 only after 
 sync, exclusive no-overwrite linking, identity verification and safe staging cleanup. Do not open,
 execute, extract or retry the result. Staged validation is read-only; Core rejects detected size,
 modification-time or change-time mutations instead of publishing transformed bytes with stale metadata.
+Core retains its exclusive staging handle through validation and publication, then closes it before
+identity-checked path cleanup; a close failure retains staging for inspection.
 
 The integration still validates its own basename convention and limit. Core also rejects path,
 device and unsafe cross-platform basename forms. Staging is in a private fresh directory under the

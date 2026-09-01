@@ -1,7 +1,7 @@
 # Integration authoring Core — implementation plan
 
 **Lifecycle:** active. **Scope:** [Issue #14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14), F01–F08.
-**Current phase:** P4 complete: F01–F08 are accepted (8/8). P6 is active; final cross-PR review and post-fix 1148-suite passed; privacy, commit/push, final-head six-job CI and clean merge remain pending. Second checkpoint 6b2752cd passed all six CI jobs (1105 tests each); corrected final external package smoke passed.
+**Current phase:** P4 complete: F01–F08 are accepted (8/8). P6 is active. Exact-head `c8ab55d` CI run 33507232691 passed 4/6 and exposed ext4 inode reuse in cleanup on Ubuntu 22/24. The accepted open-handle correction passes 1149 local tests and post-correction package smoke; new exact-head six-job CI and clean merge remain pending.
 Worktree `EyeAuras.CliFactory-1`, branch `codex/integration-authoring-core`, fixed baseline
 `b5762f242ff1ea074e33a1c1739190ac4d0ee523`. This supersedes historical discovery measurements only;
 previous workstreams and unrelated files remain untouched.
@@ -27,18 +27,19 @@ offline, including actual IPC and routed browser regressions in current workspac
 
 Implementers may research in parallel, but shared source ownership and build/test operations stay
 coordinated by root. F06/F07 may run independently only with isolated evidence and explicit release.
-P0 is independently/root approved. F01/F02/F03/F05/F06/F08 are accepted; F07 completed by
-independently reviewed rejection with safe prototype cleanup. P1/P2/P3/P5 are done, with seven
-findings accepted. The first checkpoint `952d621a1f9db76ebe8d44aa57017438e9f886ab` is committed
+P0 is independently/root approved. F01–F08 are accepted; F07 completed by independently reviewed
+rejection with safe prototype cleanup. P1/P2/P3/P4/P5 are done, with all eight findings accepted.
+The first checkpoint `952d621a1f9db76ebe8d44aa57017438e9f886ab` is committed
 and pushed. F03/F05 are committed/pushed in second checkpoint
-`6b2752cdc0af5005832c55364266911761d76f44`. Root accepted F08: the bounded byte reader
-preserves TeamCity 2 MiB / YouTrack 8 MiB limits and service-local decoding/BOM behavior. F04
-is now released after the F08 checkpoint. RANDOM proof migration remains excluded.
+`6b2752cdc0af5005832c55364266911761d76f44`. Root accepted F08's bounded byte reader and F04's
+profile-owned publication after independent reviews and subsequent corrections. TeamCity 2 MiB /
+YouTrack 8 MiB limits and service-local decoding/BOM behavior remain. RANDOM proof migration is excluded.
 
-F05/F08 behavioral choices are published in the Issue comment linked from the ledger. F05
-and F08 have independent correctness/authoring PASS and root acceptance; F04 is released, not yet accepted.
+F05/F08 behavioral choices are published in the Issue comment linked from the ledger. F04/F05/F08
+have independent correctness/authoring PASS and root acceptance.
 The three baseline CI fixture corrections passed all six jobs at checkpoint `952d621a`, including
-the former macOS failures. Final external package verification passed; final-head platform CI remains required.
+the former macOS failures. Current post-correction external package verification passed; new exact-head
+platform CI remains required.
 Each retained extraction receives its own authoring/simplicity checkpoint before acceptance or
 dependent work. Endpoint counter remains zero: this workstream does not add REST operations.
 ## Measurement and review protocol

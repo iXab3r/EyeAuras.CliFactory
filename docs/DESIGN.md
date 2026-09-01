@@ -216,6 +216,8 @@ callbacks at their respective gates. It preflights
 link. It snapshots/rechecks directory and file identities, writes complete chunks, syncs before
 publication, verifies the published inode and never falls back to rename/copy or overwrites. Staged
 validation is read-only: detected size, modification-time or change-time mutations are rejected.
+The original exclusive file handle remains open through validation and the link decision. Cleanup
+matches the path to a fresh handle snapshot, closes successfully, rechecks, and only then unlinks.
 
 The result is `{ path, bytes, sha256 }` only after verified publication and staging cleanup.
 `ProfileFileError.published` records whether the link completed; `cleanupFailed` records incomplete

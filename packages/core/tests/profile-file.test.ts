@@ -348,6 +348,40 @@ test("unsupported links and post-publication cleanup failures report truthful di
   assert.deepEqual([...await readFile(join(root, "downloads", "retained.bin"))], [3]);
 });
 
+test("a staging-handle close failure retains every path for inspection", async (t) => {
+  const root = await temporary(t);
+  const originalOpen = fs.promises.open;
+  let closeOwned: (() => Promise<void>) | undefined;
+  t.mock.method(fs.promises, "open", async (...args: Parameters<typeof originalOpen>) => {
+    const handle = await originalOpen(...args);
+    closeOwned = handle.close.bind(handle);
+    return new Proxy(handle, {
+      get(target, property) {
+        if (property === "close") {
+          return async () => { throw new Error("synthetic-private-close"); };
+        }
+        const value = Reflect.get(target, property, target) as unknown;
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(
+      publishProfileFile(options(root, "close.bin", stream([Uint8Array.of(4)]))),
+      assertDisposition(true, true, /was published.*cleanup failed/),
+    );
+    assert.deepEqual([...await readFile(join(root, "downloads", "close.bin"))], [4]);
+    const stages = await readdir(join(root, "temp"));
+    assert.equal(stages.length, 1);
+    assert.deepEqual(await readdir(join(root, "temp", stages[0]!)), ["content"]);
+  } finally {
+    await closeOwned?.();
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+});
+
 test("destination replacement after link is detected and never removed", async (t) => {
   const root = await temporary(t);
   const originalLink = fs.promises.link;

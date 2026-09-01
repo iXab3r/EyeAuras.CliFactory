@@ -50,8 +50,8 @@
     },
     "packages/core": {
       "package": "@eyeauras/cli-factory",
-      "source": 3280,
-      "tests_support": 4197,
+      "source": 3294,
+      "tests_support": 4230,
       "proof": 0,
       "other_typescript": 0,
       "typescript_files": 44,
@@ -77,8 +77,8 @@
     }
   },
   "totals": {
-    "source": 19489,
-    "tests_support": 24277,
+    "source": 19503,
+    "tests_support": 24310,
     "proof": 443,
     "other_typescript": 0,
     "typescript_files": 225,
@@ -127,8 +127,8 @@
         "all_included_files": 2
       },
       "packages/core": {
-        "source": 759,
-        "tests_support": 1109,
+        "source": 773,
+        "tests_support": 1142,
         "proof": 0,
         "other_typescript": 0,
         "typescript_files": 13,
@@ -152,8 +152,8 @@
       }
     },
     "totals": {
-      "source": 525,
-      "tests_support": 1692,
+      "source": 539,
+      "tests_support": 1725,
       "proof": -92,
       "other_typescript": 0,
       "typescript_files": 18,
@@ -2236,13 +2236,13 @@
     {
       "path": "packages/core/src/profile-file.ts",
       "workspace": "packages/core",
-      "sha256_raw": "74c6ac29fdf3eb60ee29160349cd8e0969c865deb8811fec9274f3fc2977a423",
-      "bytes": 12493,
+      "sha256_raw": "d4d8621101bd54a075f8f5beb683a76caddcf4360ca283a78268d9ae3b72dd42",
+      "bytes": 13079,
       "category": "source",
-      "nonblank_lines": 325,
-      "sha256_lf": "74c6ac29fdf3eb60ee29160349cd8e0969c865deb8811fec9274f3fc2977a423",
-      "lf_utf8_bytes": 12493,
-      "lf_utf16_characters": 12487
+      "nonblank_lines": 339,
+      "sha256_lf": "d4d8621101bd54a075f8f5beb683a76caddcf4360ca283a78268d9ae3b72dd42",
+      "lf_utf8_bytes": 13079,
+      "lf_utf16_characters": 13073
     },
     {
       "path": "packages/core/src/profile-store.ts",
@@ -2467,13 +2467,13 @@
     {
       "path": "packages/core/tests/profile-file.test.ts",
       "workspace": "packages/core",
-      "sha256_raw": "374a99cd4234b7b2a63b40b6a06cdbcd6a11de916b727692186dd32bf08ed04e",
-      "bytes": 19193,
+      "sha256_raw": "429add8d37001deaa7dab5c2f21c96033a3c4213a1681a1bcbc9238e98e16af0",
+      "bytes": 20527,
       "category": "tests_support",
-      "nonblank_lines": 461,
-      "sha256_lf": "374a99cd4234b7b2a63b40b6a06cdbcd6a11de916b727692186dd32bf08ed04e",
-      "lf_utf8_bytes": 19193,
-      "lf_utf16_characters": 19193
+      "nonblank_lines": 494,
+      "sha256_lf": "429add8d37001deaa7dab5c2f21c96033a3c4213a1681a1bcbc9238e98e16af0",
+      "lf_utf8_bytes": 20527,
+      "lf_utf16_characters": 20527
     },
     {
       "path": "packages/core/tests/profile-own-properties.test.ts",

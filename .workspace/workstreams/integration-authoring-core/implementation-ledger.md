@@ -1,7 +1,7 @@
 # Integration authoring Core — implementation ledger
 
 **Lifecycle:** active. **Issue:** [#14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14).
-**Current phase:** P4 complete: F01–F08 accepted (8/8). P6 active; final cross-PR review and post-fix 1148-suite passed; privacy, commit/push, final-head six-job CI and clean merge pending. Second checkpoint 6b2752cd passed all six CI jobs (1105 tests each); corrected final external package smoke passed. **Accepted findings:** 8/8 (F01–F08).
+**Current phase:** P4 complete: F01–F08 accepted (8/8). P6 active. Exact-head `c8ab55d` CI run 33507232691 passed 4/6 and exposed ext4 inode reuse in cleanup on Ubuntu 22/24. The accepted open-handle correction passes 1149 local tests and post-correction package smoke; new exact-head six-job CI and clean merge pending. **Accepted findings:** 8/8 (F01–F08).
 **New REST operations:** 0; endpoint inventory is unchanged.
 
 | Phase | Scope | Status | Agent | Review |
@@ -12,7 +12,7 @@
 | P3 | F05 parsers / F06 wrapper inference | done | authoring_types / reviewer / root | F05/F06 independently reviewed and root accepted; F05 all-workspace build and 1020 affected tests PASS |
 | P4 | F08 response bound, then F04 file publication | done | authoring_streams / independent reviewers / root | F04/F08 technical/security/authoring PASS and root accepted |
 | P5 | F07 option-typing experiment | done | option_experiment / independent reviewer / root | Reviewed rejection accepted; measured evidence retained; prototype removed safely and shared dependencies unchanged |
-| P6 | Consolidation, exports, PR/review/CI and clean merge | active; final gates pending | source owners / reviewers / root | Functional8/8, final whole-PR review, 1148 suite and package PASS; privacy/commit-push/final-head CI/merge pending |
+| P6 | Consolidation, exports, PR/review/CI and clean merge | active; final gates pending | source owners / reviewers / root | Functional8/8; accepted cleanup correction, 1149 suite and post-correction package PASS; new exact-head CI/merge pending |
 
 ## Current handover
 
@@ -21,20 +21,23 @@
   generated exclusions: 18,964 source / 22,585 tests-support / 535 proof. Older workstreams stay untouched.
 - **F01–F08 are accepted (8/8)**. P1/P2/P3/P5 are done; F07 completed by
   reviewed rejection without retained production changes. F03/F05 are committed/pushed in
-  `6b2752cdc0af5005832c55364266911761d76f44`. F08 is accepted; F04 is now released to authoring_streams. Preserve local decoding/BOM behavior and TC 2 MiB / YT 8 MiB limits.
-- Accepted F04 evidence: independent technical/security/test-audit/authoring and final cross-PR
-  review PASS. The review closed awaited async inspection and stable same-inode snapshots.
-  Root post-fix `npm test` built all eight workspaces and passed 1148 tests, zero failures/skips.
-  `checkpoint-f04.md` pins corrected hashes; +138 production / +590 tests, local 474→261.
+  `6b2752cdc0af5005832c55364266911761d76f44`. F04/F08 are accepted after their independent reviews
+  and corrections. Preserve local decoding/BOM behavior and TC 2 MiB / YT 8 MiB limits.
+- Accepted F04 evidence: independent technical/security/test-audit/authoring and cross-PR review
+  PASS. Exact-head CI exposed ext4 inode reuse after the earlier snapshot checks. The accepted
+  correction retains the exclusive staging handle until publication and makes close/cleanup fail
+  closed. Root corrected `npm test` built all eight workspaces and passed 1149 tests, zero skips.
+  `checkpoint-f04.md` pins current hashes; +152 production / +623 tests, local 474→261.
   This is a bounded simplification, not a whole-workstream LOC saving.
 - Accepted F08 evidence: all eight workspaces built and 1043 affected tests passed (115 Core / 584 TC /
   344 YT), zero failures/skips. Independent technical/security/authoring PASS and root acceptance.
-  `checkpoint-f08.md` pins 12 source/test/doc hashes and +57 production / +372 tests; F04 released.
+  `checkpoint-f08.md` pins 12 source/test/doc hashes and +57 production / +372 tests; F04 was
+  subsequently accepted with its own receipt.
 - Latest accepted F05 evidence: all eight workspaces built and 1020/1020 affected tests passed (105 Core /
   578 TeamCity / 337 YouTrack), zero failures/skips. Independent technical and authoring PASS;
   `checkpoint-f05.md` records isolated production +6, tests +231, total +237 TS, with no LOC saving.
-- `checkpoint-f03.md` retains the F03 proof-cost and real-tarball consumer/exports/strict
-  TypeScript/cleanup PASS receipt. Final external package verification passed after the later source changes.
+- `checkpoint-f03.md` retains the F03 proof-cost and earlier package receipt. Current corrected-tree
+  package verification is recorded below.
 - The [behavioral decision comment](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14#issuecomment-5482554668)
   was published with exact readback: F05 YouTrack pre-onboarding integer rejection, F08 YouTrack
   8 MiB decoded response bound / TeamCity 2 MiB preserved, and profile-owned temp staging. This
@@ -47,12 +50,11 @@
   passed all six Linux/macOS/Windows Node 22/24 jobs at exact head
   `6b2752cdc0af5005832c55364266911761d76f44`: 1105 tests each, zero failures/skips.
   All seven proof child-reaping tests passed. This does not accept the later F08 changes.
-- Final external package smoke passed: actual Core 0.1.0 97-file tarball
-  `5030706b8cb6ef4be6e396664f58e08a46a8dfdf3673de0e27cd2f6846983105`, offline real-path
-  install without links/private paths; runtime 21 / proof 2 / testing 6 exports, strict TS 7,
-  synthetic CLI/JSON/two-RPC/disposal, proof CI refusal, zero-effect file preflight and cleanup PASS.
-  Build marker `09cd57d41aedc4bfe9c228124c9877ca8b36b2bb5a8aca29ffbfbc6e4cf415db`
-  was unchanged. No live/keyring/repository edit. Final CI remains pending.
+- Current post-cleanup-correction package smoke passed: Core 0.1.0, 97-file tarball (SHA-256 prefix
+  `53c2bed6`), installed file receipt prefix `8beed1`, marker SHA prefix `1369244`, and harness
+  prefix `99A5`. Offline isolated install, runtime 21 / proof 2 / testing 6 exports, strict installed
+  declarations, synthetic CLI/JSON/RPC/disposal, proof CI refusal, zero-effect preflight and cleanup
+  all passed. No live service or keyring was used.
 - [Draft PR #15](https://github.com/iXab3r/EyeAuras.CliFactory/pull/15) references Issue #14 and
   has a verified updated draft body recording six accepted findings, without closing Issue #14.
   It supplied successful fixture and second-checkpoint CI; P6/final-head checks remain pending.
@@ -194,3 +196,17 @@ checked: only same-key `text(args, ...)` to direct reads plus whitespace.
 
 F04/F08/F07 were excluded. This was read-only review, without fresh builds/tests, and does not
 complete P6. Final F04 review, full tests, package verification and final-head CI remain required.
+
+## 2026-09-01 — exact-head CI deviation and accepted cleanup correction
+
+[Run 33507232691](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33507232691)
+tested exact pushed head `c8ab55da07dd117d6525c8d25a4f3ea58beda46c`: four of six jobs passed;
+Ubuntu Node 22/24 each failed one F04 cleanup test. ext4 reused an inode for a replacement path,
+showing that post-close inode comparison could delete the replacement.
+
+The accepted local correction keeps the original exclusive staging handle open through validation
+and link publication. Cleanup snapshots through that handle, closes successfully, rechecks the path,
+and only then unlinks; close failure retains staging for inspection. Root's corrected full suite built
+all eight workspaces and passed 1149 tests (Core 133 / IPC 31 / Playwright 23 / random-pw 6 /
+random-rest 25 / TeamCity 586 / YouTrack 345), zero failures/skips. Post-correction package smoke
+passed. New exact-head six-job CI and clean merge remain required.

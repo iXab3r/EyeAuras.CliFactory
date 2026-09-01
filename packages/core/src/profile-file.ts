@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { BigIntStats } from "node:fs";
 import {
   link,
   lstat,
@@ -58,6 +59,18 @@ interface FileIdentity extends PathIdentity {
   ctimeNs: bigint;
 }
 
+function fileIdentityFromStat(path: string, stat: BigIntStats): FileIdentity {
+  if (!stat.isFile()) throw new Error();
+  return {
+    path,
+    dev: stat.dev,
+    ino: stat.ino,
+    size: stat.size,
+    mtimeNs: stat.mtimeNs,
+    ctimeNs: stat.ctimeNs,
+  };
+}
+
 function inside(parent: string, child: string): void {
   const part = relative(parent, child);
   if (part === ".." || part.startsWith(".." + sep) || isAbsolute(part)) throw new Error();
@@ -72,14 +85,7 @@ async function directoryIdentity(path: string): Promise<PathIdentity> {
 async function fileIdentity(path: string): Promise<FileIdentity> {
   const stat = await lstat(path, { bigint: true });
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error();
-  return {
-    path,
-    dev: stat.dev,
-    ino: stat.ino,
-    size: stat.size,
-    mtimeNs: stat.mtimeNs,
-    ctimeNs: stat.ctimeNs,
-  };
+  return fileIdentityFromStat(path, stat);
 }
 
 async function prepareDirectories(path: string): Promise<PathIdentity[]> {
@@ -193,14 +199,7 @@ export async function publishProfileFile(
     file = await open(stagingPath, "wx", 0o600);
     const opened = await file.stat({ bigint: true });
     if (!opened.isFile()) throw new Error();
-    stagingIdentity = {
-      path: stagingPath,
-      dev: opened.dev,
-      ino: opened.ino,
-      size: opened.size,
-      mtimeNs: opened.mtimeNs,
-      ctimeNs: opened.ctimeNs,
-    };
+    stagingIdentity = fileIdentityFromStat(stagingPath, opened);
 
     failureMessage =
       "Download failed, exceeded its byte limit, was cancelled, or had an incomplete transfer; " +
@@ -231,8 +230,6 @@ export async function publishProfileFile(
     });
     if (signal?.aborted) throw new Error();
     await file.sync();
-    await file.close();
-    file = undefined;
     failureMessage =
       "Download directories or private staging changed during the transfer; " +
       "no destination was published.";
@@ -301,19 +298,37 @@ export async function publishProfileFile(
     // The selected static message is the only information exposed from this operation.
   } finally {
     void response?.body?.cancel().catch(() => undefined);
+    let cleanupAllowed = true;
+    let cleanupIdentity: FileIdentity | undefined;
+    if (file) {
+      try {
+        if (!stagingPath) throw new Error();
+        cleanupIdentity = fileIdentityFromStat(
+          stagingPath,
+          await file.stat({ bigint: true }),
+        );
+        await verifyFileSnapshot(cleanupIdentity);
+      } catch {
+        cleanupFailed = true;
+        cleanupAllowed = false;
+      }
+    }
     try {
       await file?.close();
+      file = undefined;
     } catch {
       cleanupFailed = true;
+      cleanupAllowed = false;
     }
-    if (stagingDirectory) {
+    if (stagingDirectory && cleanupAllowed) {
       try {
         if (!stagingDirectoryIdentity) throw new Error();
         await verifyDirectories(stagingDirectories);
         await verifyIdentity(stagingDirectoryIdentity, "directory");
         if (stagingPath && stagingIdentity) {
           try {
-            await verifyIdentity(stagingIdentity, "file");
+            if (!cleanupIdentity) throw new Error();
+            await verifyFileSnapshot(cleanupIdentity);
             await unlink(stagingPath);
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
