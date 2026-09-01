@@ -5,11 +5,9 @@ import {
   mutationBody,
   narrative,
   nullableText,
-  page,
-  readCollection,
-  readObject,
+  readCollectionAt,
+  readObjectAt,
   type Connection,
-  type PageOptions,
   type ProjectionOptions,
   type YouTrackObject,
 } from "./client.js";
@@ -23,22 +21,8 @@ function articlePath(articleID: string): string {
   return `api/articles/${encodedID(articleID, "article ID")}`;
 }
 
-export async function listArticles(
-  connection: Connection,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, "api/articles", page(options, articleListFields));
-}
-
-export async function getArticle(
-  connection: Connection,
-  articleID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, articlePath(articleID), {
-    fields: fields(options, articleDetailFields),
-  });
-}
+export const listArticles = readCollectionAt("api/articles", articleListFields);
+export const getArticle = readObjectAt(articlePath, articleDetailFields);
 
 export async function createArticle(
   connection: Connection,
@@ -80,30 +64,15 @@ export async function updateArticle(
   );
 }
 
-export async function listArticleComments(
-  connection: Connection,
-  articleID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(
-    connection,
-    `${articlePath(articleID)}/comments`,
-    page(options, articleCommentFields),
-  );
-}
-
-export async function getArticleComment(
-  connection: Connection,
-  articleID: string,
-  commentID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(
-    connection,
+export const listArticleComments = readCollectionAt(
+  (articleID: string) => `${articlePath(articleID)}/comments`,
+  articleCommentFields,
+);
+export const getArticleComment = readObjectAt(
+  (articleID: string, commentID: string) =>
     `${articlePath(articleID)}/comments/${encodedID(commentID, "comment ID")}`,
-    { fields: fields(options, articleCommentFields) },
-  );
-}
+  articleCommentFields,
+);
 
 export async function addArticleComment(
   connection: Connection,
@@ -136,14 +105,7 @@ export async function updateArticleComment(
   );
 }
 
-export async function listProjectArticles(
-  connection: Connection,
-  projectID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(
-    connection,
-    `api/admin/projects/${encodedID(projectID, "project ID")}/articles`,
-    page(options, articleListFields),
-  );
-}
+export const listProjectArticles = readCollectionAt(
+  (projectID: string) => `api/admin/projects/${encodedID(projectID, "project ID")}/articles`,
+  articleListFields,
+);

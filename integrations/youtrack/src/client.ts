@@ -290,6 +290,70 @@ export async function readCollection(
   return value.map(object);
 }
 
+type ResourcePath = string | ((...arguments_: never[]) => string);
+type ResourcePathArguments<Path extends ResourcePath> =
+  Path extends (...arguments_: infer Arguments extends string[]) => string ? Arguments : [];
+
+function resourceArguments<Options extends object>(values: unknown[]): {
+  pathArguments: string[];
+  options: Options;
+} {
+  const items = [...values];
+  const tail = items.at(-1);
+  const hasOptions = tail === undefined ||
+    (tail !== null && typeof tail === "object" && !Array.isArray(tail));
+  const options = hasOptions && items.length
+    ? (items.pop() ?? {}) as Options
+    : {} as Options;
+  if (items.some((item) => typeof item !== "string")) {
+    throw new Error("YouTrack resource arguments must be text.");
+  }
+  return { pathArguments: items as string[], options };
+}
+
+function resourcePath(
+  path: ResourcePath,
+  arguments_: string[],
+): string {
+  return typeof path === "string"
+    ? path
+    : Reflect.apply(path, undefined, arguments_) as string;
+}
+
+/** Define one ordinary bounded YouTrack collection without repeating transport/query plumbing. */
+export function readCollectionAt<const Path extends ResourcePath>(
+  path: Path,
+  defaultFields: string,
+): (
+  connection: Connection,
+  ...arguments_: [...ResourcePathArguments<Path>, options?: PageOptions]
+) => Promise<YouTrackObject[]> {
+  return async (connection, ...values) => {
+    const { pathArguments, options } = resourceArguments<PageOptions>(values);
+    return readCollection(
+      connection,
+      resourcePath(path, pathArguments),
+      page(options, defaultFields),
+    );
+  };
+}
+
+/** Define one ordinary projected YouTrack object without repeating transport/query plumbing. */
+export function readObjectAt<const Path extends ResourcePath>(
+  path: Path,
+  defaultFields: string,
+): (
+  connection: Connection,
+  ...arguments_: [...ResourcePathArguments<Path>, options?: ProjectionOptions]
+) => Promise<YouTrackObject> {
+  return async (connection, ...values) => {
+    const { pathArguments, options } = resourceArguments<ProjectionOptions>(values);
+    return readObject(connection, resourcePath(path, pathArguments), {
+      fields: fields(options, defaultFields),
+    });
+  };
+}
+
 export async function currentUser(connection: Connection): Promise<YouTrackUser> {
   const value = await request(connection, "api/users/me", { fields: "id,login" }, "identity");
   const token = connection.token.trim();
@@ -313,12 +377,7 @@ export async function readUser(
     : readObject(connection, "api/users/me", { fields: fields(options, "id,login") });
 }
 
-export async function listProjects(
-  connection: Connection,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, "api/admin/projects", page(options, "id,name,shortName"));
-}
+export const listProjects = readCollectionAt("api/admin/projects", "id,name,shortName");
 
 export async function listIssues(
   connection: Connection,
@@ -330,23 +389,11 @@ export async function listIssues(
   });
 }
 
-export async function getIssue(
-  connection: Connection,
-  id: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, issuePath(id), {
-    fields: fields(options, `${issueListFields},description,created`),
-  });
-}
-
-export async function listComments(
-  connection: Connection,
-  issueID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, `${issuePath(issueID)}/comments`, page(options, commentFields));
-}
+export const getIssue = readObjectAt(issuePath, `${issueListFields},description,created`);
+export const listComments = readCollectionAt(
+  (issueID: string) => `${issuePath(issueID)}/comments`,
+  commentFields,
+);
 
 export function mutationBody(value: unknown, allowed: readonly string[]): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value) ||

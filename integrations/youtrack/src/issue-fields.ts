@@ -1,16 +1,12 @@
 import {
   encodedID,
-  fields,
   issuePath,
   mutationBody,
   mutate,
   narrative,
-  page,
-  readCollection,
-  readObject,
+  readCollectionAt,
+  readObjectAt,
   type Connection,
-  type PageOptions,
-  type ProjectionOptions,
   type YouTrackObject,
   type YouTrackValue,
 } from "./client.js";
@@ -28,66 +24,22 @@ function fieldPath(issueID: string, fieldID: string): string {
   return `${issuePath(issueID)}/customFields/${encodedID(fieldID, "field ID")}`;
 }
 
-export async function getProject(
-  connection: Connection,
-  projectID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, projectPath(projectID), {
-    fields: fields(options, "id,name,shortName,description,archived"),
-  });
-}
-
-export async function listProjectFields(
-  connection: Connection,
-  projectID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(
-    connection,
-    `${projectPath(projectID)}/customFields`,
-    page(options, projectFieldFields),
-  );
-}
-
-export async function getProjectField(
-  connection: Connection,
-  projectID: string,
-  fieldID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(
-    connection,
+export const getProject = readObjectAt(projectPath, "id,name,shortName,description,archived");
+export const listProjectFields = readCollectionAt(
+  (projectID: string) => `${projectPath(projectID)}/customFields`,
+  projectFieldFields,
+);
+export const getProjectField = readObjectAt(
+  (projectID: string, fieldID: string) =>
     `${projectPath(projectID)}/customFields/${encodedID(fieldID, "field ID")}`,
-    { fields: fields(options, projectFieldFields) },
-  );
-}
-
-export async function listUsers(
-  connection: Connection,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, "api/users", page(options, "id,login,fullName"));
-}
-
-export async function listIssueFields(
-  connection: Connection,
-  issueID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, `${issuePath(issueID)}/customFields`, page(options, issueFieldFields));
-}
-
-export async function getIssueField(
-  connection: Connection,
-  issueID: string,
-  fieldID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, fieldPath(issueID, fieldID), {
-    fields: fields(options, issueFieldFields),
-  });
-}
+  projectFieldFields,
+);
+export const listUsers = readCollectionAt("api/users", "id,login,fullName");
+export const listIssueFields = readCollectionAt(
+  (issueID: string) => `${issuePath(issueID)}/customFields`,
+  issueFieldFields,
+);
+export const getIssueField = readObjectAt(fieldPath, issueFieldFields);
 
 function reference(value: unknown, user: boolean): YouTrackObject {
   const body = mutationBody(value, user ? ["id", "name", "login"] : ["id", "name"]);

@@ -2,10 +2,9 @@ import { attachmentForm } from "./attachment-form.js";
 import {
   encodedID,
   fields,
-  page,
-  readCollection,
+  readCollectionAt,
   readNullableObject,
-  readObject,
+  readObjectAt,
   uploadObjectCollection,
   type Connection,
   type PageOptions,
@@ -21,30 +20,15 @@ function articlePath(articleID: string): string {
   return `api/articles/${encodedID(articleID, "article ID")}`;
 }
 
-export async function listArticleAttachments(
-  connection: Connection,
-  articleID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(
-    connection,
-    `${articlePath(articleID)}/attachments`,
-    page(options, attachmentFields),
-  );
-}
-
-export async function getArticleAttachment(
-  connection: Connection,
-  articleID: string,
-  attachmentID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(
-    connection,
+export const listArticleAttachments = readCollectionAt(
+  (articleID: string) => `${articlePath(articleID)}/attachments`,
+  attachmentFields,
+);
+export const getArticleAttachment = readObjectAt(
+  (articleID: string, attachmentID: string) =>
     `${articlePath(articleID)}/attachments/${encodedID(attachmentID, "attachment ID")}`,
-    { fields: fields(options, attachmentFields) },
-  );
-}
+  attachmentFields,
+);
 
 export async function uploadArticleAttachment(
   connection: Connection,
@@ -58,30 +42,15 @@ export async function uploadArticleAttachment(
   return uploadObjectCollection(connection, path, form, projection);
 }
 
-export async function listChildArticles(
-  connection: Connection,
-  articleID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(
-    connection,
-    `${articlePath(articleID)}/childArticles`,
-    page(options, articleListFields),
-  );
-}
-
-export async function getChildArticle(
-  connection: Connection,
-  articleID: string,
-  childID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(
-    connection,
+export const listChildArticles = readCollectionAt(
+  (articleID: string) => `${articlePath(articleID)}/childArticles`,
+  articleListFields,
+);
+export const getChildArticle = readObjectAt(
+  (articleID: string, childID: string) =>
     `${articlePath(articleID)}/childArticles/${encodedID(childID, "child article ID")}`,
-    { fields: fields(options, articleDetailFields) },
-  );
-}
+  articleDetailFields,
+);
 
 export async function getParentArticle(
   connection: Connection,

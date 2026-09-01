@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 import { catalogCases } from "./field-catalog-cases.js";
 
 const server = setupServer();
@@ -14,9 +14,7 @@ after(() => server.close());
 const service = "ai-cli-factory:youtrack-cli";
 
 for (const row of catalogCases) test(`catalog CLI ${row.argv.join(" ")} binds its route and human/JSON output`, async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   const result = row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" };
   const requests = trackRequests(t, 2, async request => {
     await assertHttpRequest(request, {
@@ -34,9 +32,7 @@ for (const row of catalogCases) test(`catalog CLI ${row.argv.join(" ")} binds it
 });
 
 test("every catalog leaf requires ReadOnly even when Update is enabled", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
   const requests = trackRequests(t, 0, () => HttpResponse.json({}));
@@ -46,9 +42,7 @@ test("every catalog leaf requires ReadOnly even when Update is enabled", async (
 });
 
 test("catalog CLI rejects unsupported filters, detail pagination and malformed paging before fetch", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json([]); }));
   for (const row of catalogCases) {
@@ -115,9 +109,7 @@ test("catalog RPC isolates profile URLs, tokens, permissions and AppData and sur
 });
 
 test("catalog ordinary JSON errors stay on stderr with one failed request and no private payload", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   const requests = trackRequests(t, 1, () =>
     new HttpResponse("synthetic-token private-response", { status: 403 }));
   server.use(http.all("*", ({ request }) => requests.handle(request)));

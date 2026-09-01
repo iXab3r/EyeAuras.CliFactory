@@ -7,7 +7,9 @@ import {
   narrative,
   page,
   readCollection,
+  readCollectionAt,
   readObject,
+  readObjectAt,
   requiredText,
   type Connection,
   type PageOptions,
@@ -95,18 +97,11 @@ export async function getIssueActivitiesPage(
   return activityPage(connection, `${issuePath(issueID)}/activitiesPage`, options);
 }
 
-export async function getComment(
-  connection: Connection,
-  issueID: string,
-  commentID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(
-    connection,
+export const getComment = readObjectAt(
+  (issueID: string, commentID: string) =>
     `${issuePath(issueID)}/comments/${encodedID(commentID, "comment ID")}`,
-    { fields: fields(options, commentFields) },
-  );
-}
+  commentFields,
+);
 
 export async function updateComment(
   connection: Connection,
@@ -123,35 +118,16 @@ export async function updateComment(
   );
 }
 
-export async function listIssueSprints(
-  connection: Connection,
-  issueID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(
-    connection,
-    `${issuePath(issueID)}/sprints`,
-    page(options, "id,name,goal,start,finish,archived,agile(id,name)"),
-  );
-}
-
-export async function listVcsChanges(
-  connection: Connection,
-  issueID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, `${issuePath(issueID)}/vcsChanges`, page(options, vcsFields));
-}
-
-export async function getVcsChange(
-  connection: Connection,
-  issueID: string,
-  changeID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(
-    connection,
+export const listIssueSprints = readCollectionAt(
+  (issueID: string) => `${issuePath(issueID)}/sprints`,
+  "id,name,goal,start,finish,archived,agile(id,name)",
+);
+export const listVcsChanges = readCollectionAt(
+  (issueID: string) => `${issuePath(issueID)}/vcsChanges`,
+  vcsFields,
+);
+export const getVcsChange = readObjectAt(
+  (issueID: string, changeID: string) =>
     `${issuePath(issueID)}/vcsChanges/${encodedID(changeID, "change ID")}`,
-    { fields: fields(options, vcsFields) },
-  );
-}
+  vcsFields,
+);

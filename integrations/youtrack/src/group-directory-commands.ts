@@ -1,5 +1,5 @@
-import { command, Permission } from "@eyeauras/cli-factory";
-import { connection, pageOptions, projectionOptions, readOptions } from "./cli-support.js";
+import { command } from "@eyeauras/cli-factory";
+import { pagedRead, projectedRead, readCommand, pageOptions, readOptions } from "./cli-support.js";
 import {
   getGroup,
   getProjectTeam,
@@ -17,71 +17,50 @@ const memberOptions = [
 
 export const groupDirectoryRootCommands = [
   command("group", "Inspect user groups and membership", [
-    command(
-      "list",
-      "List one page of visible groups without expanding members",
-      async ({ options }, context) => listGroups(await connection(context), readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
-    command(
-      "get <group>",
-      "Read a group by database ID without expanding members",
-      async ({ args, options }, context) =>
-        getGroup(await connection(context), args.group, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
-    ),
+    pagedRead("list", "List one page of visible groups without expanding members", listGroups),
+    projectedRead("get <group>", "Read a group by database ID without expanding members", getGroup),
     command("member", "Inspect direct or inherited group members", [
-      command(
+      readCommand(
         "list <group>",
         "List one page of members, including inherited users unless --direct is set",
-        async ({ args, options }, context) =>
-          listGroupMembers(await connection(context), args.group, {
+        async (connection, { args, options }, context) =>
+          listGroupMembers(connection, args.group, {
             ...readOptions(options),
             direct: options.direct === true,
           }),
-        { permission: Permission.ReadOnly, options: memberOptions },
+        memberOptions,
       ),
     ]),
     command("subgroup", "Inspect nested groups without recursive traversal", [
-      command(
-        "list <group>",
-        "List one page of immediate subgroups",
-        async ({ args, options }, context) =>
-          listSubgroups(await connection(context), args.group, readOptions(options)),
-        { permission: Permission.ReadOnly, options: pageOptions },
-      ),
+      pagedRead("list <group>", "List one page of immediate subgroups", listSubgroups),
     ]),
   ]),
 ];
 
 export const groupDirectoryProjectChildren = [
   command("team", "Inspect project teams (YouTrack 2026.1+)", [
-    command(
+    projectedRead(
       "get <project>",
       "Read team identity and member count without expanding membership",
-      async ({ args, options }, context) =>
-        getProjectTeam(await connection(context), args.project, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
+      getProjectTeam,
     ),
     command("group", "Inspect groups added to the project team", [
-      command(
+      pagedRead(
         "list <project>",
         "List one page of team groups without expanding their users",
-        async ({ args, options }, context) =>
-          listProjectTeamGroups(await connection(context), args.project, readOptions(options)),
-        { permission: Permission.ReadOnly, options: pageOptions },
+        listProjectTeamGroups,
       ),
     ]),
     command("user", "Inspect direct or inherited project-team users", [
-      command(
+      readCommand(
         "list <project>",
         "List one page of team users, including group members unless --direct is set",
-        async ({ args, options }, context) =>
-          listProjectTeamUsers(await connection(context), args.project, {
+        async (connection, { args, options }, context) =>
+          listProjectTeamUsers(connection, args.project, {
             ...readOptions(options),
             direct: options.direct === true,
           }),
-        { permission: Permission.ReadOnly, options: memberOptions },
+        memberOptions,
       ),
     ]),
   ]),

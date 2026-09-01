@@ -13,7 +13,7 @@ import {
   listProjectWorkItemTypes,
   listWorkItemTypes,
 } from "../src/time-settings.js";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -153,9 +153,7 @@ test("time metadata IDs, blank fields and invalid paging fail before fetch", asy
 test("actual CLI executes every time metadata leaf in human and JSON modes", async (t) => {
   for (const row of rows) {
     for (const json of [false, true]) {
-      const f = await fixture(t);
-      await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-      await f.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", connection.token);
+      const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
       let calls = 0;
       server.use(http.get("*", ({ request }) => {
         calls++;
@@ -179,9 +177,7 @@ test("actual CLI executes every time metadata leaf in human and JSON modes", asy
 });
 
 test("all seven time metadata leaves enforce ReadOnly before networking and reject invented filters", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-  await f.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", connection.token);
+  const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   let calls = 0;
   server.use(http.all("*", () => { calls++; return HttpResponse.json({ id: "unexpected" }); }));

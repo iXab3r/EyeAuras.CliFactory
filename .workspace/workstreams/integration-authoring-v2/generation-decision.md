@@ -1,5 +1,11 @@
 # P5 service-local generation decision
 
+> **Reconciled after owner review:** the rejection of generated source and a service-neutral
+> HTTP/CRUD schema still stands. Its claim that the existing corpus had no useful declarative
+> family does not: P8 retained two small hand-written YouTrack-local vocabularies for 102 command
+> leaves and 85 ordinary read resources. They execute directly and keep exceptional policy in
+> normal code; there is no generated output or hidden schema.
+
 **Decision: reject a production generator for the current TeamCity/YouTrack corpus.** Revisit at
 the authoring checkpoint of a future operation batch, not as a migration of already complete APIs.
 
@@ -29,10 +35,11 @@ generator implementation, schema validation, emitted output and independent test
 cost. The current inventories are research evidence, not that descriptor, and generated line
 count is not a saving under the repository metric.
 
-The retained changes already achieve the verified low-cost savings without a schema layer:
-existing leaf binding, one TeamCity-local text specialization, proof entry-point isolation and
-existing cross-integration test contracts. There is no uncovered endpoint batch in this scope over
-which a new generator can amortize its fixed cost.
+The expanded retained changes still avoid a generator: Core binds only an invocation-owned target,
+while YouTrack's local helpers describe four proven command shapes and two proven read-resource
+shapes. Paths, projections and ID encoding remain beside the service code and direct exceptions
+remain ordinary functions. This achieves the current-corpus saving without emitted files or a
+universal endpoint schema.
 
 ## Reopen trigger
 

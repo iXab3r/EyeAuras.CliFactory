@@ -4,12 +4,10 @@ import {
   mutate,
   mutationBody,
   nullableText,
-  page,
-  readCollection,
-  readObject,
+  readCollectionAt,
+  readObjectAt,
   requiredText,
   type Connection,
-  type PageOptions,
   type ProjectionOptions,
   type YouTrackObject,
 } from "./client.js";
@@ -21,36 +19,17 @@ function agilePath(agile: string): string {
   return `api/agiles/${encodedID(agile, "agile ID")}`;
 }
 
-export async function listAgiles(connection: Connection, options: PageOptions = {}) {
-  return readCollection(connection, "api/agiles", page(options, agileFields));
-}
-
-export async function getAgile(
-  connection: Connection,
-  agile: string,
-  options: ProjectionOptions = {},
-) {
-  return readObject(connection, agilePath(agile), { fields: fields(options, agileFields) });
-}
-
-export async function listSprints(
-  connection: Connection,
-  agile: string,
-  options: PageOptions = {},
-) {
-  return readCollection(connection, `${agilePath(agile)}/sprints`, page(options, sprintFields));
-}
-
-export async function getSprint(
-  connection: Connection,
-  agile: string,
-  sprint: string,
-  options: ProjectionOptions = {},
-) {
-  return readObject(connection, `${agilePath(agile)}/sprints/${encodedID(sprint, "sprint ID")}`, {
-    fields: fields(options, sprintFields),
-  });
-}
+export const listAgiles = readCollectionAt("api/agiles", agileFields);
+export const getAgile = readObjectAt(agilePath, agileFields);
+export const listSprints = readCollectionAt(
+  (agile: string) => `${agilePath(agile)}/sprints`,
+  sprintFields,
+);
+export const getSprint = readObjectAt(
+  (agile: string, sprint: string) =>
+    `${agilePath(agile)}/sprints/${encodedID(sprint, "sprint ID")}`,
+  sprintFields,
+);
 
 function sprintBody(input: unknown, creating: boolean): YouTrackObject {
   const body = mutationBody(input, [

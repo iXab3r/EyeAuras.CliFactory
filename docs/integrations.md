@@ -341,6 +341,41 @@ When the gate is enabled, startup fails if any service leaf lacks a permission o
 category. Built-in `profile`, `auth`, and `permissions` commands remain available so a user can
 recover configuration.
 
+### Bind the profile-scoped client once
+
+Most authenticated integrations should not repeat profile/secret-to-client plumbing in every
+leaf. Bind that invocation-owned target once with Core, then keep each declaration focused on its
+service operation:
+
+```ts
+import { targetCommands } from "@eyeauras/cli-factory";
+
+const targets = targetCommands(async (context) => new AcmeClient({
+  baseUrl: String(context.profile.values.url),
+  token: await context.secrets.require("token"),
+  fetch: context.fetch,
+  signal: context.signal,
+}));
+
+const commands = [
+  targets.read("list", "List resources", (client) => client.list()),
+  targets.update("create <name>", "Create a resource", (client, { args }) =>
+    client.create(args.name)),
+  targets.gated("DeployProduction")(
+    "deploy <id>", "Deploy a release", (client, { args }) => client.deploy(args.id),
+  ),
+];
+```
+
+Core resolves the target only after selecting and validating the profile and admitting the leaf's
+permission. A denied command therefore never reads credentials or creates a client. Resolution is
+fresh for every ordinary invocation and every request in a persistent JSON-RPC session; the binder
+is not a client cache. Literal positional argument inference remains the same as with `command`.
+
+Keep connection construction in the integration. If many operations later prove an identical
+service dialect, add the smallest local declaration helper around these bound leaves. Do not move
+paths, projections, paging, request bodies, response policy or service validation into Core.
+
 ## Grow by useful phases
 
 Use the **Reconciliation Lead** function role when the useful path contains multiple phases or a
@@ -376,8 +411,9 @@ command("create <id>", "Create a resource", createResource, {
 The parser owns missing-option validation and the generated `(required)` help hint; the same
 behavior applies in JSON-RPC. A declared default satisfies the requirement. Service-specific
 validation (non-empty names, allowed fields, safe properties) remains in the integration.
-Use small local functions for proven repetition, such as TeamCity's project/job parameter tree
-and profile-scoped client binding. Do not promote its HTTP or property semantics into Core.
+Use `targetCommands` for profile-scoped target binding and small local functions for proven service
+repetition, such as TeamCity's project/job parameter tree. Do not promote HTTP or property
+semantics into Core.
 For expansion work, follow the [50-operation authoring review practice](practices/integration-authoring-reviews.md).
 
 Use the small Core parser factories when an option needs decimal integer bounds or JSON syntax:

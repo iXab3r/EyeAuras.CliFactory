@@ -1,5 +1,5 @@
-import { command, Permission } from "@eyeauras/cli-factory";
-import { connection, pageOptions, projectionOptions, readOptions } from "./cli-support.js";
+import { command } from "@eyeauras/cli-factory";
+import { pagedRead, projectedRead } from "./cli-support.js";
 import {
   getUser,
   getUserBundle,
@@ -12,79 +12,42 @@ import {
 } from "./user-directory.js";
 
 export const userDirectoryUserChildren = [
-  command(
-    "get <user>",
-    "Read a user by database ID or login",
-    async ({ args, options }, context) =>
-      getUser(await connection(context), args.user, readOptions(options)),
-    { permission: Permission.ReadOnly, options: projectionOptions },
-  ),
+  projectedRead("get <user>", "Read a user by database ID or login", getUser),
 ];
 
 export const userDirectoryBundleChildren = [
   command("user", "Inspect assignee bundles and their attached users and groups", [
-    command(
-      "list",
-      "List one page of user bundles without expanding membership",
-      async ({ options }, context) => listUserBundles(await connection(context), readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
-    command(
-      "get <bundle>",
-      "Read a user bundle without expanding membership",
-      async ({ args, options }, context) =>
-        getUserBundle(await connection(context), args.bundle, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
-    ),
+    pagedRead("list", "List one page of user bundles without expanding membership", listUserBundles),
+    projectedRead("get <bundle>", "Read a user bundle without expanding membership", getUserBundle),
     command("member", "Inspect all bundle users, including users inherited from attached groups", [
-      command(
+      pagedRead(
         "list <bundle>",
         "List one page of aggregated users, both direct and through groups",
-        async ({ args, options }, context) =>
-          listUserBundleMembers(await connection(context), args.bundle, readOptions(options)),
-        { permission: Permission.ReadOnly, options: pageOptions },
+        listUserBundleMembers,
       ),
     ]),
     command("group", "Inspect groups attached to the user bundle", [
-      command(
+      pagedRead(
         "list <bundle>",
         "List one page of attached groups without expanding their users",
-        async ({ args, options }, context) =>
-          listUserBundleGroups(await connection(context), args.bundle, readOptions(options)),
-        { permission: Permission.ReadOnly, options: pageOptions },
+        listUserBundleGroups,
       ),
-      command(
+      projectedRead(
         "get <bundle> <group>",
         "Read one attached group by database ID",
-        async ({ args, options }, context) =>
-          getUserBundleGroup(
-            await connection(context),
-            args.bundle,
-            args.group,
-            readOptions(options),
-          ),
-        { permission: Permission.ReadOnly, options: projectionOptions },
+        getUserBundleGroup,
       ),
     ]),
     command("individual", "Inspect user accounts added directly to the bundle", [
-      command(
+      pagedRead(
         "list <bundle>",
         "List one page of directly added accounts, excluding group-only membership",
-        async ({ args, options }, context) =>
-          listUserBundleIndividuals(await connection(context), args.bundle, readOptions(options)),
-        { permission: Permission.ReadOnly, options: pageOptions },
+        listUserBundleIndividuals,
       ),
-      command(
+      projectedRead(
         "get <bundle> <user>",
         "Read one directly added account by database ID",
-        async ({ args, options }, context) =>
-          getUserBundleIndividual(
-            await connection(context),
-            args.bundle,
-            args.user,
-            readOptions(options),
-          ),
-        { permission: Permission.ReadOnly, options: projectionOptions },
+        getUserBundleIndividual,
       ),
     ]),
   ]),

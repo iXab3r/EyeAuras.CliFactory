@@ -1,5 +1,11 @@
 # P4 residual-family review
 
+> **Superseded on 2026-09-02 by owner review.** This remains evidence of the original narrow
+> trial, not the current verdict. It inspected TeamCity residuals and compared connection objects,
+> but did not count the 102 repeated YouTrack command bindings or 85 ordinary read-resource
+> implementations as coherent authoring families. P6 reopened the target binder and service-local
+> YouTrack declarations under the revised Issue #16 contract.
+
 Baseline: `c06efe9bcd27199776e6124122247e09685210d8`. Review target: the retained P1-P3
 working tree. REST coverage remains TeamCity 449/449 and YouTrack 118/118 plus one derived
 download; no operation identity was added or removed.
@@ -26,7 +32,7 @@ download; no operation identity was added or removed.
 | Dynamic JSON-list helper | `(path, query, envelopeKey, projector)` replacing three representative list methods | The pilot must add a helper plus four positional concepts before it saves a normally formatted caller. It converts typed response envelopes into string keys, while most projectors and envelopes are unique. Broader rollout would shorten methods but weaken local schema readability. | Reject; no prototype retained |
 | Generic empty/acknowledgement helper | Move the 14 `discard` choices behind `requestEmpty` | These sites intentionally differ on accepted status, content type, query/body and whether a returned acknowledgement is verified. Hiding `discard` removes visible response policy and does not remove endpoint-specific decisions. | Reject; no prototype retained |
 | Core option-bag inference | Generalize TeamCity `limit/start` and YouTrack `fields/top/skip/query` extraction | Names, defaults, numeric syntax, projection semantics and return types differ. A general picker would save local property checks while adding broad option inference, explicitly outside the workstream contract. | Reject; no prototype retained |
-| Core connection/client binder | Lift TeamCity `clientLeaf` and YouTrack `connection(...)` into one API | TeamCity has guest/token modes and a class client; YouTrack has a token-only immutable connection. The common shape is only “run code after parsing”, which Core already supplies through command handlers. | Reject; no prototype retained |
+| Core connection/client binder | Lift TeamCity `clientLeaf` and YouTrack `connection(...)` into one API | Original verdict compared client construction details instead of the common invocation lifecycle: bind after profile/readiness/permission admission and resolve fresh per RPC request. The later 102-leaf migration proved that lifecycle is the reusable unit. | **Superseded: accepted in P7 as target-only binding** |
 | Split the TeamCity client by file size | Move methods without changing declarations or transport | This may improve navigation but does not reduce author code or concepts. It also creates cross-file private transport plumbing. | Defer as an independent maintainability task, not an authoring saving |
 
 ## P4 conclusion

@@ -16,7 +16,7 @@ import {
   uploadArticleAttachment,
 } from "../src/article-extras.js";
 import { createYouTrackCli } from "../src/cli.js";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -40,10 +40,8 @@ async function localFile(t: TestContext) {
 }
 
 async function configured(t: TestContext) {
-  const f = await fixture(t);
+  const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
   const local = await localFile(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-  await f.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", connection.token);
   return { ...f, ...local };
 }
 

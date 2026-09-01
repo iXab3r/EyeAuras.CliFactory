@@ -1,5 +1,5 @@
-import { command, Permission } from "@eyeauras/cli-factory";
-import { connection, pageOptions, projectionOptions, readOptions } from "./cli-support.js";
+import { command } from "@eyeauras/cli-factory";
+import { pagedRead, projectedRead } from "./cli-support.js";
 import {
   getGlobalTimeSettings,
   getProjectTimeSettings,
@@ -13,70 +13,44 @@ import {
 export const timeSettingsRootCommands = [
   command("time-tracking", "Inspect global time-tracking conventions", [
     command("settings", "Inspect global time-tracking settings", [
-      command(
+      projectedRead(
         "get",
         "Read global time settings without expanding work item types",
-        async ({ options }, context) =>
-          getGlobalTimeSettings(await connection(context), readOptions(options)),
-        { permission: Permission.ReadOnly, options: projectionOptions },
+        getGlobalTimeSettings,
       ),
     ]),
     command("work-time", "Inspect the server work schedule", [
-      command(
+      projectedRead(
         "get",
         "Read minutes per day, working days and server week conventions",
-        async ({ options }, context) =>
-          getWorkTimeSettings(await connection(context), readOptions(options)),
-        { permission: Permission.ReadOnly, options: projectionOptions },
+        getWorkTimeSettings,
       ),
     ]),
   ]),
   command("work-item-type", "Inspect available global work item types", [
-    command(
-      "list",
-      "List one page of global work item types",
-      async ({ options }, context) =>
-        listWorkItemTypes(await connection(context), readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
-    command(
-      "get <type>",
-      "Read a global work item type by database ID",
-      async ({ args, options }, context) =>
-        getWorkItemType(await connection(context), args.type, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
-    ),
+    pagedRead("list", "List one page of global work item types", listWorkItemTypes),
+    projectedRead("get <type>", "Read a global work item type by database ID", getWorkItemType),
   ]),
 ];
 
 export const timeSettingsProjectChildren = [
   command("time-tracking", "Inspect project time-tracking settings", [
-    command(
+    projectedRead(
       "get <project>",
       "Read project time tracking and its estimate and spent-time fields",
-      async ({ args, options }, context) =>
-        getProjectTimeSettings(await connection(context), args.project, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
+      getProjectTimeSettings,
     ),
   ]),
   command("work-item-type", "Inspect work item types attached to a project", [
-    command(
+    pagedRead(
       "list <project>",
       "List one page of project work item types",
-      async ({ args, options }, context) =>
-        listProjectWorkItemTypes(await connection(context), args.project, readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
+      listProjectWorkItemTypes,
     ),
-    command(
+    projectedRead(
       "get <project> <type>",
       "Read a work item type attached to the project",
-      async ({ args, options }, context) => getProjectWorkItemType(
-        await connection(context),
-        args.project,
-        args.type,
-        readOptions(options),
-      ),
-      { permission: Permission.ReadOnly, options: projectionOptions },
+      getProjectWorkItemType,
     ),
   ]),
 ];

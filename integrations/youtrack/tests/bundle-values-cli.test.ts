@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 import { bundleCases } from "./bundle-values-cases.js";
 
 const server = setupServer();
@@ -14,9 +14,7 @@ const service = "ai-cli-factory:youtrack-cli";
 
 for (const row of bundleCases) test(`bundle CLI ${row.argv.join(" ")} binds its route and human/JSON output`, async (t) => {
   for (const json of [false, true]) {
-    const f = await fixture(t);
-    await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-    await f.secrets.set(service, "dev:token", "synthetic-token");
+    const f = await configuredFixture(t);
     let calls = 0;
     const result = row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" };
     server.use(http.get("*", ({ request }) => {
@@ -41,9 +39,7 @@ for (const row of bundleCases) test(`bundle CLI ${row.argv.join(" ")} binds its 
 });
 
 test("every bundle leaf requires ReadOnly even when Update is enabled", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
   let calls = 0;
@@ -55,9 +51,7 @@ test("every bundle leaf requires ReadOnly even when Update is enabled", async (t
 });
 
 test("bundle CLI rejects unsupported filters, detail pagination and malformed paging before fetch", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json([]); }));
   for (const row of bundleCases) {
@@ -122,9 +116,7 @@ test("bundle RPC isolates profile URLs, tokens, permissions and AppData and surv
 });
 
 test("bundle ordinary JSON errors stay on stderr with one failed request and no private payload", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   let calls = 0;
   server.use(http.get("*", () => {
     calls++;

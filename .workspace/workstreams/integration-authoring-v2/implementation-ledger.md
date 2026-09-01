@@ -1,7 +1,7 @@
 # Integration authoring v2 — implementation ledger
 
 **Lifecycle:** active. **Issue:** [#16](https://github.com/iXab3r/EyeAuras.CliFactory/issues/16).
-**Current phase:** P5 commit/publication. **Baseline:** `c06efe9bcd27199776e6124122247e09685210d8`.
+**Current phase:** P10 privacy/publication. **Baseline:** `c06efe9bcd27199776e6124122247e09685210d8`.
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
@@ -10,7 +10,13 @@
 | P2 | TeamCity text-response helper | done | integration author | root PASS: one local mechanism, all special cases remain explicit |
 | P3 | TeamCity/YouTrack test-authoring pilot | done | integration author / Core testing | root PASS: reuse beats another test DSL |
 | P4 | Residual family trials | done | integration author | root PASS: speculative abstractions rejected |
-| P5 | Generation decision and close-out | awaiting publication | Reconciliation Lead / reviewers | local/privacy PASS; commit/remote CI pending |
+| P5 | Original generation decision and close-out | done, superseded | Reconciliation Lead / reviewers | technically valid narrow trial; owner rejected its scale |
+| P6 | Owner correction and scope reconciliation | done | Reconciliation Lead | root PASS: Issue/plan/exclusions now agree |
+| P7 | Core invocation-target binder, two consumers | done | factory-core / integration author | root PASS: focused gate/profile/RPC/type evidence |
+| P8a | First 50 YouTrack command declarations | done | integration author | root PASS: direct exceptions and full-cost sample reviewed |
+| P8b | 102 command + 85 resource declarations | done | integration author | root PASS: full YouTrack suite preserves 118/118 behavior |
+| P9 | Configured fixture adoption | done | integration author / Core testing | root PASS: auth/profile tests remain real; suite unchanged |
+| P10 | Final metrics, privacy and publication | in progress | Reconciliation Lead / reviewers | full local test PASS; privacy/commit/CI pending |
 
 ## 2026-09-02 — kickoff
 
@@ -105,3 +111,77 @@
   `example.com`/`example.test`/`random.test`/`youtrack.example.com` fixtures. Three broad literal
   candidates were manually classified as a policy sentence, a public response-field list and a
   synthetic test contract. No unresolved privacy finding remains; staged diff check passes.
+
+## 2026-09-02 — P6 owner correction
+
+- Owner review rejected the original -141 product/test-line result as too small. The old P5 final
+  verdict and the P4 connection-binder rejection are retained as historical evidence but marked
+  superseded; no pushed history was rewritten.
+- Updated Issue #16 before broad implementation. The revised contract permits one target-only Core
+  binder plus proven YouTrack-local command/resource vocabularies, while keeping universal HTTP,
+  route schemas, generated expectations and service policy in the exclusion set.
+- Rebased the phase plan to P6-P10 and retained the immutable baseline and REST counters.
+
+## 2026-09-02 — P7 shared invocation target
+
+- Added `targetCommands(resolve)` to Core with `command`, `read`, `update` and custom `gated`
+  declarations. It preserves literal positional inference and resolves only inside the admitted
+  handler, so denied commands never create an authenticated client.
+- Resolution is fresh for every ordinary/RPC invocation. Focused Core evidence covers ReadOnly,
+  Update and custom denial, two profiles, AppData selection, successive RPC requests and a
+  compile-time positional typo.
+- TeamCity's existing `clientLeaf` now delegates to this API; YouTrack's connection-bound leaves
+  consume `readCommand`/`updateCommand`. Core remains service-neutral.
+
+## 2026-09-02 — P8a/P8b authoring checkpoints
+
+- P8a reviewed the first 50 migrated YouTrack leaves. The retained local vocabulary has four
+  shapes only: paged read, projected read, body update and projected body update. It maps literal
+  positional syntax in order, supplies the already-existing option sets and keeps permission at
+  the declaration. Custom query options and exceptional operations stay direct.
+- P8b completed **102 command declarations across 15 command/root modules**. No handler still
+  repeats `connection(context)` or a local `Permission.ReadOnly/Update` wrapper.
+- Added two YouTrack-local resource helpers for ordinary bounded collection GET and projected
+  object GET, then migrated **85 resource declarations across 15 modules**. Mutations,
+  upload/download, nullable responses, custom queries/bodies, acknowledgements and service
+  sanitization remain explicit.
+- Review caught and fixed a prototype type regression: a static path initially inferred a broad
+  rest parameter. Conditional path arguments now emit exact zero/fixed positional signatures;
+  compile-only regressions prove static paths reject extra IDs and dynamic paths require theirs.
+- Full YouTrack suite passes 345/345, including independent MSW path/query/header/body contracts,
+  all gates, profiles, RPC, sanitization, uploads/downloads and response bounds. REST coverage is
+  unchanged at 118/118 plus the derived download.
+
+## 2026-09-02 — P9 configured fixture adoption
+
+- YouTrack's adapter now exposes a configured synthetic-profile fixture by preparing Core's
+  existing `createCliFixture`; it adds no service-aware Core option and performs no real login.
+- Repeated service-command tests use the prepared profile. Auth/configuration/profile-isolation
+  tests still drive the real CLI commands when those transitions are the behavior under test.
+- YouTrack test/support source is 6,151 -> 6,121 (-30) despite added resource type regressions.
+
+## 2026-09-02 — expanded local final gate
+
+- `npm test` passed **1,150/1,150** tests across all seven test-bearing workspaces, zero failures
+  and zero skips: Core 134, IPC 31, Playwright 23, RANDOM Playwright 6, RANDOM REST 25,
+  TeamCity 586 and YouTrack 345.
+- Current exact nonblank metrics versus the frozen baseline: production 19,503 -> 18,517
+  (**-986**), tests/support 24,310 -> 24,346 (+36), proof unchanged at 443. Product + tests +
+  proof is **-950**. Tooling remains +149, so all measured code including the reusable metric is
+  **801 lines smaller**.
+- Workspace production deltas: Core +70, TeamCity -138, YouTrack -918. Test/support deltas: Core
+  +77, TeamCity -11, YouTrack -30. The common API and its tests are fully charged rather than
+  hidden inside the integration saving.
+- `git diff --check` passes. P10 still requires the new full-tree/staged privacy gate, commit,
+  push, revised PR and exact-head CI evidence.
+
+## 2026-09-02 — expanded pre-commit privacy gate
+
+- Scanned all 494 tracked files, both new untracked Core files, and the complete 58-file staged
+  change without printing candidate values. Private-key blocks, known credential prefixes, JWTs,
+  the private build host, private IPs, personal filesystem paths, non-reserved emails and staged
+  credential-bearing URLs/literal secret assignments: zero findings.
+- Existing credential-shaped URLs in the full tree resolve only to reserved example/test hosts;
+  existing emails resolve only to reserved example/test or GitHub noreply domains. No exception or
+  owner waiver is needed for this change.
+- `git diff --cached --check` passes. Commit, push, revised PR and exact-head CI remain.

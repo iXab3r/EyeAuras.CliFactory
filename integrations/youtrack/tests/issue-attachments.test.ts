@@ -8,7 +8,7 @@ import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { createYouTrackCli } from "../src/cli.js";
-import { fixture as cliFixture } from "./cli-fixture.js";
+import { configuredFixture as cliFixture } from "./cli-fixture.js";
 import { getIssueAttachment, listIssueAttachments, uploadIssueAttachment } from "../src/issue-attachments.js";
 
 const server = setupServer();
@@ -32,9 +32,7 @@ async function temporary(t: TestContext) {
 
 async function fixture(t: TestContext, input = "") {
   const local = await temporary(t);
-  const shared = await cliFixture(t, input);
-  await shared.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-  await shared.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", connection.token);
+  const shared = await cliFixture(t, { input, url: connection.baseUrl, token: connection.token });
   return { ...local, ...shared };
 }
 

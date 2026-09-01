@@ -4,7 +4,9 @@ import {
   mutate,
   page,
   readCollection,
+  readCollectionAt,
   readObject,
+  readObjectAt,
   requiredText,
   type Connection,
   type PageOptions,
@@ -159,19 +161,8 @@ export async function countIssues(
   return value;
 }
 
-export async function listSavedQueries(
-  connection: Connection,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, "api/savedQueries", page(options, savedQueryFields));
-}
-
-export async function getSavedQuery(
-  connection: Connection,
-  queryID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, `api/savedQueries/${encodedID(queryID, "saved query ID")}`, {
-    fields: fields(options, savedQueryFields),
-  });
-}
+export const listSavedQueries = readCollectionAt("api/savedQueries", savedQueryFields);
+export const getSavedQuery = readObjectAt(
+  (queryID: string) => `api/savedQueries/${encodedID(queryID, "saved query ID")}`,
+  savedQueryFields,
+);

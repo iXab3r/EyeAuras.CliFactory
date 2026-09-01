@@ -73,6 +73,13 @@ the exported `InferredCommandHandler<Syntax>` callback type (or its input parame
 The same complete-declaration fallbacks and broad stored definitions apply. TeamCity's client
 binding uses this type without changing runtime parsing, options or domain validation.
 
+`targetCommands(resolve)` is the shared form of that binding for profile-scoped clients and other
+invocation-owned targets. `read`, `update`, and `gated(category)` keep the permission category at
+the declaration site while Core resolves the target only after profile selection, readiness, and
+permission admission. Resolution is fresh for every ordinary or JSON-RPC invocation; integrations
+must not use the binder to cache clients or current-profile state. Service paths, DTOs, validation,
+options, projections, and response policy remain in the integration.
+
 ### Handlers return domain data
 
 Command handlers return values and do not decide whether output is human-readable or JSON. The
