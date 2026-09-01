@@ -1,6 +1,6 @@
 # Integration authoring v2 — expanded final review
 
-**Result: local technical and privacy PASS; publication/remote CI pending.** Baseline
+**Result: PASS; PR #17 open.** Baseline
 `c06efe9bcd27199776e6124122247e09685210d8`. The original -141-line close-out was rejected by
 the owner and is superseded by this review. Endpoint coverage and public CLI behavior are unchanged.
 
@@ -67,13 +67,17 @@ arity. No known type, runtime, gate, profile, response or privacy behavior is in
   run produces the table above.
 - `git diff --check`: PASS. A sandbox-only `spawn EPERM` run was discarded; the same full test
   command passed outside that process restriction.
-- Privacy gate: PASS across 494 tracked files, both new Core files and all 58 staged files; no
+- Privacy gate: PASS across 494 tracked files, both new Core files and all 58 implementation files; no
   private key/token/JWT, private host/IP, personal path, non-reserved email, staged credential URL
-  or literal secret assignment was found. Commit, push and exact-head CI still block publication.
+  or literal secret assignment was found.
+- Implementation commit `5d2b8d6` was pushed; GitHub Actions run
+  [33571869210](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33571869210) passed all six
+  Ubuntu/macOS/Windows jobs on Node 22 and 24. PR checks remain authoritative for the subsequent
+  records-only close-out head.
 
 ## Reviewer verdict
 
 P7, P8a, P8b and P9 pass local technical review. The result is now material rather than cosmetic:
 it removes 918 YouTrack production lines after paying the full common/local implementation cost,
-while preserving independent contracts and explicit exceptions. P10 remains active until
-publication and exact-head CI close.
+while preserving independent contracts and explicit exceptions. P10 is complete; merge remains a
+separate PR decision.

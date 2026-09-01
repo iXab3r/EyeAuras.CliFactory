@@ -1,5 +1,5 @@
 id = "integration-authoring-v2"
-status = "active"
+status = "complete"
 issue = "https://github.com/iXab3r/EyeAuras.CliFactory/issues/16"
 branch = "codex/integration-authoring-v2"
 baseline_revision = "c06efe9bcd27199776e6124122247e09685210d8"
@@ -10,4 +10,4 @@ measurement = "Nonblank handwritten TypeScript including comments; normal format
 measurement_command = "npm run measure:loc -- --ref c06efe9bcd27199776e6124122247e09685210d8 --json"
 review_cadence = "Every phase and after each 50 compatible command or resource declarations"
 phase = "P10"
-phase_status = "expanded implementation complete; full test, privacy and publication gates pending"
+phase_status = "expanded implementation, local/privacy gates and six-platform code-head CI complete; PR open"

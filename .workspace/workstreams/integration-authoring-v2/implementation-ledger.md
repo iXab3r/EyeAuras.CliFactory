@@ -1,7 +1,7 @@
 # Integration authoring v2 — implementation ledger
 
-**Lifecycle:** active. **Issue:** [#16](https://github.com/iXab3r/EyeAuras.CliFactory/issues/16).
-**Current phase:** P10 privacy/publication. **Baseline:** `c06efe9bcd27199776e6124122247e09685210d8`.
+**Lifecycle:** complete. **Issue:** [#16](https://github.com/iXab3r/EyeAuras.CliFactory/issues/16).
+**Current phase:** complete; PR #17 open. **Baseline:** `c06efe9bcd27199776e6124122247e09685210d8`.
 
 | Phase | Scope | Status | Agent | Review |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@
 | P8a | First 50 YouTrack command declarations | done | integration author | root PASS: direct exceptions and full-cost sample reviewed |
 | P8b | 102 command + 85 resource declarations | done | integration author | root PASS: full YouTrack suite preserves 118/118 behavior |
 | P9 | Configured fixture adoption | done | integration author / Core testing | root PASS: auth/profile tests remain real; suite unchanged |
-| P10 | Final metrics, privacy and publication | in progress | Reconciliation Lead / reviewers | full local test PASS; privacy/commit/CI pending |
+| P10 | Final metrics, privacy and publication | done | Reconciliation Lead / reviewers | root PASS: local/privacy + 6/6 implementation-head CI |
 
 ## 2026-09-02 — kickoff
 
@@ -185,3 +185,20 @@
   existing emails resolve only to reserved example/test or GitHub noreply domains. No exception or
   owner waiver is needed for this change.
 - `git diff --cached --check` passes. Commit, push, revised PR and exact-head CI remain.
+
+## 2026-09-02 — P10 publication and close-out
+
+- Committed the expanded implementation as `5d2b8d6` (`refactor: unify integration operation
+  authoring`) and pushed it to `origin/codex/integration-authoring-v2` without rewriting history.
+- Updated [PR #17](https://github.com/iXab3r/EyeAuras.CliFactory/pull/17) and Issue #16 to the
+  expanded scope, explicit exception boundary and full-cost result.
+- GitHub Actions run
+  [33571869210](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33571869210) passed all
+  six implementation-head jobs: Ubuntu, macOS and Windows on Node 22 and 24.
+- Delivered outcome: one two-consumer Core target lifecycle, 102 YouTrack command declarations,
+  85 typed read resources, repeated configured-fixture removal, and a net -950 product/test/proof
+  result with no endpoint or public behavior change. Known failure set: empty. Deferred boundary:
+  universal HTTP/CRUD/generation remains rejected until a future concrete service proves it.
+- This close-out commit changes tracked coordination records only. PR checks on its exact head are
+  the authoritative final publication evidence; the workstream does not require another code or
+  scope change.
