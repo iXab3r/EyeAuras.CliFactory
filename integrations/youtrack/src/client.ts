@@ -1,3 +1,5 @@
+import { readBoundedResponseBody } from "@eyeauras/cli-factory";
+
 export interface YouTrackUser {
   id: string;
   login: string;
@@ -188,6 +190,7 @@ async function request(
     throw new Error("YouTrack request failed; check connectivity, TLS and the configured URL.");
   }
   if (!response.ok) {
+    void response.body?.cancel().catch(() => undefined);
     const retryAfter = response.headers.get("retry-after");
     let retry = "";
     if (response.status === 429 && retryAfter) {
@@ -202,9 +205,19 @@ async function request(
     }
     throw new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`);
   }
+  let text: string;
+  try {
+    const bytes = await readBoundedResponseBody(response, {
+      maxBytes: 8 * 1024 * 1024,
+      signal: connection.signal,
+    });
+    // Match Response.text(): UTF-8 replacement decoding with an initial BOM removed.
+    text = new TextDecoder().decode(bytes);
+  } catch {
+    throw new Error("YouTrack response stream failed, exceeded 8 MiB, or was cancelled.");
+  }
   let value: YouTrackValue;
   try {
-    const text = await response.text();
     if (options.allowEmpty && !text.trim()) {
       return null;
     }

@@ -155,6 +155,27 @@ proof never runs in CI. Process tests stop their own hosts before deleting synth
 Transport tests run on real local named pipes/Unix sockets, not TCP substitutes. See the
 [platform evidence](../.workspace/workstreams/random-playwright/implementation-ledger.md).
 
+## Bounded response regressions
+
+The shared response-reader tests cover absent/empty bodies, declared-length syntax and identity
+length mismatches, actual chunked-byte overflow, split UTF-8/BOM bytes, empty chunks and reused
+producer buffers, abort/read failures, and deterministic reader-lock cleanup. A synthetic local
+HTTP server verifies native fetch decompression: compressed overhead may exceed the decoded bound
+when the actual body fits, while decoded overflow still fails. This loopback test uses no profile,
+credentials or real service. MSW tests in both integrations retain service decoding, status,
+empty/null mutation and privacy contracts, and an unread response clone cannot block cancellation.
+
+## Safe profile-file regressions
+
+Core publication tests use only synthetic temporary AppData. They cover basename/path/device
+preflight before acquisition, directory links and replacement, private stage/file identity,
+complete partial writes, empty and bounded streams, cancellation, validation, no-clobber races,
+unsupported hard links, post-link destination replacement and cleanup failure before/after
+publication. Replacement tests assert that unknown files are retained rather than deleted.
+Integration MSW tests retain 206, Content-Length, stream/cancellation and service format/auth rules.
+Encoded whole-file responses keep each service's conservative wire-header bound, skip encoded
+length equality, and still enforce emitted-byte overflow. No live download belongs in any tier.
+
 ## Required evidence
 
 Shared option-parser regressions cover signed/unsigned decimal spelling, leading zeros, safe bounds,

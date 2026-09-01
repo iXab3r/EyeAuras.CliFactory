@@ -1,7 +1,7 @@
 # Integration authoring Core — implementation ledger
 
 **Lifecycle:** active. **Issue:** [#14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14).
-**Current phase:** P3/F05 accepted; second checkpoint commit pending, then P4/F08 before F04 upon root release. Checkpoint 952d621a CI passed all six platforms; final-head P6 checks remain pending. **Accepted findings:** 6/8 (F01, F02, F03, F05, F06, F07).
+**Current phase:** P4 complete: F01–F08 accepted (8/8). P6 active; final cross-PR review and post-fix 1148-suite passed; privacy, commit/push, final-head six-job CI and clean merge pending. Second checkpoint 6b2752cd passed all six CI jobs (1105 tests each); corrected final external package smoke passed. **Accepted findings:** 8/8 (F01–F08).
 **New REST operations:** 0; endpoint inventory is unchanged.
 
 | Phase | Scope | Status | Agent | Review |
@@ -10,33 +10,52 @@
 | P1 | F01 fixtures then F02 contract helpers | done | authoring_testing / independent reviewer / root | F01/F02 independent technical/authoring PASS and root accepted; 1004 affected tests PASS for F02 |
 | P2 | F03 proof mechanics | done | authoring_proof / independent reviewer / root | Independent technical/security/authoring PASS; root accepted with all-workspace build and 1012 affected tests PASS |
 | P3 | F05 parsers / F06 wrapper inference | done | authoring_types / reviewer / root | F05/F06 independently reviewed and root accepted; F05 all-workspace build and 1020 affected tests PASS |
-| P4 | F08 response bound, then F04 file publication | pending release | stream/file owner / security reviewer | Release after second checkpoint commit; separate security/behavior costs and platform evidence required |
+| P4 | F08 response bound, then F04 file publication | done | authoring_streams / independent reviewers / root | F04/F08 technical/security/authoring PASS and root accepted |
 | P5 | F07 option-typing experiment | done | option_experiment / independent reviewer / root | Reviewed rejection accepted; measured evidence retained; prototype removed safely and shared dependencies unchanged |
-| P6 | Consolidation, exports, PR/review/CI and clean merge | pending | source owners / reviewers / root | All acceptance/privacy/final-head checks before close-out |
+| P6 | Consolidation, exports, PR/review/CI and clean merge | active; final gates pending | source owners / reviewers / root | Functional8/8, final whole-PR review, 1148 suite and package PASS; privacy/commit-push/final-head CI/merge pending |
 
 ## Current handover
 
 - Branch `codex/integration-authoring-core` uses immutable baseline `b5762f242ff1ea074e33a1c1739190ac4d0ee523`.
   `baseline.json` remains 207 handwritten TS / 234 included files across eight workspaces, with eight
   generated exclusions: 18,964 source / 22,585 tests-support / 535 proof. Older workstreams stay untouched.
-- **F01/F02/F03/F05/F06/F07 are accepted (6/8)**. P1/P2/P3/P5 are done; F07 completed by
-  reviewed rejection without retained production changes. F03/F05 await the second checkpoint
-  commit. P4 remains unreleased: F08 first, then F04.
-- Latest F05 evidence: all eight workspaces built and 1020/1020 affected tests passed (105 Core /
+- **F01–F08 are accepted (8/8)**. P1/P2/P3/P5 are done; F07 completed by
+  reviewed rejection without retained production changes. F03/F05 are committed/pushed in
+  `6b2752cdc0af5005832c55364266911761d76f44`. F08 is accepted; F04 is now released to authoring_streams. Preserve local decoding/BOM behavior and TC 2 MiB / YT 8 MiB limits.
+- Accepted F04 evidence: independent technical/security/test-audit/authoring and final cross-PR
+  review PASS. The review closed awaited async inspection and stable same-inode snapshots.
+  Root post-fix `npm test` built all eight workspaces and passed 1148 tests, zero failures/skips.
+  `checkpoint-f04.md` pins corrected hashes; +138 production / +590 tests, local 474→261.
+  This is a bounded simplification, not a whole-workstream LOC saving.
+- Accepted F08 evidence: all eight workspaces built and 1043 affected tests passed (115 Core / 584 TC /
+  344 YT), zero failures/skips. Independent technical/security/authoring PASS and root acceptance.
+  `checkpoint-f08.md` pins 12 source/test/doc hashes and +57 production / +372 tests; F04 released.
+- Latest accepted F05 evidence: all eight workspaces built and 1020/1020 affected tests passed (105 Core /
   578 TeamCity / 337 YouTrack), zero failures/skips. Independent technical and authoring PASS;
   `checkpoint-f05.md` records isolated production +6, tests +231, total +237 TS, with no LOC saving.
 - `checkpoint-f03.md` retains the F03 proof-cost and real-tarball consumer/exports/strict
-  TypeScript/cleanup PASS receipt. Final package verification must rerun after later source changes.
+  TypeScript/cleanup PASS receipt. Final external package verification passed after the later source changes.
 - The [behavioral decision comment](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14#issuecomment-5482554668)
   was published with exact readback: F05 YouTrack pre-onboarding integer rejection, F08 YouTrack
   8 MiB decoded response bound / TeamCity 2 MiB preserved, and profile-owned temp staging. This
-  publication approved decisions before implementation; F05 is now separately accepted, while F08 remains gated.
+  publication approved decisions before implementation; F05/F08 are now separately accepted.
 - The three baseline CI fixture fixes passed actual macOS and all other checkpoint jobs:
   [run 33425122763](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33425122763), all six
   jobs SUCCESS / 1089 tests each at `952d621a`. This resolves that earlier fixture exception only;
   final-head platform CI is still required after subsequent changes.
+- Second checkpoint CI [run 33427447060](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33427447060)
+  passed all six Linux/macOS/Windows Node 22/24 jobs at exact head
+  `6b2752cdc0af5005832c55364266911761d76f44`: 1105 tests each, zero failures/skips.
+  All seven proof child-reaping tests passed. This does not accept the later F08 changes.
+- Final external package smoke passed: actual Core 0.1.0 97-file tarball
+  `5030706b8cb6ef4be6e396664f58e08a46a8dfdf3673de0e27cd2f6846983105`, offline real-path
+  install without links/private paths; runtime 21 / proof 2 / testing 6 exports, strict TS 7,
+  synthetic CLI/JSON/two-RPC/disposal, proof CI refusal, zero-effect file preflight and cleanup PASS.
+  Build marker `09cd57d41aedc4bfe9c228124c9877ca8b36b2bb5a8aca29ffbfbc6e4cf415db`
+  was unchanged. No live/keyring/repository edit. Final CI remains pending.
 - [Draft PR #15](https://github.com/iXab3r/EyeAuras.CliFactory/pull/15) references Issue #14 and
-  supplied successful early platform CI for the fixture prerequisite; it does not complete P6/final review.
+  has a verified updated draft body recording six accepted findings, without closing Issue #14.
+  It supplied successful fixture and second-checkpoint CI; P6/final-head checks remain pending.
   Kickoff readback and P0 recount passed. Root serializes builds/tests and owns git/GitHub;
   management edits only this workstream. Each retained extraction needs its
   own independent correctness and authoring gate; no new endpoint counter or speculative framework.
@@ -155,3 +174,23 @@ decoded records, with a clean worktree afterward. Root trimmed only the extra EO
 Draft PR #15 is for early platform CI, References #14 (not Closes); actual CI and P6 review remain
 pending. F03 is released to authoring_proof within the existing Core/proof + TC/YT boundaries,
 not RANDOM migration. Accepted findings remain 4/8; F05 and P4 remain gated.
+
+## 2026-08-31 — second checkpoint pushed; F08 released
+
+Root committed and pushed `6b2752cdc0af5005832c55364266911761d76f44`, exact tree
+`0cbaf1c71215a1e64df0a75d2439600ddd157ee1`; worktree was clean immediately afterward.
+Privacy passed 473 full-tree files, 878 decoded historical records and the 28-file patch.
+PR #15's draft body was updated and read back exactly. F08 alone is released to authoring_streams;
+F04 waits for its accepted checkpoint. Accepted findings remain 6/8. New-head CI is starting,
+not yet green; the previous six-job PASS applies only to checkpoint 952d621a.
+
+## Independent PR review — partial P6 evidence
+
+Independent non-author option_experiment reviewed F01/F02/F03/F05/F06 against baseline
+`b5762f242ff1ea074e33a1c1739190ac4d0ee523`, with accepted source unchanged from `6b2752cd`.
+Review covered shared source/exports, both adapters, proof/parser/runtime HTTP/RPC tests and
+negative cleanup cases; no actionable findings. All nine F06 consumer files were mechanically
+checked: only same-key `text(args, ...)` to direct reads plus whitespace.
+
+F04/F08/F07 were excluded. This was read-only review, without fresh builds/tests, and does not
+complete P6. Final F04 review, full tests, package verification and final-head CI remain required.

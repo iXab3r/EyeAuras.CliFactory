@@ -132,8 +132,8 @@ test("download rejects missing or mismatched metadata without binary IO or raw r
   }
 });
 
-test("download never follows redirect or returns binary error payloads", async (t) => {
-  for (const status of [301, 302, 307, 308, 401, 403, 404, 429, 500]) {
+test("download rejects HTTP 206, never follows redirects, and never returns binary error payloads", async (t) => {
+  for (const status of [206, 301, 302, 307, 308, 401, 403, 404, 429, 500]) {
     const directory = await temporary(t);
     const calls = serve(() => new HttpResponse("synthetic-signature synthetic-download-token", {
       status, headers: { location: "https://foreign.example.com/?sign=synthetic-signature" },
@@ -144,6 +144,7 @@ test("download never follows redirect or returns binary error payloads", async (
     });
     assert.equal(calls.length, 2);
     assert.deepEqual(await readdir(join(directory, "downloads")), []);
+    assert.deepEqual(await readdir(join(directory, "temp")), []);
   }
 });
 
@@ -193,6 +194,7 @@ test("download Content-Length and actual streamed byte limits are enforced with 
     await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { maxBytes: 3 }),
       /limit|Content-Length|length/);
     assert.deepEqual(await readdir(join(directory, "downloads")), []);
+    assert.deepEqual(await readdir(join(directory, "temp")), []);
   }
 });
 
@@ -205,6 +207,7 @@ test("download accepts an exact actual byte limit and rejects truncated Content-
   serve(() => new HttpResponse(bytes, { headers: { "content-length": "5" } }));
   await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, incompleteDirectory), /length|incomplete/);
   assert.deepEqual(await readdir(join(incompleteDirectory, "downloads")), []);
+  assert.deepEqual(await readdir(join(incompleteDirectory, "temp")), []);
 });
 
 test("download reader failure and external abort remove profile temporary data", async (t) => {
@@ -221,6 +224,7 @@ test("download reader failure and external abort remove profile temporary data",
     await assert.rejects(downloadIssueAttachment({ ...connection, signal: controller.signal }, "fixture-issue", metadata.id, directory),
       (error: Error) => { assert.doesNotMatch(error.message, /synthetic/); return true; });
     assert.deepEqual(await readdir(join(directory, "downloads")), []);
+    assert.deepEqual(await readdir(join(directory, "temp")), []);
   }
 });
 
@@ -394,6 +398,7 @@ test("over-limit download cancels its body reader and leaves no partial data", a
   await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { maxBytes: 3 }), /limit/);
   assert.ok(cancellations > 0);
   assert.deepEqual(await readdir(join(directory, "downloads")), []);
+  assert.deepEqual(await readdir(join(directory, "temp")), []);
 });
 
 
@@ -422,4 +427,45 @@ test("unsupported hard-link publication fails closed and cleans completed tempor
     return true;
   });
   assert.deepEqual(await readdir(join(directory, "downloads")), []);
+  assert.deepEqual(await readdir(join(directory, "temp")), []);
+});
+
+test("attachment encoded wire length remains bounded independently of emitted bytes", async (t) => {
+  const maxBytes = 64;
+  for (const [name, declared, decoded, failure] of [
+    ["encoded-ok.bin", 20, new Uint8Array(32), undefined],
+    ["encoded-wire.bin", 65, new Uint8Array(32), "wire"],
+    ["encoded-actual.bin", 20, new Uint8Array(128), "decoded"],
+  ] as const) {
+    const directory = await temporary(t);
+    if (failure === "wire") {
+      assert.ok(decoded.byteLength <= maxBytes);
+      assert.ok(declared > maxBytes);
+    } else if (failure === "decoded") {
+      assert.ok(declared <= maxBytes);
+      assert.ok(decoded.byteLength > maxBytes);
+    } else {
+      assert.ok(declared <= maxBytes);
+      assert.ok(decoded.byteLength <= maxBytes);
+      assert.notEqual(declared, decoded.byteLength);
+    }
+    serve(() => new HttpResponse(decoded, {
+      headers: {
+        "content-encoding": "synthetic-encoding",
+        "content-length": String(declared),
+        "content-type": "application/octet-stream",
+      },
+    }));
+    const pending = downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, {
+      name, maxBytes,
+    });
+    if (failure === undefined) {
+      const result = await pending;
+      assert.equal(result.bytes, decoded.byteLength);
+      assert.deepEqual(new Uint8Array(await readFile(result.path)), decoded);
+    } else {
+      await assert.rejects(pending);
+    }
+    assert.deepEqual(await readdir(join(directory, "temp")), []);
+  }
 });

@@ -5,6 +5,14 @@
 locators, DTOs, and command vocabulary; generic command-tree, profile, credential, permission,
 output, and JSON-RPC behavior stays in `packages/core`.
 
+Ordinary text, JSON and XML responses retain their 2 MiB actual-byte limit. They now also reject
+invalid Content-Length and incomplete or mismatched unencoded/identity transfers. Compressed wire
+length is syntax-checked but is not compared with decoded size; actual decoded bytes remain
+bounded. Errors retain the static `TeamCity response stream failed or exceeded2MiB; remote outcome
+is unknown.` message without exposing body/error details. UTF-8 decoding still preserves an initial
+BOM. Specialized 64 KiB discard probes and file-download limits are unchanged; no automatic retry
+or command replay is added.
+
 ## Command tree
 
 | Command | Purpose | Permission |
@@ -429,7 +437,8 @@ teamcity-cli users avatar download 123 --size 64 --output avatar.png --profile u
 ```
 
 Downloads require a new basename and save only below
-`AppArguments.AppDataDirectory/downloads`, staging under `TempDirectory`. Result is
+`AppArguments.AppDataDirectory/downloads`, using Core's shared identity-checked private staging
+under `TempDirectory`. Result is
 `{path,bytes,sha256,mediaType}` for an actual retained file. Default actual-byte limit16MiB,
 maximum64MiB with `--max-bytes`; SVG is additionally limited to1MiB. HTTP206 partial responses are
 rejected without publication or automatic retry; downloads do not support ranges/resume.
@@ -437,8 +446,11 @@ No overwrite, redirect,
 symlink/junction escape, automatic opening, execution or extraction. Atomic no-clobber publication
 requires same-profile hard-link support; unsupported filesystems fail closed. PNG/ZIP/SVG types
 and signatures are validated; SVG/icon success says nothing about the build's success.
-Directories/files use private POSIX modes and current-user directory ACL inheritance on Windows;
-this does not repair a user data root whose ACL was deliberately made public. Data can be sensitive:
+The fresh staging directory and file use private POSIX modes/current-user ACLs; the published hard
+link retains the file protection. Core never changes AppData ancestor/download-directory ACLs and
+does not repair a user data root deliberately made public. Detectable directory/staged/destination
+replacement is rejected without deleting unknown files. A same-user process can still race after
+the final identity check. Data can be sensitive:
 do not publish downloads or turn them into fixtures without explicit sanitization. File cleanup
 follows profile AppData semantics; it is not permission to silently erase existing user data.
 

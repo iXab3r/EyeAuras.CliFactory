@@ -192,6 +192,48 @@ The core package knows nothing about TeamCity resources. Integrations own endpoi
 pagination rules, browser selectors, and service terminology. HTTP clients depend on `fetch`;
 browser clients use the optional Playwright owner. Tests replace the actual HTTP/browser boundary.
 
+Core's `readBoundedResponseBody(response, { maxBytes, signal })` consumes one response into owned
+bytes without choosing HTTP status, media, UTF-8 decoding or JSON semantics. `maxBytes` is a
+positive safe integer and bounds actual emitted (normally decoded) bytes. A declared Content-Length
+must be a nonnegative safe integer. For absent/identity Content-Encoding it also must fit the bound
+and match the completed body; encoded wire length is not compared with decoded size.
+The reader copies chunks into bounded storage, observes cancellation and releases its lock.
+Cancellation promises are handled without awaiting an unread tee sibling. Errors contain no
+response bytes or underlying error causes. The caller still owns fetch cancellation and timeout,
+non-success response cancellation, service validation and any public error wording; no retries occur.
+
+TeamCity consumes ordinary text/JSON/XML through this mechanism at its existing 2 MiB limit;
+its specialized 64 KiB discard path stays local and never decodes those bytes. YouTrack JSON
+responses now have an 8 MiB limit, allowing room for bounded 100-item pages with text and custom
+fields without promising every projection will fit. Both clients now validate declared identity
+transfer lengths. TeamCity retains Buffer UTF-8 decoding, including a leading BOM; YouTrack retains
+Response.text-style decoding that removes an initial BOM. File downloads use `publishProfileFile`, the second proven shared HTTP-byte mechanism. The caller
+supplies one safe basename, active profile AppData root, byte bound, raw-response acquisition,
+a required status/media inspection callback and optional staged-file validation. Core awaits both
+callbacks at their respective gates. It preflights
+`downloads` and `temp` before acquisition, streams to a new private random directory under
+`AppDataDirectory/temp`, and publishes under `AppDataDirectory/downloads` with an exclusive hard
+link. It snapshots/rechecks directory and file identities, writes complete chunks, syncs before
+publication, verifies the published inode and never falls back to rename/copy or overwrites. Staged
+validation is read-only: detected size, modification-time or change-time mutations are rejected.
+
+The result is `{ path, bytes, sha256 }` only after verified publication and staging cleanup.
+`ProfileFileError.published` records whether the link completed; `cleanupFailed` records incomplete
+owned-stage cleanup. Core computes those flags. Only static errors explicitly thrown by
+`inspectResponse` or `validateFile` as `ProfileFileError` retain their message after clean
+unpublished cleanup. Fetch, stream, filesystem and abort errors are replaced with static diagnostics
+without causes. A cleanup error takes precedence and distinguishes unpublished from already-published
+data. Cleanup verifies the private temp chain and staged-file identity before unlinking; it never
+follows a replacement or deletes an unknown destination.
+
+Endpoints, authentication, status/media checks, whole-file 206 rejection, compressed wire
+Content-Length bounds, filename conventions, service limits, file signatures and result DTOs remain
+integration-owned. `privateDirectory` is applied only to the newly created staging directory, never
+AppData ancestors or the downloads directory. The hard-linked file retains its private file access.
+These path checks protect current-user AppData and detectable replacement; no path-based Node API can
+eliminate every same-user replacement race after the last check, including exotic in-place mutation
+with forged metadata. There is no retry, resume, opening, execution or extraction.
+
 ## Runtime shape
 
 ```mermaid

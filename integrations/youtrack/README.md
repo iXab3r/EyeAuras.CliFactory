@@ -42,6 +42,15 @@ unchanged. Failures expose HTTP status and safe Retry-After information, never r
 errors or authentication material. Remote mutations require the Update gate, described below.
 The ReadOnly download command writes only its explicitly requested local file beneath profile AppData.
 
+JSON responses now have an 8 MiB limit on actual decoded bytes, including responses without a
+Content-Length header. This allows room for the existing bounded pages and text-rich projections;
+it does not guarantee every requested projection will fit. Narrow `--fields` or reduce `--top` if
+needed. Invalid/truncated identity transfer lengths, overflow, stream failure or cancellation fail
+with `YouTrack response stream failed, exceeded 8 MiB, or was cancelled.` without response content.
+Compressed wire length is syntax-checked but not compared with decoded size. Existing HTTP status,
+Retry-After, empty/null mutation and UTF-8 BOM behavior are unchanged. Attachment-download limits
+remain separate; no request is retried automatically.
+
 ## Sign in locally
 
 Build from the repository root with `npm run build`, then use your current terminal and
@@ -283,14 +292,16 @@ appear in metadata output, errors or the download result.
 Files go beneath the selected profile's `AppDataDirectory/downloads`. `--name` must be a safe
 single basename; the default prefixes the sanitized attachment name with its ID. Existing
 filenames are never overwritten. The default limit is 25 MiB; `--max-bytes` accepts 1–104857600
-and is enforced while streaming as well as against Content-Length. Partial files are removed
-on failure. Output contains only sanitized ID/name, local path, byte count and content type.
+and is enforced while streaming as well as against Content-Length. Core stages bytes in a fresh
+private directory under this profile's `temp`, then hard-links only the complete identity-checked
+file into `downloads`. Partial files are removed when their identities remain trusted. Output
+contains only sanitized ID/name, local path, byte count and content type.
 No binary data is printed. Publication uses an exclusive hard link; unsupported filesystems
-fail without a copy/rename fallback. Existing links or junctions in the directory chain and
-detectable directory replacement are rejected. This protects current-user-owned AppData; it
-does not guarantee safety against a malicious process under the same OS account replacing
-ancestor directories between filesystem calls. A cleanup failure reports a static instruction
-to inspect the profile downloads directory. The local proof never invokes download or upload.
+fail without a copy/rename fallback. Existing links or junctions in the directory chain and detectable directory/staged/destination
+replacement are rejected. Unknown replacement files are never removed. This protects
+current-user-owned AppData; it cannot prevent every malicious same-account replacement after the
+last identity check. Errors report whether publication occurred and whether private staging cleanup
+failed, without raw filesystem/service details. The local proof never invokes download or upload.
 
 ## Local proof and offline tests
 
