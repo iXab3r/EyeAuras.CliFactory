@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+import { assertHttpRequest, trackRequests } from "@eyeauras/cli-factory/testing";
 import { fixture as baseFixture } from "./cli-fixture.js";
 import {
   addIssueLink, addIssueTag, getIssueLink, getLinkType, getTag, listIssueLinks,
@@ -65,29 +66,30 @@ async function fixture(t: TestContext, input = "") {
   return f;
 }
 for (const row of reads) {
-  test(`relations read ${row.argv.join(" ")}: exact GET and bounded sparse projection`, async () => {
-    let calls = 0;
+  test(`relations read ${row.argv.join(" ")}: exact GET and bounded sparse projection`, async (t) => {
     let expectedFields = row.projection;
     let expectedTop = "50";
     let expectedSkip = "0";
     const value = { id: "fixture", linkType: null, summary: null };
-    server.use(http.get("*", ({ request }) => {
-      calls++;
-      const url = new URL(request.url);
-      assert.equal(url.pathname, row.path);
-      assert.equal(url.searchParams.get("fields"), expectedFields);
-      assert.equal(url.searchParams.get("$top"), row.list ? expectedTop : null);
-      assert.equal(url.searchParams.get("$skip"), row.list ? expectedSkip : null);
-      assert.equal([...url.searchParams.keys()].length, row.list ? 3 : 1);
-      assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
+    const requests = trackRequests(t, 2, async request => {
+      await assertHttpRequest(request, {
+        method: "GET",
+        url: "https://youtrack.example.com" + row.path,
+        query: {
+          fields: expectedFields,
+          ...(row.list ? { $top: expectedTop, $skip: expectedSkip } : {}),
+        },
+        headers: { authorization: "Bearer synthetic-token" },
+      });
       return HttpResponse.json(row.list ? [value] : value);
-    }));
+    });
+    server.use(http.get("*", ({ request }) => requests.handle(request)));
     assert.deepEqual(await row.run({}), row.list ? [value] : value);
     expectedFields = "id,linkType(id),summary";
     expectedTop = "2";
     expectedSkip = "3";
     assert.deepEqual(await row.run({ fields: expectedFields, top: 2, skip: 3 }), row.list ? [value] : value);
-    assert.equal(calls, 2);
+    requests.verify();
     if (row.list) {
       server.use(http.get("*", () => HttpResponse.json([])));
       assert.deepEqual(await row.run({}), []);
@@ -98,27 +100,22 @@ for (const row of reads) {
 }
 
 for (const row of writes) {
-  test(`relations write ${row.method} ${row.path}: exact target and empty success`, async () => {
-    let calls = 0;
-    server.use(http.all("*", async ({ request }) => {
-      calls++;
-      const url = new URL(request.url);
-      assert.equal(request.method, row.method);
-      assert.equal(url.pathname, row.path);
-      assert.equal(url.searchParams.get("fields"), row.projection);
-      assert.equal([...url.searchParams.keys()].length, row.method === "POST" ? 1 : 0);
-      assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
-      if (row.method === "POST") {
-        assert.equal(request.headers.get("content-type"), "application/json");
-        assert.deepEqual(await request.json(), { id: targetID });
-      } else {
-        assert.equal(request.headers.get("content-type"), null);
-        assert.equal(await request.text(), "");
-      }
+  test(`relations write ${row.method} ${row.path}: exact target and empty success`, async (t) => {
+    const requests = trackRequests(t, 1, async request => {
+      await assertHttpRequest(request, {
+        method: row.method,
+        url: "https://youtrack.example.com" + row.path,
+        query: row.projection === null ? {} : { fields: row.projection },
+        headers: {
+          authorization: "Bearer synthetic-token",
+          "content-type": row.method === "POST" ? "application/json" : null,
+        },
+        ...(row.method === "POST" ? { body: { json: { id: targetID } } } : {}),
+      });
       return new HttpResponse(null, { status: 204 });
-    }));
+    });
+    server.use(http.all("*", ({ request }) => requests.handle(request)));
     assert.equal(await row.run(), null);
-    assert.equal(calls, 1);
   });
 }
 

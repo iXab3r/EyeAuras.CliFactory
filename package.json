@@ -11,6 +11,7 @@
   "scripts": {
     "bootstrap": "dotnet run --file scripts/bootstrap.cs",
     "build": "node scripts/build.mjs",
+    "measure:loc": "node scripts/measure-loc.mjs",
     "typecheck": "npm run build",
     "test": "npm run build && npm run test:compiled --workspaces --if-present",
     "check": "npm run test",

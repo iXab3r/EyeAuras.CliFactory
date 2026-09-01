@@ -9,7 +9,7 @@ import {
   checkLiveCase,
   parseProofProfile,
 } from "@eyeauras/random-common/proof";
-import { liveCases } from "@eyeauras/random-common";
+import { liveCases } from "@eyeauras/random-common/proof";
 
 test("live inventory is fixed, small, and uses only the two read commands", async () => {
   assert.equal(liveCases.length, 4);

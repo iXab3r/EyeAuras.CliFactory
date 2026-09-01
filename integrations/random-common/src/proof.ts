@@ -6,6 +6,8 @@ import { spec } from "node:test/reporters";
 
 import { liveCases, type LiveCase } from "./live-cases.js";
 
+export { liveCases, type LiveCase } from "./live-cases.js";
+
 /** Only a profile selector is user-supplied; command inventory is fixed above. */
 export function parseProofProfile(
   argv: readonly string[],
