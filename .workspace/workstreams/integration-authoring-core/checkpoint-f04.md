@@ -48,4 +48,4 @@ Post-correction external package smoke passed with actual Core 0.1.0 and a 97-fi
 harness prefix `99A5`). Offline isolated installation, exact runtime 21 / proof 2 / testing 6
 exports, strict installed declarations including F04/F08/parsers, synthetic CLI/JSON/RPC/disposal,
 proof CI refusal, zero-effect file preflight and cleanup all passed. No live service or keyring was
-used. New exact-head CI remains required.
+used. Corrected exact-head CI run 33509317357 subsequently passed all six jobs with 1149 tests each.

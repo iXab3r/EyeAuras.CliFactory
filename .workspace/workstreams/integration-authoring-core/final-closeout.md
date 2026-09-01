@@ -1,10 +1,10 @@
-# F01–F08 functional closeout candidate
+# F01–F08 implementation and acceptance closeout
 
 **Finding status:** 8/8 accepted by root after independent technical and authoring review.
-**Workstream status:** active, P6. Exact-head CI exposed an ext4 inode-reuse cleanup defect; the
-open-handle correction on the current tree is accepted with 1149 tests and post-correction package
-smoke passing. New exact-head six-job CI and clean merge remain required. This is not a release or
-Issue closure receipt.
+**Workstream status:** implementation/acceptance complete, P6 done. Exact-head CI first exposed an
+ext4 inode-reuse cleanup defect; the accepted correction, 1149-test local suite and post-correction
+package smoke passed. Corrected exact head `1c4cb3e47634d8156d5a2bf4bd79bc415cb9434b` then passed all
+six CI jobs. Merge PR #15 is the immediate external next action; this is not a release or Issue closure receipt.
 
 ## Fixed-method all-workspace measurement
 
@@ -84,7 +84,7 @@ The retained call layers are concrete and shallow:
 - service download → Core profile-file publisher → private staging/exclusive publication;
 - F06 changes compile-time input typing and adds no runtime layer.
 
-## Accepted functional evidence and pending P6 gates
+## Accepted functional and final P6 evidence
 
 F04 technical/security/test-audit and independent authoring review passed. Final whole-PR review
 closed awaited async inspection and stable same-inode snapshot gaps. Exact-head CI run 33507232691
@@ -96,5 +96,8 @@ Post-correction Core 0.1.0 package smoke also passed from a 97-file tarball (SHA
 `53c2bed6`) with exact exports/declarations, synthetic invocation, CI refusal, zero-effect preflight
 and cleanup checks.
 
-Still pending: new exact-head Linux/macOS/Windows Node 22/24 CI and clean merge. Issue #14/workstream
-closure waits for those receipts.
+Final CI [run 33509317357](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33509317357)
+passed all six Linux/macOS/Windows Node 22/24 jobs at exact head
+`1c4cb3e47634d8156d5a2bf4bd79bc415cb9434b`: 1149 passed, zero failed/skipped per job, aggregate
+6894 passed. Implementation/acceptance is complete. Clean merge of PR #15 is the immediate external
+action, and Issue #14 remains open until merge.

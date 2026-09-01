@@ -1,7 +1,7 @@
 # Integration authoring Core — implementation ledger
 
-**Lifecycle:** active. **Issue:** [#14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14).
-**Current phase:** P4 complete: F01–F08 accepted (8/8). P6 active. Exact-head `c8ab55d` CI run 33507232691 passed 4/6 and exposed ext4 inode reuse in cleanup on Ubuntu 22/24. The accepted open-handle correction passes 1149 local tests and post-correction package smoke; new exact-head six-job CI and clean merge pending. **Accepted findings:** 8/8 (F01–F08).
+**Lifecycle:** implementation/acceptance complete. **Issue:** [#14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14), open until merge.
+**Current phase:** P6 done. Exact head `1c4cb3e47634d8156d5a2bf4bd79bc415cb9434b` passed all six CI jobs with 1149 tests each. Merge [PR #15](https://github.com/iXab3r/EyeAuras.CliFactory/pull/15) is the immediate external next action. **Accepted findings:** 8/8 (F01–F08).
 **New REST operations:** 0; endpoint inventory is unchanged.
 
 | Phase | Scope | Status | Agent | Review |
@@ -12,7 +12,7 @@
 | P3 | F05 parsers / F06 wrapper inference | done | authoring_types / reviewer / root | F05/F06 independently reviewed and root accepted; F05 all-workspace build and 1020 affected tests PASS |
 | P4 | F08 response bound, then F04 file publication | done | authoring_streams / independent reviewers / root | F04/F08 technical/security/authoring PASS and root accepted |
 | P5 | F07 option-typing experiment | done | option_experiment / independent reviewer / root | Reviewed rejection accepted; measured evidence retained; prototype removed safely and shared dependencies unchanged |
-| P6 | Consolidation, exports, PR/review/CI and clean merge | active; final gates pending | source owners / reviewers / root | Functional8/8; accepted cleanup correction, 1149 suite and post-correction package PASS; new exact-head CI/merge pending |
+| P6 | Consolidation, exports, PR/review/CI and clean merge | done | source owners / reviewers / root | Functional8/8, package and exact-head six-job CI PASS; merge is the external next action |
 
 ## Current handover
 
@@ -55,9 +55,9 @@
   prefix `99A5`. Offline isolated install, runtime 21 / proof 2 / testing 6 exports, strict installed
   declarations, synthetic CLI/JSON/RPC/disposal, proof CI refusal, zero-effect preflight and cleanup
   all passed. No live service or keyring was used.
-- [Draft PR #15](https://github.com/iXab3r/EyeAuras.CliFactory/pull/15) references Issue #14 and
-  has a verified updated draft body recording six accepted findings, without closing Issue #14.
-  It supplied successful fixture and second-checkpoint CI; P6/final-head checks remain pending.
+- [PR #15](https://github.com/iXab3r/EyeAuras.CliFactory/pull/15) references Issue #14. Exact source
+  head `1c4cb3e47634d8156d5a2bf4bd79bc415cb9434b` passed the final six-job CI. Merge is the immediate
+  external action; Issue #14 remains open until that merge.
   Kickoff readback and P0 recount passed. Root serializes builds/tests and owns git/GitHub;
   management edits only this workstream. Each retained extraction needs its
   own independent correctness and authoring gate; no new endpoint counter or speculative framework.
@@ -210,3 +210,11 @@ and only then unlinks; close failure retains staging for inspection. Root's corr
 all eight workspaces and passed 1149 tests (Core 133 / IPC 31 / Playwright 23 / random-pw 6 /
 random-rest 25 / TeamCity 586 / YouTrack 345), zero failures/skips. Post-correction package smoke
 passed. New exact-head six-job CI and clean merge remain required.
+
+## 2026-09-01 — implementation/acceptance complete
+
+Final CI [run 33509317357](https://github.com/iXab3r/EyeAuras.CliFactory/actions/runs/33509317357)
+passed all six Linux/macOS/Windows Node 22/24 jobs at exact head
+`1c4cb3e47634d8156d5a2bf4bd79bc415cb9434b`. Every job passed 1149 tests with zero
+failures/skips; aggregate 6894 passed. P6 and the implementation/acceptance workstream are done.
+PR #15 merge is the immediate external next action. Issue #14 remains open until merge.

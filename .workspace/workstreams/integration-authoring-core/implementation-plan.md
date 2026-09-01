@@ -1,7 +1,7 @@
 # Integration authoring Core — implementation plan
 
-**Lifecycle:** active. **Scope:** [Issue #14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14), F01–F08.
-**Current phase:** P4 complete: F01–F08 are accepted (8/8). P6 is active. Exact-head `c8ab55d` CI run 33507232691 passed 4/6 and exposed ext4 inode reuse in cleanup on Ubuntu 22/24. The accepted open-handle correction passes 1149 local tests and post-correction package smoke; new exact-head six-job CI and clean merge remain pending.
+**Lifecycle:** implementation/acceptance complete. **Scope:** [Issue #14](https://github.com/iXab3r/EyeAuras.CliFactory/issues/14), F01–F08.
+**Current phase:** P6 done. F01–F08 are accepted (8/8); exact head `1c4cb3e47634d8156d5a2bf4bd79bc415cb9434b` passed all six CI jobs with 1149 tests each. Merge [PR #15](https://github.com/iXab3r/EyeAuras.CliFactory/pull/15) is the immediate external next action; Issue #14 stays open until merge.
 Worktree `EyeAuras.CliFactory-1`, branch `codex/integration-authoring-core`, fixed baseline
 `b5762f242ff1ea074e33a1c1739190ac4d0ee523`. This supersedes historical discovery measurements only;
 previous workstreams and unrelated files remain untouched.
@@ -23,7 +23,7 @@ offline, including actual IPC and routed browser regressions in current workspac
 | P3 | F05 small parsers and F06 existing inference through thin wrappers, measured separately | Both actual parser consumers keep syntax/domain distinctions; meaningful wrapper compiler tests and whole-declaration fallback; independent correctness/authoring PASS |
 | P4 | F04 profile-owned file publication and F08 response-body bounds, separately identifiable | done: independent technical/security/authoring PASS and root acceptance; exact costs retained |
 | P5 | F07 bounded option-typing experiment | Same-capability costs/diagnostics; accept and integrate both consumers or reject and remove prototype, with independent verdict |
-| P6 | Consolidate docs, exports/package checks, all-workspace tests, PR/review/fixes/CI | All F01–F08 acceptance evidenced; no abandoned local/shared duplicate; full privacy, final-head platform CI, linked PR and close-out before merge/closure |
+| P6 | Consolidate docs, exports/package checks, all-workspace tests, PR/review/fixes/CI | done: all acceptance evidence and exact-head six-job CI passed; clean merge remains an external action |
 
 Implementers may research in parallel, but shared source ownership and build/test operations stay
 coordinated by root. F06/F07 may run independently only with isolated evidence and explicit release.
@@ -68,9 +68,8 @@ uncommitted-tree witness. Report all eight workspace rows and totals, with funct
 roles shown separately for helpers under Core/src. Do not reclassify the baseline or credit moving
 cost as runtime savings. Preserve the fixed same-capability samples, show their actual diffs and
 identify specialized code deliberately retained. The concise final closeout will contain an F01–F08
-decision matrix, public API/dependency/call-layer changes and zero new REST operations. It remains
-pending until full tests, external-package checks, independent final reviews and final-head platform
-CI pass; root supplies the publication/merge receipts.
+decision matrix, public API/dependency/call-layer changes and zero new REST operations. Those gates
+passed through exact-head CI run 33509317357; root owns the external merge receipt.
 ## Current boundaries
 
 - TeamCity already uses real ProfileStore. Share remaining fixture mechanics; do not reintroduce
