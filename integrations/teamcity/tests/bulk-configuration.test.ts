@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 import { bulkConfigurationCases } from "./bulk-configuration-cases.js";
 
@@ -13,7 +12,7 @@ test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 async function writable(testContext: test.TestContext) {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
@@ -29,7 +28,7 @@ test("S5 all 50 permission gates deny before HTTP", async (testContext) => {
       return HttpResponse.json({});
     }),
   );
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   for (const example of bulkConfigurationCases)
     await assert.rejects(
       cli.execute(example.argv),
@@ -314,7 +313,7 @@ test("S5 JSON-RPC isolates replacement permissions and credentials across two pr
       return HttpResponse.json({ id: 7 });
     }),
   );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()

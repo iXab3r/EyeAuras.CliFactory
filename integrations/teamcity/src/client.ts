@@ -8,9 +8,9 @@ import {
   preflightSecretKeys,
   persistSecretKeys,
 } from "./credential-inputs.js";
-import type { ScopedSecrets, IAppArguments } from "@eyeauras/cli-factory";
+import { readBoundedResponseBody, type ScopedSecrets, type IAppArguments } from "@eyeauras/cli-factory";
 import * as files from "./file-models.js";
-import { prepareDownload, saveDownload, type DownloadOptions } from "./downloads.js";
+import { saveDownload, type DownloadOptions } from "./downloads.js";
 import {
   idPath,
   joinLocator,
@@ -3995,11 +3995,12 @@ export class TeamCityClient {
     options: DownloadOptions,
     format: files.DownloadFormat,
   ) {
-    const target = await prepareDownload(app, options, format);
     const accept = format === "png" ? "image/png" : format === "svg" ? "image/svg+xml" : "*/*";
     return saveDownload(
-      await this.#response("GET", path, query, undefined, accept),
-      target,
+      app,
+      options,
+      format,
+      () => this.#response("GET", path, query, undefined, accept),
       this.#signal,
     );
   }
@@ -4046,15 +4047,6 @@ export class TeamCityClient {
     } catch {
       throw new Error("TeamCity network request failed; remote outcome is unknown.");
     }
-    if (!response.ok) {
-      // Server diagnostics can echo submitted properties or credentials unrelated to our token.
-      void response.body?.cancel().catch(() => undefined);
-      throw new TeamCityHttpError(
-        response.status,
-        `TeamCity request failed with HTTP ${response.status}.`,
-      );
-    }
-
     return response;
   }
   async #request(
@@ -4078,6 +4070,14 @@ export class TeamCityClient {
       mediaType,
       responseOptions.accept,
     );
+    if (!response.ok) {
+      // Server diagnostics can echo submitted properties or credentials unrelated to our token.
+      void response.body?.cancel().catch(() => undefined);
+      throw new TeamCityHttpError(
+        response.status,
+        `TeamCity request failed with HTTP ${response.status}.`,
+      );
+    }
     if (
       responseOptions.expectedStatus !== undefined &&
       response.status !== responseOptions.expectedStatus
@@ -4113,26 +4113,16 @@ export class TeamCityClient {
       void response.body?.cancel().catch(() => undefined);
       throw new Error("Unexpected TeamCity response media type.");
     }
-    const reader = response.body?.getReader();
-    if (!reader) return "";
     try {
-      const chunks: Uint8Array[] = [];
-      let length = 0;
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        length += chunk.value.byteLength;
-        if (length > 2 * 1024 * 1024) throw new Error("Response byte bound exceeded.");
-        chunks.push(chunk.value);
-      }
-      return Buffer.concat(chunks).toString("utf8");
+      const bytes = await readBoundedResponseBody(response, {
+        maxBytes: 2 * 1024 * 1024,
+        signal: this.#signal,
+      });
+      return Buffer.from(bytes).toString("utf8");
     } catch {
       throw new Error(
         "TeamCity response stream failed or exceeded2MiB; remote outcome is unknown.",
       );
-    } finally {
-      void reader.cancel().catch(() => undefined);
-      reader.releaseLock();
     }
   }
 }

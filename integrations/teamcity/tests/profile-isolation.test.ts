@@ -1,29 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { after, afterEach, before, test, type TestContext } from "node:test";
-import { AppArguments } from "@eyeauras/cli-factory";
+import { createCliFixture } from "@eyeauras/cli-factory/testing";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { createTeamCityCli } from "../src/cli.js";
-import { createTestRuntime } from "./support.js";
 
 async function fixture(t: TestContext, input = "") {
-  const directory = await mkdtemp(join(tmpdir(), "teamcity-profile-isolation-"));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  const h = await createTestRuntime(t, { input, tokens: {} });
-  const appArguments = new AppArguments({ AppName: "teamcity-cli", Environment: {
-    AppDomainDirectory: join(directory, "executable"),
-    ApplicationExecutablePath: join(directory, "executable", "teamcity-cli.js"),
-    EnvironmentAppData: join(directory, "roaming"),
-    EnvironmentLocalAppData: join(directory, "local"),
-    ProcessId: 1,
-  } });
-  const { profileStore: _testStore, ...streams } = h.runtime;
-  const runtime = { ...streams, appArguments };
-  return { cli: createTeamCityCli(runtime), runtime, appArguments,
-    secrets: h.secretStore, stdout: h.stdout, stderr: h.stderr };
+  const shared = await createCliFixture(t, { applicationId: "teamcity-cli", input });
+  return { ...shared, cli: shared.createApplication(createTeamCityCli), secrets: shared.secretStore };
 }
 
 const server = setupServer();

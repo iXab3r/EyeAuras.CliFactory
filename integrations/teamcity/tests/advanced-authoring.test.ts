@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 import { advancedAuthoringCases } from "./advanced-authoring-cases.js";
 
@@ -13,7 +12,7 @@ test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 async function writable(testContext: test.TestContext) {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   return { cli, runtime };
 }
@@ -31,7 +30,7 @@ test("all 50 S3 leaves deny before HTTP when their profile has no permissions", 
   );
   for (const example of advancedAuthoringCases) {
     await assert.rejects(
-      createTeamCityCli(runtime.runtime).execute(example.argv),
+      runtime.createCli().execute(example.argv),
       new RegExp(`Permission '${example.method === "GET" ? "ReadOnly" : "Update"}'`),
     );
   }
@@ -303,7 +302,7 @@ test("S3 JSON-RPC keeps two profiles isolated and resumes after validation and p
       return HttpResponse.json({ item: ["OldId"] });
     }),
   );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()

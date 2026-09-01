@@ -298,7 +298,7 @@ test("attachment RPC preserves profile routing and scrubs read/upload responses"
     ["issues", "attachments", "upload", "fixture-issue", "--file", f.file, "--profile", "dev"],
   ];
   const input = argv.map((args, i) => JSON.stringify({ jsonrpc: "2.0", id: i + 1, method: "cli.execute", params: { argv: args } })).join("\n") + "\n";
-  const rpc = createYouTrackCli({ ...f.runtime, input: Readable.from([input]) });
+  const rpc = f.createApplication(runtime => createYouTrackCli({ ...runtime, input: Readable.from([input]) }));
   assert.equal(await rpc.run(["--json-rpc"]), 0);
   const rows = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.equal(rows.length, 3);

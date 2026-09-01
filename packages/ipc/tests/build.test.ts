@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Readable, Writable } from "node:stream";
@@ -148,7 +148,7 @@ test("missing build blocks Run, but management ignores invalid launch limits and
 });
 
 async function fixture(t: test.TestContext) {
-  const root = await mkdtemp(join(tmpdir(), "cli-build-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "b-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const put = async (path: string, contents: string) => {
     await mkdir(dirname(join(root, path)), { recursive: true });

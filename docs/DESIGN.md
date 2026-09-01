@@ -35,6 +35,25 @@ fields, which the interactive configurator may prompt for.
 Generated help marks required options without defaults. Help and argument errors never terminate
 the host process.
 
+Core's `integerParser({ min, max, signed, errorMessage })` and `jsonParser(errorMessage)`
+return callbacks for the existing `OptionDefinition.parse`; they add no declaration layer.
+Integer parsing accepts decimal digits (including leading zeros), with an optional minus only
+when `signed` is true. Whitespace, plus signs, fractions, exponents and nondecimal notation reject.
+The result must be a safe integer within the inclusive caller-supplied bounds; invalid bounds
+reject when the parser is created. JSON parsing returns `unknown`, not a body schema. Callers
+supply static, non-secret error messages; rejected input and native error causes are never included.
+Defaults remain in the option declaration and are not passed through the parser. Independently
+callable service methods keep their own domain validation.
+
+`jsonParser` itself preserves JSON `null`. Existing Commander handling of required-value options
+normalizes a null callback result to an empty string; this helper does not change that behavior.
+Null fields inside objects and null items inside returned arrays are unaffected.
+
+TeamCity's strict numeric parsers remain signed, including `-0` for nonnegative paging start;
+YouTrack paging remains unsigned. Each configured parser now uses one static diagnostic for syntax,
+safety and range failures. Invalid YouTrack paging ranges and unsafe integers now reject during
+option parsing before onboarding/authentication, consistently on CLI, execute and JSON-RPC.
+
 Literal leaf declarations infer required positional strings in their inline callback from the
 existing command name. The small inferred grammar uses ASCII letters, digits, underscores and
 hyphens in names, with single spaces between the command and required `<argument>` tokens.
@@ -48,6 +67,11 @@ parsing remains unchanged, including its wider Commander syntax. Existing explic
 literal callback when invoked through the factory parser. The stored mutable `CommandDefinition`
 remains broad; changing its name/run or manually invoking its erased handler is outside that
 inference guarantee.
+
+Thin integration wrappers preserve this inference by keeping the command name generic and using
+the exported `InferredCommandHandler<Syntax>` callback type (or its input parameter type).
+The same complete-declaration fallbacks and broad stored definitions apply. TeamCity's client
+binding uses this type without changing runtime parsing, options or domain validation.
 
 ### Handlers return domain data
 
@@ -167,6 +191,50 @@ notifications and long-running subscriptions are **planned** and will build on t
 The core package knows nothing about TeamCity resources. Integrations own endpoint paths, DTOs,
 pagination rules, browser selectors, and service terminology. HTTP clients depend on `fetch`;
 browser clients use the optional Playwright owner. Tests replace the actual HTTP/browser boundary.
+
+Core's `readBoundedResponseBody(response, { maxBytes, signal })` consumes one response into owned
+bytes without choosing HTTP status, media, UTF-8 decoding or JSON semantics. `maxBytes` is a
+positive safe integer and bounds actual emitted (normally decoded) bytes. A declared Content-Length
+must be a nonnegative safe integer. For absent/identity Content-Encoding it also must fit the bound
+and match the completed body; encoded wire length is not compared with decoded size.
+The reader copies chunks into bounded storage, observes cancellation and releases its lock.
+Cancellation promises are handled without awaiting an unread tee sibling. Errors contain no
+response bytes or underlying error causes. The caller still owns fetch cancellation and timeout,
+non-success response cancellation, service validation and any public error wording; no retries occur.
+
+TeamCity consumes ordinary text/JSON/XML through this mechanism at its existing 2 MiB limit;
+its specialized 64 KiB discard path stays local and never decodes those bytes. YouTrack JSON
+responses now have an 8 MiB limit, allowing room for bounded 100-item pages with text and custom
+fields without promising every projection will fit. Both clients now validate declared identity
+transfer lengths. TeamCity retains Buffer UTF-8 decoding, including a leading BOM; YouTrack retains
+Response.text-style decoding that removes an initial BOM. File downloads use `publishProfileFile`, the second proven shared HTTP-byte mechanism. The caller
+supplies one safe basename, active profile AppData root, byte bound, raw-response acquisition,
+a required status/media inspection callback and optional staged-file validation. Core awaits both
+callbacks at their respective gates. It preflights
+`downloads` and `temp` before acquisition, streams to a new private random directory under
+`AppDataDirectory/temp`, and publishes under `AppDataDirectory/downloads` with an exclusive hard
+link. It snapshots/rechecks directory and file identities, writes complete chunks, syncs before
+publication, verifies the published inode and never falls back to rename/copy or overwrites. Staged
+validation is read-only: detected size, modification-time or change-time mutations are rejected.
+The original exclusive file handle remains open through validation and the link decision. Cleanup
+matches the path to a fresh handle snapshot, closes successfully, rechecks, and only then unlinks.
+
+The result is `{ path, bytes, sha256 }` only after verified publication and staging cleanup.
+`ProfileFileError.published` records whether the link completed; `cleanupFailed` records incomplete
+owned-stage cleanup. Core computes those flags. Only static errors explicitly thrown by
+`inspectResponse` or `validateFile` as `ProfileFileError` retain their message after clean
+unpublished cleanup. Fetch, stream, filesystem and abort errors are replaced with static diagnostics
+without causes. A cleanup error takes precedence and distinguishes unpublished from already-published
+data. Cleanup verifies the private temp chain and staged-file identity before unlinking; it never
+follows a replacement or deletes an unknown destination.
+
+Endpoints, authentication, status/media checks, whole-file 206 rejection, compressed wire
+Content-Length bounds, filename conventions, service limits, file signatures and result DTOs remain
+integration-owned. `privateDirectory` is applied only to the newly created staging directory, never
+AppData ancestors or the downloads directory. The hard-linked file retains its private file access.
+These path checks protect current-user AppData and detectable replacement; no path-based Node API can
+eliminate every same-user replacement race after the last check, including exotic in-place mutation
+with forged metadata. There is no retry, resume, opening, execution or extraction.
 
 ## Runtime shape
 
@@ -427,12 +495,34 @@ Development follows a thin vertical TDD loop:
 MSW intercepts the native `fetch` boundary in Node tests. Fixtures are data, not a second client
 implementation. Full rules are in [`testing.md`](testing.md).
 
+The separate `@eyeauras/cli-factory/testing` entry point supplies offline fixture mechanics
+without entering the default production export. It owns canonical temporary AppArguments,
+memory credentials, a real profile-document view, output capture and registered application
+disposal before guarded directory cleanup. Service definitions, auth protocols, synthetic HTTP
+contracts and explicit permission choices remain with integrations. Preparation never logs in
+or grants permissions implicitly; unconfigured state is supported. An application's normal profile
+store retains its service validation rather than being replaced by a generic fixture store.
+
 A profile-backed integration proof is development evidence, not regression coverage. It uses a
 named profile from the current user's normal AppData and credentials from the normal OS keyring; it
 does not accept a test URL or token. It invokes the packaged CLI boundary and a fixed, bounded
 inventory of `ReadOnly` commands. It is a separate explicit script, refuses CI environments before
 networking, never prints or persists raw responses, and is never included in `npm test`. Mocked tests
 remain the only service-contract tests required in CI.
+
+TeamCity and YouTrack share `@eyeauras/cli-factory/proof`, separate from both the runtime and
+offline-fixture exports. `parseProofProfile` performs strict profile/CI preflight before the
+inventory runs. `createProofInvoker` launches the packaged Node entry point with code-owned argv
+and optional stdin, refusing known CI variables case-insensitively before every spawn and removing
+declared credential environment overrides. Each child defaults to 30 seconds and 64 KiB separately
+for stdout and stderr, counted as bytes before decoding. Positive integer limits may be declared
+in proof source, never supplied as user arguments. Failures terminate the child, close its pipes
+and await process closure; errors contain static diagnostics, never captured output or causes.
+Only successful stdout is returned for in-memory validation. These helpers do not discover
+commands, manage service state, or turn raw responses into safe reports. Integrations own fixed
+inventories, response validation, dependency skips and compact reporting; a failed prerequisite,
+incomplete inventory or zero successful executions cannot pass. RANDOM retains its existing
+service-specific proof and quota behavior.
 
 ## Submodules and CliWrap.ts
 

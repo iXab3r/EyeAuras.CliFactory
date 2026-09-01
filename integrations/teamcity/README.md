@@ -5,6 +5,14 @@
 locators, DTOs, and command vocabulary; generic command-tree, profile, credential, permission,
 output, and JSON-RPC behavior stays in `packages/core`.
 
+Ordinary text, JSON and XML responses retain their 2 MiB actual-byte limit. They now also reject
+invalid Content-Length and incomplete or mismatched unencoded/identity transfers. Compressed wire
+length is syntax-checked but is not compared with decoded size; actual decoded bytes remain
+bounded. Errors retain the static `TeamCity response stream failed or exceeded2MiB; remote outcome
+is unknown.` message without exposing body/error details. UTF-8 decoding still preserves an initial
+BOM. Specialized 64 KiB discard probes and file-download limits are unchanged; no automatic retry
+or command replay is added.
+
 ## Command tree
 
 | Command | Purpose | Permission |
@@ -57,6 +65,15 @@ output, and JSON-RPC behavior stays in `packages/core`.
 Top-level collection commands accept `--limit <count>` from 1 to 100 and `--start <offset>` starting at
 zero. They return one plain array page and never auto-page. Run a branch without a leaf, such as
 `teamcity-cli builds`, to see its generated help and options.
+
+Paging defaults remain `--limit 100 --start 0`. These options accept decimal digits with an optional
+minus and leading zeros, but reject whitespace, plus signs, fractions and exponents. The start must
+be a nonnegative safe integer (`-0` remains valid); limit remains 1–100. Invalid options fail before
+profile onboarding or credential access. Each option now reports one static error for syntax, unsafe
+integers and range failures. The existing strict numeric build/queue-cancel/agent-show ID parsers
+retain positive safe-integer validation and use the same decimal grammar; other numeric service
+validators are unchanged. JSON options retain their existing non-echoing errors, repeat order and
+service-specific body validation.
 
 Single-owner parameter, step, extension, dependency and attachment lists use the native scoped endpoints and preserve
 server order; these endpoints do not support paging options. `vcs roots list --project <id>`
@@ -420,7 +437,8 @@ teamcity-cli users avatar download 123 --size 64 --output avatar.png --profile u
 ```
 
 Downloads require a new basename and save only below
-`AppArguments.AppDataDirectory/downloads`, staging under `TempDirectory`. Result is
+`AppArguments.AppDataDirectory/downloads`, using Core's shared identity-checked private staging
+under `TempDirectory`. Result is
 `{path,bytes,sha256,mediaType}` for an actual retained file. Default actual-byte limit16MiB,
 maximum64MiB with `--max-bytes`; SVG is additionally limited to1MiB. HTTP206 partial responses are
 rejected without publication or automatic retry; downloads do not support ranges/resume.
@@ -428,8 +446,11 @@ No overwrite, redirect,
 symlink/junction escape, automatic opening, execution or extraction. Atomic no-clobber publication
 requires same-profile hard-link support; unsupported filesystems fail closed. PNG/ZIP/SVG types
 and signatures are validated; SVG/icon success says nothing about the build's success.
-Directories/files use private POSIX modes and current-user directory ACL inheritance on Windows;
-this does not repair a user data root whose ACL was deliberately made public. Data can be sensitive:
+The fresh staging directory and file use private POSIX modes/current-user ACLs; the published hard
+link retains the file protection. Core never changes AppData ancestor/download-directory ACLs and
+does not repair a user data root deliberately made public. Detectable directory/staged/destination
+replacement is rejected without deleting unknown files. A same-user process can still race after
+the final identity check. Data can be sensitive:
 do not publish downloads or turn them into fixtures without explicit sanitization. File cleanup
 follows profile AppData semantics; it is not permission to silently erase existing user data.
 
@@ -552,6 +573,9 @@ summaries, never raw payloads or discovered identifiers. No fixture or artifact 
 
 The proof is outside `npm test` and refuses CI/CD environments before launching the CLI. It is a
 local development tool, not a regression suite or production availability monitor.
+The shared Core proof invoker limits each child to 30 seconds and each stdout/stderr stream to
+64 KiB. Oversized responses now fail instead of using unbounded capture. It strips inherited
+`TEAMCITY_TOKEN` case-insensitively and applies the [shared CI preflight](../../docs/testing.md).
 
 See [the integration authoring guide](../../docs/integrations.md) for how this product references
 the common package and how to start the next in-repo or external integration.

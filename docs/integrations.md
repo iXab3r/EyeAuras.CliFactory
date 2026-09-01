@@ -380,6 +380,36 @@ Use small local functions for proven repetition, such as TeamCity's project/job 
 and profile-scoped client binding. Do not promote its HTTP or property semantics into Core.
 For expansion work, follow the [50-operation authoring review practice](practices/integration-authoring-reviews.md).
 
+Use the small Core parser factories when an option needs decimal integer bounds or JSON syntax:
+
+```ts
+import { integerParser, jsonParser } from "@eyeauras/cli-factory";
+
+const options = [
+  {
+    flags: "--count <number>", description: "Maximum results", defaultValue: 50,
+    parse: integerParser({
+      min: 1, max: 100, signed: false,
+      errorMessage: "Count must be a decimal integer between 1 and 100.",
+    }),
+  },
+  {
+    flags: "--body <json>", description: "Supported service fields", required: true,
+    parse: jsonParser("Body must be valid JSON."),
+  },
+];
+```
+
+Pass these options through the existing command settings. Keep defaults, bounds and signed syntax
+service-owned; `signed: true` permits a minus, never a plus. Neither parser trims input, and numeric
+parsing rejects decimals, exponents and unsafe values. Choose valid defaults: Commander does not
+parse them. Use literal, non-secret error messages rather than interpolated input. JSON values are
+`unknown`, so the service still validates objects, fields and null/omitted semantics. Repeat handling
+also remains local, as in TeamCity's `jsonOption`. Keep validation in directly callable clients.
+The JSON parser returns `null` for the JSON literal `null`, but Commander's existing required-value
+option handling converts a null callback result to `""`. Nested null fields and array items survive;
+do not treat a top-level option value as proof of a validated JSON body.
+
 For each command, prefer a test that runs the real client and, when useful, the real CLI command
 tree against MSW. Assert:
 
@@ -394,6 +424,55 @@ The default suite never calls the real service. Local proof is opt-in, uses the 
 an explicit real current-user profile/keyring, and executes only a fixed bounded ReadOnly inventory.
 It refuses CI. New sensitive/expensive reads do not automatically join that inventory.
 
+### A shared offline fixture
+
+Use the separate testing entry point for synthetic state and application ownership:
+
+```ts
+import { createCliFixture } from "@eyeauras/cli-factory/testing";
+
+const fixture = await createCliFixture(t, {
+  applicationId: "acme-cli",
+  profiles: [{
+    name: "default",
+    values: { url: "https://acme.example.com" },
+    secrets: { token: "synthetic-test-token" },
+  }],
+});
+const app = fixture.createApplication(runtime =>
+  createCli({ ...createDefinition(), runtime }),
+);
+const value = await fixture.json(app, ["resources", "list"]);
+```
+
+The test installs its own MSW handlers before invoking the app and independently asserts the
+request and result. Omit `profiles` to test unconfigured onboarding, and declare permission changes
+explicitly. The fixture does not assume token authentication; credential names belong to the
+integration. Every created app is disposed before the fixture deletes its temporary AppData.
+See [the testing guide](testing.md#shared-offline-cli-fixture) for invocation and cleanup details.
+## Bounded response consumption
+
+Use Core's byte reader after your own status handling instead of an unbounded `response.text()`:
+
+```ts
+import { readBoundedResponseBody } from "@eyeauras/cli-factory";
+
+const bytes = await readBoundedResponseBody(response, {
+  maxBytes: 8 * 1024 * 1024,
+  signal: context.signal,
+});
+const text = new TextDecoder().decode(bytes); // Response.text-compatible UTF-8/BOM behavior
+```
+
+Choose the limit for the service's actual response shape. TeamCity uses 2 MiB; YouTrack uses 8 MiB
+for its bounded pages and text-rich projections. Keep status, media, empty/null mutation semantics,
+JSON/DTO parsing and safe public errors local. Cancel rejected HTTP bodies without awaiting tee
+consumers, and pass the invocation signal to fetch as well as the reader.
+Actual decoded bytes are bounded; Content-Length is syntax-checked and, for unencoded/identity
+bodies, checked against both the limit and completed length. Compressed wire length is not the
+decoded size. Decoding stays explicit: `Buffer.from(bytes).toString("utf8")` retains an initial BOM,
+whereas `TextDecoder` removes it by default. No HTTP wrapper, retry or automatic decoding is added.
+
 ## Native wire formats and private results
 
 CLI output format is independent of REST media. A text/XML/multipart/binary service contract does
@@ -401,16 +480,44 @@ not require another help/JSON/RPC implementation: validate and project domain da
 then return it through the existing tree. A native void action can return acknowledgement only after
 actual success; do not invent completion, atomicity or verified postconditions.
 
-For files, use an explicit output basename under the active `AppDataDirectory`, bounded streaming,
-no-clobber publication and no implicit opening/execution. Return the real path/byte count/hash,
-not discarded bytes or an unusable URL. Credentials are different: store them only in the injected
-profile keyring, return aliases, and make remote-operation/local-storage partial failures explicit.
-Never promote a raw method/path/body passthrough as endpoint coverage.
+For files, keep filename, URL/auth, status/media, compressed wire-length, format and result policy in
+the integration, then give Core ownership of the raw response and local publication:
 
-TeamCity's concrete examples are `file-commands.ts`, `downloads.ts` and `credential-inputs.ts`.
-They remain integration-owned; another real integration must prove a shared Core extraction.
-Reuse the existing command tree, required options, custom permission categories, AppArguments and
-ScopedSecrets first. Measure helper/security costs too at every50-operation authoring checkpoint.
+```ts
+const saved = await publishProfileFile({
+  appDataDirectory: context.appArguments.AppDataDirectory,
+  name,
+  maxBytes,
+  signal: context.signal,
+  openResponse: () => fetch(url, { signal: context.signal }),
+  inspectResponse(response) {
+    if (!response.ok || response.status === 206) {
+      throw new ProfileFileError("Download failed or was partial.");
+    }
+  },
+  validateFile: ({ path, prefix }) => validateNativeFile(path, prefix),
+});
+return { ...saved, contentType };
+```
+
+Both callbacks may be asynchronous and are awaited before Core continues past their gate. Callers
+must use static, non-sensitive `ProfileFileError` messages in the two callbacks. Errors
+from response acquisition, streaming, filesystem operations and abort reasons are sanitized.
+Core computes `published` and `cleanupFailed`; do not construct those flags in callbacks.
+Successful publication returns the real path, byte count and SHA-256 only after complete writes,
+sync, exclusive no-overwrite linking, identity verification and safe staging cleanup. Do not open,
+execute, extract or retry the result. Staged validation is read-only; Core rejects detected size,
+modification-time or change-time mutations instead of publishing transformed bytes with stale metadata.
+Core retains its exclusive staging handle through validation and publication, then closes it before
+identity-checked path cleanup; a close failure retains staging for inspection.
+
+The integration still validates its own basename convention and limit. Core also rejects path,
+device and unsafe cross-platform basename forms. Staging is in a private fresh directory under the
+active profile's `temp`; the destination is under `downloads`. Never call `privateDirectory` on
+user-selected or AppData ancestor directories. TeamCity and YouTrack are the two consumers;
+TeamCity retains PNG/ZIP/SVG validation and hashes in its DTO, while YouTrack retains signed-URL,
+no-bearer download and sanitized metadata rules. Credentials remain in the keyring, never files.
+Measure helper/security costs at every authoring checkpoint.
 
 ## Ready-for-review checklist
 

@@ -2,12 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdtemp, readFile, rm, readdir, mkdir, writeFile, symlink, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 import { AppArguments } from "@eyeauras/cli-factory";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 import { fileCases, sourceBytes, pngBytes } from "./files-cases.js";
 import { safeFile, remotePath } from "../src/file-models.js";
@@ -36,8 +35,13 @@ async function fileRuntime(testContext: test.TestContext, input = "", parent = t
     root,
     runtime,
     appArguments,
-    cli: createTeamCityCli(runtime.runtime),
-    cleanup: () => rm(root, { recursive: true, force: true }),
+    cli: runtime.createCli(),
+    cleanup: async () => {
+      await runtime.dispose();
+      assert.equal(await realpath(root), root);
+      assert.equal(dirname(root), await realpath(parent));
+      await rm(root, { recursive: true, force: true });
+    },
   };
 }
 for (const c of fileCases)
@@ -159,6 +163,45 @@ test("whole-file downloads reject HTTP 206 without publishing or retrying partia
       assert.equal(t.runtime.stdout(), "");
       assert.match(t.runtime.stderr(), /no destination was published/);
       assert.equal(calls, 1, "partial downloads must not be retried automatically");
+      assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
+      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+    } finally {
+      await t.cleanup();
+    }
+  }
+});
+
+test("download transport failures keep HTTP status semantics and remove private staging", async (testContext) => {
+  for (const kind of ["status", "length", "stream"] as const) {
+    const t = await fileRuntime(testContext);
+    try {
+      server.use(
+        http.get(base + "/builds/id:7/artifacts/files/docs/example.bin", () => {
+          if (kind === "status") {
+            return new HttpResponse("private response", { status: 503 });
+          }
+          if (kind === "length") {
+            return new HttpResponse(sourceBytes as never, {
+              headers: { "Content-Length": "invalid" },
+            });
+          }
+          return new HttpResponse(new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(sourceBytes.subarray(0, 2));
+              controller.error(new Error("private stream failure"));
+            },
+          }));
+        }),
+      );
+      await assert.rejects(t.cli.execute(download), (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.match(
+          error.message,
+          kind === "status" ? /TeamCity request failed with HTTP 503/ : /Download failed/,
+        );
+        assert.doesNotMatch(error.message, /private|invalid/);
+        return true;
+      });
       assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
       assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
     } finally {
@@ -386,7 +429,7 @@ test("S10 cancellation during a response discards owned staging and suppresses a
           },
         }),
       );
-    const cli = createTeamCityCli(t.runtime.runtime);
+    const cli = t.runtime.createCli();
     await assert.rejects(
       cli.execute(download, controller.signal),
       (e) =>
@@ -557,5 +600,52 @@ test("S10 secure-reference aliases are isolated from auth/input aliases and exac
     assert.equal(await t.runtime.secretStore.get(service, "default:token"), "fixture-token");
   } finally {
     await t.cleanup();
+  }
+});
+
+test("S10 encoded wire length stays service-bounded while emitted bytes use the actual limit", async (testContext) => {
+  const maxBytes = 64;
+  for (const [name, declared, decoded, failure] of [
+    ["encoded-ok.bin", 20, new Uint8Array(32), undefined],
+    ["encoded-wire.bin", 65, new Uint8Array(32), "wire"],
+    ["encoded-actual.bin", 20, new Uint8Array(128), "decoded"],
+  ] as const) {
+    const t = await fileRuntime(testContext);
+    try {
+      if (failure === "wire") {
+        assert.ok(decoded.byteLength <= maxBytes);
+        assert.ok(declared > maxBytes);
+      } else if (failure === "decoded") {
+        assert.ok(declared <= maxBytes);
+        assert.ok(decoded.byteLength > maxBytes);
+      } else {
+        assert.ok(declared <= maxBytes);
+        assert.ok(decoded.byteLength <= maxBytes);
+        assert.notEqual(declared, decoded.byteLength);
+      }
+      server.use(http.get(base + "/builds/id:7/artifacts/files/docs/example.bin", () =>
+        new HttpResponse(decoded, {
+          headers: {
+            "Content-Encoding": "synthetic-encoding",
+            "Content-Length": String(declared),
+            "Content-Type": "application/octet-stream",
+          },
+        }),
+      ));
+      const argv = [
+        "builds", "artifacts", "download", "7", "docs/example.bin",
+        "--output", name, "--max-bytes", String(maxBytes),
+      ];
+      if (failure === undefined) {
+        const result = await t.cli.execute(argv) as { path: string; bytes: number };
+        assert.equal(result.bytes, decoded.byteLength);
+        assert.deepEqual(new Uint8Array(await readFile(result.path)), decoded);
+      } else {
+        await assert.rejects(t.cli.execute(argv));
+      }
+      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+    } finally {
+      await t.cleanup();
+    }
   }
 });

@@ -43,23 +43,23 @@ export function createAdminCommands(
       "Manage non-secret properties; reads return names/existence only",
       [
         leaf("list <id>", "List property names", Permission.ReadOnly, (c, { args }) =>
-          c.listAccountPropertyNames(kind, text(args, "id")),
+          c.listAccountPropertyNames(kind, args.id),
         ),
         leaf(
           "exists <id> <name>",
           "Probe without returning value; 404 stays an error",
           Permission.ReadOnly,
-          (c, { args }) => c.checkAccountProperty(kind, text(args, "id"), text(args, "name")),
+          (c, { args }) => c.checkAccountProperty(kind, args.id, args.name),
         ),
         leaf(
           "set <id> <name> <value>",
           "Set a non-secret property; discard server echo",
           "Admin",
           (c, { args }) =>
-            c.setAccountProperty(kind, text(args, "id"), text(args, "name"), text(args, "value")),
+            c.setAccountProperty(kind, args.id, args.name, args.value),
         ),
         leaf("delete <id> <name>", "Delete one property", "Admin", (c, { args }) =>
-          c.deleteAccountProperty(kind, text(args, "id"), text(args, "name")),
+          c.deleteAccountProperty(kind, args.id, args.name),
         ),
       ],
     );
@@ -67,14 +67,14 @@ export function createAdminCommands(
   function roles(kind: AccountKind) {
     return command("roles", "Inspect/add/replace explicit direct role assignments", [
       leaf("list <id>", "List direct roles", Permission.ReadOnly, (c, { args }) =>
-        c.listAccountRoles(kind, text(args, "id")),
+        c.listAccountRoles(kind, args.id),
       ),
       leaf(
         "add <id> <role-id>",
         "Add a role via collection POST",
         "Admin",
         (c, { args, options }) =>
-          c.addAccountRole(kind, text(args, "id"), roleInput(args, options)),
+          c.addAccountRole(kind, args.id, roleInput(args, options)),
         scopeOptions,
       ),
       leaf(
@@ -82,7 +82,7 @@ export function createAdminCommands(
         "Replace all direct roles; not atomic, no retry; no items clears",
         "Admin",
         (c, { args, options }) =>
-          c.replaceAccountRoles(kind, text(args, "id"), (options.item ?? []) as unknown[]),
+          c.replaceAccountRoles(kind, args.id, (options.item ?? []) as unknown[]),
         [
           {
             ...jsonOption("--item <json>", "Repeat {roleId,global:true} or {roleId,project}", true),
@@ -95,7 +95,7 @@ export function createAdminCommands(
         "Read one scoped assignment",
         Permission.ReadOnly,
         (c, { args, options }) =>
-          c.getAccountRole(kind, text(args, "id"), roleInput(args, options)),
+          c.getAccountRole(kind, args.id, roleInput(args, options)),
         scopeOptions,
       ),
       leaf(
@@ -103,7 +103,7 @@ export function createAdminCommands(
         "Grant using the named role/scope endpoint",
         "Admin",
         (c, { args, options }) =>
-          c.grantAccountRole(kind, text(args, "id"), roleInput(args, options)),
+          c.grantAccountRole(kind, args.id, roleInput(args, options)),
         scopeOptions,
       ),
       leaf(
@@ -111,7 +111,7 @@ export function createAdminCommands(
         "Revoke one scoped assignment",
         "Admin",
         (c, { args, options }) =>
-          c.revokeAccountRole(kind, text(args, "id"), roleInput(args, options)),
+          c.revokeAccountRole(kind, args.id, roleInput(args, options)),
         scopeOptions,
       ),
     ]);
@@ -119,7 +119,7 @@ export function createAdminCommands(
   function memberships(kind: AccountKind) {
     return [
       leaf("list <id>", "List directly assigned groups", Permission.ReadOnly, (c, { args }) =>
-        c.listAccountGroups(kind, text(args, "id")),
+        c.listAccountGroups(kind, args.id),
       ),
       leaf(
         "replace <id>",
@@ -128,7 +128,7 @@ export function createAdminCommands(
           : "Replace direct parents; no groups clears",
         "Admin",
         (c, { args, options }) =>
-          c.replaceAccountGroups(kind, text(args, "id"), (options.group ?? []) as string[]),
+          c.replaceAccountGroups(kind, args.id, (options.group ?? []) as string[]),
         [groupOption],
       ),
     ];
@@ -143,7 +143,7 @@ export function createAdminCommands(
       async ({ args, options }, context) =>
         (await clientFor(context)).createCurrentUserToken(
           {
-            name: text(args, "name"),
+            name: args.name,
             alias: text(options, "alias"),
             ...optionalText(options, "expires"),
             noExpiration: options.expiration === false,
@@ -175,7 +175,7 @@ export function createAdminCommands(
       "Revoke remote name; optionally remove matching issued alias",
       async ({ args, options }, context) =>
         (await clientFor(context)).deleteCurrentUserToken(
-          text(args, "name"),
+          args.name,
           context.secrets,
           optional(options, "alias"),
         ),
@@ -211,7 +211,7 @@ export function createAdminCommands(
       "Create identity only; does not promise working authentication",
       "Admin",
       (c, { args, options }) =>
-        c.createAccountUser(text(args, "username"), optional(options, "name")),
+        c.createAccountUser(args.username, optional(options, "name")),
       [option("--name <text>", "Display name")],
     ),
     leaf(
@@ -219,27 +219,27 @@ export function createAdminCommands(
       "Update specified identity fields; preserve omitted collections",
       "Admin",
       (c, { args, options }) =>
-        c.updateAccountUser(text(args, "id"), {
+        c.updateAccountUser(args.id, {
           ...optionalText(options, "username"),
           ...optionalText(options, "name"),
         }),
       [option("--username <text>", "Username"), option("--name <text>", "Display name")],
     ),
     leaf("delete <id>", "Delete the remote account", "Admin", (c, { args }) =>
-      c.deleteAccountUser(text(args, "id")),
+      c.deleteAccountUser(args.id),
     ),
     command("sessions", "Remote sessions, not local CLI authentication", [
       leaf(
         "forget-remembered <id>",
         "Clear remembered logins, not access tokens",
         "Admin",
-        (c, { args }) => c.forgetRememberedSessions(text(args, "id")),
+        (c, { args }) => c.forgetRememberedSessions(args.id),
       ),
       leaf(
         "logout <id>",
         "Terminate remote sessions, not local keyring/token",
         "Admin",
-        (c, { args }) => c.terminateAccountSessions(text(args, "id")),
+        (c, { args }) => c.terminateAccountSessions(args.id),
       ),
     ]),
     command("groups", "Manage direct memberships", [
@@ -248,10 +248,10 @@ export function createAdminCommands(
         "show <id> <key>",
         "Read one membership; absent membership is 404",
         Permission.ReadOnly,
-        (c, { args }) => c.getAccountUserGroup(text(args, "id"), text(args, "key")),
+        (c, { args }) => c.getAccountUserGroup(args.id, args.key),
       ),
       leaf("remove <id> <key>", "Remove one membership", "Admin", (c, { args }) =>
-        c.removeAccountUserGroup(text(args, "id"), text(args, "key")),
+        c.removeAccountUserGroup(args.id, args.key),
       ),
     ]),
     command("permissions", "Inspect resolved remote permission assignments", [
@@ -260,7 +260,7 @@ export function createAdminCommands(
         "Read permission/project IDs and global flags",
         Permission.ReadOnly,
         (c, { args, options }) =>
-          c.listAccountPermissions(text(args, "id"), optional(options, "project")),
+          c.listAccountPermissions(args.id, optional(options, "project")),
         [option("--project <id>", "Resolve within one project")],
       ),
     ]),
@@ -269,13 +269,13 @@ export function createAdminCommands(
     tokens,
     command("fields", "Non-secret identity fields only", [
       leaf("get <id> <field>", "Read id/name/username", Permission.ReadOnly, (c, { args }) =>
-        c.getAccountUserField(text(args, "id"), text(args, "field")),
+        c.getAccountUserField(args.id, args.field),
       ),
       leaf("set <id> <field> <value>", "Set name/username only", "Admin", (c, { args }) =>
-        c.setAccountUserField(text(args, "id"), text(args, "field"), text(args, "value")),
+        c.setAccountUserField(args.id, args.field, args.value),
       ),
       leaf("clear <id> <field>", "Clear name only", "Admin", (c, { args }) =>
-        c.clearAccountUserField(text(args, "id"), text(args, "field")),
+        c.clearAccountUserField(args.id, args.field),
       ),
     ]),
   ]);
@@ -289,17 +289,17 @@ export function createAdminCommands(
       "Admin",
       (c, { args, options }) =>
         c.createAccountGroup(
-          text(args, "key"),
+          args.key,
           text(options, "name"),
           optional(options, "description"),
         ),
       [option("--name <text>", "Name", true), option("--description <text>", "Description")],
     ),
     leaf("show <key>", "Read one group identity", Permission.ReadOnly, (c, { args }) =>
-      c.getAccountGroup(text(args, "key")),
+      c.getAccountGroup(args.key),
     ),
     leaf("delete <key>", "Delete one remote group", "Admin", (c, { args }) =>
-      c.deleteAccountGroup(text(args, "key")),
+      c.deleteAccountGroup(args.key),
     ),
     command(
       "parents",
@@ -326,7 +326,7 @@ export function createAdminCommands(
         ],
       ),
       leaf("show <id>", "Read node identity/state", Permission.ReadOnly, (c, { args }) =>
-        c.getServerNode(text(args, "id")),
+        c.getServerNode(args.id),
       ),
       command("responsibilities", "Distinguish enabled configuration from effective state", [
         ...(["disabled", "effective", "enabled"] as const).map((kind) =>
@@ -339,7 +339,7 @@ export function createAdminCommands(
           "Set CAN_PROCESS_BUILD_MESSAGES true/false; returns enabled, not effective",
           "Admin",
           (c, { args }) =>
-            c.setNodeResponsibility(text(args, "id"), text(args, "name"), text(args, "enabled")),
+            c.setNodeResponsibility(args.id, args.name, args.enabled),
         ),
       ]),
     ]),

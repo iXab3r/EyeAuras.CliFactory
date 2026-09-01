@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { assertHttpRequest, trackRequests, assertPermissionDenied } from "@eyeauras/cli-factory/testing";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { TeamCityClient, TeamCityHttpError } from "../src/client.js";
 import { createTestRuntime } from "./support.js";
 import { authoringCases } from "./authoring-cases.js";
@@ -34,7 +34,7 @@ for (const example of [
     const runtime = await createTestRuntime(testContext);
     for (const [key, value] of Object.entries(example.storedSecrets ?? {}))
       await runtime.secretStore.set("ai-cli-factory:teamcity-cli", "default:" + key, value);
-    const cli = createTeamCityCli(runtime.runtime);
+    const cli = runtime.createCli();
     let requests = 0;
     server.use(
       http.all(`${base}/*`, async ({ request }) => {
@@ -105,46 +105,35 @@ for (const example of [
 
 test("authoring uses gated JSON, text and empty responses through the real tree", async (testContext) => {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
-  let requests = 0;
-  server.use(
-    http.post(`${base}/projects`, async ({ request }) => {
-      requests += 1;
-      assert.equal(request.headers.get("Authorization"), "Bearer fixture-token");
-      assert.equal(request.headers.get("Content-Type"), "application/json");
-      assert.deepEqual(await request.json(), {
-        id: "Example",
-        name: "Example",
-        parentProject: { id: "_Root" },
+  const cli = runtime.createCli();
+  const requests = trackRequests(testContext, 3, async (request, index) => {
+    if (index === 0) {
+      await assertHttpRequest(request, {
+        method: "POST", url: base + "/projects",
+        query: { fields: "id,name,parentProjectId,archived,description,webUrl" },
+        headers: { authorization: "Bearer fixture-token", "content-type": "application/json" },
+        body: { json: { id: "Example", name: "Example", parentProject: { id: "_Root" } } },
       });
       return HttpResponse.json({ id: "Example", name: "Example", archived: false });
-    }),
-    http.put(`${base}/projects/id:Example/name`, async ({ request }) => {
-      requests += 1;
-      assert.equal(request.headers.get("Content-Type"), "text/plain");
-      assert.equal(await request.text(), "Renamed");
+    }
+    if (index === 1) {
+      await assertHttpRequest(request, {
+        method: "PUT", url: base + "/projects/id:Example/name",
+        headers: { "content-type": "text/plain" }, body: { text: "Renamed" },
+      });
       return HttpResponse.text("Renamed");
-    }),
-    http.delete(`${base}/projects/id:Example`, () => {
-      requests += 1;
-      return new HttpResponse(null, { status: 204 });
-    }),
-  );
+    }
+    await assertHttpRequest(request, { method: "DELETE", url: base + "/projects/id:Example" });
+    return new HttpResponse(null, { status: 204 });
+  });
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
   const create = ["projects", "create", "Example", "--name", "Example"];
-  await assert.rejects(cli.execute(create), /Permission 'Update'/);
-  assert.equal(requests, 0);
+  await assertPermissionDenied(cli, create, "Update", requests);
   await cli.execute(["permissions", "grant", "Update"]);
   assert.deepEqual(await cli.execute(create), { id: "Example", name: "Example", archived: false });
-  assert.deepEqual(await cli.execute(["projects", "set", "Example", "name", "Renamed"]), {
-    id: "Example",
-    field: "name",
-    value: "Renamed",
-  });
-  assert.deepEqual(await cli.execute(["projects", "delete", "Example"]), {
-    id: "Example",
-    deleted: true,
-  });
-  assert.equal(requests, 3);
+  assert.deepEqual(await cli.execute(["projects", "set", "Example", "name", "Renamed"]),
+    { id: "Example", field: "name", value: "Renamed" });
+  assert.deepEqual(await cli.execute(["projects", "delete", "Example"]), { id: "Example", deleted: true });
 });
 
 test("all authoring leaves reject unknown options before HTTP and surface remote errors without payloads", async (testContext) => {
@@ -171,7 +160,7 @@ test("all authoring leaves reject unknown options before HTTP and surface remote
     const runtime = await createTestRuntime(testContext);
     for (const [key, value] of Object.entries(example.storedSecrets ?? {}))
       await runtime.secretStore.set("ai-cli-factory:teamcity-cli", "default:" + key, value);
-    const cli = createTeamCityCli(runtime.runtime);
+    const cli = runtime.createCli();
     await cli.execute(["permissions", "grant", example.permission ?? "Update"]);
     let requests = 0;
     server.use(
@@ -208,7 +197,7 @@ test("all authoring leaves reject unknown options before HTTP and surface remote
 
 test("authoring validates fields, required options, paging, paths and plain properties before HTTP", async (testContext) => {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   let requests = 0;
   server.use(
@@ -300,7 +289,7 @@ test("parameter reads redact passwords, hidden/unknown types and credential-shap
     ),
   );
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   assert.equal(await cli.run(["projects", "parameters", "list", "Example", "--json"]), 0);
   const result = JSON.parse(runtime.stdout());
   assert.equal(result[0].value, "debug");
@@ -318,7 +307,7 @@ test("parameter reads redact passwords, hidden/unknown types and credential-shap
 
 test("parameter writes preflight metadata, reject protected/unknown types and only tolerate create 404", async (testContext) => {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   let writes = 0;
   server.use(
@@ -373,7 +362,7 @@ test("parameter writes preflight metadata, reject protected/unknown types and on
 
 test("steps replace does not read/merge, unknown properties are redacted and VCS excludes connection data", async (testContext) => {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   let requests = 0;
   server.use(
@@ -477,7 +466,7 @@ test("JSON-RPC survives nested help and errors and isolates new Update commands 
       return HttpResponse.json({ id: "Root", name: "Root" });
     }),
   );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()
@@ -496,7 +485,7 @@ test("JSON-RPC survives nested help and errors and isolates new Update commands 
 
 test("empty scoped lists, missing deletes and malformed JSON have explicit safe behavior", async (testContext) => {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   server.use(
     http.all(`${base}/*`, ({ request }) =>
@@ -529,7 +518,7 @@ test("empty scoped lists, missing deletes and malformed JSON have explicit safe 
 
 test("offline workflow authors a project/job, launches it and cleans up explicitly", async (testContext) => {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   let project: Record<string, unknown> | undefined;
   let job: Record<string, unknown> | undefined;

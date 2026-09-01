@@ -1,6 +1,7 @@
 import {
   command,
   createCli,
+  integerParser,
   Permission,
   tokenAuth,
   type CliApplication,
@@ -31,13 +32,19 @@ const pageOptions: readonly OptionDefinition[] = [
     flags: "--limit <count>",
     description: "Maximum results to return (1-100)",
     defaultValue: 100,
-    parse: pageLimit,
+    parse: integerParser({
+      min: 1, max: 100, signed: true,
+      errorMessage: "TeamCity page limit must be an integer between 1 and 100.",
+    }),
   },
   {
     flags: "--start <offset>",
     description: "Zero-based result offset",
     defaultValue: 0,
-    parse: nonNegativeInteger,
+    parse: integerParser({
+      min: 0, max: Number.MAX_SAFE_INTEGER, signed: true,
+      errorMessage: "Expected a non-negative integer within the safe integer range.",
+    }),
   },
 ];
 
@@ -59,40 +66,10 @@ async function client(context: CommandContext): Promise<TeamCityClient> {
   });
 }
 
-function integer(value: string, description: string): number {
-  if (!/^-?\d+$/.test(value)) {
-    throw new Error(`${description} must be an integer.`);
-  }
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) {
-    throw new Error(`${description} must be a safe integer.`);
-  }
-  return parsed;
-}
-
-function positiveInteger(value: string): number {
-  const parsed = integer(value, "Expected value");
-  if (parsed <= 0) {
-    throw new Error("Expected a positive integer.");
-  }
-  return parsed;
-}
-
-function nonNegativeInteger(value: string): number {
-  const parsed = integer(value, "Expected value");
-  if (parsed < 0) {
-    throw new Error("Expected a non-negative integer.");
-  }
-  return parsed;
-}
-
-function pageLimit(value: string): number {
-  const parsed = integer(value, "TeamCity page limit");
-  if (parsed < 1 || parsed > 100) {
-    throw new Error("TeamCity page limit must be between 1 and 100.");
-  }
-  return parsed;
-}
+const positiveInteger = integerParser({
+  min: 1, max: Number.MAX_SAFE_INTEGER, signed: true,
+  errorMessage: "Expected a positive integer within the safe integer range.",
+});
 
 function oneOf<const T extends string>(
   description: string,

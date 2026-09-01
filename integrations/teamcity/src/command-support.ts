@@ -1,8 +1,9 @@
 import {
   command,
+  jsonParser,
   type CommandContext,
   type CommandDefinition,
-  type CommandInput,
+  type InferredCommandHandler,
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
 import type { TeamCityClient } from "./client.js";
@@ -31,18 +32,14 @@ export function repeatOption(
     parse: (value, previous) => [...(Array.isArray(previous) ? (previous as string[]) : []), value],
   };
 }
+const typedJson = jsonParser("Expected valid typed JSON; input is not echoed.");
 export function jsonOption(flags: string, description: string, repeat = false): OptionDefinition {
   return {
     flags,
     description,
     required: true,
     parse(value, previous) {
-      let item: unknown;
-      try {
-        item = JSON.parse(value);
-      } catch {
-        throw new Error("Expected valid typed JSON; input is not echoed.");
-      }
+      const item = typedJson(value);
       return repeat ? [...(Array.isArray(previous) ? previous : []), item] : item;
     },
   };
@@ -62,11 +59,11 @@ export const propertyOption: OptionDefinition = {
   parse: collectProperty,
 };
 
-export type ClientLeaf = (
-  name: string,
+export type ClientLeaf = <const Syntax extends string>(
+  name: Syntax,
   description: string,
   permission: string,
-  run: (client: TeamCityClient, input: CommandInput) => unknown,
+  run: (client: TeamCityClient, input: Parameters<InferredCommandHandler<Syntax>>[0]) => unknown,
   options?: readonly OptionDefinition[],
 ) => CommandDefinition;
 

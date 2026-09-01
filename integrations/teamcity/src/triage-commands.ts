@@ -118,7 +118,7 @@ export function createTriageCommands(
       "finish-at <id> <timestamp>",
       "Set finish time on a running build",
       Permission.Update,
-      (c, { args }) => c.finishBuild(num(args, "id"), text(args, "timestamp")),
+      (c, { args }) => c.finishBuild(num(args, "id"), args.timestamp),
     ),
     command("log", "Append plain build log text", [
       leaf(
@@ -162,7 +162,7 @@ export function createTriageCommands(
       "Set SUCCESS/FAILURE and report failure count",
       Permission.Update,
       (c, { args, options }) =>
-        c.setBuildStatus(num(args, "id"), text(args, "status"), text(options, "comment")),
+        c.setBuildStatus(num(args, "id"), args.status, text(options, "comment")),
       [comment],
     ),
     leaf(
@@ -206,7 +206,7 @@ export function createTriageCommands(
           "exists <id> <name>",
           "Probe endpoint and discard response; 404 remains an error",
           Permission.ReadOnly,
-          (c, { args }) => c.checkBuildRuntimeParameter(num(args, "id"), kind, text(args, "name")),
+          (c, { args }) => c.checkBuildRuntimeParameter(num(args, "id"), kind, args.name),
         ),
       ]),
     ),
@@ -237,7 +237,7 @@ export function createTriageCommands(
       "field <id> <field>",
       "Read id/version/date/personal/comment",
       Permission.ReadOnly,
-      (c, { args }) => c.getChangeField(num(args, "id"), text(args, "field")),
+      (c, { args }) => c.getChangeField(num(args, "id"), args.field),
     ),
     leaf("attributes <id>", "Read attribute names only", Permission.ReadOnly, (c, { args }) =>
       c.listChangeAttributeNames(num(args, "id")),
@@ -338,14 +338,14 @@ export function createTriageCommands(
         "show <id>",
         "Read one string identity, preserving long IDs",
         Permission.ReadOnly,
-        (c, { args }) => c.getTriageEntity(kind, text(args, "id")),
+        (c, { args }) => c.getTriageEntity(kind, args.id),
       ),
       leaf(
         "occurrence <id>",
         "Read one build + test/problem occurrence",
         Permission.ReadOnly,
         (c, { args, options }) =>
-          c.getTriageOccurrence(kind, text(args, "id"), num(options, "build")),
+          c.getTriageOccurrence(kind, args.id, num(options, "build")),
         [option("--build <id>", "Build ID", true)],
       ),
     ]),

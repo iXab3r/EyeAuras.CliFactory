@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatProfileProof, proofEnvironment, runProfileProof } from "../integration-tests/profile-proof.js";
+import { formatProfileProof, runProfileProof } from "../integration-tests/profile-proof.js";
 
 const profileArgs = ["--profile", "dev"];
 const responses = [
@@ -95,7 +95,7 @@ function dependentRows(index: number): number[] {
 
 test("proof executes exactly twenty-four bounded ReadOnly commands with one explicit profile", async () => {
   let calls = 0;
-  const result = await runProfileProof(profileArgs, {}, async (argv) => {
+  const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
     assert.deepEqual(argv, [...commands[calls]!, ...profileArgs, "--json"]);
     return JSON.stringify(responses[calls++]);
   });
@@ -111,7 +111,7 @@ test("proof executes exactly twenty-four bounded ReadOnly commands with one expl
 
 test("proof accepts empty pages and skips only reads depending on empty projects or issues", async () => {
   const called: number[] = [];
-  const result = await runProfileProof(profileArgs, {}, async (argv) => {
+  const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
     const index = commandIndex(argv);
     called.push(index);
     return JSON.stringify(index === 0 ? responses[0] : []);
@@ -131,7 +131,7 @@ test("proof accepts empty pages and skips only reads depending on empty projects
 test("every denied read fails while only uncalled dependencies skip and no error data escapes", async () => {
   for (let denied = 0; denied < 24; denied++) {
     const called: number[] = [];
-    const result = await runProfileProof(profileArgs, {}, async (argv) => {
+    const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
       const index = commandIndex(argv);
       called.push(index);
       if (index === denied) {
@@ -159,7 +159,7 @@ test("each collection rejects malformed, unsafe or overlarge responses without l
       '[{"id":"synthetic\\nprivate"}]', JSON.stringify(Array(4).fill({ id: "fixture-id" })),
     ]) {
       const called: number[] = [];
-      const result = await runProfileProof(profileArgs, {}, async (argv) => {
+      const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
         const index = commandIndex(argv);
         called.push(index);
         return index === position ? invalid : JSON.stringify(responses[index]);
@@ -188,7 +188,7 @@ test("identity, project defaults and selected details require their expected res
     [17, []],
     [17, { id: "--help" }],
   ] as const) {
-    const result = await runProfileProof(profileArgs, {}, async (argv) => {
+    const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
       const index = commandIndex(argv);
       return JSON.stringify(index === position ? value : responses[index]);
     });
@@ -209,11 +209,11 @@ test("proof refuses CI and every URL/token/arbitrary command argument before inv
   }
 });
 
-test("proof removes token environment keys regardless of Windows casing", () => {
-  assert.deepEqual(proofEnvironment({
-    PATH: "synthetic-path",
-    YOUTRACK_TOKEN: "synthetic-upper",
-    youtrack_token: "synthetic-lower",
-    YouTrack_Token: "synthetic-mixed",
-  }), { PATH: "synthetic-path" });
+test("zero successful executions cannot pass through dependent skips", async () => {
+  const result = await runProfileProof(profileArgs, {}, async () => { throw new Error("synthetic-private"); });
+  assert.equal(result.passed, false);
+  assert.equal(result.rows.length, 24);
+  assert.equal(result.rows.some(row => row.status === "PASS"), false);
+  assert.equal(result.rows.filter(row => row.status === "SKIP").length, 11);
+  assert.doesNotMatch(formatProfileProof(result), /synthetic|private/);
 });

@@ -1,11 +1,7 @@
-import { execFile } from "node:child_process";
 import { resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
+import { pathToFileURL } from "node:url";
+import { createProofInvoker, parseProofProfile, type ProofInvoker } from "@eyeauras/cli-factory/proof";
 
-const executeFile = promisify(execFile);
-const cliPath = fileURLToPath(new URL("../src/bin.js", import.meta.url));
-type Invoker = (argv: readonly string[]) => Promise<string>;
 type Endpoint =
   | "GET /api/users/me"
   | "GET /api/admin/projects"
@@ -41,23 +37,6 @@ interface ProofResult {
   rows: ProofRow[];
 }
 
-export function proofEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return Object.fromEntries(
-    Object.entries(environment).filter(([name]) => name.toUpperCase() !== "YOUTRACK_TOKEN"),
-  );
-}
-
-async function invokeCli(argv: readonly string[]): Promise<string> {
-  const result = await executeFile(process.execPath, [cliPath, ...argv], {
-    windowsHide: true,
-    timeout: 30_000,
-    maxBuffer: 64 * 1024,
-    encoding: "utf8",
-    env: proofEnvironment(process.env),
-  });
-  return result.stdout;
-}
-
 function hasId(value: unknown): value is { id: string } {
   return value !== null && typeof value === "object" && !Array.isArray(value) &&
     "id" in value && typeof value.id === "string" && value.id.trim().length > 0 &&
@@ -71,18 +50,14 @@ function isCollection(value: unknown): value is { id: string }[] {
 export async function runProfileProof(
   argv: readonly string[],
   environment: NodeJS.ProcessEnv = process.env,
-  invoke: Invoker = invokeCli,
+  invoke?: ProofInvoker,
 ): Promise<ProofResult> {
-  const ciNames = ["CI", "GITHUB_ACTIONS", "TF_BUILD", "TEAMCITY_VERSION", "JENKINS_URL", "BUILDKITE"];
-  if (Object.entries(environment).some(([name, value]) => value && ciNames.includes(name.toUpperCase()))) {
-    throw new Error("YouTrack profile proof is local-only and refuses CI.");
-  }
-  const profile = argv[1];
-  if (argv.length !== 2 || argv[0] !== "--profile" || !profile ||
-      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(profile) ||
-      profile.toLowerCase() === "profiles.json") {
-    throw new Error("Usage: test:integration -- --profile <name>");
-  }
+  const profile = parseProofProfile(argv, environment);
+  const execute = invoke ?? createProofInvoker({
+    executable: new URL("../src/bin.js", import.meta.url),
+    environment,
+    credentialEnvironment: ["YOUTRACK_TOKEN"],
+  });
 
   const commonArgs = ["--profile", profile, "--json"];
   const rows: ProofRow[] = [];
@@ -92,7 +67,7 @@ export async function runProfileProof(
     valid: (value: unknown) => boolean,
   ): Promise<unknown> {
     try {
-      const value: unknown = JSON.parse(await invoke([...command, ...commonArgs]));
+      const value: unknown = JSON.parse(await execute({ argv: [...command, ...commonArgs] }));
       if (valid(value)) {
         rows.push({ endpoint, status: "PASS", count: Array.isArray(value) ? value.length : 1 });
         return value;
@@ -173,7 +148,8 @@ export async function runProfileProof(
   await read("GET /api/admin/customFieldSettings/bundles/version", ["bundle", "version", "list", ...page], isCollection);
   // SKIP means no request: an empty or failed prerequisite supplies no usable ID.
   // A failed prerequisite remains FAIL, so dependent skips cannot make the proof pass.
-  return { passed: rows.every((row) => row.status !== "FAIL"), rows };
+  return { passed: rows.length === 24 && rows.some((row) => row.status === "PASS") &&
+    rows.every((row) => row.status !== "FAIL"), rows };
 }
 
 export function formatProfileProof(result: ProofResult): string {

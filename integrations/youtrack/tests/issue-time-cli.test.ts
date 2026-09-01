@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertHttpRequest, trackRequests, assertPermissionDenied, assertCliOutput } from "@eyeauras/cli-factory/testing";
 import { join } from "node:path";
 import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -37,58 +38,50 @@ async function configured(t: TestContext, input = "") {
 
 test("actual work-time CLI exposes five reads with fields, pagination and human/JSON output", async (t) => {
   for (const row of reads) {
-    for (const json of [false, true]) {
-      const f = await configured(t);
-      let calls = 0;
-      server.use(http.get("*", ({ request }) => {
-        calls++;
-        const url = new URL(request.url);
-        assert.equal(url.pathname, `/context${row.path}`);
-        assert.equal(url.searchParams.get("fields"), "id");
-        assert.equal(url.searchParams.get("$top"), row.list ? "2" : null);
-        assert.equal(url.searchParams.get("$skip"), row.list ? "3" : null);
-        assert.equal(request.headers.get("authorization"), "Bearer synthetic-dev");
-        return HttpResponse.json(row.list ? [{ id: "fixture-work" }] : { id: "fixture-work" });
-      }));
-      const argv = [...row.argv, "--profile", "dev", "--fields", "id",
-        ...(row.list ? ["--top", "2", "--skip", "3"] : []), ...(json ? ["--json"] : [])];
-      assert.equal(await f.cli.run(argv), 0);
-      if (json) assert.deepEqual(JSON.parse(f.stdout()), row.list ? [{ id: "fixture-work" }] : { id: "fixture-work" });
-      else assert.match(f.stdout(), /fixture-work/);
-      assert.equal(f.stderr(), "");
-      assert.equal(calls, 1);
-    }
+    const f = await configured(t);
+    const result = row.list ? [{ id: "fixture-work" }] : { id: "fixture-work" };
+    const requests = trackRequests(t, 2, async request => {
+      await assertHttpRequest(request, {
+        method: "GET", url: "https://dev.example.com/context" + row.path,
+        headers: { authorization: "Bearer synthetic-dev" },
+        query: { fields: "id", ...(row.list ? { $top: "2", $skip: "3" } : {}) },
+      });
+      return HttpResponse.json(result);
+    });
+    server.use(http.all("*", ({ request }) => requests.handle(request)));
+    await assertCliOutput(f, f.cli,
+      [...row.argv, "--profile", "dev", "--fields", "id", ...(row.list ? ["--top", "2", "--skip", "3"] : [])],
+      result, /fixture-work/, requests);
   }
 });
 
 test("every work-time leaf checks its profile permission before fetching", async (t) => {
   const f = await configured(t);
-  let calls = 0;
-  server.use(http.all("*", () => { calls++; return HttpResponse.json({ id: "unexpected" }); }));
-  for (const row of writes) {
-    await assert.rejects(f.cli.execute([...row.argv, "--body", body, "--profile", "dev"]), /Permission 'Update' is disabled/);
-  }
+  const requests = trackRequests(t, 0, () => HttpResponse.json({ id: "unexpected" }));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  for (const row of writes)
+    await assertPermissionDenied(f.cli, [...row.argv, "--body", body, "--profile", "dev"], "Update", requests);
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
-  for (const row of reads) await assert.rejects(f.cli.execute([...row.argv, "--profile", "dev"]), /Permission 'ReadOnly' is disabled/);
-  assert.equal(calls, 0);
+  for (const row of reads)
+    await assertPermissionDenied(f.cli, [...row.argv, "--profile", "dev"], "ReadOnly", requests);
 });
 
 test("both work-time writes use the actual CLI JSON body and fields with Update granted", async (t) => {
   for (const row of writes) {
     const f = await configured(t);
     await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
-    let calls = 0;
-    server.use(http.post("*", async ({ request }) => {
-      calls++;
-      const url = new URL(request.url);
-      assert.equal(url.pathname, `/context${row.path}`);
-      assert.equal(url.searchParams.get("fields"), "id,text");
-      assert.deepEqual(await request.json(), JSON.parse(body));
+    const requests = trackRequests(t, 1, async request => {
+      await assertHttpRequest(request, {
+        method: "POST", url: "https://dev.example.com/context" + row.path,
+        query: { fields: "id,text" }, body: { json: JSON.parse(body) },
+        headers: { authorization: "Bearer synthetic-dev" },
+      });
       return HttpResponse.json({ id: "fixture-work", text: null });
-    }));
-    assert.equal(await f.cli.run([...row.argv, "--body", body, "--fields", "id,text", "--profile", "dev", "--json"]), 0);
-    assert.deepEqual(JSON.parse(f.stdout()), { id: "fixture-work", text: null });
-    assert.equal(calls, 1);
+    });
+    server.use(http.all("*", ({ request }) => requests.handle(request)));
+    assert.deepEqual(await f.json(f.cli,
+      [...row.argv, "--body", body, "--fields", "id,text", "--profile", "dev"]),
+      { id: "fixture-work", text: null });
   }
 });
 

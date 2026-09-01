@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { createTeamCityCli } from "../src/cli.js";
 import { createTestRuntime } from "./support.js";
 import { infrastructureCases } from "./infrastructure-cases.js";
 import { plainProperty, safeProperty } from "../src/authoring-models.js";
@@ -33,7 +32,7 @@ test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 async function writable(testContext: test.TestContext) {
   const runtime = await createTestRuntime(testContext);
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
   await cli.execute(["permissions", "grant", "Credentials"]);
   return { cli, runtime };
@@ -51,7 +50,7 @@ test("S8 all50 gates deny before network or secret-input reads", async (testCont
       return HttpResponse.json({});
     }),
   );
-  const cli = createTeamCityCli(runtime.runtime);
+  const cli = runtime.createCli();
   for (const example of infrastructureCases)
     await assert.rejects(
       cli.execute(example.argv),
@@ -452,7 +451,7 @@ test("S8 persistent RPC isolates secure mappings and cloud Update between profil
       },
     ),
   );
-  assert.equal(await createTeamCityCli(runtime.runtime).run(["--json-rpc"]), 0);
+  assert.equal(await runtime.createCli().run(["--json-rpc"]), 0);
   const frames = runtime
     .stdout()
     .trim()

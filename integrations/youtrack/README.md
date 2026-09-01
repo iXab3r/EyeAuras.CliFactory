@@ -18,6 +18,12 @@ The foundational read projections are:
 REST reads support explicit `--fields <projection>`. Projection results retain the server's
 field names, `$type` and nullable values; authentication always validates fixed `id,login`.
 Offset collections use `--top 50 --skip 0` by default; top is 1–100 and skip a nonnegative integer.
+Paging accepts unsigned decimal digits, including leading zeros; signs (including `-0`), whitespace,
+fractions, exponents and unsafe integers reject. Invalid syntax, range and overflow now fail before
+onboarding or credential access on CLI, execute and RPC. The static errors are
+`YouTrack top must be a decimal integer between 1 and 100.` and
+`YouTrack skip must be a nonnegative safe decimal integer.`; they never include the supplied input.
+Directly callable service methods retain their own range validation.
 Each collection command makes one request, and rejects an oversized server page. No `--all`
 or implicit nested follow-up requests are provided. Issue IDs are encoded as opaque path
 segments, including readable IDs such as `DEMO-1`.
@@ -35,6 +41,15 @@ scrubbed recursively, including explicitly projected nested fields. Unsigned URL
 unchanged. Failures expose HTTP status and safe Retry-After information, never raw server
 errors or authentication material. Remote mutations require the Update gate, described below.
 The ReadOnly download command writes only its explicitly requested local file beneath profile AppData.
+
+JSON responses now have an 8 MiB limit on actual decoded bytes, including responses without a
+Content-Length header. This allows room for the existing bounded pages and text-rich projections;
+it does not guarantee every requested projection will fit. Narrow `--fields` or reduce `--top` if
+needed. Invalid/truncated identity transfer lengths, overflow, stream failure or cancellation fail
+with `YouTrack response stream failed, exceeded 8 MiB, or was cancelled.` without response content.
+Compressed wire length is syntax-checked but not compared with decoded size. Existing HTTP status,
+Retry-After, empty/null mutation and UTF-8 BOM behavior are unchanged. Attachment-download limits
+remain separate; no request is retried automatically.
 
 ## Sign in locally
 
@@ -277,14 +292,16 @@ appear in metadata output, errors or the download result.
 Files go beneath the selected profile's `AppDataDirectory/downloads`. `--name` must be a safe
 single basename; the default prefixes the sanitized attachment name with its ID. Existing
 filenames are never overwritten. The default limit is 25 MiB; `--max-bytes` accepts 1–104857600
-and is enforced while streaming as well as against Content-Length. Partial files are removed
-on failure. Output contains only sanitized ID/name, local path, byte count and content type.
+and is enforced while streaming as well as against Content-Length. Core stages bytes in a fresh
+private directory under this profile's `temp`, then hard-links only the complete identity-checked
+file into `downloads`. Partial files are removed when their identities remain trusted. Output
+contains only sanitized ID/name, local path, byte count and content type.
 No binary data is printed. Publication uses an exclusive hard link; unsupported filesystems
-fail without a copy/rename fallback. Existing links or junctions in the directory chain and
-detectable directory replacement are rejected. This protects current-user-owned AppData; it
-does not guarantee safety against a malicious process under the same OS account replacing
-ancestor directories between filesystem calls. A cleanup failure reports a static instruction
-to inspect the profile downloads directory. The local proof never invokes download or upload.
+fail without a copy/rename fallback. Existing links or junctions in the directory chain and detectable directory/staged/destination
+replacement are rejected. Unknown replacement files are never removed. This protects
+current-user-owned AppData; it cannot prevent every malicious same-account replacement after the
+last identity check. Errors report whether publication occurred and whether private staging cleanup
+failed, without raw filesystem/service details. The local proof never invokes download or upload.
 
 ## Local proof and offline tests
 
@@ -308,6 +325,8 @@ attempted reads fail. Reads without a usable project/issue prerequisite are skip
 are not availability evidence, and failed prerequisites still fail the overall proof. No real
 writes, automatic pagination or further resource discovery occur. CI and arbitrary URL/token/
 command arguments are refused; inherited `YOUTRACK_TOKEN` is removed case-insensitively.
+The shared Core proof invoker keeps the 30-second timeout and separate 64-KiB stdout/stderr bounds;
+see the [shared CI and process contract](../../docs/testing.md).
 Do not run it in CI or add it to generic test commands. A failed proof requires local
 configuration/TLS/permission investigation; its payloads are deliberately not logged.
 

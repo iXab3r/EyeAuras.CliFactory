@@ -45,7 +45,7 @@ export function createBulkConfigurationCommands(
         (c, { args, options }) =>
           c.replaceAllParameters(
             owner,
-            text(args, "owner-id"),
+            args["owner-id"],
             (options.property ?? []) as PlainProperty[],
           ),
         [propertyOption],
@@ -54,7 +54,7 @@ export function createBulkConfigurationCommands(
         "clear <owner-id>",
         "Delete all own parameters, including protected ones, without reading values",
         Permission.Update,
-        (c, { args }) => c.clearParameters(owner, text(args, "owner-id")),
+        (c, { args }) => c.clearParameters(owner, args["owner-id"]),
         [confirm],
       ),
       ...parts.map((part) =>
@@ -67,7 +67,7 @@ export function createBulkConfigurationCommands(
               "Read through protected-metadata checks; no raw secret/type text",
               Permission.ReadOnly,
               (c, { args }) =>
-                c.getParameterPart(owner, text(args, "owner-id"), text(args, "name"), part),
+                c.getParameterPart(owner, args["owner-id"], args.name, part),
             ),
             leaf(
               "set <owner-id> <name> <value>",
@@ -76,10 +76,10 @@ export function createBulkConfigurationCommands(
               (c, { args }) =>
                 c.setParameterPart(
                   owner,
-                  text(args, "owner-id"),
-                  text(args, "name"),
+                  args["owner-id"],
+                  args.name,
                   part,
-                  text(args, "value"),
+                  args.value,
                 ),
             ),
           ],
@@ -93,7 +93,7 @@ export function createBulkConfigurationCommands(
       "Replace the entire collection; omitted items/settings are removed",
       Permission.Update,
       (c, { args, options }) =>
-        c.replaceAllSettings(kind, text(args, "owner-id"), (options.item ?? []) as unknown[]),
+        c.replaceAllSettings(kind, args["owner-id"], (options.item ?? []) as unknown[]),
       [itemOption],
     );
   }
@@ -104,7 +104,7 @@ export function createBulkConfigurationCommands(
       Permission.Update,
       (c, { args, options }) =>
         c.replaceTemplates(
-          text(args, "job-id"),
+          args["job-id"],
           strings(options, "template"),
           options.optimizeSettings === true,
         ),
@@ -118,7 +118,7 @@ export function createBulkConfigurationCommands(
       "Detach all templates, not delete them",
       Permission.Update,
       (c, { args, options }) =>
-        c.clearTemplates(text(args, "job-id"), options.inlineSettings === true),
+        c.clearTemplates(args["job-id"], options.inlineSettings === true),
       [confirm, option("--inline-settings", "Copy inherited settings locally before detaching")],
     ),
   ];
@@ -127,30 +127,30 @@ export function createBulkConfigurationCommands(
       "builds <job-id>",
       "List native scoped builds in server order",
       Permission.ReadOnly,
-      (c, { args }) => c.listJobBuilds(text(args, "job-id")),
+      (c, { args }) => c.listJobBuilds(args["job-id"]),
     ),
   ];
   const projects = [
     command("pools", "Manage project pool assignments", [
       leaf("list <project-id>", "List assigned pools", Permission.ReadOnly, (c, { args }) =>
-        c.listProjectPools(text(args, "project-id")),
+        c.listProjectPools(args["project-id"]),
       ),
       leaf("assign <project-id> <pool-id>", "Assign one pool", Permission.Update, (c, { args }) =>
-        c.assignProjectPool(text(args, "project-id"), number(args, "pool-id")),
+        c.assignProjectPool(args["project-id"], number(args, "pool-id")),
       ),
       leaf(
         "replace-all <project-id>",
         "Replace all pool assignments; no IDs clears",
         Permission.Update,
         (c, { args, options }) =>
-          c.replaceProjectPools(text(args, "project-id"), strings(options, "pool").map(Number)),
+          c.replaceProjectPools(args["project-id"], strings(options, "pool").map(Number)),
         [repeatOption("--pool <id>", "Repeat pool IDs")],
       ),
       leaf(
         "unassign <project-id> <pool-id>",
         "Remove one pool assignment",
         Permission.Update,
-        (c, { args }) => c.unassignProjectPool(text(args, "project-id"), number(args, "pool-id")),
+        (c, { args }) => c.unassignProjectPool(args["project-id"], number(args, "pool-id")),
       ),
     ]),
     leaf(
@@ -158,7 +158,7 @@ export function createBulkConfigurationCommands(
       "List one bounded page of branches",
       Permission.ReadOnly,
       (c, { args, options }) =>
-        c.listProjectBranches(text(args, "project-id"), {
+        c.listProjectBranches(args["project-id"], {
           limit: Number(options.limit),
           start: Number(options.start),
         }),
@@ -170,7 +170,7 @@ export function createBulkConfigurationCommands(
         "Create a named empty build configuration",
         Permission.Update,
         (c, { args, options }) =>
-          c.createProjectJob(text(args, "project-id"), text(args, "job-id"), text(options, "name")),
+          c.createProjectJob(args["project-id"], args["job-id"], text(options, "name")),
         [option("--name <name>", "Job name", true)],
       ),
     ]),
@@ -183,14 +183,14 @@ export function createBulkConfigurationCommands(
             "show <project-id>",
             "Read custom order; empty means no custom order",
             Permission.ReadOnly,
-            (c, { args }) => c.getProjectOrder(text(args, "project-id"), kind),
+            (c, { args }) => c.getProjectOrder(args["project-id"], kind),
           ),
           leaf(
             "set <project-id>",
             "Replace custom order; no IDs restores default ordering",
             Permission.Update,
             (c, { args, options }) =>
-              c.setProjectOrder(text(args, "project-id"), kind, strings(options, "id")),
+              c.setProjectOrder(args["project-id"], kind, strings(options, "id")),
             [repeatOption("--id <id>", "Repeat IDs in order")],
           ),
         ]),
@@ -245,7 +245,7 @@ export function createBulkConfigurationCommands(
         "Pause/resume with true/false and an explicit reason",
         Permission.Update,
         (c, { args, options }) =>
-          c.setQueuePaused(booleanText(text(args, "status")) === "true", text(options, "reason")),
+          c.setQueuePaused(booleanText(args.status) === "true", text(options, "reason")),
         [option("--reason <text>", "Non-secret reason", true)],
       ),
     ]),
