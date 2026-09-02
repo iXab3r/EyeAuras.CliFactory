@@ -1,11 +1,5 @@
-import { command, Permission, type OptionDefinition } from "@eyeauras/cli-factory";
-import {
-  bodyOptions,
-  connection,
-  pageOptions,
-  projectionOptions,
-  readOptions,
-} from "./cli-support.js";
+import { command, type OptionDefinition } from "@eyeauras/cli-factory";
+import { bodyUpdate, pagedRead, projectedRead, readCommand, projectionOptions, readOptions } from "./cli-support.js";
 import {
   activityCategories,
   getActivitiesPage,
@@ -44,85 +38,48 @@ function activityReadOptions(options: Record<string, unknown>): ActivityOptions 
 
 export const contextRootCommands = [
   command("activities", "Inspect activities across accessible issues", [
-    command(
+    readCommand(
       "page",
       "Read one server-defined cursor page, including cursor metadata",
-      async ({ options }, context) =>
-        getActivitiesPage(await connection(context), activityReadOptions(options)),
-      { permission: Permission.ReadOnly, options: activityOptions },
+      async (connection, { options }, context) =>
+        getActivitiesPage(connection, activityReadOptions(options)),
+      activityOptions,
     ),
   ]),
 ];
 
 export const contextIssueChildren = [
   command("activity", "Inspect the issue activity stream", [
-    command(
+    readCommand(
       "page <issueID>",
       "Read one server-defined cursor page, including cursor metadata",
-      async ({ args, options }, context) =>
+      async (connection, { args, options }, context) =>
         getIssueActivitiesPage(
-          await connection(context),
+          connection,
           args.issueID,
           activityReadOptions(options),
         ),
-      { permission: Permission.ReadOnly, options: activityOptions },
+      activityOptions,
     ),
   ]),
   command("sprints", "Inspect sprints that contain an issue", [
-    command(
-      "list <issueID>",
-      "List one page of the issue's sprints",
-      async ({ args, options }, context) =>
-        listIssueSprints(await connection(context), args.issueID, readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
+    pagedRead("list <issueID>", "List one page of the issue's sprints", listIssueSprints),
   ]),
   command("vcs-changes", "Inspect linked VCS changes and pull requests", [
-    command(
-      "list <issueID>",
-      "List one page of VCS changes and pull requests",
-      async ({ args, options }, context) =>
-        listVcsChanges(await connection(context), args.issueID, readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
-    command(
+    pagedRead("list <issueID>", "List one page of VCS changes and pull requests", listVcsChanges),
+    projectedRead(
       "get <issueID> <changeID>",
       "Read a linked VCS change or pull request",
-      async ({ args, options }, context) =>
-        getVcsChange(
-          await connection(context),
-          args.issueID,
-          args.changeID,
-          readOptions(options),
-        ),
-      { permission: Permission.ReadOnly, options: projectionOptions },
+      getVcsChange,
     ),
   ]),
 ];
 
 export const contextCommentChildren = [
-  command(
-    "get <issueID> <commentID>",
-    "Read a specific issue comment",
-    async ({ args, options }, context) =>
-      getComment(
-        await connection(context),
-        args.issueID,
-        args.commentID,
-        readOptions(options),
-      ),
-    { permission: Permission.ReadOnly, options: projectionOptions },
-  ),
-  command(
+  projectedRead("get <issueID> <commentID>", "Read a specific issue comment", getComment),
+  bodyUpdate(
     "update <issueID> <commentID>",
     "Replace comment text with a nonempty text field",
-    async ({ args, options }, context) =>
-      updateComment(
-        await connection(context),
-        args.issueID,
-        args.commentID,
-        options.body,
-      ),
-    { permission: Permission.Update, options: bodyOptions },
+    updateComment,
   ),
 ];

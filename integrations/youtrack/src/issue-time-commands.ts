@@ -1,5 +1,5 @@
-import { command, Permission } from "@eyeauras/cli-factory";
-import { bodyOptions, connection, pageOptions, projectionOptions, readOptions } from "./cli-support.js";
+import { command } from "@eyeauras/cli-factory";
+import { pagedRead, projectedBodyUpdate, projectedRead, readCommand, pageOptions, readOptions } from "./cli-support.js";
 import {
   addWorkItem,
   getIssueWorkItem,
@@ -12,77 +12,39 @@ import {
 
 export const timeRootCommands = [
   command("work-items", "Inspect work items across accessible issues", [
-    command(
+    readCommand(
       "list",
       "List one page of work items, optionally filtered by issue search",
-      async ({ options }, context) => listWorkItems(await connection(context), readOptions(options)),
-      {
-        permission: Permission.ReadOnly,
-        options: [
+      async (connection, { options }, context) => listWorkItems(connection, readOptions(options)),
+      [
           ...pageOptions,
           { flags: "--query <query>", description: "YouTrack issue search query" },
         ],
-      },
     ),
-    command(
-      "get <itemID>",
-      "Read a work item",
-      async ({ args, options }, context) =>
-        getWorkItem(await connection(context), args.itemID, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
-    ),
+    projectedRead("get <itemID>", "Read a work item", getWorkItem),
   ]),
 ];
 
 export const timeIssueChildren = [
   command("time-tracking", "Inspect issue time tracking", [
-    command(
+    projectedRead(
       "get <issueID>",
       "Read time-tracking status without expanding work items",
-      async ({ args, options }, context) =>
-        getTimeTracking(await connection(context), args.issueID, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
+      getTimeTracking,
     ),
   ]),
   command("work-items", "Inspect and record time spent on an issue", [
-    command(
-      "list <issueID>",
-      "List one page of issue work items",
-      async ({ args, options }, context) =>
-        listIssueWorkItems(await connection(context), args.issueID, readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
-    command(
-      "get <issueID> <itemID>",
-      "Read an issue work item",
-      async ({ args, options }, context) =>
-        getIssueWorkItem(
-          await connection(context),
-          args.issueID,
-          args.itemID,
-          readOptions(options),
-        ),
-      { permission: Permission.ReadOnly, options: projectionOptions },
-    ),
-    command(
+    pagedRead("list <issueID>", "List one page of issue work items", listIssueWorkItems),
+    projectedRead("get <issueID> <itemID>", "Read an issue work item", getIssueWorkItem),
+    projectedBodyUpdate(
       "add <issueID>",
       "Add work time; duration.minutes or duration.presentation is required",
-      async ({ args, options }, context) =>
-        addWorkItem(await connection(context), args.issueID, options.body, readOptions(options)),
-      { permission: Permission.Update, options: [...bodyOptions, ...projectionOptions] },
+      addWorkItem,
     ),
-    command(
+    projectedBodyUpdate(
       "update <issueID> <itemID>",
       "Update supplied work-item fields; omitted fields stay unchanged",
-      async ({ args, options }, context) =>
-        updateWorkItem(
-          await connection(context),
-          args.issueID,
-          args.itemID,
-          options.body,
-          readOptions(options),
-        ),
-      { permission: Permission.Update, options: [...bodyOptions, ...projectionOptions] },
+      updateWorkItem,
     ),
   ]),
 ];

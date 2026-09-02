@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -27,9 +27,7 @@ const reads = [
 
 for (const row of reads) test(`field CLI ${row.argv.slice(0, 3).join(" ")} uses actual command projection, page and human/JSON output`, async (t) => {
   for (const json of [false, true]) {
-    const f = await fixture(t);
-    await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-    await f.secrets.set(service, "dev:token", "synthetic-token");
+    const f = await configuredFixture(t);
     let calls = 0;
     const result = row.collection ? [{ id: "fixture-id" }] : { id: "fixture-id" };
     server.use(http.get("*", ({ request }) => {
@@ -52,9 +50,7 @@ for (const row of reads) test(`field CLI ${row.argv.slice(0, 3).join(" ")} uses 
 });
 
 test("every field read and set leaf honors its explicit permission before fetch", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t);
   let calls = 0;
   server.use(http.all("*", () => { calls++; return HttpResponse.json({}); }));
   await assert.rejects(f.cli.execute([...setCommand, "--profile", "dev"]), /Permission 'Update' is disabled/);
@@ -65,9 +61,7 @@ test("every field read and set leaf honors its explicit permission before fetch"
 
 test("field set CLI sends the explicit event body and renders human/JSON results", async (t) => {
   for (const json of [false, true]) {
-    const f = await fixture(t);
-    await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-    await f.secrets.set(service, "dev:token", "synthetic-token");
+    const f = await configuredFixture(t);
     await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
     let calls = 0;
     server.use(http.post("*", async ({ request }) => {
@@ -134,9 +128,7 @@ test("field set body syntax, type validation and remote errors stay local or san
   f.secrets.get = async () => { assert.fail("Missing required body reached secrets"); };
   await assert.rejects(f.cli.execute(["issues", "fields", "set", "DEMO-1", "fixture-field"]), /required option/);
   await assert.rejects(f.cli.execute(["issues", "fields", "set", "DEMO-1", "fixture-field", "--body", "synthetic-private-json"]), /valid JSON/);
-  const configured = await fixture(t);
-  await configured.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-  await configured.secrets.set(service, "dev:token", "synthetic-token");
+  const configured = await configuredFixture(t);
   await configured.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
   let calls = 0;
   server.use(http.post("*", () => { calls++; return new HttpResponse("synthetic-token private-message", { status: 403 }); }));

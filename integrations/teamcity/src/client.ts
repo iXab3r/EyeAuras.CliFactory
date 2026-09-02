@@ -220,6 +220,13 @@ export interface CreateJobOptions {
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
+interface ResponseOptions {
+  accept?: string;
+  discard?: boolean;
+  expectedStatus?: number;
+  requireMedia?: string;
+}
+
 function decodeJson<T>(contents: string): T {
   try {
     return JSON.parse(contents) as T;
@@ -578,7 +585,7 @@ export class TeamCityClient {
       throw new Error(`${booleanField} must be true or false.`);
     }
     if (field === "name") value = requiredText(value, "Name");
-    await this.#request("PUT", `${path}/${field}`, {}, value, "text/plain");
+    await this.#requestText("PUT", `${path}/${field}`, value);
     return { id: id.trim(), field, value };
   }
 
@@ -891,13 +898,7 @@ export class TeamCityClient {
     field: string,
   ) {
     allowedField(field, kind === "steps" ? ["name", "disabled"] : ["disabled"]);
-    const value = await this.#request(
-      "GET",
-      `${entityPath(kind, jobId, id)}/${field}`,
-      {},
-      undefined,
-      "text/plain",
-    );
+    const value = await this.#requestText("GET", `${entityPath(kind, jobId, id)}/${field}`);
     return { jobId: jobId.trim(), id: id.trim(), field, value };
   }
 
@@ -911,12 +912,10 @@ export class TeamCityClient {
     allowedField(field, kind === "steps" ? ["name", "disabled"] : ["disabled"]);
     if (field === "disabled") booleanText(value);
     else requiredText(value, "Step name");
-    const result = await this.#request(
+    const result = await this.#requestText(
       "PUT",
       `${entityPath(kind, jobId, id)}/${field}`,
-      {},
       value,
-      "text/plain",
     );
     return { jobId: jobId.trim(), id: id.trim(), field, value: result };
   }
@@ -951,12 +950,9 @@ export class TeamCityClient {
     id: string,
     name: string,
   ) {
-    await this.#request(
+    await this.#requestText(
       "GET",
       `${entityPath(kind, jobId, id)}/parameters/${pathSegment(name)}`,
-      {},
-      undefined,
-      "text/plain",
     );
     return safeProperty({ name: name.trim() }, false);
   }
@@ -969,12 +965,10 @@ export class TeamCityClient {
     value: string,
   ) {
     const property = plainProperty(name, value);
-    await this.#request(
+    await this.#requestText(
       "PUT",
       `${entityPath(kind, jobId, id)}/parameters/${pathSegment(property.name)}`,
-      {},
       value,
-      "text/plain",
     );
     return safeProperty({ name: property.name }, false);
   }
@@ -1109,12 +1103,9 @@ export class TeamCityClient {
       "description",
       owner === "projects" ? "archived" : "paused",
     ]);
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       `${owner === "projects" ? projectPath(id) : jobPath(id)}/${field}`,
-      {},
-      undefined,
-      "text/plain",
     );
     return { id: id.trim(), field, value };
   }
@@ -1217,24 +1208,15 @@ export class TeamCityClient {
   }
 
   public async getCheckoutRules(jobId: string, rootId: string) {
-    const rules = await this.#request(
+    const rules = await this.#requestText(
       "GET",
       `${entryPath(jobId, rootId)}/checkout-rules`,
-      {},
-      undefined,
-      "text/plain",
     );
     return { jobId: jobId.trim(), rootId: rootId.trim(), rules };
   }
 
   public async setCheckoutRules(jobId: string, rootId: string, rules: string) {
-    await this.#request(
-      "PUT",
-      `${entryPath(jobId, rootId)}/checkout-rules`,
-      {},
-      rules,
-      "text/plain",
-    );
+    await this.#requestText("PUT", `${entryPath(jobId, rootId)}/checkout-rules`, rules);
     return { jobId: jobId.trim(), rootId: rootId.trim(), rules };
   }
 
@@ -1272,20 +1254,14 @@ export class TeamCityClient {
 
   public async getPoolField(id: number, field: string) {
     allowedField(field, ["name"]);
-    const value = await this.#request(
-      "GET",
-      `${poolPath(id)}/${field}`,
-      {},
-      undefined,
-      "text/plain",
-    );
+    const value = await this.#requestText("GET", `${poolPath(id)}/${field}`);
     return { poolId: id, field, value };
   }
 
   public async setPoolField(id: number, field: string, value: string) {
     allowedField(field, ["name"]);
     requiredText(value, "Pool name");
-    const result = await this.#request("PUT", `${poolPath(id)}/${field}`, {}, value, "text/plain");
+    const result = await this.#requestText("PUT", `${poolPath(id)}/${field}`, value);
     return { poolId: id, field, value: result };
   }
 
@@ -1431,20 +1407,14 @@ export class TeamCityClient {
 
   public async getAgentField(id: number, field: string) {
     allowedField(field, ["id", "name", "connected", "enabled", "authorized"]);
-    const value = await this.#request(
-      "GET",
-      `${agentPath(id)}/${field}`,
-      {},
-      undefined,
-      "text/plain",
-    );
+    const value = await this.#requestText("GET", `${agentPath(id)}/${field}`);
     return { agentId: id, field, value };
   }
 
   public async setAgentField(id: number, field: string, value: string) {
     allowedField(field, ["enabled", "authorized"]);
     booleanText(value);
-    const result = await this.#request("PUT", `${agentPath(id)}/${field}`, {}, value, "text/plain");
+    const result = await this.#requestText("PUT", `${agentPath(id)}/${field}`, value);
     return { agentId: id, field, value: result };
   }
 
@@ -1494,7 +1464,7 @@ export class TeamCityClient {
 
   public async setBuildComment(id: number, text: string) {
     plainProperty("comment", text);
-    await this.#request("PUT", `${buildPath(id)}/comment`, {}, text, "text/plain");
+    await this.#requestText("PUT", `${buildPath(id)}/comment`, text);
     return { buildId: id, commentUpdated: true };
   }
 
@@ -1514,20 +1484,14 @@ export class TeamCityClient {
       "state",
       "branchName",
     ]);
-    const value = await this.#request(
-      "GET",
-      `${buildPath(id)}/${field}`,
-      {},
-      undefined,
-      "text/plain",
-    );
+    const value = await this.#requestText("GET", `${buildPath(id)}/${field}`);
     return { buildId: id, field, value };
   }
 
   public async setBuildScalar(id: number, field: string, value: string) {
     allowedField(field, ["number", "statusText"]);
     plainProperty(field, requiredText(value, "Value"));
-    const result = await this.#request("PUT", `${buildPath(id)}/${field}`, {}, value, "text/plain");
+    const result = await this.#requestText("PUT", `${buildPath(id)}/${field}`, value);
     return { buildId: id, field, value: result };
   }
 
@@ -1585,12 +1549,9 @@ export class TeamCityClient {
   }
 
   public async getBuildStatistic(id: number, name: string) {
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       `${buildPath(id)}/statistics/${pathSegment(name)}`,
-      {},
-      undefined,
-      "text/plain",
     );
     return statistic(name.trim(), value);
   }
@@ -1682,7 +1643,7 @@ export class TeamCityClient {
       return safeProperty(metadata, false);
     }
     if (part === "value") {
-      const response = await this.#request(method, `${path}/value`, {}, value, "text/plain");
+      const response = await this.#requestText(method, `${path}/value`, value);
       return safeProperty({
         name: name.trim(),
         ...(metadata.type === undefined ? {} : { type: metadata.type }),
@@ -1698,7 +1659,7 @@ export class TeamCityClient {
             value === undefined ? undefined : { rawValue: value },
           )
         : {
-            rawValue: await this.#request(method, `${path}/type/rawValue`, {}, value, "text/plain"),
+            rawValue: await this.#requestText(method, `${path}/type/rawValue`, value),
           };
     const result = safeProperty({ name: name.trim(), type });
     return { name: result.name, type: result.type, redacted: result.redacted };
@@ -1937,12 +1898,9 @@ export class TeamCityClient {
   }
 
   public async getBuildBatchStatus(ids: readonly number[]) {
-    const status = await this.#request(
+    const status = await this.#requestText(
       "GET",
       `/app/rest/builds/aggregated/${triage.buildUnion(ids)}/status`,
-      {},
-      undefined,
-      "text/plain",
     );
     return { status };
   }
@@ -2036,12 +1994,10 @@ export class TeamCityClient {
 
   public async finishBuild(id: number, timestamp?: string) {
     const body = timestamp === undefined ? undefined : triage.teamCityTimestamp(timestamp);
-    const acceptedFinishTime = await this.#request(
+    const acceptedFinishTime = await this.#requestText(
       "PUT",
       `${buildPath(id)}/${timestamp === undefined ? "finish" : "finishDate"}`,
-      {},
       body,
-      "text/plain",
     );
     return { buildId: id, acceptedFinishTime };
   }
@@ -2050,7 +2006,7 @@ export class TeamCityClient {
     const body = triage.inputText(message, "Log message");
     if (/##teamcity\[/i.test(body))
       throw new Error("Plain log append does not accept service messages.");
-    await this.#request("POST", `${buildPath(id)}/log`, {}, body, "text/plain");
+    await this.#requestText("POST", `${buildPath(id)}/log`, body);
     return { buildId: id, appended: true };
   }
 
@@ -2201,12 +2157,9 @@ export class TeamCityClient {
 
   public async getChangeField(id: number, field: string) {
     allowedField(field, ["id", "version", "date", "personal", "comment"]);
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       `/app/rest/changes/id:${positiveId(id, "Change ID")}/${field}`,
-      {},
-      undefined,
-      "text/plain",
     );
     return { changeId: id, field, value };
   }
@@ -2309,13 +2262,7 @@ export class TeamCityClient {
 
   public async deleteMute(id: number, comment?: string) {
     const body = comment === undefined ? undefined : triage.inputText(comment, "Comment");
-    await this.#request(
-      "DELETE",
-      `/app/rest/mutes/id:${positiveId(id, "Mute ID")}`,
-      {},
-      body,
-      "text/plain",
-    );
+    await this.#requestText("DELETE", `/app/rest/mutes/id:${positiveId(id, "Mute ID")}`, body);
     return { muteId: id, deleted: true };
   }
 
@@ -2365,12 +2312,10 @@ export class TeamCityClient {
     kind: "output-parameters" | "resulting-properties",
     name: string,
   ) {
-    await this.#request(
+    await this.#requestText(
       "GET",
       `${buildPath(id)}/${kind}/${pathSegment(name)}`,
-      {},
       undefined,
-      "text/plain",
       { discard: true },
     );
     return { name, exists: true };
@@ -2428,13 +2373,7 @@ export class TeamCityClient {
   }
 
   public async forgetRememberedSessions(id: string) {
-    await this.#request(
-      "DELETE",
-      admin.accountPath("users", id) + "/debug/rememberMe",
-      {},
-      undefined,
-      "text/plain",
-    );
+    await this.#requestText("DELETE", admin.accountPath("users", id) + "/debug/rememberMe");
     return { userId: id, rememberedLoginsCleared: true };
   }
 
@@ -2512,12 +2451,10 @@ export class TeamCityClient {
   }
 
   public async checkAccountProperty(kind: admin.AccountKind, id: string, name: string) {
-    await this.#request(
+    await this.#requestText(
       "GET",
       admin.accountPath(kind, id) + "/properties/" + pathSegment(name),
-      {},
       undefined,
-      "text/plain",
       { discard: true },
     );
     return { name, exists: true };
@@ -2530,12 +2467,10 @@ export class TeamCityClient {
     value: string,
   ) {
     const property = plainProperty(name, value);
-    await this.#request(
+    await this.#requestText(
       "PUT",
       admin.accountPath(kind, id) + "/properties/" + pathSegment(property.name),
-      {},
       property.value,
-      "text/plain",
       { discard: true },
     );
     return { name: property.name, updated: true };
@@ -2664,24 +2599,19 @@ export class TeamCityClient {
 
   public async getAccountUserField(id: string, field: string) {
     allowedField(field, ["id", "name", "username"]);
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       admin.accountPath("users", id) + "/" + field,
-      {},
-      undefined,
-      "text/plain",
     );
     return { userId: id, field, value };
   }
 
   public async setAccountUserField(id: string, field: string, value: string) {
     allowedField(field, ["name", "username"]);
-    await this.#request(
+    await this.#requestText(
       "PUT",
       admin.accountPath("users", id) + "/" + field,
-      {},
       triage.inputText(value, field),
-      "text/plain",
       { discard: true },
     );
     return { userId: id, field, updated: true };
@@ -2774,7 +2704,7 @@ export class TeamCityClient {
 
   public async getApiVersion() {
     return {
-      version: await this.#request("GET", "/app/rest/apiVersion", {}, undefined, "text/plain"),
+      version: await this.#requestText("GET", "/app/rest/apiVersion"),
     };
   }
 
@@ -2914,12 +2844,10 @@ export class TeamCityClient {
   }
 
   public async checkVcsRootProperty(id: string, name: string) {
-    await this.#request(
+    await this.#requestText(
       "GET",
       infrastructure.vcsRootPath(id) + "/properties/" + pathSegment(name),
-      {},
       undefined,
-      "text/plain",
       { discard: true },
     );
     return { name, exists: true };
@@ -2927,12 +2855,10 @@ export class TeamCityClient {
 
   public async setVcsRootProperty(id: string, name: string, value: string) {
     const property = plainProperty(name, value);
-    await this.#request(
+    await this.#requestText(
       "PUT",
       infrastructure.vcsRootPath(id) + "/properties/" + pathSegment(property.name),
-      {},
       property.value,
-      "text/plain",
       { discard: true },
     );
     return { name: property.name, updated: true };
@@ -2948,24 +2874,19 @@ export class TeamCityClient {
 
   public async getVcsRootField(id: string, field: string) {
     allowedField(field, ["id", "name", "vcsName", "projectId", "modificationCheckInterval"]);
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       infrastructure.vcsRootPath(id) + "/" + field,
-      {},
-      undefined,
-      "text/plain",
     );
     return { rootId: id, field, value };
   }
 
   public async setVcsRootField(id: string, field: string, value: string) {
     allowedField(field, ["name"]);
-    await this.#request(
+    await this.#requestText(
       "PUT",
       infrastructure.vcsRootPath(id) + "/" + field,
-      {},
       triage.inputText(value, "Name"),
-      "text/plain",
       { discard: true },
     );
     return { rootId: id, field, updated: true };
@@ -3053,12 +2974,9 @@ export class TeamCityClient {
   }
 
   public async getVcsRepositoryStateCreated(id: string) {
-    const creationDate = await this.#request(
+    const creationDate = await this.#requestText(
       "GET",
       infrastructure.vcsInstancePath(id) + "/repositoryState/creationDate",
-      {},
-      undefined,
-      "text/plain",
     );
     return { instanceId: id, creationDate };
   }
@@ -3075,12 +2993,9 @@ export class TeamCityClient {
       "currentVersionInternal",
       "commitHookMode",
     ]);
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       infrastructure.vcsInstancePath(id) + "/" + field,
-      {},
-      undefined,
-      "text/plain",
     );
     return { instanceId: id, field, value };
   }
@@ -3089,12 +3004,10 @@ export class TeamCityClient {
     allowedField(field, ["commitHookMode", "lastVersionInternal"]);
     const body =
       field === "commitHookMode" ? booleanText(value) : plainProperty("revision", value).value;
-    await this.#request(
+    await this.#requestText(
       "PUT",
       infrastructure.vcsInstancePath(id) + "/" + field,
-      {},
       body,
-      "text/plain",
       { discard: true },
     );
     return { instanceId: id, field, updated: true };
@@ -3163,24 +3076,19 @@ export class TeamCityClient {
 
   public async getVersionedConfigField(id: string, field: string) {
     infrastructure.versionedField(field);
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       infrastructure.versionedPath(id) + "/config/parameters/" + field,
-      {},
-      undefined,
-      "text/plain",
     );
     return { projectId: id, field, value };
   }
 
   public async setVersionedConfigField(id: string, field: string, value: string) {
     const body = infrastructure.versionedField(field, value);
-    await this.#request(
+    await this.#requestText(
       "PUT",
       infrastructure.versionedPath(id) + "/config/parameters/" + field,
-      {},
       body,
-      "text/plain",
       { discard: true },
     );
     return { projectId: id, field, updated: true };
@@ -3282,7 +3190,7 @@ export class TeamCityClient {
 
   public async getRestVersion() {
     return {
-      version: await this.#request("GET", "/app/rest/version", {}, undefined, "text/plain"),
+      version: await this.#requestText("GET", "/app/rest/version"),
     };
   }
 
@@ -3326,7 +3234,7 @@ export class TeamCityClient {
   }
 
   public async getRestInfo() {
-    const value = await this.#request("GET", "/app/rest", {}, undefined, "text/plain");
+    const value = await this.#requestText("GET", "/app/rest");
     const path = value.match(
       /(?:^|[\s'"(])(\/(?:[A-Za-z0-9._-]+\/)*app\/rest)(?:\/server)?(?=$|[\s'"),.])/,
     );
@@ -3674,7 +3582,7 @@ export class TeamCityClient {
   public async getBackupStatus() {
     return {
       progress: system.safeText(
-        await this.#request("GET", "/app/rest/server/backup", {}, undefined, "text/plain"),
+        await this.#requestText("GET", "/app/rest/server/backup"),
       ),
       completionVerified: false,
     };
@@ -3800,7 +3708,7 @@ export class TeamCityClient {
     return {
       field,
       value: system.safeText(
-        await this.#request("GET", "/app/rest/server/" + field, {}, undefined, "text/plain"),
+        await this.#requestText("GET", "/app/rest/server/" + field),
       ),
     };
   }
@@ -3903,23 +3811,17 @@ export class TeamCityClient {
   public async getSettingsPath(kind: "projects" | "jobs" | "roots", id: string) {
     const resource = kind === "jobs" ? "buildTypes" : kind === "roots" ? "vcs-roots" : "projects";
     return files.serverPath(
-      await this.#request(
+      await this.#requestText(
         "GET",
         "/app/rest/" + resource + "/" + idPath(id, "Owner ID") + "/settingsFile",
-        {},
-        undefined,
-        "text/plain",
       ),
     );
   }
   public async getArtifactsPath(id: string) {
     return files.serverPath(
-      await this.#request(
+      await this.#requestText(
         "GET",
         "/app/rest/builds/id:" + positiveId(Number(id), "Build ID") + "/artifactsDirectory",
-        {},
-        undefined,
-        "text/plain",
       ),
     );
   }
@@ -3933,7 +3835,7 @@ export class TeamCityClient {
       key = files.referenceKey(outputAlias);
     await preflightSecretKeys(secrets, [key]);
     const value = await requireInputSecret(secrets, inputAlias);
-    const reference = await this.#request("POST", path, {}, value, "text/plain");
+    const reference = await this.#requestText("POST", path, value);
     files.sensitiveSegment(reference);
     await persistSecretKeys(secrets, [key], [reference]);
     return { projectId: project, referenceAlias: outputAlias, stored: true };
@@ -3954,13 +3856,7 @@ export class TeamCityClient {
     } catch {
       throw new Error("Required secure reference is unavailable.");
     }
-    const value = await this.#request(
-      "GET",
-      path + files.sensitiveSegment(reference),
-      {},
-      undefined,
-      "text/plain",
-    );
+    const value = await this.#requestText("GET", path + files.sensitiveSegment(reference));
     await persistSecretKeys(secrets, [key], [value]);
     return { alias: outputAlias, stored: true };
   }
@@ -3976,12 +3872,9 @@ export class TeamCityClient {
     const expression = "%" + name + "%",
       key = inputSecretKey(alias);
     await preflightSecretKeys(secrets, [key]);
-    const value = await this.#request(
+    const value = await this.#requestText(
       "GET",
       `/app/rest/builds/id:${buildId}/resolved/` + encodeURIComponent(expression),
-      {},
-      undefined,
-      "text/plain",
     );
     if (value === expression)
       throw new Error("Build parameter remained unresolved; no value stored.");
@@ -4049,18 +3942,21 @@ export class TeamCityClient {
     }
     return response;
   }
+  async #requestText(
+    method: HttpMethod,
+    path: string,
+    body?: unknown,
+    responseOptions: ResponseOptions = {},
+  ): Promise<string> {
+    return this.#request(method, path, {}, body, "text/plain", responseOptions);
+  }
   async #request(
     method: HttpMethod,
     path: string,
     query: Record<string, string> = {},
     body?: unknown,
     mediaType = "application/json",
-    responseOptions: {
-      accept?: string;
-      discard?: boolean;
-      expectedStatus?: number;
-      requireMedia?: string;
-    } = {},
+    responseOptions: ResponseOptions = {},
   ): Promise<string> {
     const response = await this.#response(
       method,

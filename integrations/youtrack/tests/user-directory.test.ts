@@ -14,7 +14,7 @@ import {
   listUserBundleMembers,
   listUserBundles,
 } from "../src/user-directory.js";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -198,9 +198,7 @@ test("directory inputs reject invalid IDs, projections and paging before native 
 test("all eight real CLI declarations return matching human and JSON output with Update disabled", async (t) => {
   for (const row of rows) {
     for (const json of [false, true]) {
-      const f = await fixture(t);
-      await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-      await f.secrets.set(service, "dev:token", connection.token);
+      const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
       let calls = 0;
       server.use(http.get("*", ({ request }) => {
         calls++;
@@ -229,9 +227,7 @@ test("all eight real CLI declarations return matching human and JSON output with
 });
 
 test("each directory leaf enforces its profile ReadOnly gate before fetch", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-  await f.secrets.set(service, "dev:token", connection.token);
+  const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));

@@ -1,10 +1,9 @@
 import {
-  command,
   jsonParser,
+  targetCommands,
   type CommandContext,
-  type CommandDefinition,
-  type InferredCommandHandler,
   type OptionDefinition,
+  type TargetCommand,
 } from "@eyeauras/cli-factory";
 import type { TeamCityClient } from "./client.js";
 import type { PlainProperty } from "./authoring-models.js";
@@ -59,21 +58,11 @@ export const propertyOption: OptionDefinition = {
   parse: collectProperty,
 };
 
-export type ClientLeaf = <const Syntax extends string>(
-  name: Syntax,
-  description: string,
-  permission: string,
-  run: (client: TeamCityClient, input: Parameters<InferredCommandHandler<Syntax>>[0]) => unknown,
-  options?: readonly OptionDefinition[],
-) => CommandDefinition;
+export type ClientLeaf = TargetCommand<TeamCityClient>;
 
 // Only binds the profile-scoped client; Core still owns the one recursive command model.
 export function clientLeaf(
   clientFor: (context: CommandContext) => Promise<TeamCityClient>,
 ): ClientLeaf {
-  return (name, description, permission, run, options = []) =>
-    command(name, description, async (input, context) => run(await clientFor(context), input), {
-      permission,
-      options,
-    });
+  return targetCommands(clientFor).command;
 }

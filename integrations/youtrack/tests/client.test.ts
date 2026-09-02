@@ -4,11 +4,24 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import {
   currentUser,
+  getIssue,
   getIssueAttachmentDownloadMetadata,
+  listProjects,
   readNullableObject,
   readObject,
+  type Connection,
   youTrackUrl,
 } from "../src/client.js";
+
+function resourceTypeContract(connection: Connection) {
+  void listProjects(connection);
+  void getIssue(connection, "DEMO-1");
+  // @ts-expect-error A static collection path has no positional resource argument.
+  void listProjects(connection, "unexpected-id");
+  // @ts-expect-error A dynamic detail path retains its required resource argument.
+  void getIssue(connection);
+}
+void resourceTypeContract;
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));

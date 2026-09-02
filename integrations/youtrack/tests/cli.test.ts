@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -135,9 +135,7 @@ test("unavailable keyring stops a service command before the HTTP boundary", asy
 test("human and JSON identity commands render the same minimal domain value", async (t) => {
   server.use(http.get("*/api/users/me", () => HttpResponse.json(identity)));
   for (const json of [false, true]) {
-    const f = await fixture(t);
-    await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-    await f.secrets.set(service, "dev:token", "synthetic-token");
+    const f = await configuredFixture(t, { url: "https://youtrack.example.com" });
     assert.equal(await f.cli.run(["user", "me", "--profile", "dev", ...(json ? ["--json"] : [])]), 0);
     if (json) assert.deepEqual(JSON.parse(f.stdout()), identity);
     else {
@@ -160,9 +158,7 @@ test("every read declaration renders the actual HTTP result as human and JSON ou
   for (const row of readCommands) {
     const result = row.array ? [{ id: "fixture-id" }] : { id: "fixture-id" };
     for (const json of [false, true]) {
-      const f = await fixture(t);
-      await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-      await f.secrets.set(service, "dev:token", "synthetic-token");
+      const f = await configuredFixture(t);
       let calls = 0;
       server.use(http.get("*", ({ request }) => {
         calls++;
@@ -183,9 +179,7 @@ test("every read declaration renders the actual HTTP result as human and JSON ou
 });
 
 test("every read leaf is denied before HTTP when its profile revokes ReadOnly", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t, { url: "https://youtrack.example.com" });
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));
@@ -195,9 +189,7 @@ test("every read leaf is denied before HTTP when its profile revokes ReadOnly", 
 });
 
 test("new read input validation runs before HTTP through the real declaration", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t, { url: "https://youtrack.example.com" });
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));
   for (const argv of [
@@ -240,9 +232,7 @@ test("all read leaves share profile-isolated URLs, credentials and AppData in pe
 });
 
 test("read errors keep existing CLI/RPC envelopes and explicit user fields cannot change auth projection", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t, { url: "https://youtrack.example.com" });
   server.use(http.get("*/api/users/me", ({ request }) => {
     const fields = new URL(request.url).searchParams.get("fields");
     return HttpResponse.json(fields === "email" ? { email: null } : identity);
@@ -262,9 +252,10 @@ test("RPC read errors use the existing -32000 envelope without remote diagnostic
     jsonrpc: "2.0", id: 1, method: "cli.execute",
     params: { argv: ["issues", "list", "--profile", "dev"] },
   });
-  const f = await fixture(t, request + "\n");
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t, {
+    url: "https://youtrack.example.com",
+    input: request + "\n",
+  });
   server.use(http.get("*/api/issues", () => new HttpResponse("synthetic-private", { status: 403 })));
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const reply = JSON.parse(f.stdout());
@@ -281,9 +272,7 @@ const mutationCommands = [
 ];
 
 test("all mutation leaves deny Update before HTTP while malformed JSON fails during parsing", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
+  const f = await configuredFixture(t, { url: "https://youtrack.example.com" });
   let calls = 0;
   server.use(http.post("*", () => { calls++; return HttpResponse.json({}); }));
   for (const row of mutationCommands) {
@@ -302,10 +291,7 @@ test("all mutation leaves deny Update before HTTP while malformed JSON fails dur
 test("allowed mutations bind exact bodies and return human/JSON through their real declarations", async (t) => {
   for (const row of mutationCommands) {
     for (const json of [false, true]) {
-      const f = await fixture(t);
-      await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com/context"]);
-      await f.secrets.set(service, "dev:token", "synthetic-token");
-      await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
+      const f = await configuredFixture(t, { permissions: ["ReadOnly", "Update"] });
       let calls = 0;
       server.use(http.post("*", async ({ request }) => {
         calls++;
@@ -327,10 +313,10 @@ test("allowed mutations bind exact bodies and return human/JSON through their re
 });
 
 test("mutation body syntax and unsupported fields fail locally without echoing input", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
-  await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
+  const f = await configuredFixture(t, {
+    url: "https://youtrack.example.com",
+    permissions: ["ReadOnly", "Update"],
+  });
   let calls = 0;
   server.use(http.post("*", () => { calls++; return HttpResponse.json({}); }));
   for (const row of mutationCommands) {
@@ -420,10 +406,11 @@ test("RPC continues after missing required body and malformed JSON before a vali
     ["issues", "update", "DEMO-1", "--body", "synthetic-private-json", "--profile", "dev"],
     ["issues", "update", "DEMO-1", "--body", '{"description":null}', "--profile", "dev"],
   ].map((argv, id) => JSON.stringify({ jsonrpc: "2.0", id, method: "cli.execute", params: { argv } })).join("\n") + "\n";
-  const f = await fixture(t, requests);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set(service, "dev:token", "synthetic-token");
-  await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
+  const f = await configuredFixture(t, {
+    url: "https://youtrack.example.com",
+    permissions: ["ReadOnly", "Update"],
+    input: requests,
+  });
   let calls = 0;
   server.use(http.post("*/api/issues/DEMO-1", async ({ request }) => {
     calls++;
@@ -463,9 +450,7 @@ test("projected credential keys and encoded tokens never reach human, JSON or RP
     const input = mode === "rpc" ? JSON.stringify({
       jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv },
     }) + "\n" : "";
-    const f = await fixture(t, input);
-    await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-    await f.secrets.set(service, "dev:token", "synthetic-token");
+    const f = await configuredFixture(t, { url: "https://youtrack.example.com", input });
     assert.equal(await f.cli.run(mode === "rpc" ? ["--json-rpc"] : [...argv, ...(mode === "json" ? ["--json"] : [])]), 0);
     assert.doesNotMatch(f.stdout(), /synthetic|sign=|download=/);
     assert.equal(f.stderr(), "");
@@ -488,9 +473,7 @@ test("default identity and auth status reject sensitive fields in human, JSON an
       const input = mode === "rpc" ? JSON.stringify({
         jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv },
       }) + "\n" : "";
-      const f = await fixture(t, input);
-      await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-      await f.secrets.set(service, "dev:token", "synthetic-token");
+      const f = await configuredFixture(t, { url: "https://youtrack.example.com", input });
       let calls = 0;
       server.use(http.get("*/api/users/me", ({ request }) => {
         calls++;

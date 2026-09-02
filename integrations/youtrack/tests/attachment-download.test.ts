@@ -8,7 +8,7 @@ import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { downloadIssueAttachment } from "../src/attachment-download.js";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -287,9 +287,7 @@ test("download CLI invalid options fail before onboarding and permission denial 
     assert.match(f.stderr(), /basename|max-bytes/);
     assert.equal(f.stdout(), "");
   }
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-  await f.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", connection.token);
+  const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   const calls = serve();
   await assert.rejects(f.cli.execute(["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "dev"]), /Permission 'ReadOnly' is disabled/);
@@ -299,9 +297,7 @@ test("download CLI invalid options fail before onboarding and permission denial 
 
 test("download CLI human and JSON return sanitized domain data beneath the selected profile", async (t) => {
   for (const json of [false, true]) {
-    const f = await fixture(t);
-    await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-    await f.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", connection.token);
+    const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
     serve();
     assert.equal(await f.cli.run(["issues", "attachments", "download", "fixture-issue", metadata.id,
       "--profile", "dev", "--name", "chosen.bin", "--max-bytes", "4", ...(json ? ["--json"] : [])]), 0);

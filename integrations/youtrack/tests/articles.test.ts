@@ -15,7 +15,7 @@ import {
   updateArticleComment,
 } from "../src/articles.js";
 import { createYouTrackCli } from "../src/cli.js";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -30,10 +30,7 @@ const article = { id: "article-fixture", idReadable: "FIX-A-1", summary: null, c
 const comment = { id: "comment-fixture", text: null, author: null, updated: null };
 
 async function configured(t: TestContext) {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-  await f.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", connection.token);
-  return f;
+  return configuredFixture(t, { url: connection.baseUrl, token: connection.token });
 }
 
 test("all five article reads use documented paths, finite defaults and bounded collection pages", async () => {

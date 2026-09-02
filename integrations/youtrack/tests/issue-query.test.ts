@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 import {
   applyCommands, assistCommands, assistSearch, countIssues, getSavedQuery, listSavedQueries,
   parseIssueSelection,
@@ -167,9 +167,7 @@ test("saved query pagination/projection and nested suggestion output use shared 
 test("all six leaves share human/JSON declarations; ReadOnly POSTs work with Update disabled", async (t) => {
   for (const row of rows) {
     for (const json of [false, true]) {
-      const f = await fixture(t);
-      await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-      await f.secrets.set(service, "dev:token", connection.token);
+      const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
       if (row.update) await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
       const count = { calls: 0 };
       server.use(respond(row, count));
@@ -183,9 +181,7 @@ test("all six leaves share human/JSON declarations; ReadOnly POSTs work with Upd
 });
 
 test("apply denies Update and each semantic read denies ReadOnly before HTTP", async (t) => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", connection.baseUrl]);
-  await f.secrets.set(service, "dev:token", connection.token);
+  const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
   let calls = 0;
   server.use(http.all("*", () => { calls++; return HttpResponse.json({}); }));
   await assert.rejects(f.cli.execute([...rows[0]!.argv, "--profile", "dev"]), /Permission 'Update' is disabled/);
@@ -254,5 +250,4 @@ test("RPC keeps permissions and credentials profile-scoped across invalid and va
   assert.equal(f.stderr(), "");
   assert.deepEqual(seen, ["locked:/context/api/issuesGetter/count", "dev:/context/api/commands", "locked:/context/api/search/assist"]);
 });
-
 

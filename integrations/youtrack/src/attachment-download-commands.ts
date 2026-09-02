@@ -1,12 +1,12 @@
-import { command, Permission } from "@eyeauras/cli-factory";
-import { connection } from "./cli-support.js";
+
+import { readCommand } from "./cli-support.js";
 import { downloadIssueAttachment, downloadLimit, downloadName } from "./attachment-download.js";
 
-export const attachmentDownloadCommand = command(
+export const attachmentDownloadCommand = readCommand(
   "download <issueID> <attachmentID>",
   "Download one attachment into this profile's downloads directory without overwriting files",
-  async ({ args, options }, context) => downloadIssueAttachment(
-    await connection(context),
+  async (connection, { args, options }, context) => downloadIssueAttachment(
+    connection,
     args.issueID,
     args.attachmentID,
     context.appArguments.AppDataDirectory,
@@ -15,9 +15,7 @@ export const attachmentDownloadCommand = command(
       ...(typeof options.maxBytes === "number" ? { maxBytes: options.maxBytes } : {}),
     },
   ),
-  {
-    permission: Permission.ReadOnly,
-    options: [
+  [
       {
         flags: "--name <basename>",
         description: "Optional safe filename; an existing name is never overwritten",
@@ -30,6 +28,4 @@ export const attachmentDownloadCommand = command(
         parse: downloadLimit,
       },
     ],
-  },
 );
-

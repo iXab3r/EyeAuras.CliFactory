@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+import { assertPermissionDenied, trackRequests } from "@eyeauras/cli-factory/testing";
 import { createTestRuntime } from "./support.js";
 import { infrastructureCases } from "./infrastructure-cases.js";
 import { plainProperty, safeProperty } from "../src/authoring-models.js";
@@ -43,33 +44,22 @@ test("S8 all50 gates deny before network or secret-input reads", async (testCont
   const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
   });
-  let calls = 0;
-  server.use(
-    http.all("*", () => {
-      calls++;
-      return HttpResponse.json({});
-    }),
-  );
+  const requests = trackRequests(testContext, 0, () => HttpResponse.json({}));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
   const cli = runtime.createCli();
   for (const example of infrastructureCases)
-    await assert.rejects(
-      cli.execute(example.argv),
-      new RegExp(
-        `Permission '${example.permission ?? (example.method === "GET" ? "ReadOnly" : "Update")}'`,
-      ),
+    await assertPermissionDenied(
+      cli,
+      example.argv,
+      example.permission ?? (example.method === "GET" ? "ReadOnly" : "Update"),
+      requests,
     );
-  assert.equal(calls, 0);
 });
 
 test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields and secret-to-VCS settings", async (testContext) => {
   const { cli } = await writable(testContext);
-  let calls = 0;
-  server.use(
-    http.all("*", () => {
-      calls++;
-      return HttpResponse.json({});
-    }),
-  );
+  const requests = trackRequests(testContext, 0, () => HttpResponse.json({}));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
   const createRoot = [
     "vcs",
     "roots",
@@ -174,7 +164,6 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
     ],
   ];
   for (const argv of invalid) await assert.rejects(cli.execute(argv), Error);
-  assert.equal(calls, 0);
 });
 
 test("S8 composite cloud identities cannot inject another profile/image or expose network fields", async (testContext) => {

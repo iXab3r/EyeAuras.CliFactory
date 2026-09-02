@@ -20,6 +20,7 @@ import { adminCategories } from "./admin-models.js";
 import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
+import { clientLeaf } from "./command-support.js";
 import type {
   TeamCityBuildState,
   TeamCityBuildStatus,
@@ -120,6 +121,7 @@ const testStatus = oneOf<TeamCityTestStatus>("Test status", [
 const triState = oneOf<TeamCityTriState>("Agent filter", ["true", "false", "any"]);
 
 export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
+  const leaf = clientLeaf(client);
   const bulk = createBulkConfigurationCommands(client, pageOptions);
   const authoring = createAuthoringCommands(client, pageOptions, bulk);
   const files = createFileCommands(client);
@@ -181,39 +183,37 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...infrastructure.server,
         ...system.server,
         ...files.server,
-        command(
+        leaf(
           "status",
           "Show TeamCity version, role, and clock information",
-          async (_input, context) => (await client(context)).getServerStatus(),
-          { permission: Permission.ReadOnly },
+          Permission.ReadOnly,
+          (c) => c.getServerStatus(),
         ),
       ]),
       command("projects", "Work with TeamCity projects", [
-        command(
+        leaf(
           "list",
           "List projects",
-          async ({ options }, context) => {
+          Permission.ReadOnly,
+          (c, { options }) => {
             const parent = stringOption(options, "parent");
-            return (await client(context)).listProjects({
+            return c.listProjects({
               ...(parent === undefined ? {} : { parent }),
               ...(options.includeArchived === true ? { includeArchived: true } : {}),
               ...pageValues(options),
             });
           },
-          {
-            permission: Permission.ReadOnly,
-            options: [
-              { flags: "--parent <id>", description: "Limit projects to one parent project" },
-              { flags: "--include-archived", description: "Include archived projects" },
-              ...pageOptions,
-            ],
-          },
+          [
+            { flags: "--parent <id>", description: "Limit projects to one parent project" },
+            { flags: "--include-archived", description: "Include archived projects" },
+            ...pageOptions,
+          ],
         ),
-        command(
+        leaf(
           "show <id>",
           "Show one project",
-          async ({ args }, context) => (await client(context)).getProject(args.id),
-          { permission: Permission.ReadOnly },
+          Permission.ReadOnly,
+          (c, { args }) => c.getProject(args.id),
         ),
         ...authoring.projects,
         ...infrastructure.projects,
@@ -221,54 +221,50 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...files.projects,
       ]),
       command("jobs", "Work with TeamCity build configurations", [
-        command(
+        leaf(
           "list",
           "List jobs",
-          async ({ options }, context) => {
+          Permission.ReadOnly,
+          (c, { options }) => {
             const project = stringOption(options, "project");
-            return (await client(context)).listJobs({
+            return c.listJobs({
               ...(project === undefined ? {} : { project }),
               ...pageValues(options),
             });
           },
-          {
-            permission: Permission.ReadOnly,
-            options: [
-              { flags: "--project <id>", description: "Limit jobs to a TeamCity project" },
-              ...pageOptions,
-            ],
-          },
+          [
+            { flags: "--project <id>", description: "Limit jobs to a TeamCity project" },
+            ...pageOptions,
+          ],
         ),
-        command(
+        leaf(
           "show <id>",
           "Show one job",
-          async ({ args }, context) => (await client(context)).getJob(args.id),
-          { permission: Permission.ReadOnly },
+          Permission.ReadOnly,
+          (c, { args }) => c.getJob(args.id),
         ),
-        command(
+        leaf(
           "status <id>",
           "Show the latest operational build status for a job",
-          async ({ args }, context) => (await client(context)).getJobStatus(args.id),
-          { permission: Permission.ReadOnly },
+          Permission.ReadOnly,
+          (c, { args }) => c.getJobStatus(args.id),
         ),
-        command(
+        leaf(
           "run <id>",
           "Queue a new build for a job",
-          async ({ args, options }, context) => {
+          Permission.Update,
+          (c, { args, options }) => {
             const branch = stringOption(options, "branch");
             const comment = stringOption(options, "comment");
-            return (await client(context)).runJob(args.id, {
+            return c.runJob(args.id, {
               ...(branch === undefined ? {} : { branch }),
               ...(comment === undefined ? {} : { comment }),
             });
           },
-          {
-            permission: Permission.Update,
-            options: [
-              { flags: "--branch <name>", description: "Build a specific branch" },
-              { flags: "--comment <text>", description: "Attach a queue comment" },
-            ],
-          },
+          [
+            { flags: "--branch <name>", description: "Build a specific branch" },
+            { flags: "--comment <text>", description: "Attach a queue comment" },
+          ],
         ),
         ...authoring.jobs,
         ...system.jobs,
@@ -277,15 +273,16 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       command("builds", "Inspect and control TeamCity builds", [
         ...operators.builds,
         ...files.builds,
-        command(
+        leaf(
           "list",
           "List operational builds across all branches",
-          async ({ options }, context) => {
+          Permission.ReadOnly,
+          (c, { options }) => {
             const job = stringOption(options, "job");
             const project = stringOption(options, "project");
             const state = stringOption(options, "state") as TeamCityBuildState | undefined;
             const status = stringOption(options, "status") as TeamCityBuildStatus | undefined;
-            return (await client(context)).listBuilds({
+            return c.listBuilds({
               ...(job === undefined ? {} : { job }),
               ...(project === undefined ? {} : { project }),
               ...(state === undefined ? {} : { state }),
@@ -293,171 +290,152 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
               ...pageValues(options),
             });
           },
-          {
-            permission: Permission.ReadOnly,
-            options: [
-              { flags: "--job <id>", description: "Limit builds to one job" },
-              { flags: "--project <id>", description: "Limit builds to one affected project" },
-              {
-                flags: "--state <state>",
-                description: "queued, running, finished, or any",
-                parse: buildState,
-              },
-              {
-                flags: "--status <status>",
-                description: "SUCCESS, FAILURE, or UNKNOWN",
-                parse: buildStatus,
-              },
-              ...pageOptions,
-            ],
-          },
+          [
+            { flags: "--job <id>", description: "Limit builds to one job" },
+            { flags: "--project <id>", description: "Limit builds to one affected project" },
+            {
+              flags: "--state <state>",
+              description: "queued, running, finished, or any",
+              parse: buildState,
+            },
+            {
+              flags: "--status <status>",
+              description: "SUCCESS, FAILURE, or UNKNOWN",
+              parse: buildStatus,
+            },
+            ...pageOptions,
+          ],
         ),
-        command(
+        leaf(
           "show <id>",
           "Show one build",
-          async ({ args }, context) =>
-            (await client(context)).getBuild(positiveInteger(args.id)),
-          { permission: Permission.ReadOnly },
+          Permission.ReadOnly,
+          (c, { args }) => c.getBuild(positiveInteger(args.id)),
         ),
-        command(
+        leaf(
           "tests <id>",
           "List test occurrences for a build",
-          async ({ args, options }, context) => {
+          Permission.ReadOnly,
+          (c, { args, options }) => {
             const status = stringOption(options, "status") as TeamCityTestStatus | undefined;
-            return (await client(context)).listBuildTests(positiveInteger(args.id), {
+            return c.listBuildTests(positiveInteger(args.id), {
               ...(status === undefined ? {} : { status }),
               ...pageValues(options),
             });
           },
-          {
-            permission: Permission.ReadOnly,
-            options: [
-              {
-                flags: "--status <status>",
-                description: "TeamCity test status",
-                parse: testStatus,
-              },
-              ...pageOptions,
-            ],
-          },
+          [
+            {
+              flags: "--status <status>",
+              description: "TeamCity test status",
+              parse: testStatus,
+            },
+            ...pageOptions,
+          ],
         ),
-        command(
+        leaf(
           "problems <id>",
           "List problem occurrences for a build",
-          async ({ args, options }, context) =>
-            (await client(context)).listBuildProblems(
-              positiveInteger(args.id),
-              pageValues(options),
-            ),
-          { permission: Permission.ReadOnly, options: pageOptions },
+          Permission.ReadOnly,
+          (c, { args, options }) =>
+            c.listBuildProblems(positiveInteger(args.id), pageValues(options)),
+          pageOptions,
         ),
-        command(
+        leaf(
           "changes <id>",
           "List source changes associated with a build",
-          async ({ args, options }, context) =>
-            (await client(context)).listBuildChanges(
-              positiveInteger(args.id),
-              pageValues(options),
-            ),
-          { permission: Permission.ReadOnly, options: pageOptions },
+          Permission.ReadOnly,
+          (c, { args, options }) =>
+            c.listBuildChanges(positiveInteger(args.id), pageValues(options)),
+          pageOptions,
         ),
-        command(
+        leaf(
           "cancel <id>",
           "Cancel a running build",
-          async ({ args, options }, context) => {
+          Permission.Update,
+          (c, { args, options }) => {
             const comment = stringOption(options, "comment");
-            return (await client(context)).cancelBuild(positiveInteger(args.id), {
+            return c.cancelBuild(positiveInteger(args.id), {
               ...(comment === undefined ? {} : { comment }),
             });
           },
-          {
-            permission: Permission.Update,
-            options: [{ flags: "--comment <text>", description: "Explain the cancellation" }],
-          },
+          [{ flags: "--comment <text>", description: "Explain the cancellation" }],
         ),
       ]),
       command("queue", "Inspect and control the TeamCity build queue", [
         ...operators.queue,
-        command(
+        leaf(
           "list",
           "List queued builds",
-          async ({ options }, context) => {
+          Permission.ReadOnly,
+          (c, { options }) => {
             const job = stringOption(options, "job");
             const project = stringOption(options, "project");
-            return (await client(context)).listQueue({
+            return c.listQueue({
               ...(job === undefined ? {} : { job }),
               ...(project === undefined ? {} : { project }),
               ...pageValues(options),
             });
           },
-          {
-            permission: Permission.ReadOnly,
-            options: [
-              { flags: "--job <id>", description: "Limit queued builds to one job" },
-              { flags: "--project <id>", description: "Limit queued builds to one project" },
-              ...pageOptions,
-            ],
-          },
+          [
+            { flags: "--job <id>", description: "Limit queued builds to one job" },
+            { flags: "--project <id>", description: "Limit queued builds to one project" },
+            ...pageOptions,
+          ],
         ),
-        command(
+        leaf(
           "cancel <id>",
           "Cancel a queued build",
-          async ({ args, options }, context) => {
+          Permission.Update,
+          (c, { args, options }) => {
             const comment = stringOption(options, "comment");
-            return (await client(context)).cancelQueuedBuild(positiveInteger(args.id), {
+            return c.cancelQueuedBuild(positiveInteger(args.id), {
               ...(comment === undefined ? {} : { comment }),
             });
           },
-          {
-            permission: Permission.Update,
-            options: [{ flags: "--comment <text>", description: "Explain the cancellation" }],
-          },
+          [{ flags: "--comment <text>", description: "Explain the cancellation" }],
         ),
       ]),
       command("agents", "Inspect TeamCity build agents", [
         ...operators.agents,
-        command(
+        leaf(
           "list",
           "List build agents",
-          async ({ options }, context) => {
+          Permission.ReadOnly,
+          (c, { options }) => {
             const connected = stringOption(options, "connected") as TeamCityTriState | undefined;
             const enabled = stringOption(options, "enabled") as TeamCityTriState | undefined;
             const authorized = stringOption(options, "authorized") as TeamCityTriState | undefined;
-            return (await client(context)).listAgents({
+            return c.listAgents({
               ...(connected === undefined ? {} : { connected }),
               ...(enabled === undefined ? {} : { enabled }),
               ...(authorized === undefined ? {} : { authorized }),
               ...pageValues(options),
             });
           },
-          {
-            permission: Permission.ReadOnly,
-            options: [
-              {
-                flags: "--connected <value>",
-                description: "true, false, or any",
-                parse: triState,
-              },
-              {
-                flags: "--enabled <value>",
-                description: "true, false, or any",
-                parse: triState,
-              },
-              {
-                flags: "--authorized <value>",
-                description: "true, false, or any",
-                parse: triState,
-              },
-              ...pageOptions,
-            ],
-          },
+          [
+            {
+              flags: "--connected <value>",
+              description: "true, false, or any",
+              parse: triState,
+            },
+            {
+              flags: "--enabled <value>",
+              description: "true, false, or any",
+              parse: triState,
+            },
+            {
+              flags: "--authorized <value>",
+              description: "true, false, or any",
+              parse: triState,
+            },
+            ...pageOptions,
+          ],
         ),
-        command(
+        leaf(
           "show <id>",
           "Show one build agent",
-          async ({ args }, context) =>
-            (await client(context)).getAgent(positiveInteger(args.id)),
-          { permission: Permission.ReadOnly },
+          Permission.ReadOnly,
+          (c, { args }) => c.getAgent(positiveInteger(args.id)),
         ),
       ]),
       command("vcs", "Inspect and configure version control", [

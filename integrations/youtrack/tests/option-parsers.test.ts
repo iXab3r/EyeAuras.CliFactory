@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { fixture } from "./cli-fixture.js";
+import { configuredFixture, fixture } from "./cli-fixture.js";
 
 const server = setupServer();
 test.before(() => server.listen({ onUnhandledRequest: "error" }));
@@ -10,9 +10,7 @@ test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 
 test("YouTrack paging preserves defaults, leading zeros and inclusive bounds at native fetch", async t => {
-  const f = await fixture(t);
-  await f.cli.execute(["profile", "create", "dev", "--url", "https://youtrack.example.com"]);
-  await f.secrets.set("ai-cli-factory:youtrack-cli", "dev:token", "synthetic-token");
+  const f = await configuredFixture(t, { url: "https://youtrack.example.com" });
   const pages = [["50", "0"], ["1", "0"], ["100", "9007199254740991"]];
   let calls = 0;
   server.use(http.get("https://youtrack.example.com/api/admin/projects", ({ request }) => {

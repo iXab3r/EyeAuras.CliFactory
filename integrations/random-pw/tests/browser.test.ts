@@ -9,7 +9,7 @@ import {
   createCli,
 } from "@eyeauras/cli-factory";
 import { BrowserRuntime } from "@eyeauras/cli-factory-playwright";
-import { liveCases } from "@eyeauras/random-common";
+import { liveCases } from "@eyeauras/random-common/proof";
 import { createRandomPwDefinition } from "../src/cli.js";
 import { site, type SiteState } from "./fixture.js";
 

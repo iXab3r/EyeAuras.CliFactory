@@ -1,17 +1,13 @@
 import {
   deleteObject,
   encodedID,
-  fields,
   issuePath,
   mutate,
   mutationBody,
   narrative,
-  page,
-  readCollection,
-  readObject,
+  readCollectionAt,
+  readObjectAt,
   type Connection,
-  type PageOptions,
-  type ProjectionOptions,
   type YouTrackObject,
 } from "./client.js";
 
@@ -31,52 +27,20 @@ function targetBody(input: unknown): YouTrackObject {
   return { id };
 }
 
-export async function listLinkTypes(
-  connection: Connection,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, "api/issueLinkTypes", page(options, linkTypeFields));
-}
-
-export async function getLinkType(
-  connection: Connection,
-  typeID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, `api/issueLinkTypes/${encodedID(typeID, "link type ID")}`, {
-    fields: fields(options, linkTypeFields),
-  });
-}
-
-export async function listIssueLinks(
-  connection: Connection,
-  issueID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, `${issuePath(issueID)}/links`, page(options, linkFields));
-}
-
-export async function getIssueLink(
-  connection: Connection,
-  issueID: string,
-  linkID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, linkPath(issueID, linkID), { fields: fields(options, linkFields) });
-}
-
-export async function listLinkedIssues(
-  connection: Connection,
-  issueID: string,
-  linkID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(
-    connection,
-    `${linkPath(issueID, linkID)}/issues`,
-    page(options, linkedIssueFields),
-  );
-}
+export const listLinkTypes = readCollectionAt("api/issueLinkTypes", linkTypeFields);
+export const getLinkType = readObjectAt(
+  (typeID: string) => `api/issueLinkTypes/${encodedID(typeID, "link type ID")}`,
+  linkTypeFields,
+);
+export const listIssueLinks = readCollectionAt(
+  (issueID: string) => `${issuePath(issueID)}/links`,
+  linkFields,
+);
+export const getIssueLink = readObjectAt(linkPath, linkFields);
+export const listLinkedIssues = readCollectionAt(
+  (issueID: string, linkID: string) => `${linkPath(issueID, linkID)}/issues`,
+  linkedIssueFields,
+);
 
 export async function addIssueLink(
   connection: Connection,
@@ -99,30 +63,15 @@ export async function removeIssueLink(
   );
 }
 
-export async function listTags(
-  connection: Connection,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, "api/tags", page(options, tagFields));
-}
-
-export async function getTag(
-  connection: Connection,
-  tagID: string,
-  options: ProjectionOptions = {},
-): Promise<YouTrackObject> {
-  return readObject(connection, `api/tags/${encodedID(tagID, "tag ID")}`, {
-    fields: fields(options, tagFields),
-  });
-}
-
-export async function listIssueTags(
-  connection: Connection,
-  issueID: string,
-  options: PageOptions = {},
-): Promise<YouTrackObject[]> {
-  return readCollection(connection, `${issuePath(issueID)}/tags`, page(options, tagFields));
-}
+export const listTags = readCollectionAt("api/tags", tagFields);
+export const getTag = readObjectAt(
+  (tagID: string) => `api/tags/${encodedID(tagID, "tag ID")}`,
+  tagFields,
+);
+export const listIssueTags = readCollectionAt(
+  (issueID: string) => `${issuePath(issueID)}/tags`,
+  tagFields,
+);
 
 export async function addIssueTag(
   connection: Connection,

@@ -7,11 +7,11 @@ import {
   nullableText,
   page,
   readCollection,
-  readObject,
+  readCollectionAt,
+  readObjectAt,
   requiredText,
   type Connection,
   type IssueSearchOptions,
-  type PageOptions,
   type ProjectionOptions,
   type YouTrackObject,
 } from "./client.js";
@@ -22,34 +22,16 @@ function workItemsPath(issueID: string): string {
   return `${issuePath(issueID)}/timeTracking/workItems`;
 }
 
-export async function getTimeTracking(
-  connection: Connection,
-  issueID: string,
-  options: ProjectionOptions = {},
-) {
-  return readObject(connection, `${issuePath(issueID)}/timeTracking`, {
-    fields: fields(options, "id,enabled"),
-  });
-}
-
-export async function listIssueWorkItems(
-  connection: Connection,
-  issueID: string,
-  options: PageOptions = {},
-) {
-  return readCollection(connection, workItemsPath(issueID), page(options, workItemFields));
-}
-
-export async function getIssueWorkItem(
-  connection: Connection,
-  issueID: string,
-  itemID: string,
-  options: ProjectionOptions = {},
-) {
-  return readObject(connection, `${workItemsPath(issueID)}/${encodedID(itemID, "work item ID")}`, {
-    fields: fields(options, workItemFields),
-  });
-}
+export const getTimeTracking = readObjectAt(
+  (issueID: string) => `${issuePath(issueID)}/timeTracking`,
+  "id,enabled",
+);
+export const listIssueWorkItems = readCollectionAt(workItemsPath, workItemFields);
+export const getIssueWorkItem = readObjectAt(
+  (issueID: string, itemID: string) =>
+    `${workItemsPath(issueID)}/${encodedID(itemID, "work item ID")}`,
+  workItemFields,
+);
 
 export async function listWorkItems(connection: Connection, options: IssueSearchOptions = {}) {
   return readCollection(connection, "api/workItems", {
@@ -58,15 +40,10 @@ export async function listWorkItems(connection: Connection, options: IssueSearch
   });
 }
 
-export async function getWorkItem(
-  connection: Connection,
-  itemID: string,
-  options: ProjectionOptions = {},
-) {
-  return readObject(connection, `api/workItems/${encodedID(itemID, "work item ID")}`, {
-    fields: fields(options, workItemFields),
-  });
-}
+export const getWorkItem = readObjectAt(
+  (itemID: string) => `api/workItems/${encodedID(itemID, "work item ID")}`,
+  workItemFields,
+);
 
 function timestamp(value: unknown, name: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value)) {
@@ -168,4 +145,3 @@ export async function updateWorkItem(
     fields(options, workItemFields),
   );
 }
-

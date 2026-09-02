@@ -1,7 +1,6 @@
 import {
   command,
   createCli,
-  Permission,
   tokenAuth,
   type CliApplication,
   type CliRuntime,
@@ -18,7 +17,14 @@ import {
   updateIssue,
   youTrackUrl,
 } from "./client.js";
-import { bodyOptions, connection, pageOptions, projectionOptions, readOptions } from "./cli-support.js";
+import {
+  bodyUpdate,
+  pagedRead,
+  pageOptions,
+  projectedRead,
+  readCommand,
+  readOptions,
+} from "./cli-support.js";
 import { contextRootCommands, contextIssueChildren, contextCommentChildren } from "./issue-context-commands.js";
 import { timeRootCommands, timeIssueChildren } from "./issue-time-commands.js";
 import { relationsRootCommands, relationsIssueChildren } from "./issue-relations-commands.js";
@@ -82,11 +88,10 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
       command("user", "Inspect YouTrack users", [
         ...fieldsUserChildren,
         ...userDirectoryUserChildren,
-        command(
+        projectedRead(
           "me",
           "Show the authenticated user (default: ID and login)",
-          async ({ options }, context) => readUser(await connection(context), readOptions(options)),
-          { permission: Permission.ReadOnly, options: projectionOptions },
+          readUser,
         ),
       ]),
       command("project", "Inspect YouTrack projects", [
@@ -94,12 +99,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
         ...timeSettingsProjectChildren,
         ...groupDirectoryProjectChildren,
         ...articlesProjectChildren,
-        command(
-          "list",
-          "List one page of projects",
-          async ({ options }, context) => listProjects(await connection(context), readOptions(options)),
-          { permission: Permission.ReadOnly, options: pageOptions },
-        ),
+        pagedRead("list", "List one page of projects", listProjects),
       ]),
       command("issues", "Read and update YouTrack issues", [
         ...contextIssueChildren,
@@ -108,54 +108,37 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
         ...fieldsIssueChildren,
         ...attachmentsIssueChildren,
         ...queryIssueChildren,
-        command(
+        bodyUpdate(
           "create",
           "Create an issue with project.id, summary and optional description",
-          async ({ options }, context) =>
-            createIssue(await connection(context), options.body),
-          { permission: Permission.Update, options: bodyOptions },
+          createIssue,
         ),
-        command(
+        bodyUpdate(
           "update <issueID>",
           "Update summary and/or description; description null clears it",
-          async ({ args, options }, context) =>
-            updateIssue(await connection(context), args.issueID, options.body),
-          { permission: Permission.Update, options: bodyOptions },
+          updateIssue,
         ),
-        command(
+        readCommand(
           "list",
           "Search one page of issues using YouTrack query syntax",
-          async ({ options }, context) => listIssues(await connection(context), readOptions(options)),
-          {
-            permission: Permission.ReadOnly,
-            options: [
-              ...pageOptions,
-              { flags: "--query <query>", description: "YouTrack search query" },
-            ],
-          },
+          (client, { options }) => listIssues(client, readOptions(options)),
+          [
+            ...pageOptions,
+            { flags: "--query <query>", description: "YouTrack search query" },
+          ],
         ),
-        command(
-          "get <issueID>",
-          "Show an issue by database or readable ID",
-          async ({ args, options }, context) =>
-            getIssue(await connection(context), args.issueID, readOptions(options)),
-          { permission: Permission.ReadOnly, options: projectionOptions },
-        ),
+        projectedRead("get <issueID>", "Show an issue by database or readable ID", getIssue),
         command("comments", "Read and add issue comments", [
           ...contextCommentChildren,
-          command(
+          bodyUpdate(
             "add <issueID>",
             "Add a comment with a nonempty text field",
-            async ({ args, options }, context) =>
-              addComment(await connection(context), args.issueID, options.body),
-            { permission: Permission.Update, options: bodyOptions },
+            addComment,
           ),
-          command(
+          pagedRead(
             "list <issueID>",
             "List one page of comments for an issue",
-            async ({ args, options }, context) =>
-              listComments(await connection(context), args.issueID, readOptions(options)),
-            { permission: Permission.ReadOnly, options: pageOptions },
+            listComments,
           ),
         ]),
       ]),

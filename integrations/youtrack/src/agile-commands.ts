@@ -1,59 +1,34 @@
-import { command, Permission } from "@eyeauras/cli-factory";
-import { bodyOptions, connection, pageOptions, projectionOptions, readOptions } from "./cli-support.js";
+import { command } from "@eyeauras/cli-factory";
+import { pagedRead, projectedBodyUpdate, projectedRead } from "./cli-support.js";
 import { createSprint, getAgile, getSprint, listAgiles, listSprints, updateSprint } from "./agile.js";
 
 export const agileRootCommands = [
   command("agile", "Inspect agile boards", [
-    command(
-      "list",
-      "List one page of accessible agile boards",
-      async ({ options }, context) => listAgiles(await connection(context), readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
-    command(
+    pagedRead("list", "List one page of accessible agile boards", listAgiles),
+    projectedRead(
       "get <agile>",
       "Read an agile board without expanding its sprints or projects",
-      async ({ args, options }, context) =>
-        getAgile(await connection(context), args.agile, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
+      getAgile,
     ),
   ]),
   command("sprint", "Inspect and explicitly manage sprint plans", [
-    command(
-      "list <agile>",
-      "List one page of a board's sprints",
-      async ({ args, options }, context) =>
-        listSprints(await connection(context), args.agile, readOptions(options)),
-      { permission: Permission.ReadOnly, options: pageOptions },
-    ),
-    command(
+    pagedRead("list <agile>", "List one page of a board's sprints", listSprints),
+    projectedRead(
       "get <agile> <sprint>",
       "Read a sprint; use current for the board's current sprint",
-      async ({ args, options }, context) =>
-        getSprint(await connection(context), args.agile, args.sprint, readOptions(options)),
-      { permission: Permission.ReadOnly, options: projectionOptions },
+      getSprint,
     ),
-    command(
+    projectedBodyUpdate(
       "create <agile>",
       "Create with name; optional previousSprint.id moves unresolved issues from that sprint. " +
         "isDefault: true automatically adds matching new issues. Neither setting is inferred.",
-      async ({ args, options }, context) =>
-        createSprint(await connection(context), args.agile, options.body, readOptions(options)),
-      { permission: Permission.Update, options: [...bodyOptions, ...projectionOptions] },
+      createSprint,
     ),
-    command(
+    projectedBodyUpdate(
       "update <agile> <sprint>",
       "Update supplied name/goal/start/finish/archived/isDefault; use current for the current sprint. " +
         "isDefault: true automatically adds matching new issues; previousSprint is creation-only.",
-      async ({ args, options }, context) =>
-        updateSprint(
-          await connection(context),
-          args.agile,
-          args.sprint,
-          options.body,
-          readOptions(options),
-        ),
-      { permission: Permission.Update, options: [...bodyOptions, ...projectionOptions] },
+      updateSprint,
     ),
   ]),
 ];
