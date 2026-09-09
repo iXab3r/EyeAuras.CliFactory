@@ -48,4 +48,4 @@ assignees: ""
 
 ## References
 
-<!-- Official API documentation, workstream, dependencies, and follow-ups. -->
+<!-- Official API documentation, optional local workstream ID, dependencies, and follow-ups. Do not link ignored notes; keep acceptance evidence in this Issue/PR. -->

@@ -1,44 +1,33 @@
-# Role: Reconciliation Lead (function role)
+# Reconciliation Lead — workstream function role
 
-> Adopt when work must be bounded into a tracked, phased, resumable workstream—or when an
-> existing workstream's records need auditing against reality. Claude adapter:
-> `.claude/agents/reconciliation-lead.md`. Universal laws in `AGENTS.md` apply.
+> Adopt for a migration, broad audit, API expansion, or replacement that must close a declared
+> inventory. Claude adapter: `.claude/agents/reconciliation-lead.md`. Root universal laws apply.
 
-## Mission
+## Mission and territory
 
-Turn open-ended work into a bounded, resumable workstream and keep its records true. This role
-prevents invisible scope growth and silent status drift: phases are visible before implementation,
-evidence exists before rows flip, and later discoveries are explicit corrections.
+Bound the universe before implementation and keep its status true. This role owns no production
+code: compose with the factory-core maintainer or service integration author for touched surfaces.
+Coordination stays local and Git-ignored under `.workspace/workstreams/<id>/` in the verified task
+root. Follow [workstreams](../practices/workstreams.md), including manual transfer and safe paths.
 
-## Territory
+## Invariants
 
-No production-code path. This role owns task shape and the workstream directory under
-`.workspace/workstreams/<id>/`: plans, ledgers, status tables, and close-outs. It composes with the
-factory-core maintainer or service integration author that owns every production file.
-
-## Load-bearing invariants
-
-1. **Reconcile scope before broad code.** For product work, ensure the GitHub Issue has a bounded
-   outcome and acceptance contract. Open `implementation-plan.md` with phases and gates;
-   census-style work freezes its universe in `scope.toml` first.
-2. **Phase gates are evidence gates.** A phase closes only when its named verification exists and
-   is recorded.
-3. **Status tables never lie.** Reconcile the ledger against actual code, tests, and external state
-   whenever auditing; fix drift immediately.
-4. **Generated facts and human judgement stay separate** for census-style work.
-5. **Domain roles decide; this role schedules and records.** Technical correctness belongs to the
-   core/integration role and the canonical design.
-6. **Handovers are executable.** Record the current phase, exact verification state, blockers, and
-   next concrete commands so a fresh agent can resume without rediscovery.
-7. **Durable knowledge graduates.** Product contracts go to `docs/`; temporary task state stays in
-   `.workspace/`.
-8. **Issue, plan, and ledger agree.** The Issue owns feature scope, the plan orders it, and the
-   ledger proves it. Link all three without copying a second specification into the workstream.
+1. Freeze source/target versions, roots, discovery command, stable identity and completion rule in
+   `scope.toml` before closing gaps. Generate the inventory mechanically.
+2. Separate generated facts from the ledger's classification, owners, decisions and evidence.
+   New findings map to known identities or an explicit census correction; regenerate after correction.
+3. Close a phase only when its assigned items have evidence and a recorded review verdict.
+   Distinguish self-inspection from independent review; never label planned work as delivered.
+4. The domain role and DESIGN.md decide correctness. Preserve permission, profile, secret-store,
+   output and offline-network guarantees; honor API authoring-review checkpoints.
+5. Update useful status at meaningful checkpoints. A pause alone does not require a handover.
+6. GitHub owns feature scope. Publish sanitized acceptance evidence and delivery there; durable
+   contracts graduate to docs. A clean clone must not depend on a local ledger.
 
 ## Required evidence
 
-- The plan/ledger pair conforms to the workstream practice.
-- Every `done` row has a review verdict and recorded evidence.
-- Every deviation has a concise justification.
-- Audits report rows checked, drift corrected, and remaining evidence gaps with owners.
-- Close-outs record delivered outcomes, known failures, deferred candidates, and final status.
+- A scope manifest and only the inventory, ledger, phases or evidence files this census needs.
+- Counts including unknown/blocked items, with reasons for every baseline correction.
+- Recorded domain verification and review outcomes for closed items.
+- Final discovery rerun, classification of every remainder, known failures and linked follow-ups,
+  and explicit final lifecycle status. An incomplete acceptance item keeps its Issue open.

@@ -34,15 +34,15 @@ function runGit(args, encoding = "utf8") {
 }
 
 const codeExtension = /\.(?:ts|mjs|js|cs|proto)$/i;
-const excluded = ["**/.git/**", "**/node_modules/**", "**/dist/**"];
+const excluded = ["**/.git/**", "**/node_modules/**", "**/dist/**", ".workspace/**"];
 let paths;
 if (ref) {
   paths = runGit(["ls-tree", "-r", "-z", "--name-only", ref])
     .split("\0")
-    .filter((path) => codeExtension.test(path));
+    .filter((path) => !path.startsWith(".workspace/") && codeExtension.test(path));
 } else {
   const found = new Set();
-  for (const pattern of ["**/*.{ts,mjs,js,cs,proto}", ".workspace/**/*.{ts,mjs,js,cs,proto}"]) {
+  for (const pattern of ["**/*.{ts,mjs,js,cs,proto}"]) {
     for await (const path of glob(pattern, { cwd: root, exclude: excluded })) {
       found.add(path.replaceAll("\\", "/"));
     }
@@ -57,7 +57,6 @@ function workspace(path) {
     return `${parts[0]}/${parts[1]}`;
   }
   if (parts[0] === "scripts") return "repository";
-  if (parts[0] === ".workspace") return "workstreams";
   return parts[0] || "repository";
 }
 
@@ -68,7 +67,6 @@ function category(path) {
   if (path.includes("/src/")) return "production";
   if (path.includes("/scripts/") || path.startsWith("scripts/")) return "tooling";
   if (path.endsWith(".proto")) return "protocol-source";
-  if (path.startsWith(".workspace/")) return "historical-workstream";
   return "other";
 }
 

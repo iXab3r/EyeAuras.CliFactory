@@ -310,16 +310,10 @@ under Node 24 in Ubuntu 20.04/WSL on real Unix sockets. This is not evidence of 
 of a Linux browser run; the CI matrix provisions browsers for those future runs.
 
 The fixed real-service proof is four sequential read cases per example, outside default tests
-and CI. See the [workstream ledger](../.workspace/workstreams/random-playwright/implementation-ledger.md)
-for versions, counts and measurements. Hard process kill or power loss is not a graceful dispose
-guarantee; no cross-platform process-tree reaper/job-object framework is claimed.
-
-The [review/fix loop](../.workspace/workstreams/random-playwright/review-fix-loop.md)
-records the latest local verification. The earlier
-[corrective review](../.workspace/workstreams/random-playwright/review-ledger.md)
-retains its dated 148-test offline Windows baseline; see also the
-[authoring cost comparison](../.workspace/workstreams/random-playwright/authoring-review.md).
-Earlier cross-platform/live evidence is dated and was not rerun for this corrective slice.
+and CI. Hard process kill or power loss is not a graceful dispose guarantee; no cross-platform
+process-tree reaper/job-object framework is claimed. Platform evidence above is historical, not a
+claim that all platforms were rerun for later changes. New verification receipts belong in the
+owning Issue/PR and CI, not in links to local notes.
 
 ## IPC command-name migration
 

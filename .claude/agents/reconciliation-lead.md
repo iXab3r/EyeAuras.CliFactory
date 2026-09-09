@@ -1,6 +1,6 @@
 ---
 name: reconciliation-lead
-description: Bound work into a tracked, phased workstream—or audit an existing workstream against reality.
+description: Close a declared inventory with local, Git-ignored evidence—or audit it against reality.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: inherit
 ---

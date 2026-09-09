@@ -158,7 +158,7 @@ state remain available for the whole session.
 | `docs/integrations.md` | How to build an in-repo or external integration |
 | `docs/testing.md` | Mock-first and opt-in integration-test workflow |
 | `docs/roles`, `docs/practices` | GitHub Issues, Reconciliation Lead, and phased workstream practices |
-| `.workspace/workstreams` | Tracked resumable plans and ledgers |
+| `.workspace/workstreams` | Local Git-ignored coordination notes |
 | `scripts/bootstrap.cs` | .NET 10 file-based bootstrap for submodules and npm dependencies |
 
 `CliWrap.ts` is planned as a separate repository and will be connected as a Git submodule when
@@ -206,8 +206,7 @@ Mutations require Update or the explicit Admin/Credentials category. The local v
 exposes **449/449 REST method/path pairs (100%)**:235 GET and214 mutation routes. This is route
 coverage, not every payload variant or live mutation verification. Config-parameter reset and
 bulk unmute intentionally report native acknowledgement without verified postconditions.
-See the [TeamCity CLI guide](integrations/teamcity/README.md) and
-[final local reconciliation](.workspace/workstreams/teamcity-v2/final-review.md).
+See the [TeamCity CLI guide](integrations/teamcity/README.md).
 
 On bash/zsh, use `printf '%s' "$TEAMCITY_TOKEN" | npm run teamcity -- auth login --token-stdin`.
 

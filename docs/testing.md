@@ -153,7 +153,7 @@ Install Chromium explicitly before the default suite with `npm run browser:insta
 `-- --with-deps`). Missing required binaries fail tests; no silent skip is permitted. Real-service
 proof never runs in CI. Process tests stop their own hosts before deleting synthetic AppData.
 Transport tests run on real local named pipes/Unix sockets, not TCP substitutes. See the
-[platform evidence](../.workspace/workstreams/random-playwright/implementation-ledger.md).
+[platform qualification limits](runtime-modules.md#development-evidence).
 
 ## Bounded response regressions
 

@@ -13,7 +13,7 @@ public API. If code and design disagree, stop and reconcile them explicitly.
 | `packages/core/**` | [`packages/core/AGENTS.md`](packages/core/AGENTS.md) | Service-agnostic CLI mechanisms |
 | `integrations/**` | [`integrations/AGENTS.md`](integrations/AGENTS.md) + [`docs/integrations.md`](docs/integrations.md) | Thin, service-shaped products |
 | tests or fixtures | [`docs/testing.md`](docs/testing.md) | Mock-first evidence and sanitization |
-| GitHub Issues or issue templates | [`docs/practices/github-issues.md`](docs/practices/github-issues.md) | Feature scope, bug evidence, and closure contract |
+| GitHub Issues or issue templates | [`docs/roles/gh-issue-dev.md`](docs/roles/gh-issue-dev.md) + [`docs/practices/github-issues.md`](docs/practices/github-issues.md) | Issue delivery, status, review, merge, and verified closure |
 | `scripts/**`, `.github/**`, docs | This file + relevant design section | Repository tooling and public contract |
 
 More specific `AGENTS.md` files override this router only inside their directory.
@@ -67,12 +67,20 @@ More specific `AGENTS.md` files override this router only inside their directory
 
 ## Function role: Reconciliation Lead
 
-Use **Reconciliation Lead** when work has multiple useful phases, a declared inventory, or needs
-to be resumable by another agent. Read [`docs/roles/reconciliation-lead.md`](docs/roles/reconciliation-lead.md)
-and [`docs/practices/workstreams.md`](docs/practices/workstreams.md). When a GitHub Issue owns the
-feature scope, also read [`docs/practices/github-issues.md`](docs/practices/github-issues.md). The
-role owns plans and ledgers under `.workspace/workstreams/`; it composes with, but never replaces,
-the domain role that owns production code.
+Use **Reconciliation Lead** for a migration, API expansion, replacement or broad audit that must
+close a declared inventory. Read [`docs/roles/reconciliation-lead.md`](docs/roles/reconciliation-lead.md)
+and [`docs/practices/workstreams.md`](docs/practices/workstreams.md). All ongoing coordination notes
+stay local and Git-ignored under `.workspace/workstreams/<id>/` of the verified absolute task root.
+Do not commit/push notes or transfer them through Git. Small fixes and ordinary handoffs need no
+workstream; graduate only durable guidance to `docs/`.
+
+## Function role: GH issue dev
+
+**GitHub Issues is the primary tracker**, including work on the YouTrack integration. Adopt
+[`GH issue dev`](docs/roles/gh-issue-dev.md) for issue delivery and compose with the owning domain
+role. The role owns intake, visible status, implementation, review, merge and verified closure.
+A request to install these rules alone does not authorize remote issue writes. Follow the
+[delivery lifecycle](docs/practices/github-issues.md) and honor explicit direct-to-main requests.
 
 ## Repository shape
 
@@ -81,7 +89,7 @@ packages/core/           shared factory primitives
 integrations/teamcity/   first executable integration
 docs/                    canonical design and practices
 scripts/                 .NET 10 bootstrap and repository tools
-.workspace/workstreams/  tracked plans, ledgers, and handovers for phased work
+.workspace/workstreams/  local Git-ignored coordination notes
 ```
 
 Submodules are initialized through `dotnet run --file scripts/bootstrap.cs`. Add a submodule only

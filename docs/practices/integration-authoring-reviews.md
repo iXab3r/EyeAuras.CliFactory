@@ -65,7 +65,8 @@ The goal remains reducing future authoring effort; do not create complexity to m
 
 The review record must include the baseline/count, sample diffs, total code and test changes,
 scope of shared improvements, complexity tradeoffs, checks run and a pass/follow-up verdict.
-Required corrective work lands before the next batch starts. A passing test suite alone is not
+Publish sanitized checkpoint evidence and the verdict in the owning GitHub Issue/PR; ignored
+local notes are not the only delivery record. Required corrective work lands before the next batch starts. A passing test suite alone is not
 an authoring/simplicity review.
 
 Integration/Core roles judge technical correctness. Reconciliation Lead keeps counters, evidence

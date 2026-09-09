@@ -79,12 +79,9 @@ Single-owner parameter, step, extension, dependency and attachment lists use the
 server order; these endpoints do not support paging options. `vcs roots list --project <id>`
 filters by direct project. Local v2 coverage is **449/449 unique REST method/path pairs (100%)**:
 235/235 GET and214/214 mutation routes; no inventory rows remain unexposed. This does not promise
-every parameter/payload variant or live mutation verification. See the [final review](../../.workspace/workstreams/teamcity-v2/final-review.md)
-for evidence and the two native-action postcondition limitations. Code publication is pending.
-This is route coverage, not complete payload/feature coverage. The
-[+100](../../.workspace/workstreams/teamcity-v2/checkpoint-100-review.md) and
-[+150 authoring checkpoints](../../.workspace/workstreams/teamcity-v2/checkpoint-150-review.md)
-record the two 50-route reviews in the latest 100-route slice. Review counters exclude the 17-route baseline.
+every parameter/payload variant or live mutation verification. Config-parameter reset and bulk
+unmute report native acknowledgement without verified postconditions. Review counters exclude the
+17-route baseline; future expansion follows the [authoring-review practice](../../docs/practices/integration-authoring-reviews.md).
 
 ## Author a job
 

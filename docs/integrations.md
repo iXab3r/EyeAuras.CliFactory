@@ -378,10 +378,10 @@ paths, projections, paging, request bodies, response policy or service validatio
 
 ## Grow by useful phases
 
-Use the **Reconciliation Lead** function role when the useful path contains multiple phases or a
-large API surface. First make the GitHub feature Issue implementation-ready with its user outcome,
+Use the **Reconciliation Lead** function role when an API expansion must close a declared
+inventory. First make the GitHub feature Issue implementation-ready with its user outcome,
 selected REST inventory, CLI mapping, permission category per leaf, explicit exclusions, and
-acceptance criteria. Then open or reconcile a tracked workstream before broad implementation; each
+acceptance criteria. Then open or reconcile a local Git-ignored workstream before broad implementation; each
 phase needs a user outcome and an evidence gate. The Issue owns scope while the workstream owns
 execution status. Do not use endpoint count as the ordering principle. See
 [`practices/github-issues.md`](practices/github-issues.md).
@@ -394,8 +394,8 @@ A typical REST sequence is:
 4. narrowly selected `Update` operations with explicit tests;
 5. streaming, bulk work, or administrative surfaces only when consumers need them.
 
-The live TeamCity example is [`.workspace/workstreams/teamcity-rest/`](../.workspace/workstreams/teamcity-rest/).
-It orders TeamCity REST work by user/agent value and keeps update operations behind `Update`.
+The [TeamCity guide](../integrations/teamcity/README.md) documents the shipped surface and
+permission boundaries. Keep acceptance and checkpoint evidence in its GitHub Issue/PR.
 
 ## Test the declaration, not a parallel implementation
 

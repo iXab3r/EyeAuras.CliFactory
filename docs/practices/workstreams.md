@@ -1,63 +1,101 @@
 # Workstreams
 
-> **Status: binding practice.** Adapted from the proven EyeAuras.Vizor Reconciliation Lead model.
+> **Status: practice** (binding).
 
-Use a workstream for work that has multiple useful phases, must close a declared inventory, spans
-several agent turns, or needs a reliable handover. A localized fix does not need one.
+Use a workstream only when a task must close a declared universe: a migration, parity/reconstruction
+campaign, public-contract replacement, broad audit, security review, performance campaign, or systematic
+deprecation removal. A localized fix or ordinary handoff does not need one.
 
 ## Location and authority
 
-Tracked coordination lives under `.workspace/workstreams/<id>/`. It is not product documentation
-and never overrides code, `docs/DESIGN.md`, practices, or role guides. Durable contracts and
-decisions graduate to `docs/`.
+All coordination artifacts (scratch plans, ledgers, handovers, and lightweight evidence) stay local and
+Git-ignored under `.workspace/workstreams/<id>/`. Do not commit/push them, put them beside this directory,
+or treat them as authority over code, specs, practices, or role guides.
+
+Before the first note write, fix the **absolute project/worktree root of the current task** and verify
+it with `git -C <project-root> rev-parse --show-toplevel`. Derive every note path from this root, even
+when commands run from `src/` or a submodule. Do not choose the Git common directory, the first worktree
+in a listing, a similar sibling folder, or a path copied from an old handover. Resolve junction/symlink
+ancestors before writing; if the destination escapes this root or resolves into another checkout, stop
+the write and report the mismatch. An explicitly declared worktree handoff establishes a new task root.
+
+## Manual transfer
+
+The user copies selected files or the current workstream directory into
+`.workspace/workstreams/<id>/` of the receiving worktree. Use this same directory for transfer; do not
+create a separate handover directory, automatically copy to a neighbor, or publish notes through Git.
+A receiving agent binds future notes to its own verified task root. Source checkout paths are context,
+never a destination instruction, and transferring notes does not transfer uncommitted source changes.
+
+An optional `handover.md` contains only what resumption needs: issue/goal, source branch and commit,
+changed files/current state, completed checks and limitations, blockers, and next actions. No handover
+or ledger is mandatory for every small task or pause. Record durable decisions and final verification
+results in the appropriate docs, issue, or PR so a clean clone does not depend on local notes.
+
+Runtime credentials, browser auth state, and explicitly requested sensitive videos belong only in
+current-user profile AppData under DESIGN.md, never in notes or fixtures. Large generated evidence
+stays outside tracked source; record only sanitized conclusions and artifact identity in local notes.
 
 ## Relationship to GitHub Issues
 
-For product work, a linked GitHub Issue owns the feature or bug contract: outcome, bounded scope,
-behavioral decisions, and acceptance criteria. The workstream owns execution order, status, and
-evidence. Link them in both directions and point plan phases to Issue sections instead of copying
-endpoint inventories or command tables. Scope changes happen in the Issue first; the ledger records
-the resulting deviation and link. Full rules are in [`github-issues.md`](github-issues.md).
+GitHub Issues own the bounded outcome, behavior and acceptance criteria. Local notes order the work
+and record census details; they are not a second feature specification. Record the workstream ID in
+the Issue when useful, never a link that assumes access to ignored files. Publish sanitized acceptance
+evidence, review verdicts and final delivery in the Issue/PR so a clean clone can understand delivery.
+Scope changes go into the Issue first. Follow [GitHub Issues](github-issues.md).
 
 ## Minimum contract
 
-Create two files:
+A new reconciliation workstream starts with `scope.toml` containing:
 
-- `implementation-plan.md`: goal, constraints, ordered phases, scope of each phase, explicit gate,
-  and review protocol.
-- `implementation-ledger.md`: a status table at the top and chronological per-phase evidence.
+- stable ID and title;
+- explicit status;
+- source/reference and target roots/versions;
+- discovery/census command and stable identity rule;
+- artifact names and completion rule.
 
-The ledger table has one row per phase:
+Add only the artifacts the work needs:
 
-```text
-Phase | Scope | Status | Agent | Review
-```
+| Artifact | Purpose |
+|---|---|
+| `inventory.tsv` | mechanically reproducible source universe |
+| `ledger.md` / `ledger.tsv` | human classification, owner, state, decision, evidence |
+| `phases.md` | ordered gates for a multi-phase implementation |
+| `evidence.md` | commands, measurements, captures, review outcomes |
+| `handover.md` | optional current resume point when another agent actually needs one |
 
-Statuses are `pending → in progress → awaiting review → done`, or `blocked` with the blocker named.
-The implementing role moves a row to `awaiting review` and appends evidence. Only the reviewer or
-orchestrator moves it to `done` and records the verdict.
+`handover.md` is not mandatory for every task. Chat history is also not a substitute for a ledger entry
+when a finding belongs to a declared census.
 
-Evidence includes focused verification output, changed-surface maps where useful, deviations with
-one-line reasons, and escalations. If a table and its evidence disagree, correct the table
-immediately.
+Use a clear lifecycle. `active`, `blocked`, `complete`, and `archived` are the preferred top-level
+categories; a workstream may use a more specific status if its `scope.toml` defines the meaning. A record
+without an explicit active scope is historical by default.
 
-## Census-style additions
+## Workflow
 
-When a workstream closes a universe, add `scope.toml` with a stable ID, status, roots/versions,
-discovery command, and identity rule. Keep generated inventory separate from human classification.
-A finding maps to an inventory item or records a census correction; it never exists only in chat.
+1. Freeze scope and stable identity before edits.
+2. Generate the raw census and record its count.
+3. Classify with the owning domain roles; do not make unknown items look closed.
+4. Implement coherent phases and record evidence at meaningful checkpoints.
+5. On pause, update the current status/ledger and add a handover only if resumption requires it.
+6. On completion, rerun the census, classify every remainder, and set the final status.
+7. Graduate only durable contracts, specs, practices, and decisions into `docs/`.
 
-## Lifecycle
+A new finding is either an existing inventory item newly understood or a documented census defect that
+requires regenerating the inventory. It must not exist only in chat.
 
-The explicit lifecycle is `active`, `blocked`, `complete`, or `archived`. On pause, make the ledger
-resumable; add `handover.md` only when the ledger cannot carry the necessary commands and context.
-On completion, record delivered outcomes, the known-failure set, deferred candidates, final
-verification, and final status. A linked Issue closes only after this close-out and its own
-acceptance checklist are complete.
+## Retention and cleanup
 
-## Phase design for integrations
+Delete obsolete local records when they no longer help the task. Do not retain or republish the old
+workstream archive, move temporary plans into `docs/`, or rely on Git history for new notes. Before
+cleanup, preserve only necessary durable guidance in its owning document and remove consumers of the
+notes. Delete exact verified note paths only: `.workspace/` can also contain real Git worktrees and
+must never be recursively removed as a notes directory.
 
-Order phases by user/agent value, not by REST documentation order. Keep each phase independently
-useful. Start with auth/profile proof and high-value reads; introduce side effects only after
-`ReadOnly` behavior is stable and the `Update` gate is tested. Each phase should add the smallest
-coherent command subtree and its MSW evidence.
+## Integration phases and authoring reviews
+
+Order phases by user/agent value: profile/auth proof, bounded ReadOnly operations, then explicitly
+gated mutations. Freeze method/path identities for API inventories; route coverage does not prove
+every payload variant or live mutation. Apply the [authoring-review cadence](integration-authoring-reviews.md)
+before the next batch. Keep reproducible counts separate from human acceptance and publish the
+checkpoint verdict and necessary evidence in the Issue/PR, not only in ignored notes.
