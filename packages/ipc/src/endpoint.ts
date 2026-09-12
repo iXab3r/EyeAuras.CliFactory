@@ -14,10 +14,6 @@ export function hostPaths(app: IAppArguments) {
     process.platform === "win32"
       ? "\\\\.\\pipe\\clifactory-" + identity
       : join(directory, "host.sock");
-  if (process.platform !== "win32" && Buffer.byteLength(path) > 100)
-    throw new Error(
-      "Application AppData path exceeds the Unix socket path limit.",
-    );
   return {
     directory,
     path,

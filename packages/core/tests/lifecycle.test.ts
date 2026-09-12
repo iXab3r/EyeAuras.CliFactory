@@ -1052,3 +1052,18 @@ test("profile mutation waits for service work and queued work rechecks updated c
   assert.equal(await last, "https://updated.invalid");
   await app.dispose();
 });
+
+
+test("RPC does not create an implicit operation timeout and still respects owner cancellation", async t => {
+  const runtime = await harness(t);
+  const timeout = t.mock.method(AbortSignal, "timeout", () => {
+    throw new Error("An implicit deadline was created");
+  });
+  const app = createCli({ name: "lifecycle-test", description: "fixture", runtime,
+    commands: [command("signal", "Inspect invocation", (_input, context) => ({ aborted: context.signal.aborted }))] });
+  t.after(() => app.dispose());
+  const streams = { ...io(), input: Readable.from([JSON.stringify({jsonrpc:"2.0",id:1,method:"cli.execute",params:{argv:["signal"]}})+"\n"]) };
+  assert.equal(await app.run(["--json-rpc"], streams), 0);
+  assert.deepEqual(JSON.parse(streams.out()).result, { aborted: false });
+  assert.equal(timeout.mock.callCount(), 0);
+});

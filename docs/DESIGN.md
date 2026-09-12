@@ -459,12 +459,12 @@ profile's credential.
 its obsolete status. Its two service commands, `integers` and `sequence`, share the `random-common`
 client contract and return `{ values: number[] }`. They support normal human/JSON/JSON-RPC output
 and profile-specific ReadOnly permission checks. ReadOnly here means no user-record mutation;
-generation consumes the service's IP-based random-bit quota. Output is bounded to 100 integers.
+generation consumes the service's IP-based random-bit quota. Result counts have no local ceiling.
 Both commands require `min < max`; the legacy service does not accept equal bounds.
 
 The normal profile defaults to the explicitly selected public RANDOM.ORG HTTPS origin and requires
 operator contact information for User-Agent, not credentials. It has no auth flow or keyring proof
-requirement. HTTP behavior includes a quota check, timeout, cancellation and strict result parsing.
+requirement. HTTP behavior includes a quota check, caller cancellation and strict result parsing, without an implicit operation deadline.
 `random-pw-cli` exposes the identical declarations through real browser forms and DOM extraction.
 Both examples compose the optional gRPC host and choose command concurrency one. The host reuses
 HTTP clients or headless Chromium between invocations; HTTP does not depend on Playwright.

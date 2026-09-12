@@ -455,10 +455,7 @@ export function createCli(definition: CliDefinition): CliApplication {
                 execute(rpcArguments, {
                   ...execution,
                   render: false,
-                  signal: AbortSignal.any([
-                    execution.signal,
-                    AbortSignal.timeout(5 * 60_000),
-                  ]),
+                  signal: execution.signal,
                 }),
             });
             return 0;

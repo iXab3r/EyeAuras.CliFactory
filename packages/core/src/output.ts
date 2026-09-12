@@ -53,7 +53,7 @@ export function formatHuman(value: unknown): string {
       .map(([key, entry]) => `${key}: ${displayCell(entry)}`)
       .join("\n");
   }
-  return inspect(value, { colors: false, depth: 6, compact: false });
+  return inspect(value, { colors: false, depth: null, maxArrayLength: null, maxStringLength: null, compact: false });
 }
 
 export function writeResult(output: Writable, value: unknown, json: boolean): void {
