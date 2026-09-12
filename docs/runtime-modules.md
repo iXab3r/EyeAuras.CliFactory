@@ -48,7 +48,7 @@ is unchanged. `profile show` without a positional name displays the invocation's
 an explicit positional name selects the displayed profile instead, without changing the default.
 
 `concurrency` is a positive application-wide command limit; omitted/Infinity adds no execution
-limit. Core has a bounded FIFO (128 pending commands); queued cancellation removes only that
+limit. Core has a FIFO without a fixed pending-count ceiling; queued cancellation removes only that
 entry. Running work retains its slot until it settles, even after cancellation. Profile/auth/
 permission built-ins coordinate exclusively with service commands, selected by the parsed command's declaration, not strings appearing in argv. Onboarding re-enters exclusive admission before configuration
 effects and rechecks profile/policy before running the handler once. Profile file read-modify-write
@@ -62,11 +62,11 @@ actual uses of that global option before handlers (CLI exit code 2); it does not
 literal after `--` or inside `--option=--json-rpc`. Use attached option values when a value equals
 a global flag. Embedded execute/RPC requests cannot recursively start another transport.
 
-The common argv validator permits at most 256 arguments, 8 KiB UTF-8 per argument and 32 KiB
-in total on CLI, programmatic, JSON-RPC and IPC paths. RPC lines are bounded at 256 KiB before
-decoding/parsing, including unterminated input. Oversized argv returns -32602 without executing;
-an oversized line fails that Run, not the host or peer clients. Input is pulled as requests finish
-and output becomes writable; no unbounded readline/parsed-request queue is maintained.
+The common argv validator checks an array of strings without content-size or count caps.
+Native CLI arguments remain subject to OS limits. RPC request lines have no fixed byte ceiling;
+large or unterminated requests consume memory and remain cancellable. Malformed argv returns
+-32602 without executing. Input is pulled as requests finish and output becomes writable, with
+no queue of parsed future requests. IPC messages have no configured protobuf byte ceiling.
 
 ## Enable the IPC server
 
@@ -158,11 +158,10 @@ Idle shutdown defaults to 60 seconds with no active Runs;
 startup gets at least 20 seconds for its first caller. An open gRPC channel or browser alone
 does not keep the host alive. An open JSON-RPC Run *does* keep it alive until EOF/cancellation.
 
-The optional `maxInvocations` safety cap defaults to 128 active Runs, including queued commands
-and JSON-RPC sessions; an app can raise it or use Infinity. This is separate from command
-concurrency. The fixed Core queue still refuses overload explicitly. A rejected or disconnected
-invocation is never silently retried. Stop cancels active work and disposes resources; transport
-shutdown gets five seconds after application disposal.
+`maxInvocations` is an optional caller-selected limit on active Runs, including queued commands
+and JSON-RPC sessions. Omission means no ceiling. This is separate from declared command
+concurrency. A rejected or disconnected invocation is never retried. Stop cancels active work
+and disposes resources; transport shutdown gets five seconds after application disposal.
 
 ### Protocol and platform boundary
 
@@ -184,10 +183,11 @@ handler until its callback/error/close settles, so cancellation cannot turn a la
 into an uncaught exception. Custom Writable implementations must obey Node's stream contract
 and eventually settle pending writes or be closed by their owner.
 
-Frames contain at most 16 KiB of stream bytes; protobuf messages are capped at 64 KiB. The relay
-honors backpressure and refuses an output stream exceeding 1 MiB of queued data, including a
-single oversized write. Stream large results in bounded writes. Disconnect may leave a remote
-action's outcome unknown; the message says so, and no automatic replay occurs.
+Streams are split into 16 KiB frames for transport; frame size does not limit total content.
+Protobuf message size and queued output have no fixed ceilings. Large synchronous output writes
+are chunked without rejection, and the relay honors backpressure and cancellation. Consumers
+should respect Writable backpressure to avoid retaining queued output. Disconnect can leave a
+remote action outcome unknown; no automatic replay occurs.
 
 This is a noninteractive stdio bridge, not a PTY. Raw mode, masked terminal input, terminal
 resize, arbitrary file descriptors and process-global chdir/env emulation are outside this slice.

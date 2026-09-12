@@ -254,11 +254,11 @@ export function createSystemCommands(
     ),
   ];
   const users = [
-    command("avatar", "Explicit bounded image upload/download", [
+    command("avatar", "Explicit image upload/download", [
       ...avatarCommands,
       leaf(
         "replace <id>",
-        "Upload selected regular PNG/JPEG up to4MiB",
+        "Upload selected regular PNG/JPEG",
         U,
         (c, { args, options }) => c.replaceAvatar(args.id, text(options, "file")),
         [option("--file <path>", "Explicit local image path", true)],
@@ -281,10 +281,10 @@ export function createSystemCommands(
         {
           permission: "Credentials",
           options: [
-            option("--ttl <seconds>", "Explicit1–86400-second TTL", true),
+            option("--ttl <seconds>", "Positive token TTL in seconds", true),
             repeatOption(
               "--store-as <alias>",
-              "One new alias per requested token, at most50",
+              "One new alias per requested token",
               true,
             ),
           ],
@@ -298,7 +298,7 @@ export function createSystemCommands(
       "Native bulk action after exact-ID preflights; postcondition not verified",
       U,
       (c, { options }) => c.deleteMutes(options.id as string[]),
-      [repeatOption("--id <id>", "Repeat1–50 explicit mute IDs", true), confirm],
+      [repeatOption("--id <id>", "Repeat explicit mute IDs", true), confirm],
     ),
   ];
   const roots = [

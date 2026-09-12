@@ -334,15 +334,17 @@ test("disconnect cancels one client; idle JSON-RPC holds no command slot", async
   assert.equal(JSON.parse(reply.out.toString()).result.counter, 1);
 });
 
-test("oversized unterminated RPC input fails only its invocation and keeps the host usable", async (t) => {
+test("long RPC input reaches the command and keeps the host usable", async (t) => {
   const f = await fixture(t);
   const owner = json(await f.run(["info", "--json"]));
   const bad = f.start(["--json-rpc"]);
   bad.child.stdin.on("error", () => {});
-  bad.child.stdin.write(Buffer.alloc(262145, 32));
+  bad.child.stdin.end(" ".repeat(300_000) + JSON.stringify({
+    jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["increment"] },
+  }) + "\n");
   const result = await bad.result;
-  assert.equal(result.code, 1);
-  assert.match(result.err, /line.*limit/i);
+  assert.equal(result.code, 0, result.err);
+  assert.equal(JSON.parse(result.out.toString()).result.counter, 1);
   assert.equal(json(await f.run(["info", "--json"])).identity, owner.identity);
 });
 

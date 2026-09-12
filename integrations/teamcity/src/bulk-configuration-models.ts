@@ -21,7 +21,6 @@ export type SettingsCollection =
   | "projectFeatures";
 export type ParameterPart = "value" | "type" | "type/rawValue";
 export function distinctIds(values: readonly string[]): string[] {
-  if (values.length > 100) throw new Error("At most 100 explicit items are supported.");
   const ids = values.map((value) => requiredText(value, "ID"));
   if (new Set(ids).size !== ids.length) throw new Error("Duplicate IDs are not allowed.");
   return ids;
@@ -47,8 +46,8 @@ function flag(item: Record<string, unknown>, name: string): boolean | undefined 
 }
 function properties(value: unknown): PlainProperty[] {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > 100)
-    throw new Error("Properties must be an array of at most 100 entries.");
+  if (!Array.isArray(value))
+    throw new Error("Properties must be an array.");
   return value.map((value) => {
     const item = record(value, ["name", "value"]);
     if (typeof item.value !== "string") throw new Error("Property value must be a string.");
@@ -60,7 +59,6 @@ export function settingsItems(
   ownerId: string,
   values: readonly unknown[],
 ): object[] {
-  if (values.length > 100) throw new Error("At most 100 explicit items are supported.");
   const ids: string[] = [];
   const result = values.map((value) => {
     const keys =

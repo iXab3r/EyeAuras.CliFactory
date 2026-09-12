@@ -31,11 +31,11 @@ import type {
 const pageOptions: readonly OptionDefinition[] = [
   {
     flags: "--limit <count>",
-    description: "Maximum results to return (1-100)",
+    description: "Maximum results to return",
     defaultValue: 100,
     parse: integerParser({
-      min: 1, max: 100, signed: true,
-      errorMessage: "TeamCity page limit must be an integer between 1 and 100.",
+      min: 1, max: Number.MAX_SAFE_INTEGER, signed: true,
+      errorMessage: "TeamCity page limit must be a positive safe integer.",
     }),
   },
   {
@@ -133,7 +133,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
   return createCli({
     name: "teamcity-cli",
     description: "AI-friendly access to TeamCity",
-    version: "0.1.0",
+    version: "0.2.0",
     applicationId: "teamcity-cli",
     permissions: { categories: adminCategories },
     profile: {

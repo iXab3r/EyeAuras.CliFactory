@@ -58,14 +58,13 @@ test("invalid options and revoked permissions never reach the network", async (c
   };
   const cli = createCli(createRandomRestDefinition(io.runtime));
   for (const argv of [
-    ["integers", "--count", "101"],
+    ["integers", "--count", "9007199254740992"],
     ["integers", "--count", "0"],
     ["integers", "--min", "1.5"],
     ["integers", "--max", "Infinity"],
     ["integers", "--count", "2junk"],
     ["integers", "--count", ""],
     ["integers", "--min", "5", "--max", "4"],
-    ["sequence", "--max", "101"],
     ["integers", "--min", "7", "--max", "7"],
     ["sequence", "--min", "0", "--max", "0"],
   ]) {

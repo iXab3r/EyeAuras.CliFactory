@@ -596,7 +596,7 @@ test(
 );
 
 test(
-  "bounded browser queue rejects overload and drains cancelled waiters",
+  "browser queue accepts more than 128 pending operations and drains cancelled waiters",
   { timeout: 30000 },
   async (t) => {
     const { runtime, profile } = await fixture(t);
@@ -608,7 +608,7 @@ test(
     });
     await entered.promise;
     const abort = new AbortController();
-    const pending = Array.from({ length: 128 }, () =>
+    const pending = Array.from({ length: 257 }, () =>
       assert.rejects(
         runtime.withPage(
           profile,
@@ -618,15 +618,6 @@ test(
         ),
         /cancelled/,
       ),
-    );
-    await assert.rejects(
-      runtime.withPage(
-        profile,
-        signal(),
-        async () => assert.fail("overflow waiter"),
-        { headless: false },
-      ),
-      /queue is full/,
     );
     abort.abort();
     release.resolve();

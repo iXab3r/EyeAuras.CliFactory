@@ -184,9 +184,11 @@ and has the same command semantics on CLI, execute and JSON-RPC paths. For an op
 matches a global flag, use the attached `--option=value` form; normal global-option parsing is
 unchanged and there is no second custom argv parser.
 
-Each line is limited to 256 KiB before UTF-8 decoding and JSON parsing. All execution paths
-share argv limits: 256 arguments, 8 KiB per argument and 32 KiB total, measured in UTF-8 bytes.
-Oversized lines end only that invocation; invalid argv returns an invalid-params response in RPC.
+Command validation checks argv is an array of strings without count or byte ceilings. JSON-RPC
+request lines and IPC protobuf messages have no tool-imposed size ceiling. Native process argv,
+Node allocations, available memory, the filesystem and remote services still have real limits;
+resource failures are allowed instead of imposing smaller local policy limits. Invalid argv returns
+an invalid-params response. Unterminated input remains cancellable. See [content policy](content-limits.md).
 Reading follows command completion and output backpressure, without a queue of parsed future requests.
 
 The process remains alive until stdin closes or it receives a termination signal. Protocol output
@@ -199,24 +201,20 @@ The core package knows nothing about TeamCity resources. Integrations own endpoi
 pagination rules, browser selectors, and service terminology. HTTP clients depend on `fetch`;
 browser clients use the optional Playwright owner. Tests replace the actual HTTP/browser boundary.
 
-Core's `readBoundedResponseBody(response, { maxBytes, signal })` consumes one response into owned
-bytes without choosing HTTP status, media, UTF-8 decoding or JSON semantics. `maxBytes` is a
-positive safe integer and bounds actual emitted (normally decoded) bytes. A declared Content-Length
-must be a nonnegative safe integer. For absent/identity Content-Encoding it also must fit the bound
-and match the completed body; encoded wire length is not compared with decoded size.
-The reader copies chunks into bounded storage, observes cancellation and releases its lock.
-Cancellation promises are handled without awaiting an unread tee sibling. Errors contain no
-response bytes or underlying error causes. The caller still owns fetch cancellation and timeout,
-non-success response cancellation, service validation and any public error wording; no retries occur.
+Core's `readResponseBody(response, { signal, maxBytes? })` consumes one response into owned bytes
+without choosing HTTP status, media, UTF-8 decoding or JSON semantics. There is no default byte
+ceiling. An explicit caller budget must be a positive safe integer and bounds actual emitted
+(normally decoded) bytes. Content-Length must be a nonnegative safe integer; identity bodies must
+match the completed length. Encoded wire length is not compared with decoded size. The reader
+owns copied chunks, observes cancellation and releases its lock without awaiting unread tee siblings.
+Errors contain no response bytes or underlying causes. No retries occur.
 
-TeamCity consumes ordinary text/JSON/XML through this mechanism at its existing 2 MiB limit;
-its specialized 64 KiB discard path stays local and never decodes those bytes. YouTrack JSON
-responses now have an 8 MiB limit, allowing room for bounded 100-item pages with text and custom
-fields without promising every projection will fit. Both clients now validate declared identity
-transfer lengths. TeamCity retains Buffer UTF-8 decoding, including a leading BOM; YouTrack retains
-Response.text-style decoding that removes an initial BOM. File downloads use `publishProfileFile`, the second proven shared HTTP-byte mechanism. The caller
-supplies one safe basename, active profile AppData root, byte bound, raw-response acquisition,
-a required status/media inspection callback and optional staged-file validation. Core awaits both
+TeamCity text/JSON/XML and YouTrack JSON have no fixed response-size caps. TeamCity's specialized
+64 KiB discard loop only optimizes disposal of unwanted content and never rejects or truncates
+returned data. TeamCity retains Buffer UTF-8 decoding including BOM; YouTrack removes the initial
+BOM with TextDecoder. Downloads use `publishProfileFile` with a safe basename, active profile AppData,
+raw-response acquisition, required status/media inspection and optional staged validation. A byte
+budget is optional and comes only from the caller. Core awaits both
 callbacks at their respective gates. It preflights
 `downloads` and `temp` before acquisition, streams to a new private random directory under
 `AppDataDirectory/temp`, and publishes under `AppDataDirectory/downloads` with an exclusive hard
@@ -543,6 +541,15 @@ reviewed commit. The CLI factory must not grow a speculative process framework w
 does not exist.
 
 ## Package boundaries
+
+The initial npm release set is `@eyeauras/cli-factory`, `@eyeauras/teamcity-cli`
+and `@eyeauras/youtrack-cli`, licensed under MIT. The two CLI packages install the
+unscoped `teamcity-cli` and `youtrack-cli` executable names through npm's `bin` mapping.
+Package scope does not alter CLI syntax, application IDs, profile paths or credentials.
+Runtime JavaScript/types are built before packing; consumers need no TypeScript compiler
+or repository checkout. Root and optional runtime/example packages remain private.
+Registry publication is separate from package preparation; the [release guide](npm-release.md)
+defines artifact verification and dependency-ordered publication.
 
 ### `packages/core`
 

@@ -67,8 +67,8 @@ test("the complete shared contract runs through real Chromium forms with one war
 test("validation and permission denial do not start a browser", async (t) => {
   const { app, browser, state } = await fixture(t);
   await assert.rejects(
-    app.execute(["integers", "--count", "101", "--headed", "--record-video"]),
-    /between 1 and 100/,
+    app.execute(["integers", "--count", "9007199254740992", "--headed", "--record-video"]),
+    /between 1 and 9007199254740991/,
   );
   await assert.rejects(
     app.execute(["sequence", "--min", "0", "--max", "0"]),
@@ -125,4 +125,15 @@ test("invalid DOM values, duplicate sequences and HTTP errors are bounded saniti
   }
   assert.equal(state.submits, 3);
   assert.equal(browser.diagnostics.pages, 0);
+});
+
+test("large counts and DOM results pass through one browser submission each", async (t) => {
+  const { app, state } = await fixture(t);
+  const integers = await app.execute(["integers", "--count", "10000", "--min", "100000", "--max", "100001"]) as { values: number[] };
+  assert.equal(integers.values.length, 10000);
+  assert.ok(integers.values.every(value => value === 100000));
+  const sequence = await app.execute(["sequence", "--min", "1", "--max", "10000"]) as { values: number[] };
+  assert.equal(sequence.values.length, 10000);
+  assert.equal(new Set(sequence.values).size, 10000);
+  assert.equal(state.submits, 2);
 });

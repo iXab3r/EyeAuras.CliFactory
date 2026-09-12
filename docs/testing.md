@@ -1,6 +1,6 @@
 # Testing workflow
 
-Runtime correction regressions cover common UTF-8 argv limits, pre-parse bounded JSON-RPC
+Runtime correction regressions cover large UTF-8 argv and JSON-RPC
 lines and input/output backpressure; parsed-command exclusivity; serialized full auth checkpoints;
 flat resource invalidation/disposal, direct browser disposal with video and its timeout path;
 workspace build-manifest drift; cross-build control and isolation after a rejected RPC Run;
@@ -58,6 +58,13 @@ Tests should fail when required fields drift, not snapshot every byte returned b
 | CLI process / IPC | Yes | Real process reuse, concurrency, exit/stdio, cancellation and shutdown |
 | Browser fixture | Yes | Real headless/headed Chromium, routed synthetic pages, auth state, video and cleanup |
 | Local profile-backed proof | Never | Explicit development/debug evidence through a real CLI profile |
+
+`npm run test:packages` is a separate distribution check in CI. It may download public
+npm dependencies, but never contacts TeamCity or YouTrack. It checks actual archives and
+installs them into a temporary global prefix outside the repository, then exercises npm's
+real command links/shims with help, version and persistent RPC. JSON profile listing uses
+the installed integration exports and Core's temporary fixture. It never accesses real
+profiles or credentials. See [npm release](npm-release.md) for the exact release set and gates.
 
 ## Local profile-backed integration proof
 
@@ -155,10 +162,10 @@ proof never runs in CI. Process tests stop their own hosts before deleting synth
 Transport tests run on real local named pipes/Unix sockets, not TCP substitutes. See the
 [platform qualification limits](runtime-modules.md#development-evidence).
 
-## Bounded response regressions
+## Response consumption regressions
 
 The shared response-reader tests cover absent/empty bodies, declared-length syntax and identity
-length mismatches, actual chunked-byte overflow, split UTF-8/BOM bytes, empty chunks and reused
+length mismatches, explicit-budget chunked-byte overflow, split UTF-8/BOM bytes, empty chunks and reused
 producer buffers, abort/read failures, and deterministic reader-lock cleanup. A synthetic local
 HTTP server verifies native fetch decompression: compressed overhead may exceed the decoded bound
 when the actual body fits, while decoded overflow still fails. This loopback test uses no profile,
@@ -173,8 +180,8 @@ complete partial writes, empty and bounded streams, cancellation, validation, no
 unsupported hard links, post-link destination replacement and cleanup failure before/after
 publication. Replacement tests assert that unknown files are retained rather than deleted.
 Integration MSW tests retain 206, Content-Length, stream/cancellation and service format/auth rules.
-Encoded whole-file responses keep each service's conservative wire-header bound, skip encoded
-length equality, and still enforce emitted-byte overflow. No live download belongs in any tier.
+Encoded whole-file responses skip encoded length equality; explicit caller budgets still enforce
+emitted-byte overflow. Default requests and downloads have no local byte ceiling. No live download belongs in any tier.
 
 ## Required evidence
 
@@ -282,7 +289,7 @@ sessions. Missing display support is not a skipped acceptance test.
 Use synthetic pages only when testing video. Verify finalized nonempty WebM files before runtime
 disposal, separate operation/profile directories, opt-out after an opt-in call, and saving during
 errors/cancellation. Mode tests assert actual Chromium mode, reuse, fair draining, cancelled
-waiters, overload and the application's no-restart policy. Packaged tests inspect host/browser
+waiters, large queues and the application's no-restart policy. Packaged tests inspect host/browser
 identities and stderr-only artifact paths through both ordinary CLI and tunneled JSON-RPC.
 Test cleanup stops its own host/runtime before deleting its own synthetic AppData and videos.
 Never enable video in the fixed real-service proof or turn raw recordings into fixtures.

@@ -40,7 +40,7 @@ export interface StagedProfileFile {
 export interface ProfileFileOptions {
   appDataDirectory: string;
   name: string;
-  maxBytes: number;
+  maxBytes?: number | undefined;
   signal?: AbortSignal | undefined;
   openResponse: () => Promise<Response>;
   inspectResponse: (response: Response) => void | Promise<void>;
@@ -130,7 +130,7 @@ async function verifyFileSnapshot(expected: FileIdentity): Promise<void> {
 }
 
 function safeBasename(value: string): boolean {
-  return !!value && Buffer.byteLength(value, "utf8") <= 255 && value !== "." && value !== ".." &&
+  return !!value && value !== "." && value !== ".." &&
     !/[<>:"/\\|?*\u0000-\u001f\u007f-\u009f\p{Cf}]/u.test(value) && !/[. ]$/.test(value) &&
     !/^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[1-9¹²³]|lpt[1-9¹²³])(?:[ .]|$)/i.test(value);
 }
@@ -145,7 +145,7 @@ export async function publishProfileFile(
   if (!safeBasename(name)) {
     throw new ProfileFileError("Download name must be one safe basename without reserved characters.");
   }
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+  if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1)) {
     throw new ProfileFileError("Download byte limit must be a positive safe integer.");
   }
   const profileDirectory = resolve(appDataDirectory);

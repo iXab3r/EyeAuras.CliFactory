@@ -30,7 +30,6 @@ export const muteDeleteFields =
 export function collection(value: unknown, key: string, project: (v: unknown) => unknown) {
   const raw = object(value),
     items = array(raw[key]);
-  if (items.length > 1000) throw new Error("TeamCity collection exceeded the local item bound.");
   const count = raw.count ?? items.length;
   if (!Number.isSafeInteger(count) || Number(count) < 0)
     throw new Error("Invalid collection count.");
@@ -171,7 +170,7 @@ export function cleanupPatch(value: unknown) {
     result.cron = Object.fromEntries(
       ["minute", "hour", "day", "month", "dayWeek"].map((k) => {
         const x = inputText(c[k], "Cron field");
-        if (x.length > 64 || !/^[\d*,/\-?LW#]+$/.test(x)) throw new Error("Invalid cron field.");
+        if (!/^[\d*,/\-?LW#]+$/.test(x)) throw new Error("Invalid cron field.");
         return [k, x];
       }),
     );
@@ -213,7 +212,7 @@ export async function authBody(value: unknown, secrets: ScopedSecrets) {
       "lax",
     ]);
   const modules = array(v.modules);
-  if (!modules.length || modules.length > 20)
+  if (!modules.length)
     throw new Error("Supply a complete nonempty authentication module list.");
   const seen = new Set<string>(),
     prepared = [];
@@ -267,13 +266,13 @@ export function safeMetric(value: unknown) {
   };
 }
 export function safeText(value: string) {
-  if (value.length > 8192 || /[\u0000-\u0008\u000b-\u001f]/.test(value))
+  if (/[\u0000-\u0008\u000b-\u001f]/.test(value))
     throw new Error("Invalid text response; payload omitted.");
   return value;
 }
 // Deliberately parse the attribute-only plugin projection, not a general XML document.
 export function pluginXml(value: string) {
-  if (value.length > 65536 || /<!|&(?!(?:amp|lt|gt|quot|apos);)/.test(value))
+  if (/<!|&(?!(?:amp|lt|gt|quot|apos);)/.test(value))
     throw new Error("Unsafe or unsupported plugin XML.");
   const match = value.match(
     /^\s*(?:<\?xml\s+[^?]*\?>\s*)?<plugin\b([^<>]*?)(?:\s*\/\s*>|>\s*<\/plugin>)\s*$/,
@@ -309,20 +308,12 @@ export function pluginXml(value: string) {
 }
 export async function avatarInput(path: string) {
   const stat = await lstat(path);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4 * 1024 * 1024)
-    throw new Error("Avatar must be a regular PNG/JPEG file up to4MiB.");
+  if (!stat.isFile() || stat.isSymbolicLink())
+    throw new Error("Avatar must be a regular PNG/JPEG file.");
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     if (!(await file.stat()).isFile()) throw new Error("Expected regular avatar file.");
-    const bytes = Buffer.alloc(4 * 1024 * 1024 + 1);
-    let length = 0;
-    while (length < bytes.length) {
-      const { bytesRead } = await file.read(bytes, length, bytes.length - length);
-      if (!bytesRead) break;
-      length += bytesRead;
-    }
-    const data = bytes.subarray(0, length);
-    if (length > 4 * 1024 * 1024) throw new Error("Avatar exceeds byte bound.");
+    const data = await file.readFile();
     const png = data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
     const jpeg = data[0] === 255 && data[1] === 216 && data[2] === 255;
     if (!png && !jpeg) throw new Error("Avatar is not PNG/JPEG.");

@@ -49,13 +49,9 @@ export class RandomBrowserClient implements RandomClient {
     signal?: AbortSignal,
   ): Promise<RandomValues> {
     return this.state.run(async () => {
-      const bounded = AbortSignal.any([
-        ...(signal ? [signal] : []),
-        AbortSignal.timeout(240000),
-      ]);
       return this.runtime.withPage(
         this.profile,
-        bounded,
+        signal ?? new AbortController().signal,
         async (page) => {
           const quotaResponse = await page.goto("/quota/");
           if (!quotaResponse?.ok())
@@ -101,10 +97,6 @@ export class RandomBrowserClient implements RandomClient {
               "RANDOM.ORG generation failed. No retry was made.",
             );
           const text = await page.locator("pre.data").innerText();
-          if (text.length > 16384)
-            throw new BrowserOperationError(
-              "RANDOM.ORG result exceeds the example's size limit.",
-            );
           const parsed = parseRandomValues(text, range, count, unique);
           if (!parsed)
             throw new BrowserOperationError(

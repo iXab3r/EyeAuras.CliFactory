@@ -19,7 +19,8 @@
     "youtrack": "npm run start --workspace @eyeauras/youtrack-cli --",
     "random-rest": "npm run start --workspace @eyeauras/random-rest-cli --",
     "random-pw": "npm run start --workspace @eyeauras/random-pw-cli --",
-    "browser:install": "playwright install chromium"
+    "browser:install": "playwright install chromium",
+    "test:packages": "npm run build && node scripts/test-packages.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -28,5 +29,6 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^7.0.2"
-  }
+  },
+  "license": "MIT"
 }

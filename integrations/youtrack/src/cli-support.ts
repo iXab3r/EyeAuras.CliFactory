@@ -24,10 +24,10 @@ export const projectionOptions: readonly OptionDefinition[] = [
 export const pageOptions: readonly OptionDefinition[] = [
   ...projectionOptions,
   {
-    flags: "--top <count>", description: "Maximum results (1-100)", defaultValue: 50,
+    flags: "--top <count>", description: "Maximum results (positive safe integer)", defaultValue: 50,
     parse: integerParser({
-      min: 1, max: 100, signed: false,
-      errorMessage: "YouTrack top must be a decimal integer between 1 and 100.",
+      min: 1, max: Number.MAX_SAFE_INTEGER, signed: false,
+      errorMessage: "YouTrack top must be a positive safe decimal integer.",
     }),
   },
   {

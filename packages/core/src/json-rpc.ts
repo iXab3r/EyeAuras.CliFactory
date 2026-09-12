@@ -1,6 +1,6 @@
 import { once } from "node:events";
-import { boundedLines } from "./bounded-lines.js";
-import { inputLimits, validateArgv } from "./input-limits.js";
+import { requestLines } from "./lines.js";
+import { validateArgv } from "./argv.js";
 import type { Readable, Writable } from "node:stream";
 
 interface JsonRpcRequest {
@@ -83,9 +83,8 @@ export async function runJsonRpc(options: {
   signal?: AbortSignal;
 }): Promise<void> {
   options.signal?.throwIfAborted();
-  for await (const line of boundedLines(
+  for await (const line of requestLines(
     options.input,
-    inputLimits.rpcLineBytes,
     options.signal,
   )) {
     options.signal?.throwIfAborted();
@@ -139,7 +138,7 @@ export async function runJsonRpc(options: {
           options.output,
           request.id,
           -32602,
-          "Expected params.argv within the command argument count and byte limits",
+          "Expected params.argv to be an array of strings",
           options.signal,
         );
       }

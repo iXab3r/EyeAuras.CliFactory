@@ -172,7 +172,7 @@ test("directory inputs reject invalid IDs, projections and paging before native 
   for (const row of rows) {
     await assert.rejects(row.run({ fields: " " }), /YouTrack fields/);
     if (row.collection) {
-      for (const options of [{ top: 0 }, { top: 101 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
+      for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
         await assert.rejects(row.run(options), /YouTrack (top|skip)/);
       }
     }

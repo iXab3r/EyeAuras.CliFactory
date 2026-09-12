@@ -52,7 +52,7 @@ test("S5 validates typed items, IDs, booleans, confirmation and bounded queue sc
     ["pools", "projects", "clear", "1"],
     ["queue", "delete-page", "--confirm"],
     ["queue", "delete-page", "--job", "Build"],
-    ["queue", "delete-page", "--job", "Build", "--limit", "101", "--confirm"],
+    ["queue", "delete-page", "--job", "Build", "--limit", "0", "--confirm"],
     ["queue", "paused", "set", "yes", "--reason", "Maintenance"],
     ["queue", "paused", "set", "false"],
     ["queue", "reorder"],

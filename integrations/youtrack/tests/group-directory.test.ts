@@ -120,7 +120,7 @@ test("directory selectors and collection bounds fail locally before fetch", asyn
     await assert.rejects(listProjectTeamGroups(local, invalid), /YouTrack/);
     await assert.rejects(listProjectTeamUsers(local, invalid, { direct: true }), /YouTrack/);
   }
-  for (const options of [{ top: 0 }, { top: 101 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
+  for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
     await assert.rejects(listGroups(local, options), /YouTrack/);
     await assert.rejects(listGroupMembers(local, "fixture", options), /YouTrack/);
     await assert.rejects(listSubgroups(local, "fixture", options), /YouTrack/);

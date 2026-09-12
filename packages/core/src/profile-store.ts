@@ -19,12 +19,12 @@ export interface ProfileStoreOptions {
   validate?: (values: ProfileValues) => void | Promise<void>;
 }
 
-const profileNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const profileNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export function assertProfileName(name: string): void {
   if (!profileNamePattern.test(name)) {
     throw new Error(
-      "Profile names must start with a letter or number and contain at most 64 letters, numbers, dots, dashes, or underscores.",
+      "Profile names must start with a letter or number and contain only letters, numbers, dots, dashes, or underscores.",
     );
   }
   if (name.toLowerCase() === "profiles.json") {

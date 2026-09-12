@@ -12,7 +12,7 @@ import {
 import { ProfileStore } from "./profile-store.js";
 import { createProfileCommands } from "./profile-commands.js";
 import { CommandGate } from "./command-gate.js";
-import { validateArgv } from "./input-limits.js";
+import { validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import type {

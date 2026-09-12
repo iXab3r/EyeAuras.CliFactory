@@ -162,10 +162,10 @@ test("download honors explicit filename, ignores Content-Disposition, and handle
 test("download local validation rejects unsafe basenames and invalid limits before any fetch", async (t) => {
   const directory = await temporary(t);
   const calls = serve();
-  for (const name of ["", ".", "..", "../file", "a/b", "a\\b", "C:\\file", "/file", "file:stream", "CON", "con.txt", "CON .txt", "CONIN$", "CONOUT$", "LPT1.log", "COM¹", "file.", "file ", "a\u0000b", "a\nb", "a\u202eb", "x".repeat(256)]) {
+  for (const name of ["", ".", "..", "../file", "a/b", "a\\b", "C:\\file", "/file", "file:stream", "CON", "con.txt", "CON .txt", "CONIN$", "CONOUT$", "LPT1.log", "COM¹", "file.", "file ", "a\u0000b", "a\nb", "a\u202eb"]) {
     await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { name }), /basename/);
   }
-  for (const maxBytes of [0, -1, 1.5, NaN, Infinity, 104857601]) {
+  for (const maxBytes of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
     await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { maxBytes }), /max-bytes/);
   }
   assert.equal(calls.length, 0);
@@ -350,7 +350,6 @@ test("download RPC interleaves profile paths, permissions and credentials withou
   assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic|sign=/);
 });
 
-
 test("download rejects percent-encoded active bearer reflections anywhere in a returned URL", async (t) => {
   const encodedToken = [...connection.token].map((character) => `%${character.charCodeAt(0).toString(16)}`).join("");
   for (const url of [
@@ -396,7 +395,6 @@ test("over-limit download cancels its body reader and leaves no partial data", a
   assert.deepEqual(await readdir(join(directory, "downloads")), []);
   assert.deepEqual(await readdir(join(directory, "temp")), []);
 });
-
 
 test("path signature decoding preserves literal plus while preventing decoded MIME disclosure", async (t) => {
   const directory = await temporary(t);
@@ -464,4 +462,25 @@ test("attachment encoded wire length remains bounded independently of emitted by
     }
     assert.deepEqual(await readdir(join(directory, "temp")), []);
   }
+});
+
+test("downloads exceed the former default and accept explicit byte caps above 100 MiB", async (t) => {
+  const directory = await temporary(t);
+  const length = 25 * 1024 * 1024 + 1;
+  serve(() => new HttpResponse(new ReadableStream<Uint8Array>({
+    start(controller) {
+      const chunk = new Uint8Array(1024 * 1024);
+      for (let i = 0; i < 25; i++) controller.enqueue(chunk);
+      controller.enqueue(Uint8Array.of(1));
+      controller.close();
+    },
+  }), { headers: { "content-length": String(length) } }));
+  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
+  assert.equal(result.bytes, length);
+  serve();
+  const chosenName = "x".repeat(200) + ".bin";
+  const explicit = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory,
+    { name: chosenName, maxBytes: 104857601 });
+  assert.equal(explicit.name, chosenName);
+  assert.equal(explicit.bytes, bytes.length);
 });

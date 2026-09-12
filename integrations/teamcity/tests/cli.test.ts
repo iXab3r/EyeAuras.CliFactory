@@ -136,8 +136,8 @@ test("rejects invalid TeamCity options before fetch", async (t) => {
   };
   const cli = testRuntime.createCli();
 
-  assert.equal(await cli.run(["builds", "list", "--limit", "101"]), 1);
-  assert.match(testRuntime.stderr(), /between 1 and 100/);
+  assert.equal(await cli.run(["builds", "list", "--limit", "0"]), 1);
+  assert.match(testRuntime.stderr(), /positive/);
   assert.equal(fetchCalls, 0);
 
   testRuntime.resetOutput();

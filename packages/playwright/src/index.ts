@@ -5,7 +5,7 @@ import {
   type Page,
 } from "playwright";
 import { privateDirectory, type IAppArguments } from "@eyeauras/cli-factory";
-import { readFile, writeFile, rename, rm, stat } from "node:fs/promises";
+import { readFile, writeFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { BrowserOperationError } from "./errors.js";
@@ -208,8 +208,6 @@ export class BrowserRuntime {
           await privateDirectory(paths.directory);
           await this.#writes.get(key);
           try {
-            if ((await stat(paths.state)).size > 4_194_304)
-              throw new Error("Oversized browser state.");
             const value = JSON.parse(await readFile(paths.state, "utf8")) as {
               identity: string;
               state: typeof stored;
@@ -243,6 +241,8 @@ export class BrowserRuntime {
           ...(settings.userAgent ? { userAgent: settings.userAgent } : {}),
           ...(stored ? { storageState: stored } : {}),
         });
+        context.setDefaultTimeout(0);
+        context.setDefaultNavigationTimeout(0);
         try {
           if (this.#closing || this.#entries.get(key) !== entry)
             throw new Error("Invalidated profile.");
@@ -282,10 +282,6 @@ export class BrowserRuntime {
       const temporary = path + "." + randomUUID() + ".tmp";
       try {
         const serialized = JSON.stringify({ identity: entry.identity, state });
-        if (Buffer.byteLength(serialized) > 4_194_304)
-          throw new BrowserOperationError(
-            "Browser authentication state exceeds its size limit.",
-          );
         await writeFile(temporary, serialized, { mode: 0o600 });
         await rename(temporary, path);
       } finally {
@@ -359,8 +355,6 @@ export class BrowserRuntime {
       track(page);
       this.#pages++;
       if (signal.aborted) throw new Error("Cancelled.");
-      page.setDefaultTimeout(120000);
-      page.setDefaultNavigationTimeout(120000);
       result = await action(page);
       if (signal.aborted) throw new Error("Cancelled.");
       if (

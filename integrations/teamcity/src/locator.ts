@@ -17,8 +17,8 @@ export function normalizePage(options: TeamCityPageOptions = {}): {
 } {
   const limit = requireInteger(options.limit ?? defaultPageLimit, "TeamCity page limit");
   const start = requireInteger(options.start ?? 0, "TeamCity page start");
-  if (limit < 1 || limit > 100) {
-    throw new Error("TeamCity page limit must be between 1 and 100.");
+  if (limit < 1) {
+    throw new Error("TeamCity page limit must be positive.");
   }
   if (start < 0) {
     throw new Error("TeamCity page start must be non-negative.");

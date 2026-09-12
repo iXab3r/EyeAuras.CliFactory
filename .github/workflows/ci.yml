@@ -30,3 +30,4 @@ jobs:
         run: xvfb-run --auto-servernum npm test
       - if: runner.os != 'Linux'
         run: npm test
+      - run: npm run test:packages

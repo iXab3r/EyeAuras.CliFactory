@@ -1,6 +1,6 @@
 import type { RandomRange, RandomValues } from "./models.js";
 
-/** The plain HTTP response and browser result element contain the same bounded integer list. */
+/** The plain HTTP response and browser result element contain the same integer list. */
 export function parseRandomValues(
   text: string,
   range: RandomRange,

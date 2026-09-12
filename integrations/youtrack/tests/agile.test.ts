@@ -76,7 +76,7 @@ test("agile/sprint projections, empty pages, offset controls and opaque IDs pres
     assert.deepEqual(await f.cli.execute([...argv, "--fields", "id", "--profile", "dev"]), { id: "fixture" });
   }
   assert.deepEqual(seen, ["/track/api/agiles", "/track/api/agiles/fixture%2Fboard%3F/sprints", "/track/api/agiles/fixture%2Fboard%3F", "/track/api/agiles/fixture%2Fboard%3F/sprints/%252e%2F%23"]);
-  for (const argv of [["agile", "get", ".."], ["sprint", "get", "fixture-board", "."], ["agile", "list", "--top", "101"], ["sprint", "list", "fixture-board", "--skip", "-1"]]) {
+  for (const argv of [["agile", "get", ".."], ["sprint", "get", "fixture-board", "."], ["agile", "list", "--top", "9007199254740992"], ["sprint", "list", "fixture-board", "--skip", "-1"]]) {
     await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]));
   }
   await assert.rejects(f.cli.execute(["agile", "list", "--query", "test", "--profile", "dev"]), /unknown option/);

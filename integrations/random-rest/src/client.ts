@@ -109,13 +109,11 @@ export class RandomHttpClient implements RandomClient {
   ): Promise<string> {
     const url = new URL(path, this.#url);
     url.search = new URLSearchParams(parameters).toString();
-    const timeout = AbortSignal.timeout(120_000);
-    const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     try {
-      requestSignal.throwIfAborted();
+      signal?.throwIfAborted();
       const response = await this.#fetch(url, {
         headers: { Accept: "text/plain", "User-Agent": this.#userAgent },
-        signal: requestSignal,
+        ...(signal ? { signal } : {}),
         redirect: "error",
       });
       if (!response.ok) {
@@ -125,23 +123,14 @@ export class RandomHttpClient implements RandomClient {
           `RANDOM.ORG HTTP request failed (${response.status}). No automatic retry was made.`,
         );
       }
-      // A bounded example must not buffer an arbitrary error page or oversized response.
       const reader = response.body?.getReader();
       if (!reader) throw new Error("RANDOM.ORG returned an empty response.");
       const decoder = new TextDecoder();
       let text = "";
-      let bytes = 0;
       try {
         while (true) {
           const chunk = await reader.read();
           if (chunk.done) break;
-          bytes += chunk.value.byteLength;
-          if (bytes > 16_384) {
-            void reader.cancel().catch(() => undefined);
-            throw new Error(
-              "RANDOM.ORG response exceeded the example's size limit.",
-            );
-          }
           text += decoder.decode(chunk.value, { stream: true });
         }
         text += decoder.decode();
@@ -155,11 +144,9 @@ export class RandomHttpClient implements RandomClient {
       }
       return text;
     } catch (error) {
-      if (requestSignal.aborted) {
+      if (signal?.aborted) {
         throw new Error(
-          signal?.aborted
-            ? "RANDOM.ORG request cancelled."
-            : "RANDOM.ORG request timed out.",
+          "RANDOM.ORG request cancelled.",
         );
       }
       if (error instanceof Error && error.message.startsWith("RANDOM.ORG "))

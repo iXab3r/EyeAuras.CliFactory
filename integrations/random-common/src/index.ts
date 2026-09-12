@@ -8,7 +8,6 @@ export {
   integer,
   integerRequest,
   sequenceRequest,
-  maxResults,
 } from "./validation.js";
 export type {
   RandomClient,

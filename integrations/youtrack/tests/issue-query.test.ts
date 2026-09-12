@@ -73,16 +73,15 @@ test("six query endpoints send exact bounded native requests and preserve docume
   }
 });
 
-test("command selections are explicit, limited to20, and reject invalid input before HTTP", async () => {
+test("command selections are explicit and have no local count ceiling, and reject invalid input before HTTP", async () => {
   let calls = 0;
   server.use(http.all("*", () => { calls++; return HttpResponse.json({}); }));
   assert.deepEqual(parseIssueSelection(" DEMO-1,2-7,ПРОЕКТ-3,DEMO.SUB-4 "), ["DEMO-1", "2-7", "ПРОЕКТ-3", "DEMO.SUB-4"]);
-  assert.equal(parseIssueSelection(Array.from({ length: 20 }, (_, index) => `DEMO-${index}`).join(",")).length, 20);
-  for (const selection of ["", "DEMO-1,", ",DEMO-1", "DEMO-1,,DEMO-2", "project: DEMO", "DEMO-1,DEMO-1", "opaque-reference", "DEMO\u0000-1",
-    Array.from({ length: 21 }, (_, index) => `DEMO-${index}`).join(",")]) {
+  assert.equal(parseIssueSelection(Array.from({ length: 300 }, (_, index) => `DEMO-${index}`).join(",")).length, 300);
+  for (const selection of ["", "DEMO-1,", ",DEMO-1", "DEMO-1,,DEMO-2", "project: DEMO", "DEMO-1,DEMO-1", "opaque-reference", "DEMO\u0000-1"]) {
     assert.throws(() => parseIssueSelection(selection), /YouTrack/);
   }
-  for (const ids of [[], [""], ["DEMO-1", "DEMO-1"], Array.from({ length: 21 }, (_, index) => `DEMO-${index}`)]) {
+  for (const ids of [[], [""], ["DEMO-1", "DEMO-1"]]) {
     await assert.rejects(applyCommands(connection, "State Fixed", ids), /YouTrack/);
   }
   for (const run of [
@@ -91,7 +90,7 @@ test("command selections are explicit, limited to20, and reject invalid input be
     () => assistSearch(connection, { query: "tag", caret: -1 }),
     () => assistSearch(connection, { query: "tag", caret: 1.5 }),
     () => countIssues(connection, "\n"),
-    () => listSavedQueries(connection, { top: 101 }),
+    () => listSavedQueries(connection, { top: Number.MAX_SAFE_INTEGER + 1 }),
     () => listSavedQueries(connection, { skip: -1 }),
     () => getSavedQuery(connection, ".."),
   ]) await assert.rejects(run(), /YouTrack/);
@@ -251,3 +250,15 @@ test("RPC keeps permissions and credentials profile-scoped across invalid and va
   assert.deepEqual(seen, ["locked:/context/api/issuesGetter/count", "dev:/context/api/commands", "locked:/context/api/search/assist"]);
 });
 
+
+test("commands apply sends more than twenty explicit issues in one request", async () => {
+  const ids = Array.from({ length: 300 }, (_, index) => `DEMO-${index}`);
+  let calls = 0;
+  server.use(http.post("*/api/commands", async ({ request }) => {
+    calls++;
+    assert.deepEqual(await request.json(), { query: "State Fixed", issues: ids.map(idReadable => ({ idReadable })) });
+    return HttpResponse.json({});
+  }));
+  await applyCommands(connection, "State Fixed", ids);
+  assert.equal(calls, 1);
+});

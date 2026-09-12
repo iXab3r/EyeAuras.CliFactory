@@ -59,13 +59,15 @@ open afterward. Next invocation without flags returns to headless/no recording a
 See the [detailed observation guide](../../docs/browser-observation.md) for all lifecycle,
 concurrency, state, security, disk-cleanup and integration-author rules.
 
-## Small, bounded service contract
+## Service contract
 
-- `integers`: count 1–100 (default 1), min default 1, max default 100; duplicates allowed.
+- `integers`: positive safe integer count (default 1), min default 1, max default 100; duplicates allowed.
 - `sequence`: min default 1, max default 10; the entire interval, unique and shuffled.
-- Both require integral bounds within ±1e9, min < max, and at most 100 results.
+- Both require safe integer bounds within the documented ±1e9 domain and min < max.
+  The CLI has no result-count or DOM-text ceiling; the service enforces its own count limits.
+  The [remote HTTP API](https://www.random.org/clients/http/api/) documents up to 10,000 values.
 - Both are ReadOnly but consume IP-based random-bit quota. Negative quota blocks this client for
-  ten minutes. Each form operation is bounded to four minutes, with two-minute page waits.
+  ten minutes. Form operations have no automatic deadline; explicit cancellation remains available.
 - No automatic retry/replay, alternate random generator, API fallback or anti-bot bypass.
   Changed DOM, challenge pages, quota errors and navigation failures are sanitized failures.
 - Different application IDs (including REST versus PW) and different machines do not coordinate

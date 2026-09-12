@@ -1,6 +1,5 @@
 import type { IntegerRequest, RandomRange } from "./models.js";
 
-export const maxResults = 100;
 const endpointLimit = 1_000_000_000;
 
 export function integer(
@@ -35,7 +34,7 @@ export function integerRequest(input: {
 }): IntegerRequest {
   return {
     ...range(input),
-    count: integer(input.count, "count", 1, maxResults),
+    count: integer(input.count, "count", 1, Number.MAX_SAFE_INTEGER),
   };
 }
 
@@ -43,11 +42,7 @@ export function sequenceRequest(input: {
   min?: unknown;
   max?: unknown;
 }): RandomRange {
-  const result = range(input);
-  if (result.max - result.min + 1 > maxResults) {
-    throw new Error(`sequence must contain at most ${maxResults} integers.`);
-  }
-  return result;
+  return range(input);
 }
 
 export function serviceUrl(value: unknown): URL {
@@ -76,7 +71,6 @@ export function contactEmail(value: unknown): string {
   // This is a header-safe contact address, not account authentication. Never echo rejected input.
   if (
     typeof value !== "string" ||
-    value.length > 254 ||
     !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(
       value,
     )

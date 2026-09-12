@@ -53,10 +53,10 @@ test("packaged bin: help, configuration, HTTP output, errors and JSON-RPC", asyn
   const sequence = run(["sequence", "--min", "1", "--max", "3"]);
   assert.equal(sequence.status, 0, sequence.stderr);
   assert.equal(sequence.stdout, "values: [3,2,1]\n");
-  const invalid = run(["integers", "--count", "101", "--json"]);
+  const invalid = run(["integers", "--count", "9007199254740992", "--json"]);
   assert.equal(invalid.status, 1);
   assert.equal(invalid.stdout, "");
-  assert.match(invalid.stderr, /between 1 and 100/);
+  assert.match(invalid.stderr, /between 1 and 9007199254740991/);
   for (const command of ["integers", "sequence"]) {
     const equalBounds = run([command, "--min", "0", "--max", "0", "--json"]);
     assert.equal(equalBounds.status, 1);

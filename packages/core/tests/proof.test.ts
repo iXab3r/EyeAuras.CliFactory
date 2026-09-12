@@ -18,10 +18,11 @@ test("proof preflight rejects every CI spelling and invalid selector before invo
     assert.throws(() => createProofInvoker({ executable, environment: { [name]: "true" } }), /local-only.*CI/);
   }
   for (const argv of [[], ["--profile"], ["--profile", "../outside"], ["--profile", "PROFILES.JSON"],
-    ["--profile", "a".repeat(65)], ["--profile", "--json"], ["--profile", "synthetic", "issues", "create"],
+    ["--profile", "--json"], ["--profile", "synthetic", "issues", "create"],
     ["--profile", "synthetic", "--url", "https://example.com"], ["--profile", "synthetic", "--token", "synthetic"]]) {
     assert.throws(() => parseProofProfile(argv, {}), /Usage:/);
   }
+  assert.equal(parseProofProfile(["--profile", "a".repeat(90)], {}), "a".repeat(90));
   const mutable: NodeJS.ProcessEnv = {};
   const invoke = createProofInvoker({ executable, environment: mutable });
   mutable.GitHub_Actions = "true";

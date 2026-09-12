@@ -1,5 +1,5 @@
 interface ConsumeOptions {
-  maxBytes: number;
+  maxBytes?: number | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -8,13 +8,13 @@ async function consumeResponseBody(
   options: ConsumeOptions,
   consume: (chunk: Uint8Array) => void | Promise<void>,
 ): Promise<number> {
-  const { maxBytes, signal } = options;
+  const { maxBytes = Infinity, signal } = options;
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const cancel = () => { void reader?.cancel().catch(() => undefined); };
   try {
     reader = response.body?.getReader();
     signal?.addEventListener("abort", cancel, { once: true });
-    if (signal?.aborted || !Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new Error();
+    if (signal?.aborted || (options.maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1))) throw new Error();
     const header = response.headers.get("content-length");
     const declared = header === null ? undefined : Number(header);
     const encoding = response.headers.get("content-encoding")?.trim().toLowerCase();
@@ -47,14 +47,14 @@ async function consumeResponseBody(
 }
 
 /**
- * Consume one response as bounded bytes. HTTP status, decoding and JSON/media policy stay local.
+ * Consume one response as owned bytes, optionally bounded by an explicit caller budget. HTTP status, decoding and JSON/media policy stay local.
  * Cancellation is observed but never awaited: a tee's other branch may still be unread.
  */
-export async function readBoundedResponseBody(
+export async function readResponseBody(
   response: Response,
-  options: ConsumeOptions,
+  options: ConsumeOptions = {},
 ): Promise<Uint8Array> {
-  const { maxBytes } = options;
+  const { maxBytes = Infinity } = options;
   let buffer = new Uint8Array(0);
   let written = 0;
   const bytes = await consumeResponseBody(response, options, (chunk) => {

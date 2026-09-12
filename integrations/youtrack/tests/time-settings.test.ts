@@ -144,7 +144,7 @@ test("time metadata IDs, blank fields and invalid paging fail before fetch", asy
   }
   for (const row of rows) await assert.rejects(row.run(local, { fields: " " }), /YouTrack fields/);
   for (const row of rows.filter((row) => row.list)) {
-    for (const options of [{ top: 0 }, { top: 101 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
+    for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
       await assert.rejects(row.run(local, options), /YouTrack/);
     }
   }

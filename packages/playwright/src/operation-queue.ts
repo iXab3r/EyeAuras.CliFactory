@@ -1,5 +1,3 @@
-import { BrowserOperationError } from "./errors.js";
-
 interface Pending {
   compatible(): boolean;
   start(): void;
@@ -19,10 +17,6 @@ export class OperationQueue {
     signal: AbortSignal,
   ): Promise<T> {
     if (signal.aborted) return Promise.reject(new Error("Cancelled."));
-    if (this.#pending.length >= 128)
-      return Promise.reject(
-        new BrowserOperationError("Browser operation queue is full."),
-      );
     return new Promise<T>((resolve, reject) => {
       const pending: Pending = {
         compatible,

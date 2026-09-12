@@ -1,20 +1,45 @@
 {
   "name": "@eyeauras/youtrack-cli",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
   "description": "AI-friendly YouTrack CLI built with AI CLI Factory.",
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
-  "bin": { "youtrack-cli": "./dist/src/bin.js" },
+  "bin": {
+    "youtrack-cli": "dist/src/bin.js"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "start": "node dist/src/bin.js",
     "test:compiled": "node --test dist/tests/*.test.js",
     "pretest:integration": "npm run build --workspace @eyeauras/cli-factory && npm run build",
-    "test:integration": "node dist/integration-tests/profile-proof.js"
+    "test:integration": "node dist/integration-tests/profile-proof.js",
+    "prepack": "npm run build"
   },
-  "engines": { "node": ">=22" },
-  "dependencies": { "@eyeauras/cli-factory": "0.1.0" },
-  "devDependencies": { "msw": "^2.11.0" }
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@eyeauras/cli-factory": "0.2.0"
+  },
+  "devDependencies": {
+    "msw": "^2.11.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iXab3r/EyeAuras.CliFactory.git",
+    "directory": "integrations/youtrack"
+  },
+  "homepage": "https://github.com/iXab3r/EyeAuras.CliFactory/tree/main/integrations/youtrack",
+  "bugs": {
+    "url": "https://github.com/iXab3r/EyeAuras.CliFactory/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": [
+    "dist/src"
+  ]
 }

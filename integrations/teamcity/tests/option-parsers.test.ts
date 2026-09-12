@@ -15,7 +15,7 @@ test("TeamCity paging preserves defaults, leading zeros, signed zero and safe of
   const cli = f.createCli();
   const locators = [
     "archived:false,start:0,count:100", "archived:false,start:0,count:1",
-    "archived:false,start:9007199254740991,count:100", "archived:false,start:3,count:1",
+    "archived:false,start:9007199254740991,count:100", "archived:false,start:3,count:1", "archived:false,start:0,count:1001",
   ];
   let calls = 0;
   server.use(http.get("https://teamcity.test/app/rest/projects", ({ request }) => {
@@ -24,9 +24,9 @@ test("TeamCity paging preserves defaults, leading zeros, signed zero and safe of
   }));
   for (const options of [
     [], ["--limit", "001", "--start", "-0"],
-    ["--limit", "100", "--start", "9007199254740991"], ["--limit", "1", "--start", "0003"],
+    ["--limit", "100", "--start", "9007199254740991"], ["--limit", "1", "--start", "0003"], ["--limit", "1001"],
   ]) assert.deepEqual(await cli.execute(["projects", "list", ...options]), []);
-  assert.equal(calls, 4);
+  assert.equal(calls, 5);
 });
 
 test("TeamCity invalid paging and JSON reject before TTY onboarding, credentials or HTTP", async t => {
@@ -39,9 +39,9 @@ test("TeamCity invalid paging and JSON reject before TTY onboarding, credentials
   server.use(http.all("*", () => { calls++; return HttpResponse.json({}); }));
   const cli = f.createCli();
   const cases = [
-    ...["0", "101", "1e2", "synthetic-secret\u0000value"].map(value => ({
+    ...["0", "9007199254740992", "1e2", "synthetic-secret\u0000value"].map(value => ({
       argv: ["projects", "list", "--limit", value],
-      message: "TeamCity page limit must be an integer between 1 and 100.",
+      message: "TeamCity page limit must be a positive safe integer.",
     })),
     ...["-1", "9007199254740992", " 1"].map(value => ({
       argv: ["projects", "list", "--start", value],
@@ -94,4 +94,34 @@ test("TeamCity repeated JSON remains ordered and numeric IDs retain strict valid
   }
   assert.equal(puts, 1);
   assert.equal(gets, 1);
+});
+
+test("TeamCity preserves a large explicit batch, typed replacement and returned collection", async t => {
+  const f = await createTestRuntime(t);
+  const cli = f.createCli();
+  await f.profileStore.setPermissions("default", [Permission.ReadOnly, Permission.Update]);
+  const ids = Array.from({ length: 151 }, (_, i) => i + 1);
+  const steps = ids.map(id => ({ name: `Step${id}`, type: "simpleRunner" }));
+  const categories = Array.from({ length: 1001 }, (_, i) => ({ id: `category${i}`, name: `Category${i}` }));
+  let calls = 0;
+  server.use(
+    http.get("https://teamcity.test/app/rest/builds/aggregated/:locator/status", ({ params }) => {
+      calls++;
+      for (const id of ids) assert.ok(String(params.locator).includes(`id:${id}`));
+      return HttpResponse.text("SUCCESS");
+    }),
+    http.put("https://teamcity.test/app/rest/buildTypes/id:Fixture_Job/steps", async ({ request }) => {
+      calls++;
+      assert.deepEqual(await request.json(), { step: steps.map(step => ({ ...step, properties: { property: [] } })) });
+      return HttpResponse.json({ step: [] });
+    }),
+    http.get("https://teamcity.test/app/rest/health/category", () => {
+      calls++;
+      return HttpResponse.json({ count: categories.length, healthCategory: categories });
+    }),
+  );
+  assert.deepEqual(await cli.execute(["builds", "batch", "status", ...ids.flatMap(id => ["--build", String(id)])]), { status: "SUCCESS" });
+  assert.deepEqual(await cli.execute(["jobs", "steps", "replace-all", "Fixture_Job", ...steps.flatMap(step => ["--item", JSON.stringify(step)])]), []);
+  assert.deepEqual(await cli.execute(["health", "categories", "list"]), { count: categories.length, items: categories });
+  assert.equal(calls, 3);
 });

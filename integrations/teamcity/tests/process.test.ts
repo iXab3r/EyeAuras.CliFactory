@@ -62,8 +62,8 @@ test("the packaged CLI process separates help, JSON output, and errors", async (
   ]);
   assert.equal(json.stderr, "");
 
-  const invalid = run(["builds", "list", "--limit", "101"]);
+  const invalid = run(["builds", "list", "--limit", "0"]);
   assert.equal(invalid.status, 1);
   assert.equal(invalid.stdout, "");
-  assert.match(invalid.stderr, /between 1 and 100/);
+  assert.match(invalid.stderr, /positive/);
 });

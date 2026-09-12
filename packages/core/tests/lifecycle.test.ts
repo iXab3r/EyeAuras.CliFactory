@@ -759,7 +759,7 @@ test("command gate supports 1, N and no extra limit with cancellation before exe
     release.resolve();
     await Promise.all(works);
   }
-  const gate = new CommandGate(1, 1);
+  const gate = new CommandGate(1);
   const started = deferred(),
     release = deferred();
   const running = gate.run(async () => {
@@ -772,18 +772,17 @@ test("command gate supports 1, N and no extra limit with cancellation before exe
   const queued = gate.run(async () => {
     reached = true;
   }, abort.signal);
-  await assert.rejects(
-    gate.run(async () => {}, new AbortController().signal),
-    /queue is full/,
-  );
+  const additional = Array.from({ length: 200 }, () =>
+    gate.run(async () => {}, new AbortController().signal));
   abort.abort();
   await assert.rejects(queued, /cancelled/);
   assert.equal(reached, false);
   release.resolve();
   await running;
+  await Promise.all(additional);
 });
 
-test("token stdin is bounded and cancellable without destroying caller-owned streams", async (t) => {
+test("token stdin accepts large values and remains cancellable without destroying caller-owned streams", async (t) => {
   const { readStdin } = await import("../src/auth.js");
   const input = new PassThrough(),
     abort = new AbortController();
@@ -792,10 +791,7 @@ test("token stdin is bounded and cancellable without destroying caller-owned str
   await assert.rejects(pending, /cancelled/);
   assert.equal(input.destroyed, false);
   input.destroy();
-  await assert.rejects(
-    readStdin(Readable.from([Buffer.alloc(65537)])),
-    /size limit/,
-  );
+  assert.equal((await readStdin(Readable.from([Buffer.alloc(100_000, 97)]))).length, 100_000);
   assert.equal(
     await readStdin(Readable.from([Buffer.from("synthetic-token\n")])),
     "synthetic-token",
@@ -1003,11 +999,15 @@ test("run and execute share argv validation before handlers or diagnostics echo 
     ],
   });
   try {
-    const argv = ["echo", "synthetic-private-value".repeat(500)];
-    await assert.rejects(app.execute(argv), /byte/);
+    const argv = ["echo", { value: "synthetic-private-value" }] as unknown as string[];
+    await assert.rejects(app.execute(argv), /strings/);
     assert.equal(await app.run(argv, streams), 1);
     assert.equal(calls, 0);
     assert.doesNotMatch(streams.err(), /synthetic-private-value/);
+    const longArgv = ["echo", "Описание".repeat(20_000)];
+    await app.execute(longArgv);
+    assert.equal(await app.run(longArgv, io()), 0);
+    assert.equal(calls, 2);
   } finally {
     await app.dispose();
   }

@@ -196,7 +196,7 @@ test("article validation rejects missing, empty, mistyped and unsupported write 
 test("article reads reject invalid pages and dot IDs before HTTP", async () => {
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json([]); }));
-  await assert.rejects(listArticles(connection, { top: 101 }), /top/);
+  await assert.rejects(listArticles(connection, { top: Number.MAX_SAFE_INTEGER + 1 }), /top/);
   await assert.rejects(listArticleComments(connection, "fixture-article", { skip: -1 }), /skip/);
   await assert.rejects(listProjectArticles(connection, ".."), /dot path/);
   await assert.rejects(getArticle(connection, "."), /dot path/);

@@ -82,7 +82,6 @@ export function readStdin(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    let length = 0;
     const cleanup = () => {
       input.pause();
       input
@@ -105,11 +104,6 @@ export function readStdin(
     };
     const data = (chunk: Buffer | string) => {
       const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      length += bytes.length;
-      if (length > 65536) {
-        fail(new Error("Authentication input exceeds its size limit."));
-        return;
-      }
       chunks.push(bytes);
     };
     if (signal?.aborted) {

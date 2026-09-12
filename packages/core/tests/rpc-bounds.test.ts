@@ -2,14 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PassThrough, Readable, Writable } from "node:stream";
 import { runJsonRpc } from "../src/json-rpc.js";
-import { validateArgv } from "../src/input-limits.js";
+import { validateArgv } from "../src/argv.js";
 
-test("common argv limits cover counts, UTF-8 bytes and aggregate size", () => {
-  validateArgv(["a".repeat(8192)]);
-  assert.throws(() => validateArgv(["a".repeat(8193)]), /byte/);
-  assert.throws(() => validateArgv(["я".repeat(4097)]), /byte/);
-  assert.throws(() => validateArgv(Array(257).fill("a")), /count/);
-  assert.throws(() => validateArgv(Array(5).fill("a".repeat(8192))), /byte/);
+test("argv validates types without restricting content size or count", () => {
+  validateArgv(["я".repeat(300_000), ...Array(300).fill("argument")]);
+  for (const invalid of [null, {}, "argv", [1], [null], Array(2)])
+    assert.throws(() => validateArgv(invalid), /array|strings/);
 });
 
 const request = (argv: string[]) =>
@@ -31,11 +29,11 @@ function output() {
     text: () => text,
   };
 }
-test("RPC rejects oversized argv without executing or echoing its contents", async () => {
+test("RPC rejects non-string argv without executing or echoing its contents", async () => {
   const out = output();
   let calls = 0;
   await runJsonRpc({
-    input: Readable.from([request(["synthetic-private-value".repeat(500)])]),
+    input: Readable.from([request([{"synthetic-private-value": true} as unknown as string])]),
     output: out.stream,
     execute: async () => {
       calls++;
@@ -45,17 +43,16 @@ test("RPC rejects oversized argv without executing or echoing its contents", asy
   assert.equal(JSON.parse(out.text()).error.code, -32602);
   assert.doesNotMatch(out.text(), /synthetic-private-value/);
 });
-test("unterminated oversized RPC line fails before EOF without destroying input", async () => {
+test("unterminated large RPC input remains cancellable without destroying input", async () => {
   const input = new PassThrough();
   const out = output();
-  const running = runJsonRpc({
-    input,
-    output: out.stream,
-    signal: AbortSignal.timeout(1500),
-    execute: async () => assert.fail("must not execute"),
-  });
-  input.write(Buffer.alloc(262145, 32));
-  await assert.rejects(running, /line.*limit/i);
+  const abort = new AbortController();
+  const running = runJsonRpc({ input, output: out.stream, signal: abort.signal,
+    execute: async () => assert.fail("must not execute") });
+  input.write(Buffer.alloc(300_000, 32));
+  await new Promise(resolve => setImmediate(resolve));
+  abort.abort();
+  await assert.rejects(running, /cancelled/i);
   assert.equal(input.destroyed, false);
   input.destroy();
 });
@@ -179,4 +176,13 @@ test("RPC cancellation detaches a slow output without destroying it", async () =
   assert.equal(out.listenerCount("drain"), 0);
   assert.equal(out.destroyed, false);
   completeWrite();
+});
+
+
+test("RPC preserves Unicode content beyond the former argument and aggregate limits", async () => {
+  const argv = ["--body", JSON.stringify({ description: "Описание\n".repeat(60_000) })];
+  const out = output();
+  await runJsonRpc({ input: Readable.from([request(argv)]), output: out.stream,
+    execute: async value => { assert.deepEqual(value, argv); return "accepted"; } });
+  assert.equal(JSON.parse(out.text()).result, "accepted");
 });
