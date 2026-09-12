@@ -260,9 +260,9 @@ test("S10 rejects traversal, encoded/absolute paths, devices, unsafe areas and m
     }
     for (const argv of [
       ["server", "files", "list", "custom.hidden"],
-      ["jobs", "files", "list", "Build", "--limit", "101"],
-      ["users", "avatar", "download", "3", "--size", "301", "--output", "avatar.png"],
-      [...download, "--max-bytes", "67108865"],
+      ["jobs", "files", "list", "Build", "--limit", "0"],
+      ["users", "avatar", "download", "3", "--size", "0", "--output", "avatar.png"],
+      [...download, "--max-bytes", "0"],
       download.slice(0, 5),
     ])
       await assert.rejects(t.cli.execute(argv));
@@ -603,26 +603,17 @@ test("S10 secure-reference aliases are isolated from auth/input aliases and exac
   }
 });
 
-test("S10 encoded wire length stays service-bounded while emitted bytes use the actual limit", async (testContext) => {
+test("encoded downloads apply only an explicit decoded-byte budget", async (testContext) => {
   const maxBytes = 64;
   for (const [name, declared, decoded, failure] of [
     ["encoded-ok.bin", 20, new Uint8Array(32), undefined],
-    ["encoded-wire.bin", 65, new Uint8Array(32), "wire"],
+    ["encoded-wire.bin", 65, new Uint8Array(32), undefined],
     ["encoded-actual.bin", 20, new Uint8Array(128), "decoded"],
   ] as const) {
     const t = await fileRuntime(testContext);
     try {
-      if (failure === "wire") {
-        assert.ok(decoded.byteLength <= maxBytes);
-        assert.ok(declared > maxBytes);
-      } else if (failure === "decoded") {
-        assert.ok(declared <= maxBytes);
-        assert.ok(decoded.byteLength > maxBytes);
-      } else {
-        assert.ok(declared <= maxBytes);
-        assert.ok(decoded.byteLength <= maxBytes);
-        assert.notEqual(declared, decoded.byteLength);
-      }
+      if (failure === "decoded") assert.ok(decoded.byteLength > maxBytes);
+      else assert.ok(decoded.byteLength <= maxBytes);
       server.use(http.get(base + "/builds/id:7/artifacts/files/docs/example.bin", () =>
         new HttpResponse(decoded, {
           headers: {
@@ -647,5 +638,22 @@ test("S10 encoded wire length stays service-bounded while emitted bytes use the 
     } finally {
       await t.cleanup();
     }
+  }
+});
+
+test("downloads have no default byte ceiling and accept a caller budget above 64 MiB", async testContext => {
+  const t = await fileRuntime(testContext);
+  const bytes = new Uint8Array(16 * 1024 * 1024 + 1).fill(37);
+  try {
+    server.use(http.get(base + "/builds/id:7/artifacts/files/docs/example.bin", () =>
+      new HttpResponse(bytes, { headers: { "Content-Length": String(bytes.length) } }),
+    ));
+    for (const [name, extra] of [["large-default.bin", []], ["large-budget.bin", ["--max-bytes", "67108865"]]] as const) {
+      const result = await t.cli.execute([...download.slice(0, -1), name, ...extra]) as { path: string; bytes: number };
+      assert.equal(result.bytes, bytes.length);
+      assert.deepEqual(new Uint8Array(await readFile(result.path)), bytes);
+    }
+  } finally {
+    await t.cleanup();
   }
 });

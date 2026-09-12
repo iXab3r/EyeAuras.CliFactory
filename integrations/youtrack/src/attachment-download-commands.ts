@@ -23,8 +23,7 @@ export const attachmentDownloadCommand = readCommand(
       },
       {
         flags: "--max-bytes <n>",
-        description: "Maximum transfer size in bytes (1-104857600)",
-        defaultValue: 25 * 1024 * 1024,
+        description: "Optional maximum transfer size in bytes (positive safe integer)",
         parse: downloadLimit,
       },
     ],

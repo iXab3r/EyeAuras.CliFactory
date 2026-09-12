@@ -10,7 +10,7 @@ afterEach(() => server.resetHandlers());
 after(() => server.close());
 const connection = { baseUrl: "https://youtrack.example.com", token: "synthetic-token" };
 const limit = 8 * 1024 * 1024;
-const failure = "YouTrack response stream failed, exceeded 8 MiB, or was cancelled.";
+const failure = "YouTrack response stream failed or was cancelled.";
 function safeFailure(error: unknown): boolean {
   assert.ok(error instanceof Error);
   assert.equal(error.message, failure);
@@ -40,14 +40,12 @@ test("YouTrack keeps Response.text BOM removal and split UTF-8 through MSW", asy
   assert.deepEqual(await currentUser(connection), { id: "fixture", login: "€ 😀" });
 });
 
-test("YouTrack accepts an exact 8 MiB JSON response and rejects actual overflow", async () => {
-  const text = '{"id":"' + "x".repeat(limit - 9) + '"}';
-  assert.equal(Buffer.byteLength(text), limit);
+test("YouTrack accepts a JSON response above the former 8 MiB ceiling", async () => {
+  const text = '{"id":"' + "x".repeat(limit + 9) + '"}';
+  assert.equal(Buffer.byteLength(text), limit + 18);
   server.use(http.get("*/api/issues/fixture", () => new HttpResponse(body(Buffer.from(text)))));
   const result = await readObject(connection, "api/issues/fixture", {});
-  assert.equal(typeof result.id === "string" ? result.id.length : -1, limit - 9);
-  server.use(http.get("*/api/issues/fixture", () => new HttpResponse(body(new Uint8Array(limit + 1)))));
-  await assert.rejects(readObject(connection, "api/issues/fixture", {}), safeFailure);
+  assert.equal(typeof result.id === "string" ? result.id.length : -1, limit + 9);
 });
 
 test("YouTrack rejects invalid, understated, truncated and excessive declared lengths", async () => {
@@ -96,8 +94,8 @@ test("YouTrack non-success cancels diagnostics and preserves safe Retry-After", 
   assert.equal(input.body?.locked, false);
 });
 
-test("YouTrack MSW response clone does not block bounded cancellation", { timeout: 5000 }, async () => {
-  server.use(http.get("*/api/users/me", () => new HttpResponse(body(new Uint8Array(limit + 1)))));
+test("YouTrack MSW response clone does not block cancellation on invalid transfer metadata", { timeout: 5000 }, async () => {
+  server.use(http.get("*/api/users/me", () => new HttpResponse("{}", { headers: { "content-length": "3" } })));
   let input: Response | undefined;
   let sibling: Response | undefined;
   try {

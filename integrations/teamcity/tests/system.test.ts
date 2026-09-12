@@ -196,7 +196,7 @@ test("S9 strict settings reject unknown fields, invalid sentinels and unsafe aut
   ])
     assert.throws(() => cleanupPatch(v));
 });
-test("S9 plugin XML rejects entities, DTD, malformed media and oversized streams", async (testContext) => {
+test("S9 plugin XML rejects entities, DTD, malformed media while accepting large XML streams", async (testContext) => {
   assert.deepEqual(pluginXml('<plugin name="rest&amp;api" loaded="false"/>'), {
     name: "rest&api",
     loaded: false,
@@ -221,7 +221,7 @@ test("S9 plugin XML rejects entities, DTD, malformed media and oversized streams
         new HttpResponse(
           new ReadableStream({
             start(controller) {
-              controller.enqueue(new Uint8Array(2 * 1024 * 1024 + 1));
+              controller.enqueue(Buffer.from(`<plugin name="${"x".repeat(2 * 1024 * 1024 + 1)}"/>`));
               controller.close();
             },
           }),
@@ -229,7 +229,7 @@ test("S9 plugin XML rejects entities, DTD, malformed media and oversized streams
         ),
     ),
   );
-  await assert.rejects(cli.execute(["server", "rest-plugin"]), /2MiB/);
+  assert.deepEqual(await cli.execute(["server", "rest-plugin"]), { name: "x".repeat(2 * 1024 * 1024 + 1) });
 });
 test("S9 one-time issuance validates aliases and reports partial persistence without retry", async (testContext) => {
   const r = await createTestRuntime(testContext),
@@ -415,4 +415,28 @@ test("S9 persistent RPC isolates license input aliases and Admin permissions", a
   assert.doesNotMatch(r.stdout(), /synthetic-prod-license/);
   assert.match(r.stdout(), /Admin/);
   assert.match(r.stdout(), /active/);
+});
+
+test("avatar upload preserves files above the former 4 MiB ceiling", async testContext => {
+  const runtime = await createTestRuntime(testContext);
+  const cli = runtime.createCli();
+  await cli.execute(["permissions", "grant", "Update"]);
+  const directory = await mkdtemp(join(tmpdir(), "teamcity-large-avatar-test-"));
+  const bytes = new Uint8Array(4 * 1024 * 1024 + 1);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10]);
+  let calls = 0;
+  try {
+    const path = join(directory, "avatar.png");
+    await writeFile(path, bytes);
+    server.use(http.put(base + "/avatars/id:3", async ({ request }) => {
+      calls++;
+      const form = await request.formData();
+      assert.deepEqual(new Uint8Array(await (form.get("avatar") as File).arrayBuffer()), bytes);
+      return new HttpResponse(null, { status: 204 });
+    }));
+    await cli.execute(["users", "avatar", "replace", "3", "--file", path]);
+    assert.equal(calls, 1);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

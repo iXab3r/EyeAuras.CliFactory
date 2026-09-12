@@ -80,9 +80,9 @@ not a promise about the order in which unrelated network connections reach the s
 An operation retains its admission slot through action completion, auth checkpoint, page/popup
 closure, video finalization and artifact reporting. A mode switch cannot cut off a peer's recording.
 
-The internal browser queue allows 128 pending operations; excess requests fail explicitly.
-Compatible active operations have no additional numerical concurrency limit in this module.
-The application's Core command limit and IPC invocation limit remain separate controls.
+The internal browser queue has no fixed pending-operation cap. Compatible active operations
+have no additional numerical concurrency limit in this module. Cancellation and fair admission
+continue to coordinate callers without rejecting work based on queue length.
 
 ### Cancellation, timeouts and failure
 
@@ -95,9 +95,10 @@ already-started resource replacement. Cleanup is allowed to finish. Cancellation
 closes only that operation's page and owned popups, then attempts video finalization. It does not
 interrupt another client's operation.
 
-BrowserRuntime does not invent a CLI-wide timeout flag. Integrations supply a suitable deadline;
-the RANDOM.ORG client uses a four-minute browser-operation deadline including browser admission.
-Core waiting before the client starts is not included in that client-specific deadline. Video
+BrowserRuntime imposes no default page-action or navigation deadline. Callers can set explicit
+Playwright timeouts, and the supplied AbortSignal still cancels queue waiting and browser work.
+BrowserRuntime does not invent a CLI-wide timeout flag. RANDOM.ORG operations use the caller's
+signal without an implicit deadline. Video
 finalization/reporting can extend completion beyond cancellation; custom callbacks must terminate.
 
 If headed Chromium cannot start, return an actionable, sanitized launch error. Never silently fall
@@ -123,6 +124,8 @@ Visibility and recording settings are **not** part of the authentication identit
 integration already opted into `persistAuth: true`, a replacement context loads that profile's
 last successfully checkpointed matching `storageState`: cookies, localStorage and IndexedDB.
 Another profile or changed endpoint/user-agent identity cannot borrow that snapshot.
+Snapshots have no tool-imposed byte limit; browser storage and available memory/disk determine
+whether capture, persistence and restoration can complete.
 
 A mode change does not opt an anonymous application into credential persistence. With
 `persistAuth: false`, in-memory cookies/origin state disappear when their context is replaced.
@@ -291,7 +294,7 @@ slow motion, inspector, screenshot, trace, arbitrary profile attachment, or manu
 is added here. Application-specific login completion remains the application's responsibility.
 
 Default tests use real Chromium and routed synthetic pages, including actual headed launches,
-WebM finalization, profile/auth isolation, queue fairness/cancellation/overload and packaged CLI
+WebM finalization, profile/auth isolation, queue fairness/cancellation beyond the former cap and packaged CLI
 plus tunneled JSON-RPC output. Real-service proofs remain explicit, bounded and recording-free.
 Local evidence is Windows; configuring the CI matrix is not a claim that Linux/macOS headed
 execution was locally verified.

@@ -1,4 +1,4 @@
-import { readBoundedResponseBody } from "@eyeauras/cli-factory";
+import { readResponseBody } from "@eyeauras/cli-factory";
 
 export interface YouTrackUser {
   id: string;
@@ -75,8 +75,8 @@ export function fields(options: ProjectionOptions, defaults: string): string {
 export function page(options: PageOptions, defaults: string): Record<string, string> {
   const top = options.top ?? 50;
   const skip = options.skip ?? 0;
-  if (!Number.isSafeInteger(top) || top < 1 || top > 100) {
-    throw new Error("YouTrack top must be an integer between 1 and 100.");
+  if (!Number.isSafeInteger(top) || top < 1) {
+    throw new Error("YouTrack top must be a positive safe integer.");
   }
   if (!Number.isSafeInteger(skip) || skip < 0) {
     throw new Error("YouTrack skip must be a nonnegative safe integer.");
@@ -194,7 +194,7 @@ async function request(
     const retryAfter = response.headers.get("retry-after");
     let retry = "";
     if (response.status === 429 && retryAfter) {
-      if (/^\d{1,10}$/.test(retryAfter)) {
+      if (/^\d+$/.test(retryAfter) && Number.isSafeInteger(Number(retryAfter))) {
         retry = ` Retry after ${Number(retryAfter)} seconds.`;
       } else if (/^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(retryAfter)) {
         const date = new Date(retryAfter);
@@ -207,14 +207,13 @@ async function request(
   }
   let text: string;
   try {
-    const bytes = await readBoundedResponseBody(response, {
-      maxBytes: 8 * 1024 * 1024,
+    const bytes = await readResponseBody(response, {
       signal: connection.signal,
     });
     // Match Response.text(): UTF-8 replacement decoding with an initial BOM removed.
     text = new TextDecoder().decode(bytes);
   } catch {
-    throw new Error("YouTrack response stream failed, exceeded 8 MiB, or was cancelled.");
+    throw new Error("YouTrack response stream failed or was cancelled.");
   }
   let value: YouTrackValue;
   try {

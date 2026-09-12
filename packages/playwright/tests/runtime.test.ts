@@ -109,6 +109,59 @@ async function fixture(t: test.TestContext) {
   return { settings, contexts, create, appArguments };
 }
 
+test("auth snapshots larger than 4 MiB persist and restore only for the owning profile", async (t) => {
+  const f = await fixture(t);
+  let runtime = f.create();
+  t.after(() => runtime.dispose());
+  const length = 4_194_305;
+  await runtime.withPage(f.settings, signal(), async (page) => {
+    await page.goto("/");
+    await page.evaluate((length) => new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open("synthetic-state", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("values");
+      request.onerror = () => reject(new Error("Synthetic database open failed."));
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction("values", "readwrite");
+        transaction.objectStore("values").put("x".repeat(length), "payload");
+        transaction.oncomplete = () => { database.close(); resolve(); };
+        transaction.onerror = () => reject(new Error("Synthetic database write failed."));
+      };
+    }), length);
+  });
+  const path = join(f.appArguments.AppDataDirectory, "browser", "auth-state.json");
+  const saved = await stat(path);
+  assert.ok(saved.size > 4_194_304);
+  if (process.platform !== "win32") assert.equal(saved.mode & 0o777, 0o600);
+  await runtime.dispose();
+  runtime = f.create();
+  const readLength = (settings: typeof f.settings) => runtime.withPage(settings, signal(), async (page) => {
+    await page.goto("/");
+    return page.evaluate(() => new Promise<number>((resolve, reject) => {
+      const request = indexedDB.open("synthetic-state", 1);
+      request.onerror = () => reject(new Error("Synthetic database open failed."));
+      request.onsuccess = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains("values")) {
+          database.close();
+          resolve(0);
+          return;
+        }
+        const read = database.transaction("values").objectStore("values").get("payload");
+        read.onsuccess = () => { database.close(); resolve(String(read.result).length); };
+        read.onerror = () => reject(new Error("Synthetic database read failed."));
+      };
+    }));
+  });
+  assert.equal(await readLength(f.settings), length);
+  assert.equal(await readLength({
+    ...f.settings,
+    appArguments: f.appArguments.WithProfile("other"),
+  }), 0);
+  await runtime.clearAuth(f.appArguments);
+  await assert.rejects(stat(path), { code: "ENOENT" });
+});
+
 test("lazy browser, per-operation pages, parallel profile contexts and one reusable browser", async (t) => {
   const f = await fixture(t),
     runtime = f.create();

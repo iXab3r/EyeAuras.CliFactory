@@ -100,7 +100,7 @@ test("invalid work-time IDs and paging fail before networking", async () => {
     await assert.rejects(getIssueWorkItem(local, "DEMO-1", id), /YouTrack/);
     await assert.rejects(getWorkItem(local, id), /YouTrack/);
   }
-  for (const options of [{ top: 0 }, { top: 101 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
+  for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
     await assert.rejects(listIssueWorkItems(local, "DEMO-1", options), /YouTrack/);
     await assert.rejects(listWorkItems(local, options), /YouTrack/);
   }

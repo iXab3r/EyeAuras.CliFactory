@@ -9,7 +9,7 @@
     "build": "tsc --project tsconfig.json"
   },
   "dependencies": {
-    "@eyeauras/cli-factory": "0.1.0"
+    "@eyeauras/cli-factory": "0.2.0"
   },
   "exports": {
     ".": "./dist/src/index.js",

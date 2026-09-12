@@ -1,6 +1,6 @@
-export { readBoundedResponseBody } from "./response-body.js";
+export { readResponseBody } from "./response-body.js";
 export { tokenAuth } from "./auth.js";
-export { inputLimits, validateArgv } from "./input-limits.js";
+export { validateArgv } from "./argv.js";
 export { visitResources } from "./resources.js";
 export { privateDirectory, privateEndpoint } from "./private-storage.js";
 export { ProfileFileError, publishProfileFile } from "./profile-file.js";

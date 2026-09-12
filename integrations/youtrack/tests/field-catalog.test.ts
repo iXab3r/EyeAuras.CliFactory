@@ -81,7 +81,7 @@ test("catalog rejects invalid paging and projection before fetch and detects ove
   for (const row of catalogCases) {
     await assert.rejects(row.run(connection, { fields: " " }), /fields must be nonempty/);
     if (row.collection) {
-      for (const options of [{ top: 0 }, { top: 101 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
+      for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
         await assert.rejects(row.run(connection, options), /YouTrack/);
       }
     }

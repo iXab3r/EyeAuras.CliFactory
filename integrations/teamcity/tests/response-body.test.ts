@@ -11,7 +11,7 @@ after(() => server.close());
 const baseUrl = "https://teamcity.example.com";
 const connection = { baseUrl, token: "synthetic-token" };
 const limit = 2 * 1024 * 1024;
-const failure = "TeamCity response stream failed or exceeded2MiB; remote outcome is unknown.";
+const failure = "TeamCity response stream failed; remote outcome is unknown.";
 function safeFailure(error: unknown): boolean {
   assert.ok(error instanceof Error);
   assert.equal(error.message, failure);
@@ -40,18 +40,18 @@ test("TeamCity preserves BOM and split UTF-8 text through the MSW boundary", asy
   assert.deepEqual(await new TeamCityClient(connection).getApiVersion(), { version: expected });
 });
 
-test("TeamCity accepts its exact 2 MiB text bound and empty responses", async () => {
-  for (const value of ["", "x".repeat(limit)]) {
+test("TeamCity accepts text beyond its former 2 MiB bound and empty responses", async () => {
+  for (const value of ["", "x".repeat(limit + 1)]) {
     server.use(http.get(baseUrl + "/app/rest/apiVersion", () => new HttpResponse(body(Buffer.from(value)))));
     const result = await new TeamCityClient(connection).getApiVersion();
     assert.equal(result.version.length, value.length);
   }
 });
 
-test("TeamCity rejects actual overflow and bad declared lengths through MSW", async () => {
+test("TeamCity rejects bad declared lengths through MSW", async () => {
   for (const [value, length] of [
     ["fixture", "synthetic-private"], ["fixture", "1"], ["fixture", "8"],
-    ["fixture", String(limit + 1)], ["x".repeat(limit + 1), undefined],
+    ["fixture", String(limit + 1)],
   ] as const) {
     server.use(http.get(baseUrl + "/app/rest/apiVersion", () => new HttpResponse(body(Buffer.from(value)), {
       headers: length === undefined ? {} : { "content-length": length },
@@ -87,7 +87,7 @@ test("TeamCity cancels non-success bodies without inspecting diagnostics", async
   assert.equal(input.body?.locked, false);
 });
 
-test("TeamCity MSW response clone does not block bounded cancellation", { timeout: 5000 }, async () => {
+test("TeamCity MSW response clone does not block reading a large body", { timeout: 5000 }, async () => {
   server.use(http.get(baseUrl + "/app/rest/apiVersion", () => new HttpResponse(body(new Uint8Array(limit + 1)))));
   let input: Response | undefined;
   let sibling: Response | undefined;
@@ -100,7 +100,7 @@ test("TeamCity MSW response clone does not block bounded cancellation", { timeou
     },
   });
   try {
-    await assert.rejects(client.getApiVersion(), safeFailure);
+    assert.equal((await client.getApiVersion()).version.length, limit + 1);
     assert.equal(input?.body?.locked, false);
   } finally {
     void sibling?.body?.cancel().catch(() => undefined);

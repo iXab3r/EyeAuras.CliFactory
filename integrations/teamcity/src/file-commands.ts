@@ -6,7 +6,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   const leaf = clientLeaf(clientFor),
     R = Permission.ReadOnly;
   const count = {
-    ...option("--limit <count>", "Maximum100 files; no recursive traversal"),
+    ...option("--limit <count>", "Maximum files; no recursive traversal"),
     defaultValue: 100,
   };
   const output = [
@@ -16,13 +16,12 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
       true,
     ),
     {
-      ...option("--max-bytes <bytes>", "Actual stream limit, at most64MiB"),
-      defaultValue: 16 * 1024 * 1024,
+      ...option("--max-bytes <bytes>", "Optional caller-selected download byte budget"),
     },
   ];
   const destination = (o: Record<string, unknown>) => ({
     output: text(o, "output"),
-    maxBytes: Number(o.maxBytes),
+    ...(o.maxBytes === undefined ? {} : { maxBytes: Number(o.maxBytes) }),
   });
   const tree = (name: string, kind: FileTree) =>
     command(name, "Literal relative paths; files may contain private data", [
@@ -79,7 +78,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         ),
       {
         permission: R,
-        options: [...output, { ...option("--size <pixels>", "PNG size2–300"), defaultValue: 64 }],
+        options: [...output, { ...option("--size <pixels>", "PNG size in pixels"), defaultValue: 64 }],
       },
     ),
   );

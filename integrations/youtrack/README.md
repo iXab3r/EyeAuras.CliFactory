@@ -1,5 +1,19 @@
 # YouTrack CLI
 
+The scoped package provides the `youtrack-cli` command:
+
+```sh
+npm install --global @eyeauras/youtrack-cli
+youtrack-cli --help
+youtrack-cli profile configure
+```
+
+Requires Node.js 22+ and npm. Compiled JavaScript and the Core dependency are installed
+automatically; no repository checkout, .NET, TypeScript compiler or browser is needed.
+Interactive profile configuration guides endpoint/authentication setup; secrets use the
+OS credential store. Existing `youtrack-cli` profiles and permissions are unchanged.
+Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.CliFactory/blob/main/docs/npm-release.md).
+
 YouTrack uses the same `@eyeauras/cli-factory` workspace as TeamCity. The CLI
 provides standard profiles/auth/permissions and 118 REST operations: 98 ReadOnly and 20 Update.
 A separate ReadOnly command downloads one selected issue attachment; it is not REST operation 119.
@@ -17,11 +31,11 @@ The foundational read projections are:
 
 REST reads support explicit `--fields <projection>`. Projection results retain the server's
 field names, `$type` and nullable values; authentication always validates fixed `id,login`.
-Offset collections use `--top 50 --skip 0` by default; top is 1–100 and skip a nonnegative integer.
+Offset collections use `--top 50 --skip 0` by default; top is a positive safe integer and skip a nonnegative safe integer.
 Paging accepts unsigned decimal digits, including leading zeros; signs (including `-0`), whitespace,
 fractions, exponents and unsafe integers reject. Invalid syntax, range and overflow now fail before
 onboarding or credential access on CLI, execute and RPC. The static errors are
-`YouTrack top must be a decimal integer between 1 and 100.` and
+`YouTrack top must be a positive safe decimal integer.` and
 `YouTrack skip must be a nonnegative safe decimal integer.`; they never include the supplied input.
 Directly callable service methods retain their own range validation.
 Each collection command makes one request, and rejects an oversized server page. No `--all`
@@ -42,14 +56,11 @@ unchanged. Failures expose HTTP status and safe Retry-After information, never r
 errors or authentication material. Remote mutations require the Update gate, described below.
 The ReadOnly download command writes only its explicitly requested local file beneath profile AppData.
 
-JSON responses now have an 8 MiB limit on actual decoded bytes, including responses without a
-Content-Length header. This allows room for the existing bounded pages and text-rich projections;
-it does not guarantee every requested projection will fit. Narrow `--fields` or reduce `--top` if
-needed. Invalid/truncated identity transfer lengths, overflow, stream failure or cancellation fail
-with `YouTrack response stream failed, exceeded 8 MiB, or was cancelled.` without response content.
-Compressed wire length is syntax-checked but not compared with decoded size. Existing HTTP status,
-Retry-After, empty/null mutation and UTF-8 BOM behavior are unchanged. Attachment-download limits
-remain separate; no request is retried automatically.
+JSON responses have no CLI byte ceiling. Invalid/truncated identity transfer lengths, stream failure
+or cancellation fail with `YouTrack response stream failed or was cancelled.` without response content.
+Compressed wire length is syntax-checked but not compared with decoded size. HTTP status,
+Retry-After, empty/null mutation and UTF-8 BOM behavior are unchanged. No request is retried
+automatically. Runtime memory and service limits still apply.
 
 ## Sign in locally
 
@@ -168,7 +179,7 @@ for exact arguments and permission categories; no endpoint, header or arbitrary 
 `commands assist`, `search assist` and `issues count` use POST on the wire but remain ReadOnly:
 they compute suggestions or counts without applying changes. Assist is not a dry run or a guarantee
 that a later command will succeed. Required `--query` is preserved exactly; optional `--caret` is
-between zero and its length. `commands apply` requires 1–20 comma-separated explicit issue IDs via
+between zero and its length. `commands apply` requires comma-separated distinct explicit issue IDs via
 `--issues`, never an implicit search expansion. It has no run-as or silent mode. Count returns the
 server's `count`, including `-1` (pending) or `null`; the CLI never polls automatically.
 
@@ -291,8 +302,9 @@ appear in metadata output, errors or the download result.
 
 Files go beneath the selected profile's `AppDataDirectory/downloads`. `--name` must be a safe
 single basename; the default prefixes the sanitized attachment name with its ID. Existing
-filenames are never overwritten. The default limit is 25 MiB; `--max-bytes` accepts 1–104857600
-and is enforced while streaming as well as against Content-Length. Core stages bytes in a fresh
+filenames are never overwritten. Downloads have no default byte ceiling. Optional `--max-bytes`
+accepts a positive safe integer and enforces the caller-selected bound while streaming and against
+Content-Length. Filename lengths are left to the filesystem. Core stages bytes in a fresh
 private directory under this profile's `temp`, then hard-links only the complete identity-checked
 file into `downloads`. Partial files are removed when their identities remain trusted. Output
 contains only sanitized ID/name, local path, byte count and content type.

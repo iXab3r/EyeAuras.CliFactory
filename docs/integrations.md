@@ -113,8 +113,9 @@ Once `@eyeauras/cli-factory` is published, install a pinned compatible npm versi
 npm install @eyeauras/cli-factory
 ```
 
-The package is not published during the foundation stage. Until it is, use one of these explicit
-development arrangements:
+The first npm release is being prepared; package preparation does not imply registry availability.
+See [npm release and installation](npm-release.md). Until the required version is published,
+use one of these explicit development arrangements:
 
 1. For same-machine development, add a local file dependency:
 
@@ -486,28 +487,22 @@ request and result. Omit `profiles` to test unconfigured onboarding, and declare
 explicitly. The fixture does not assume token authentication; credential names belong to the
 integration. Every created app is disposed before the fixture deletes its temporary AppData.
 See [the testing guide](testing.md#shared-offline-cli-fixture) for invocation and cleanup details.
-## Bounded response consumption
+## Response consumption
 
-Use Core's byte reader after your own status handling instead of an unbounded `response.text()`:
+Use Core's owning byte reader after service status handling:
 
 ```ts
-import { readBoundedResponseBody } from "@eyeauras/cli-factory";
+import { readResponseBody } from "@eyeauras/cli-factory";
 
-const bytes = await readBoundedResponseBody(response, {
-  maxBytes: 8 * 1024 * 1024,
-  signal: context.signal,
-});
-const text = new TextDecoder().decode(bytes); // Response.text-compatible UTF-8/BOM behavior
+const bytes = await readResponseBody(response, { signal: context.signal });
+const text = new TextDecoder().decode(bytes);
 ```
 
-Choose the limit for the service's actual response shape. TeamCity uses 2 MiB; YouTrack uses 8 MiB
-for its bounded pages and text-rich projections. Keep status, media, empty/null mutation semantics,
-JSON/DTO parsing and safe public errors local. Cancel rejected HTTP bodies without awaiting tee
-consumers, and pass the invocation signal to fetch as well as the reader.
-Actual decoded bytes are bounded; Content-Length is syntax-checked and, for unencoded/identity
-bodies, checked against both the limit and completed length. Compressed wire length is not the
-decoded size. Decoding stays explicit: `Buffer.from(bytes).toString("utf8")` retains an initial BOM,
-whereas `TextDecoder` removes it by default. No HTTP wrapper, retry or automatic decoding is added.
+No fixed response ceiling is imposed. An optional `maxBytes` is reserved for explicit caller
+budgets; do not copy arbitrary integration caps. Keep status, media, mutation semantics and
+service validation local. The reader checks Content-Length syntax/identity completeness, owns
+chunks, supports cancellation and releases its lock. Compressed wire length is not decoded size.
+Decoding remains explicit: Buffer retains an initial BOM; TextDecoder removes it. No retry occurs.
 
 ## Native wire formats and private results
 
@@ -547,7 +542,7 @@ modification-time or change-time mutations instead of publishing transformed byt
 Core retains its exclusive staging handle through validation and publication, then closes it before
 identity-checked path cleanup; a close failure retains staging for inspection.
 
-The integration still validates its own basename convention and limit. Core also rejects path,
+The integration still validates its own basename convention. Optional byte budgets are caller-selected. Core also rejects path,
 device and unsafe cross-platform basename forms. Staging is in a private fresh directory under the
 active profile's `temp`; the destination is under `downloads`. Never call `privateDirectory` on
 user-selected or AppData ancestor directories. TeamCity and YouTrack are the two consumers;

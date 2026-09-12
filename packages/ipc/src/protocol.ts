@@ -16,11 +16,10 @@ const loaded = loadPackageDefinition(
 export const CliHost = loaded.clifactory.CliHost;
 export const protocol = "1";
 export const chunkBytes = 16_384;
-export const bufferBytes = 1_048_576;
 export const channelOptions: ChannelOptions = {
   "grpc.enable_retries": 0,
-  "grpc.max_send_message_length": 65_536,
-  "grpc.max_receive_message_length": 65_536,
+  "grpc.max_send_message_length": -1,
+  "grpc.max_receive_message_length": -1,
 };
 export const connect = (endpoint: string) =>
   new CliHost(endpoint, credentials.createInsecure(), channelOptions);

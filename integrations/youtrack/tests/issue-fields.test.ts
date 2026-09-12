@@ -169,7 +169,7 @@ test("invalid field payloads and IDs fail locally without secret-bearing diagnos
     await assert.rejects(getIssueField(local, "DEMO-1", id), /YouTrack/);
     await assert.rejects(setIssueField(local, "DEMO-1", id, { $type: "SimpleIssueCustomField", value: null }), /YouTrack/);
   }
-  await assert.rejects(listUsers(local, { top: 101 }), /YouTrack/);
+  await assert.rejects(listUsers(local, { top: Number.MAX_SAFE_INTEGER + 1 }), /YouTrack/);
   await assert.rejects(listProjectFields(local, "DEMO", { skip: -1 }), /YouTrack/);
   await assert.rejects(listIssueFields(local, "DEMO-1", { fields: " " }), /YouTrack/);
   assert.equal(calls, 0);

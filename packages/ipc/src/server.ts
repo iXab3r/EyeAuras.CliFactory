@@ -21,7 +21,7 @@ interface ServerOptions {
   appArguments: IAppArguments;
   environmentKeys: readonly string[];
   idleTimeoutMs?: number;
-  /** Concurrent Run safety cap, separate from the application command limit. Default 128. */
+  /** Optional caller-selected concurrent Run limit; unlimited when omitted. */
   maxInvocations?: number;
 }
 function alive(pid: number): boolean {
@@ -53,7 +53,7 @@ export async function serveHost(
   );
   const build = await resolveBuild();
   const paths = hostPaths(options.appArguments);
-  const maxInvocations = options.maxInvocations ?? 128;
+  const maxInvocations = options.maxInvocations ?? Infinity;
   await startup("storage", () => privateDirectory(paths.directory));
   const readOwner = () =>
     startup("storage", () =>

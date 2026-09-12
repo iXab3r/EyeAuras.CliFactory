@@ -262,7 +262,7 @@ test("authoring validates fields, required options, paging, paths and plain prop
     ["jobs", "vcs", "attach", "Build"],
     ["jobs", "vcs", "replace", "Build", "Root"],
     ["jobs", "vcs", "checkout-rules", "set", "Build", "Root"],
-    ["vcs", "roots", "list", "--limit", "101"],
+    ["vcs", "roots", "list", "--limit", "0"],
     ["vcs", "roots", "list", "--start", "-1"],
   ];
   for (const argv of invalid) await assert.rejects(cli.execute(argv), Error);

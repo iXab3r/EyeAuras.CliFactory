@@ -30,7 +30,7 @@ export function parseProofProfile(
     argv.length !== 2 ||
     argv[0] !== "--profile" ||
     !profile ||
-    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(profile)
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(profile)
   ) {
     throw new Error("Usage: test:integration -- --profile <name>");
   }

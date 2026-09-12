@@ -9,7 +9,6 @@ export const fileFields = "name,size,modificationTime";
 export function remotePath(value: string) {
   if (
     !value ||
-    value.length > 2048 ||
     /[\\%:\u0000-\u001f\u007f]/.test(value) ||
     value.startsWith("/")
   )
@@ -38,7 +37,7 @@ export function fileQuery(kind: FileTree): Record<string, string> {
       : {};
 }
 export const fileLocator = (count: number) =>
-  `count:${integer(count, 1, 100)},recursive:false,hidden:false,browseArchives:false`;
+  `count:${integer(count, 1, Number.MAX_SAFE_INTEGER)},recursive:false,hidden:false,browseArchives:false`;
 export function safeFile(value: unknown) {
   const v = object(value);
   if (typeof v.name !== "string" || /[\u0000-\u001f]/.test(v.name))
@@ -50,7 +49,6 @@ export const safeFiles = (v: unknown) => collection(v, "file", safeFile);
 export function serverPath(value: string) {
   if (
     !value ||
-    value.length > 8192 ||
     /[\u0000-\u001f\u007f]/.test(value) ||
     !/^(?:[A-Za-z]:[\\/]|\/|\\\\)/.test(value)
   )
@@ -63,7 +61,6 @@ export function sensitiveSegment(value: string) {
     !value ||
     value === "." ||
     value === ".." ||
-    value.length > 8192 ||
     /[\u0000-\u001f]/.test(value)
   )
     throw new Error("Invalid secure reference; value omitted.");

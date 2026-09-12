@@ -4,14 +4,13 @@ interface Pending {
   abort(): void;
 }
 
-/** Bounded FIFO; built-ins coordinate application-wide profile/auth changes. */
+/** FIFO; built-ins coordinate application-wide profile/auth changes. */
 export class CommandGate {
   #running = 0;
   #exclusive = false;
   #pending: Pending[] = [];
   constructor(
     private readonly limit = Infinity,
-    private readonly maxPending = 128,
   ) {
     if (limit !== Infinity && (!Number.isSafeInteger(limit) || limit < 1)) {
       throw new Error("concurrency must be a positive integer or omitted.");
@@ -23,8 +22,6 @@ export class CommandGate {
     exclusive = false,
   ): Promise<T> {
     if (signal.aborted) return Promise.reject(new Error("Command cancelled."));
-    if (this.#pending.length >= this.maxPending)
-      return Promise.reject(new Error("CLI command queue is full."));
     return new Promise<T>((resolve, reject) => {
       const pending: Pending = {
         exclusive,

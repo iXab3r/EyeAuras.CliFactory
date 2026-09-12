@@ -10,7 +10,7 @@ import type {
 import type { CliHostClient } from "./generated/clifactory/CliHost.js";
 import type { RunInput__Output } from "./generated/clifactory/RunInput.js";
 import type { RunOutput } from "./generated/clifactory/RunOutput.js";
-import { bufferBytes, chunkBytes, protocol } from "./protocol.js";
+import { chunkBytes, protocol } from "./protocol.js";
 
 type Call = ServerDuplexStream<RunInput__Output, RunOutput>;
 type Callback = (error?: Error | null) => void;
@@ -114,22 +114,6 @@ class Output extends Writable {
   constructor(private readonly send: (bytes: Buffer) => Promise<void>) {
     super({ highWaterMark: chunkBytes });
   }
-  override write(
-    chunk: Uint8Array | string,
-    encoding?: BufferEncoding | Callback,
-    callback?: Callback,
-  ): boolean {
-    if (this.writableLength + Buffer.byteLength(chunk) > bufferBytes) {
-      const error = new Error("Invocation output buffer limit exceeded.");
-      if (typeof encoding === "function") encoding(error);
-      else callback?.(error);
-      this.destroy(error);
-      return false;
-    }
-    return typeof encoding === "function"
-      ? super.write(chunk, encoding)
-      : super.write(chunk, encoding ?? "utf8", callback);
-  }
   override _write(
     chunk: Buffer,
     _encoding: BufferEncoding,
@@ -183,13 +167,13 @@ export function serveRun(
   output.on("error", () =>
     fail(
       status.RESOURCE_EXHAUSTED,
-      "Invocation output failed or exceeded its buffer limit.",
+      "Invocation output failed.",
     ),
   );
   error.on("error", () =>
     fail(
       status.RESOURCE_EXHAUSTED,
-      "Invocation diagnostics failed or exceeded its buffer limit.",
+      "Invocation diagnostics failed.",
     ),
   );
   input.on("error", () => {});
@@ -218,7 +202,7 @@ export function serveRun(
       } catch {
         fail(
           status.INVALID_ARGUMENT,
-          "Invalid command argument count or byte size.",
+          "Invalid command arguments.",
         );
         return;
       }
@@ -230,7 +214,6 @@ export function serveRun(
         return;
       }
       if (
-        first.cwd.length > 8192 ||
         Object.keys(first.environment).some(
           (key) => !options.environmentKeys.includes(key),
         )

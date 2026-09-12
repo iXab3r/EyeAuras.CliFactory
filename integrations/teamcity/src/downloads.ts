@@ -18,7 +18,7 @@ function mediaType(response: Response, format: DownloadFormat) {
     .split(";")[0]!
     .trim()
     .toLowerCase();
-  if (media.length > 100 || !/^[-a-z0-9+.]+\/[-a-z0-9+.]+$/.test(media)) {
+  if (!/^[-a-z0-9+.]+\/[-a-z0-9+.]+$/.test(media)) {
     throw new Error("Invalid download media type.");
   }
   const allowed =
@@ -76,14 +76,15 @@ export async function saveDownload(
 ) {
   const name = options.output;
   if (
-    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name) ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) ||
     name.endsWith(".") ||
     /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(name)
   ) {
     throw new Error("Output must be a safe new basename, not a path/device name.");
   }
-  const configured = integer(options.maxBytes ?? 16 * 1024 * 1024, 1, 64 * 1024 * 1024);
-  const maxBytes = format === "svg" ? Math.min(configured, 1024 * 1024) : configured;
+  const maxBytes = options.maxBytes === undefined
+    ? undefined
+    : integer(options.maxBytes, 1, Number.MAX_SAFE_INTEGER);
   let media = "application/octet-stream";
   const saved = await publishProfileFile({
     appDataDirectory: app.AppDataDirectory,
@@ -102,12 +103,6 @@ export async function saveDownload(
         );
       }
       media = mediaType(response, format);
-      const length = response.headers.get("Content-Length");
-      const declared = length === null ? undefined : Number(length);
-      if (length !== null && (!/^\d+$/.test(length) || !Number.isSafeInteger(declared) ||
-          declared! > maxBytes)) {
-        throw new Error("Download exceeds byte bound.");
-      }
     },
     validateFile: (file) => verifyFormat(file, format),
   });

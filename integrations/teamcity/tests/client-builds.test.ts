@@ -207,7 +207,7 @@ test("returns empty arrays and validates pagination before fetch", async () => {
     return HttpResponse.json({});
   };
   const isolated = client(countingFetch);
-  await assert.rejects(isolated.listBuilds({ limit: 101 }), /between 1 and 100/);
+  await assert.rejects(isolated.listBuilds({ limit: 0 }), /positive/);
   await assert.rejects(isolated.listBuildTests(101, { start: -1 }), /non-negative/);
   assert.equal(fetchCalls, 0);
 });

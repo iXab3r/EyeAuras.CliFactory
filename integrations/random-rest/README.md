@@ -51,8 +51,10 @@ See [runtime behavior, access controls and limits](../../docs/runtime-modules.md
 
 Both return `{ "values": [3, 1, 2] }` (illustrative data). Both are `ReadOnly`: they obtain new
 random data but do not modify user-owned remote records; generation **does consume the IP's bit
-quota**. Each request returns at most 100 integers, with bounds within +/-1,000,000,000. Inputs
-must be integral, min < max, and a sequence's inclusive range must fit the 100-value limit.
+quota**. The CLI imposes no result-count or response-size ceiling. Bounds remain within the documented
++/-1,000,000,000 domain; inputs must be safe integers and min < max. The
+[remote HTTP API](https://www.random.org/clients/http/api/) documents at most 10,000 integers
+or sequence entries per request; the service owns enforcement of that count.
 Equal bounds are rejected before networking: both legacy endpoints return HTTP 503 for them.
 Strings and other generators are intentionally deferred.
 
@@ -67,7 +69,7 @@ No RANDOM.ORG concepts were added to Core.
   count/range and, for sequences, uniqueness. Errors never include raw service bodies.
 - Each generation checks quota first. Negative quota stops the command and asks the caller to
   wait at least ten minutes; the same client instance suppresses polling during that period.
-- Each HTTP request has a two-minute timeout. There are no automatic retries, redirect following,
+- HTTP requests have no automatic deadline and honor explicit cancellation. There are no automatic retries, redirect following,
   cached random values, or fallback random generators. A rerun is a new draw, not a replay.
 - The hosted application serializes commands across its CLI processes/profiles and retains client
   backoff while alive. Different application IDs (REST versus PW), machines and a restarted host

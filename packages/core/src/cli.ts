@@ -12,7 +12,7 @@ import {
 import { ProfileStore } from "./profile-store.js";
 import { createProfileCommands } from "./profile-commands.js";
 import { CommandGate } from "./command-gate.js";
-import { validateArgv } from "./input-limits.js";
+import { validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import type {
@@ -455,10 +455,7 @@ export function createCli(definition: CliDefinition): CliApplication {
                 execute(rpcArguments, {
                   ...execution,
                   render: false,
-                  signal: AbortSignal.any([
-                    execution.signal,
-                    AbortSignal.timeout(5 * 60_000),
-                  ]),
+                  signal: execution.signal,
                 }),
             });
             return 0;

@@ -42,7 +42,7 @@ export function inputIds(value: unknown): string[] {
   return ids;
 }
 export function typedItems(value: readonly unknown[]): readonly unknown[] {
-  if (!value.length || value.length > 100) throw new Error("Expected 1–100 typed items.");
+  if (!value.length) throw new Error("Expected at least one typed item.");
   return value;
 }
 export function safeScalars(value: unknown, keys: readonly string[]) {

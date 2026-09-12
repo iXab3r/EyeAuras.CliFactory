@@ -8,7 +8,7 @@ import {
   preflightSecretKeys,
   persistSecretKeys,
 } from "./credential-inputs.js";
-import { readBoundedResponseBody, type ScopedSecrets, type IAppArguments } from "@eyeauras/cli-factory";
+import { readResponseBody, type ScopedSecrets, type IAppArguments } from "@eyeauras/cli-factory";
 import * as files from "./file-models.js";
 import { saveDownload, type DownloadOptions } from "./downloads.js";
 import {
@@ -1944,7 +1944,6 @@ export class TeamCityClient {
   }
 
   public async tagBuildBatch(ids: readonly number[], tags: readonly string[], remove = false) {
-    if (tags.length > 100) throw new Error("At most 100 tags are supported.");
     return this.#buildBatch(remove ? "DELETE" : "POST", ids, "/tags", publicTags(tags));
   }
 
@@ -3248,7 +3247,7 @@ export class TeamCityClient {
     secrets: ScopedSecrets,
   ) {
     const poolId = poolNumber(Number(id));
-    system.integer(ttl, 1, 86400);
+    system.integer(ttl, 1, Number.MAX_SAFE_INTEGER);
     const keys = aliases.map(inputSecretKey);
     await preflightSecretKeys(secrets, keys);
     const result = triage.object(
@@ -3469,7 +3468,6 @@ export class TeamCityClient {
     const selected = triage
       .inputIds(ids)
       .map((id) => system.integer(Number(positiveId(Number(id), "Mute ID")), 1));
-    if (selected.length > 50) throw new Error("At most50 mutes per operation.");
     const mute = [];
     for (const id of selected)
       mute.push(
@@ -3588,7 +3586,7 @@ export class TeamCityClient {
     };
   }
   public async startBackup(name: string) {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$/.test(name))
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name))
       throw new Error("Expected a server-relative backup basename.");
     const fileName = await this.#request(
       "POST",
@@ -3762,8 +3760,8 @@ export class TeamCityClient {
     options: DownloadOptions,
   ) {
     system.userId(id);
-    system.integer(size, 2, 300);
-    if (hash !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(hash))
+    system.integer(size, 1, Number.MAX_SAFE_INTEGER);
+    if (hash !== undefined && !/^[A-Za-z0-9_-]+$/.test(hash))
       throw new Error("Invalid avatar hash.");
     return this.#download(
       `/app/rest/avatars/id:${id}/${size}/avatar${hash === undefined ? "" : "." + hash}.png`,
@@ -3781,7 +3779,7 @@ export class TeamCityClient {
     options: DownloadOptions,
   ) {
     const locator = aggregate
-      ? joinLocator(nestedId("buildType", id, "Job ID"), `count:${system.integer(count, 1, 100)}`)
+      ? joinLocator(nestedId("buildType", id, "Job ID"), `count:${system.integer(count, 1, Number.MAX_SAFE_INTEGER)}`)
       : "id:" + positiveId(Number(id), "Build ID");
     return this.#download(
       "/app/rest/builds/" + (aggregate ? "aggregated/" : "") + locator + "/statusIcon.svg",
@@ -3867,7 +3865,7 @@ export class TeamCityClient {
     secrets: ScopedSecrets,
   ) {
     const buildId = positiveId(Number(id), "Build ID");
-    if (!/^[A-Za-z0-9_.:-]{1,128}$/.test(name))
+    if (!/^[A-Za-z0-9_.:-]+$/.test(name))
       throw new Error("Expected one parameter name, not an expression/value.");
     const expression = "%" + name + "%",
       key = inputSecretKey(alias);
@@ -4010,14 +4008,13 @@ export class TeamCityClient {
       throw new Error("Unexpected TeamCity response media type.");
     }
     try {
-      const bytes = await readBoundedResponseBody(response, {
-        maxBytes: 2 * 1024 * 1024,
+      const bytes = await readResponseBody(response, {
         signal: this.#signal,
       });
       return Buffer.from(bytes).toString("utf8");
     } catch {
       throw new Error(
-        "TeamCity response stream failed or exceeded2MiB; remote outcome is unknown.",
+        "TeamCity response stream failed; remote outcome is unknown.",
       );
     }
   }

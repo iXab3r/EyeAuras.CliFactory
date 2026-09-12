@@ -24,7 +24,7 @@ const queryOptions: readonly OptionDefinition[] = [
 
 const issueOption: OptionDefinition = {
   flags: "--issues <ids>",
-  description: "1–20 comma-separated explicit issue IDs, never a search query",
+  description: "Comma-separated explicit issue IDs, never a search query",
   parse: parseIssueSelection,
 };
 
@@ -54,7 +54,7 @@ export const queryRootCommands = [
   command("commands", "Apply issue commands or inspect command suggestions", [
     updateCommand(
       "apply",
-      "Apply a command to 1–20 explicitly selected issues",
+      "Apply a command to explicitly selected issues",
       async (connection, { options }, context) => applyCommands(
         connection,
         String(options.query),

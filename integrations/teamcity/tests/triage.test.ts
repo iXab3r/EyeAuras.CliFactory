@@ -58,12 +58,6 @@ test("S6 validates bounded identities, controls, typed bodies and timestamps bef
     ["builds", "batch", "delete"],
     ["builds", "batch", "delete", "--build", "42", "--build", "42"],
     ["builds", "batch", "delete", "--build", "9007199254740993"],
-    [
-      "builds",
-      "batch",
-      "delete",
-      ...Array.from({ length: 101 }, (_, i) => ["--build", String(i + 1)]).flat(),
-    ],
     ["builds", "batch", "pin", "--build", "42", "--status", "yes"],
     ["builds", "log", "append", "42", "--text", "##teamcity[buildStatus status='FAILURE']"],
     ["builds", "finish-at", "42", "20260230T100000+0000"],
@@ -101,7 +95,7 @@ test("S6 validates bounded identities, controls, typed bodies and timestamps bef
       }),
     ],
     ["mutes", "delete", "0"],
-    ["tests", "list", "--limit", "101"],
+    ["tests", "list", "--limit", "0"],
     ["tests", "occurrence", "1", "--build", "0"],
     ["builds", "output-parameters", "exists", "42", ".."],
   ];

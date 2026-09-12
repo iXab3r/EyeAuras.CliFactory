@@ -214,7 +214,7 @@ test("invalid profile names fail before credential access or candidate validatio
   h.secrets.get = async () => { assert.fail("Invalid profile name read credentials"); };
   h.secrets.set = async () => { assert.fail("Invalid profile name wrote credentials"); };
   h.secrets.delete = async () => { assert.fail("Invalid profile name deleted credentials"); };
-  for (const name of ["../invalid", "profiles.json", "a".repeat(65)]) {
+  for (const name of ["../invalid", "profiles.json"]) {
     await assert.rejects(h.cli.execute(["profile", "configure", name, "--url", newUrl]), /Profile name/);
   }
   assert.equal(h.validated.length, 0);
@@ -285,4 +285,14 @@ test("backend credential details never escape configure or login failures throug
       await assertOtherProfileUnchanged(h);
     }
   }
+});
+
+
+test("long profile names configure independently without a local length ceiling", async t => {
+  environment(t, "synthetic-candidate");
+  const h = await harness(t);
+  const name = "profile-" + "a".repeat(90);
+  await h.cli.execute(["profile", "configure", name, "--url", newUrl]);
+  assert.equal((await h.profiles.get(name)).values.url, newUrl);
+  assert.equal((await h.profiles.get("default")).values.url, oldUrl);
 });

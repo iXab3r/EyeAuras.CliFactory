@@ -19,7 +19,7 @@ export function createRandomCommands(
   return [
     command(
       "integers",
-      "Generate up to 100 independent integers (duplicates allowed)",
+      "Generate independent integers (duplicates allowed)",
       ({ options }, context) => {
         const request = integerRequest(options);
         return clientFor(context, options).integers(request, context.signal);
@@ -30,7 +30,7 @@ export function createRandomCommands(
           ...runtimeOptions,
           {
             flags: "--count <count>",
-            description: "Number of integers (1-100)",
+            description: "Number of integers (positive safe integer)",
             defaultValue: 1,
           },
           {
@@ -48,7 +48,7 @@ export function createRandomCommands(
     ),
     command(
       "sequence",
-      "Shuffle an inclusive interval of up to 100 integers without duplicates",
+      "Shuffle an inclusive interval of integers without duplicates",
       ({ options }, context) => {
         const request = sequenceRequest(options);
         return clientFor(context, options).sequence(request, context.signal);

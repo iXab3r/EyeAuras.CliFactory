@@ -27,9 +27,8 @@ function readable(input: Readable, signal?: AbortSignal): Promise<void> {
 }
 
 /** Pull only when the previous request completed; never destroy caller-owned stdin. */
-export async function* boundedLines(
+export async function* requestLines(
   input: Readable,
-  limit: number,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
   let parts: Buffer[] = [],
@@ -51,8 +50,6 @@ export async function* boundedLines(
         const newline = bytes.indexOf(10, start);
         const end = newline < 0 ? bytes.length : newline;
         length += end - start;
-        if (length > limit)
-          throw new Error("JSON-RPC line exceeds its byte size limit.");
         parts.push(bytes.subarray(start, end));
         if (newline >= 0) {
           const line = Buffer.concat(parts, length).toString("utf8");

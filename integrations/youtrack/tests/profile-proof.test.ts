@@ -202,7 +202,7 @@ test("proof refuses CI and every URL/token/arbitrary command argument before inv
   for (const name of ["CI", "GITHUB_ACTIONS", "TF_BUILD", "TEAMCITY_VERSION", "JENKINS_URL", "BUILDKITE", "ci"])
     await assert.rejects(runProfileProof(profileArgs, { [name]: "true" }, neverInvoke), /refuses CI/);
   for (const argv of [[], ["--profile"], ["--profile", "../dev"], ["--profile", "profiles.json"],
-    ["--profile", "--json"], ["--profile", "a".repeat(65)], ["--profile", "dev", "--top", "10"],
+    ["--profile", "--json"], ["--profile", "dev", "--top", "10"],
     ["--profile", "dev", "--url", "https://example.com"], ["--profile", "dev", "--token", "synthetic"],
     ["--profile", "dev", "issues", "create"]]) {
     await assert.rejects(runProfileProof(argv, {}, neverInvoke), /Usage:/);

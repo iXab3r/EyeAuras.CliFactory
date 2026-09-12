@@ -27,8 +27,8 @@ const suggestions = "suggestions(option,description,caret,completionStart,comple
 const savedQueryFields = "id,name,query,owner(id,login)";
 
 function selectedIssues(ids: readonly string[]): YouTrackObject[] {
-  if (ids.length < 1 || ids.length > 20 || new Set(ids).size !== ids.length) {
-    throw new Error("YouTrack issues must contain 1–20 distinct explicit issue IDs.");
+  if (ids.length < 1 || new Set(ids).size !== ids.length) {
+    throw new Error("YouTrack issues must contain one or more distinct explicit issue IDs.");
   }
   return ids.map((id) => {
     requiredText(id, "issue ID");

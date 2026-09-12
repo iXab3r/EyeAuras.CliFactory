@@ -61,12 +61,11 @@ test("all input validation precedes quota or generation requests", async () => {
   const instance = new RandomHttpClient({ url: endpoint, contact: "operator@example.com",
     fetch: async () => { calls++; return new Response("0"); } });
   for (const request of [
-    { count: 0, min: 1, max: 6 }, { count: 101, min: 1, max: 6 },
+    { count: 0, min: 1, max: 6 }, { count: Number.MAX_SAFE_INTEGER + 1, min: 1, max: 6 },
     { count: 1.2, min: 1, max: 6 }, { count: NaN, min: 1, max: 6 },
     { count: 1, min: 2, max: 1 }, { count: 1, min: -1_000_000_001, max: 6 },
     { count: 1, min: 1, max: Infinity },
   ]) await assert.rejects(instance.integers(request));
-  await assert.rejects(instance.sequence({ min: 1, max: 101 }), /at most 100/);
   assert.equal(calls, 0);
 });
 
@@ -115,9 +114,26 @@ test("rejects wrong counts, non-integers, out-of-range values, and duplicate seq
   }
 });
 
-test("response buffers are bounded", async () => {
-  server.use(http.get(`${endpoint}/quota/`, () => HttpResponse.text("1".repeat(16_385))));
-  await assert.rejects(client().sequence({ min: 1, max: 3 }), /size limit/);
+test("large result counts and response bodies have no local ceiling", async () => {
+  const values = Array.from({ length: 10000 }, (_, index) => index + 1);
+  let calls = 0;
+  server.use(
+    http.get(`${endpoint}/quota/`, () => { calls++; return HttpResponse.text("1000000"); }),
+    http.get(`${endpoint}/sequences/`, ({ request }) => {
+      calls++;
+      assert.equal(new URL(request.url).searchParams.get("max"), "10000");
+      return HttpResponse.text(values.join("\n"));
+    }),
+    http.get(`${endpoint}/integers/`, ({ request }) => {
+      calls++;
+      assert.equal(new URL(request.url).searchParams.get("num"), "10000");
+      return HttpResponse.text(values.join("\n"));
+    }),
+  );
+  assert.deepEqual(await client().sequence({ min: 1, max: 10000 }), { values });
+  assert.deepEqual(await client().integers({ count: 10000, min: 1, max: 10000 }), { values });
+  assert.equal(calls, 4);
+  assert.doesNotThrow(() => new RandomHttpClient({ url: endpoint, contact: "x".repeat(300) + "@example.com" }));
 });
 
 test("cancellation aborts the actual HTTP request and prevents generation", { timeout: 5000 }, async () => {
@@ -180,16 +196,16 @@ test("an already cancelled call does not fetch or leak the caller's cancellation
   assert.equal(calls, 0);
 });
 
-test("request timeout is two minutes and yields a bounded diagnostic", async (context) => {
-  let requestedTimeout = 0;
-  let calls = 0;
-  context.mock.method(AbortSignal, "timeout", (milliseconds: number) => {
-    requestedTimeout = milliseconds;
-    return AbortSignal.abort(new DOMException("Synthetic timeout", "TimeoutError"));
-  });
+test("HTTP operations do not install an implicit deadline", async (context) => {
+  context.mock.method(AbortSignal, "timeout", () => assert.fail("Unexpected automatic timeout"));
+  const calls: string[] = [];
   const instance = new RandomHttpClient({ url: endpoint, contact: "operator@example.com",
-    fetch: async () => { calls++; return new Response("0"); } });
-  await assert.rejects(instance.sequence({ min: 1, max: 3 }), /request timed out/);
-  assert.equal(requestedTimeout, 120_000);
-  assert.equal(calls, 0);
+    fetch: async (input, init) => {
+      assert.equal(init?.signal, undefined);
+      const path = new URL(String(input)).pathname;
+      calls.push(path);
+      return new Response(path === "/quota/" ? "1000" : "3 2 1");
+    } });
+  assert.deepEqual(await instance.sequence({ min: 1, max: 3 }), { values: [3, 2, 1] });
+  assert.deepEqual(calls, ["/quota/", "/sequences/"]);
 });

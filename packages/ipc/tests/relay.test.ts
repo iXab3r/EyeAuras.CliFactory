@@ -12,7 +12,7 @@ import {
   connect,
   protocol,
   chunkBytes,
-  bufferBytes,
+  channelOptions,
 } from "../src/protocol.js";
 import { hostPaths } from "../src/endpoint.js";
 import { relay, serveRun } from "../src/relay.js";
@@ -66,7 +66,7 @@ async function fixture(
     execute: async () => undefined,
     dispose: async () => {},
   };
-  const server = new Server();
+  const server = new Server(channelOptions);
   const handlers: CliHostHandlers = {
     Run:
       handler ??
@@ -165,14 +165,17 @@ test("slow reader propagates backpressure and preserves a stream larger than buf
   };
   assert.equal(await relay(client, [], "test", io), 0);
   assert.equal(total, 160 * chunkBytes);
-  assert.ok(peak <= bufferBytes);
+  assert.ok(peak <= chunkBytes);
 });
-test("ignoring output backpressure trips a bound; cancellation interrupts a stuck caller sink", async (t) => {
+test("large synchronous output is chunked; cancellation interrupts a stuck caller sink", async (t) => {
   const overflowing = await fixture(t, async (_argv, invocation) => {
-    invocation!.output!.write(Buffer.alloc(bufferBytes + 1));
+    invocation!.output!.write(Buffer.alloc(2 * 1024 * 1024, 65));
     return 0;
   });
-  await assert.rejects(relay(overflowing, [], "test", capture()), /No replay/);
+  const large = capture();
+  assert.equal(await relay(overflowing, [], "test", large), 0);
+  assert.equal(large.stdout().length, 2 * 1024 * 1024);
+  assert.ok(large.stdout().every(byte => byte === 65));
   const client = await fixture(t, async (_argv, invocation) => {
     invocation!.output!.write("one");
     return 0;
@@ -461,4 +464,17 @@ test("Exit must be unique, terminal, and followed by OK transport status", async
     );
     await assert.rejects(relay(client, [], "test", capture()), /No replay/);
   }
+});
+
+
+test("IPC Start carries content larger than the former argv and protobuf ceilings", async t => {
+  const argv = ["update", "--body", "Описание\n".repeat(40_000), ...Array(300).fill("value")];
+  let calls = 0;
+  const client = await fixture(t, async received => {
+    assert.deepEqual(received, argv);
+    calls++;
+    return 0;
+  });
+  assert.equal(await relay(client, argv, "test", capture()), 0);
+  assert.equal(calls, 1);
 });

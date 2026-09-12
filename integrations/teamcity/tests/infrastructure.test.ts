@@ -92,7 +92,7 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
       "Instance",
     ],
     ["cloud", "images", "show", "--cloud-profile", "Cloud"],
-    ["cloud", "instances", "list", "--limit", "101"],
+    ["cloud", "instances", "list", "--limit", "0"],
     ["vcs", "roots", "properties", "clear", "Git"],
     [
       "vcs",

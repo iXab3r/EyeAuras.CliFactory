@@ -57,7 +57,7 @@ test("S4 validates IDs, required options, fields, booleans, policy, tags and cre
     ["pools", "show", "NaN"],
     ["pools", "show", "9007199254740992"],
     ["pools", "agents", "assign", "1", "0"],
-    ["pools", "list", "--limit", "101"],
+    ["pools", "list", "--limit", "0"],
     ["pools", "agents", "list", "1", "--start", "-1"],
     ["pools", "projects", "assign", "1", " "],
     ["pools", "fields", "set", "1", "maxAgents", "10"],

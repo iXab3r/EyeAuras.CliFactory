@@ -51,7 +51,7 @@ test("catalog CLI rejects unsupported filters, detail pagination and malformed p
     }
     if (row.collection) {
       await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /decimal integer/);
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "101", "--profile", "dev"]), /between 1 and 100/);
+      await assert.rejects(f.cli.execute([...row.argv, "--top", "9007199254740992", "--profile", "dev"]), /positive safe decimal integer/);
     } else {
       await assert.rejects(f.cli.execute([...row.argv, "--top", "2", "--profile", "dev"]), /unknown option/);
     }

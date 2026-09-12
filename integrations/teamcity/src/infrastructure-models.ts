@@ -119,7 +119,6 @@ export function anonymousGitRoot(
   };
 }
 export function namedValues(values: readonly PlainProperty[], requireValue = false) {
-  if (values.length > 100) throw new Error("At most 100 entries are supported.");
   const result = propertiesBody(values).property;
   if (requireValue) for (const item of result) requiredText(item.value, "Revision");
   return result;

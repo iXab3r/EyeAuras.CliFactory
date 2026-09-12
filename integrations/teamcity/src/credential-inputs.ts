@@ -1,8 +1,8 @@
 import type { ScopedSecrets } from "@eyeauras/cli-factory";
 import { credentialAlias } from "./admin-models.js";
 export async function preflightSecretKeys(secrets: ScopedSecrets, keys: readonly string[]) {
-  if (!keys.length || keys.length > 50 || new Set(keys).size !== keys.length)
-    throw new Error("Supply1–50 distinct destination keys.");
+  if (!keys.length || new Set(keys).size !== keys.length)
+    throw new Error("Supply distinct destination keys.");
   for (const key of keys) {
     let existing;
     try {

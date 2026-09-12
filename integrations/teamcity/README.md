@@ -5,13 +5,29 @@
 locators, DTOs, and command vocabulary; generic command-tree, profile, credential, permission,
 output, and JSON-RPC behavior stays in `packages/core`.
 
-Ordinary text, JSON and XML responses retain their 2 MiB actual-byte limit. They now also reject
-invalid Content-Length and incomplete or mismatched unencoded/identity transfers. Compressed wire
-length is syntax-checked but is not compared with decoded size; actual decoded bytes remain
-bounded. Errors retain the static `TeamCity response stream failed or exceeded2MiB; remote outcome
-is unknown.` message without exposing body/error details. UTF-8 decoding still preserves an initial
-BOM. Specialized 64 KiB discard probes and file-download limits are unchanged; no automatic retry
-or command replay is added.
+Ordinary text, JSON and XML responses have no tool-imposed byte ceiling. Invalid Content-Length
+and incomplete or mismatched unencoded/identity transfers still fail. Compressed wire length is
+syntax-checked without comparing it with decoded size. Stream errors use static diagnostics
+without exposing body/error details. UTF-8 decoding preserves an initial BOM. Specialized discard
+probes stop reading unwanted bytes after 64 KiB; this does not reject an operation or truncate
+returned content. No automatic retry or command replay is added.
+
+## Installation
+
+The first npm release is prepared locally; after publication, install the scoped package
+to get the `teamcity-cli` command:
+
+```sh
+npm install --global @eyeauras/teamcity-cli
+teamcity-cli --help
+teamcity-cli profile configure
+```
+
+Requires Node.js 22+ and npm. The package includes compiled JavaScript and installs Core
+automatically; no repository checkout, .NET, TypeScript compiler or browser is needed.
+Interactive profile configuration guides endpoint/authentication setup; standalone secrets
+use the OS credential store. Existing `teamcity-cli` profiles and permissions are unchanged.
+Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.CliFactory/blob/main/docs/npm-release.md).
 
 ## Command tree
 
@@ -62,13 +78,13 @@ or command replay is added.
 | `builds statistics list/show`, `builds status/finish-date/canceled-info`, `builds fields show` | Inspect selected build evidence | `ReadOnly` |
 | `changes show/parents` | Inspect change metadata and direct parents, not source files | `ReadOnly` |
 
-Top-level collection commands accept `--limit <count>` from 1 to 100 and `--start <offset>` starting at
+Top-level collection commands accept `--limit <count>` as a positive safe integer and `--start <offset>` starting at
 zero. They return one plain array page and never auto-page. Run a branch without a leaf, such as
 `teamcity-cli builds`, to see its generated help and options.
 
 Paging defaults remain `--limit 100 --start 0`. These options accept decimal digits with an optional
 minus and leading zeros, but reject whitespace, plus signs, fractions and exponents. The start must
-be a nonnegative safe integer (`-0` remains valid); limit remains 1–100. Invalid options fail before
+be a nonnegative safe integer (`-0` remains valid); limit accepts any positive safe integer. Invalid options fail before
 profile onboarding or credential access. Each option now reports one static error for syntax, unsafe
 integers and range failures. The existing strict numeric build/queue-cancel/agent-show ID parsers
 retain positive safe-integer validation and use the same decimal grammar; other numeric service
@@ -272,7 +288,7 @@ All these writes require Update and are mock-tested, not exercised against a liv
 
 ## Build triage and evidence
 
-`builds batch` requires repeated `--build <id>` (1–100 distinct IDs). Status/show are reads;
+`builds batch` requires repeated `--build <id>` (distinct IDs). Status/show are reads;
 cancel/delete/comment/pin/tags are Update operations. Bulk write results expose error counts and
 partial failures, never unconditional success or raw server diagnostics. `finish`/`finish-at`
 return accepted timestamps, not proof of completion; `start-agentless` starts queued work without
@@ -408,10 +424,10 @@ aliases even where native REST embeds a key in the URL. Server fields are allowl
 superuser-token field. XML-only `server rest-plugin` is projected to ordinary JSON metadata.
 
 `pools tokens create <id> --ttl <seconds> --store-as <alias>` mints one-time registration tokens,
-not user access tokens. Repeat aliases for a batch (up to50); TTL is explicitly1–86400 seconds.
+not user access tokens. Repeat aliases for a batch; TTL is an explicit positive safe integer in seconds.
 Every returned token must be stored before success is reported. Values are never printed.
 
-`mutes delete-many --id <id> --confirm` accepts up to50 distinct explicit IDs, preflights each
+`mutes delete-many --id <id> --confirm` accepts distinct explicit IDs, preflights each
 full scope/target/resolution and sends one native Mutes DELETE. Current docs define body/void
 response but do not establish handler identity/atomicity. Actual2xx returns
 `serverAcknowledged:true,postconditionVerified:false`, not a claimed deletion count. No retry or
@@ -436,8 +452,8 @@ teamcity-cli users avatar download 123 --size 64 --output avatar.png --profile u
 Downloads require a new basename and save only below
 `AppArguments.AppDataDirectory/downloads`, using Core's shared identity-checked private staging
 under `TempDirectory`. Result is
-`{path,bytes,sha256,mediaType}` for an actual retained file. Default actual-byte limit16MiB,
-maximum64MiB with `--max-bytes`; SVG is additionally limited to1MiB. HTTP206 partial responses are
+`{path,bytes,sha256,mediaType}` for an actual retained file. Downloads have no default byte limit.
+An optional `--max-bytes` sets a caller-selected budget with no tool-imposed upper ceiling. HTTP206 partial responses are
 rejected without publication or automatic retry; downloads do not support ranges/resume.
 No overwrite, redirect,
 symlink/junction escape, automatic opening, execution or extraction. Atomic no-clobber publication

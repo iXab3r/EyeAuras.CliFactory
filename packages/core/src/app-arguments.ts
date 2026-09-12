@@ -40,7 +40,7 @@ export interface IAppArguments extends IAppConfig {
   WithProfile(Profile: string): IAppArguments;
 }
 
-const pathSegmentPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const pathSegmentPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 function assertPathSegment(value: string, label: string): void {
   if (!pathSegmentPattern.test(value)) {

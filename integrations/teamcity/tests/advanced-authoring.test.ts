@@ -107,7 +107,7 @@ test("S3 validates flags, fields, booleans, paths, secret-like properties and se
     ["projects", "features", "replace", "Example", "Feature"],
     ["projects", "templates", "create", "Example", "Template"],
     ["projects", "templates", "default", "set", "Example"],
-    ["jobs", "branches", "Build", "--limit", "101"],
+    ["jobs", "branches", "Build", "--limit", "0"],
     ["jobs", "branches", "Build", "--start", "-1"],
     ["jobs", "fields", "show", "Build", "settingsFile"],
     ["projects", "fields", "show", "Example", "secure"],

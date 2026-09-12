@@ -65,7 +65,6 @@ export function roleSuffix(input: RoleInput) {
   return { role, suffix: "/" + pathSegment(role.roleId) + "/" + pathSegment(role.scope) };
 }
 export function roleBodies(inputs: readonly unknown[]) {
-  if (inputs.length > 100) throw new Error("At most 100 role assignments are supported.");
   const roles = inputs.map(roleBody);
   distinctIds(roles.map((role) => JSON.stringify([role.roleId, role.scope])));
   return { role: roles };
@@ -107,7 +106,6 @@ export function tokenBody(input: TokenCreationOptions) {
   const restrictions = input.restrictions ?? [];
   if ((input.samePermissions === true) === restrictions.length > 0)
     throw new Error("Choose same-permissions or explicit restrictions.");
-  if (restrictions.length > 100) throw new Error("At most 100 restrictions are supported.");
   const permissionRestriction = restrictions.map((value) => {
     const item = inputRecord(value, ["permission", "global", "project"]);
     const scope = assignmentScope(item);
@@ -124,7 +122,7 @@ export function tokenBody(input: TokenCreationOptions) {
   };
 }
 export function credentialAlias(alias: string) {
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(alias))
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(alias))
     throw new Error("Invalid issued-token alias.");
   return alias;
 }
