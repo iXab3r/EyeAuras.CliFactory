@@ -17,6 +17,7 @@ public API. If code and design disagree, stop and reconcile them explicitly.
 | `scripts/**`, `.github/**`, docs | This file + relevant design section | Repository tooling and public contract |
 
 More specific `AGENTS.md` files override this router only inside their directory.
+The [role index](docs/roles/README.md) explains how domain and function roles compose.
 
 ## Universal laws
 
@@ -76,11 +77,19 @@ workstream; graduate only durable guidance to `docs/`.
 
 ## Function role: GH issue dev
 
-**GitHub Issues is the primary tracker**, including work on the YouTrack integration. Adopt
+**GitHub Issues is the primary tracker**: unspecified requests to file a bug/task go there,
+including work on the YouTrack integration. Adopt
 [`GH issue dev`](docs/roles/gh-issue-dev.md) for issue delivery and compose with the owning domain
 role. The role owns intake, visible status, implementation, review, merge and verified closure.
 A request to install these rules alone does not authorize remote issue writes. Follow the
 [delivery lifecycle](docs/practices/github-issues.md) and honor explicit direct-to-main requests.
+New branches default to `bugfix/`; honor explicitly requested names or prefixes.
+
+## Function role: Reviewer
+
+Use the read-only [Reviewer](docs/roles/reviewer.md) for independent review of a completed change.
+Supply exact base/head, acceptance criteria and verification evidence in a clean context. Review
+checks the owning domain's invariants; it does not authorize merge or replace required approvals.
 
 ## Repository shape
 

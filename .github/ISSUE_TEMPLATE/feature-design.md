@@ -14,6 +14,11 @@ assignees: ""
 
 <!-- What already exists and must be reused or preserved? -->
 
+## Owning surface
+
+<!-- Core, a specific integration, or tooling/docs. Use existing labels/Project fields when suitable;
+do not create metadata for this issue. Reassess ownership against the delivered scope before closure. -->
+
 ## In scope
 
 <!-- State a bounded feature. For integrations, include the exact contract below. -->
@@ -45,6 +50,7 @@ assignees: ""
 - [ ] Focused deterministic tests and `npm test` pass.
 - [ ] Public documentation matches shipped behavior.
 - [ ] CI and implementation evidence are linked before closure.
+- [ ] Classification matches the delivered scope; any acceptance scope reduction has explicit owner agreement and linked follow-ups.
 
 ## References
 
