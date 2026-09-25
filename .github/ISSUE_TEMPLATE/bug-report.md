@@ -26,11 +26,13 @@ assignees: ""
 
 ## Suspected boundary
 
-<!-- Optional: parser, command declaration, profile, permission, HTTP, renderer, or transport. -->
+<!-- Likely owner: Core, a specific integration, or tooling/docs. Use existing metadata when suitable.
+Distinguish a hypothesis from a confirmed cause; reassess at closure. Never classify by a warning alone. -->
 
 ## Acceptance criteria
 
-- [ ] A deterministic regression test reproduces the defect.
+- [ ] A deterministic regression test reproduces the behavioral defect, or a documentation/non-behavioral defect has justified static evidence.
 - [ ] The expected behavior is restored without weakening adjacent contracts.
 - [ ] Focused verification and `npm test` pass.
 - [ ] CI and closing implementation evidence are linked.
+- [ ] Classification matches the delivered fix; any acceptance scope reduction has explicit owner agreement and linked follow-ups.

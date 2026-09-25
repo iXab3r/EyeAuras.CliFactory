@@ -15,14 +15,22 @@ Optional local evidence belongs in `.workspace/workstreams/gh-<number>/` under t
 
 1. Use `gh` for GitHub and `git` for source control. Resolve repository identity from the issue URL
    and remote, then pass `--repo <owner/repo>` explicitly on repository-scoped commands.
-2. Verify task ownership, baseline and existing work before editing. Use the lifecycle's `codex/`
-   branch convention; honor explicit direct-to-main work without bypassing remaining gates.
+2. Verify task ownership, baseline and existing work before editing. Default to the lifecycle's
+   `bugfix/` branch convention; honor explicit names and direct-to-main work without bypassing gates.
 3. Keep status visible: discover and verify linked Project transitions; without a Project status,
    use a start comment. Do not silently steal assignment or invent tracker metadata.
 4. Accept only evidence-backed completion. Partial PRs use non-closing references; a complete ready
    PR uses `Fixes <owner/repo>#<number>`. Verify merge, CI, issue closure and Project completion.
 5. One delivery owner controls topology/publication. Independent review assesses the final scoped
    change; delegated implementation must not independently switch branches, publish or close issues.
+6. Classify at intake and reassess at closure under the lifecycle's [classification rules](../practices/github-issues.md#classification).
+   Existing metadata and the evidenced owner govern classification; a hypothesis is not a root cause.
+
+## Review hand-off
+
+Invoke a separate, clean-context [Reviewer](reviewer.md) on the completed diff. Supply its defined
+intake, including exact base/head and acceptance evidence. Resolve blocking findings and re-review
+affected corrections. Keep publication under the delivery owner; a review verdict is not a merge.
 
 ## CLI workflow
 
