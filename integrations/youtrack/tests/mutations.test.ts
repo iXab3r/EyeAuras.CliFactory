@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { addComment, createIssue, updateIssue } from "../src/client.js";
+import { addComment } from "../src/client.js";
+import { createIssue, updateIssue } from "../src/issue-fields.js";
 
 const server = setupServer();
 before(() => server.listen({ onUnhandledRequest: "error" }));

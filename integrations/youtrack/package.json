@@ -1,6 +1,6 @@
 {
   "name": "@eyeauras/youtrack-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI-friendly YouTrack CLI built with AI CLI Factory.",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -20,7 +20,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@eyeauras/cli-factory": "0.2.0"
+    "@eyeauras/cli-factory": "0.3.0",
+    "csv-parse": "^7.0.3"
   },
   "devDependencies": {
     "msw": "^2.11.0"

@@ -550,6 +550,12 @@ TeamCity retains PNG/ZIP/SVG validation and hashes in its DTO, while YouTrack re
 no-bearer download and sanitized metadata rules. Credentials remain in the keyring, never files.
 Measure helper/security costs at every authoring checkpoint.
 
+For text your command generates (an export, a result manifest), call
+`saveProfileFile({ appDataDirectory, name, content, signal })` instead of writing files yourself:
+it uses the same staging and no-overwrite publication. If the CLI saves files, add
+`builtins: [downloadCommands]` to its definition so users can run `downloads list`,
+`downloads delete <name>` and `downloads clean` for the selected profile.
+
 ## Ready-for-review checklist
 
 - The command tree reads naturally at every help level.

@@ -1,6 +1,6 @@
 {
   "name": "@eyeauras/teamcity-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI-friendly TeamCity CLI built with AI CLI Factory.",
   "type": "module",
   "main": "./dist/src/index.js",
@@ -20,7 +20,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@eyeauras/cli-factory": "0.2.0"
+    "@eyeauras/cli-factory": "0.3.0"
   },
   "devDependencies": {
     "msw": "^2.11.0"

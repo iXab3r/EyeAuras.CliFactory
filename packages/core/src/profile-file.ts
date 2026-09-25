@@ -6,12 +6,14 @@ import {
   mkdir,
   mkdtemp,
   open,
+  readdir,
   realpath,
   rmdir,
   unlink,
   type FileHandle,
 } from "node:fs/promises";
 import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
+import { command } from "./command.js";
 import { privateDirectory } from "./private-storage.js";
 import { consumeResponseBody } from "./response-body.js";
 
@@ -357,3 +359,61 @@ export async function publishProfileFile(
   if (!result) throw new ProfileFileError(failureMessage, published, false);
   return result;
 }
+
+/** Publish generated text with the same private staging and no-overwrite rules as a download. */
+export function saveProfileFile(options: {
+  appDataDirectory: string;
+  name: string;
+  content: string;
+  signal?: AbortSignal | undefined;
+}): Promise<PublishedProfileFile> {
+  const { content, ...target } = options;
+  return publishProfileFile({ ...target, openResponse: async () => new Response(content), inspectResponse() {} });
+}
+
+async function savedFiles(appDataDirectory: string) {
+  try {
+    if (!isAbsolute(appDataDirectory)) throw new Error();
+    const directory = join(resolve(appDataDirectory), "downloads");
+    const directories = await prepareDirectories(directory);
+    const files: { name: string; path: string; bytes: number; modified: string }[] = [];
+    for (const name of (await readdir(directory)).sort()) {
+      const path = join(directory, name);
+      const stat = await lstat(path);
+      if (stat.isFile()) files.push({ name, path, bytes: stat.size, modified: stat.mtime.toISOString() });
+    }
+    return { directories, files };
+  } catch {
+    throw new ProfileFileError("Profile downloads could not be read; symlinks, junctions and replacement are unsupported.");
+  }
+}
+
+/** Delete regular files directly inside downloads; links, directories and other profiles are never touched. */
+async function deleteSavedFiles(appDataDirectory: string, name?: string): Promise<{ deleted: string[] }> {
+  const { directories, files } = await savedFiles(appDataDirectory);
+  const selected = files.filter((file) => name === undefined || file.name === name);
+  if (name !== undefined && !selected.length) {
+    throw new ProfileFileError("Saved file was not found; choose a name from downloads list.");
+  }
+  const deleted: string[] = [];
+  try {
+    for (const file of selected) {
+      await verifyDirectories(directories);
+      await unlink(file.path);
+      deleted.push(file.name);
+    }
+  } catch {
+    throw new ProfileFileError(`Deleted ${deleted.length} saved files, then deletion failed; inspect downloads list.`);
+  }
+  return { deleted };
+}
+
+/** Local built-ins for files saved by publishProfileFile/saveProfileFile in the selected profile. */
+export const downloadCommands = command("downloads", "List or delete files saved in this profile's downloads directory", [
+  command("list", "List saved files without reading them", async (_input, context) =>
+    (await savedFiles(context.appArguments.AppDataDirectory)).files),
+  command("delete <name>", "Delete one saved file", ({ args }, context) =>
+    deleteSavedFiles(context.appArguments.AppDataDirectory, args.name)),
+  command("clean", "Delete every saved file", (_input, context) =>
+    deleteSavedFiles(context.appArguments.AppDataDirectory)),
+]);

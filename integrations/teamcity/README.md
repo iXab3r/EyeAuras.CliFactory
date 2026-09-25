@@ -466,6 +466,9 @@ replacement is rejected without deleting unknown files. A same-user process can 
 the final identity check. Data can be sensitive:
 do not publish downloads or turn them into fixtures without explicit sanitization. File cleanup
 follows profile AppData semantics; it is not permission to silently erase existing user data.
+The local, ungated `downloads list`, `downloads delete <name>` and `downloads clean` built-ins
+inspect or explicitly remove saved files: only regular files directly in the selected profile's
+`downloads` directory, never links, subdirectories, staging or other profiles.
 
 `settings-path` on jobs/projects/VCS roots and `builds artifacts-path` return a typed absolute
 **SERVER** path. They neither download XML nor read that path on the local machine.

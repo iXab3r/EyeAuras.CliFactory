@@ -81,5 +81,6 @@ export const contextCommentChildren = [
     "update <issueID> <commentID>",
     "Replace comment text with a nonempty text field",
     updateComment,
+    "text",
   ),
 ];

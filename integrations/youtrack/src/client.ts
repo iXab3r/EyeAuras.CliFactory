@@ -56,6 +56,13 @@ export interface PageOptions extends ProjectionOptions {
 }
 export interface IssueSearchOptions extends PageOptions {
   query?: string;
+  /** Read every page; fail instead of returning more issues. */
+  maxResults?: number;
+  /** Fail when this command's decoded response bytes exceed the budget. */
+  maxBytes?: number;
+}
+export interface ByteBudget {
+  remaining: number;
 }
 
 const issueListFields = "id,idReadable,summary,project(id,name,shortName),updated,resolved";
@@ -156,6 +163,7 @@ interface RequestOptions {
   method?: "GET" | "POST" | "DELETE";
   body?: YouTrackObject | FormData;
   allowEmpty?: boolean;
+  budget?: ByteBudget | undefined;
 }
 
 async function request(
@@ -203,17 +211,24 @@ async function request(
         }
       }
     }
-    throw new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`);
+    // The status lets batch callers separate a definite rejection from an uncertain write.
+    throw Object.assign(new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`), {
+      status: response.status,
+    });
   }
   let text: string;
   try {
     const bytes = await readResponseBody(response, {
       signal: connection.signal,
+      ...(options.budget === undefined ? {} : { maxBytes: options.budget.remaining }),
     });
+    if (options.budget) options.budget.remaining -= bytes.length;
     // Match Response.text(): UTF-8 replacement decoding with an initial BOM removed.
     text = new TextDecoder().decode(bytes);
   } catch {
-    throw new Error("YouTrack response stream failed or was cancelled.");
+    throw new Error(options.budget === undefined
+      ? "YouTrack response stream failed or was cancelled."
+      : "YouTrack response stream failed, exceeded --max-bytes, or was cancelled.");
   }
   let value: YouTrackValue;
   try {
@@ -250,16 +265,11 @@ export async function readNullableObject(
 }
 
 // Only the download implementation may consume this transient, unredacted URL.
-export async function getIssueAttachmentDownloadMetadata(
+export async function getAttachmentDownloadMetadata(
   connection: Connection,
-  issueID: string,
-  attachmentID: string,
+  attachmentPath: string,
 ): Promise<{ id: string; name: string; mimeType: string | null; url: string }> {
-  const value = object(await request(
-    connection,
-    `${issuePath(issueID)}/attachments/${encodedID(attachmentID, "attachment ID")}`,
-    { fields: "id,name,mimeType,url" },
-  ));
+  const value = object(await request(connection, attachmentPath, { fields: "id,name,mimeType,url" }));
   const token = connection.token.trim();
   const { id, name, mimeType, url } = value;
   if (
@@ -278,8 +288,9 @@ export async function readCollection(
   connection: Connection,
   path: string,
   query: Record<string, string>,
+  budget?: ByteBudget,
 ): Promise<YouTrackObject[]> {
-  const value = scrub(await request(connection, path, query), connection.token.trim());
+  const value = scrub(await request(connection, path, query, "JSON", { budget }), connection.token.trim());
   if (!Array.isArray(value)) {
     throw new Error("YouTrack returned an invalid collection response.");
   }
@@ -287,6 +298,39 @@ export async function readCollection(
     throw new Error("YouTrack returned more items than the requested top limit.");
   }
   return value.map(object);
+}
+
+/**
+ * Read an offset collection in server order until a short page proves the selection complete.
+ * Repeated string IDs are dropped; offset paging is not a snapshot of a changing dataset.
+ */
+export async function readPages(
+  connection: Connection,
+  path: string,
+  query: Record<string, string>,
+  { top, skip, maxResults = Infinity, budget }: {
+    top: number; skip: number; maxResults?: number; budget?: ByteBudget | undefined;
+  },
+): Promise<YouTrackObject[]> {
+  const items: YouTrackObject[] = [];
+  const ids = new Set<string>();
+  for (let offset = skip; ;) {
+    const size = Math.min(top, maxResults + 1 - items.length);
+    const page = await readCollection(connection, path, { ...query, $top: String(size), $skip: String(offset) }, budget);
+    const before = items.length;
+    for (const item of page) {
+      if (typeof item.id !== "string" || !ids.has(item.id)) items.push(item);
+      if (typeof item.id === "string") ids.add(item.id);
+    }
+    if (items.length > maxResults) {
+      throw new Error("YouTrack selection exceeds --max-results; narrow the query or raise the budget.");
+    }
+    if (page.length < size) return items;
+    if (items.length === before) {
+      throw new Error("YouTrack repeated a full page; paging stopped without a complete selection.");
+    }
+    offset += size;
+  }
 }
 
 type ResourcePath = string | ((...arguments_: never[]) => string);
@@ -378,14 +422,32 @@ export async function readUser(
 
 export const listProjects = readCollectionAt("api/admin/projects", "id,name,shortName");
 
+function positiveBudget(value: number, label: string): number {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`YouTrack ${label} must be a positive safe integer.`);
+  }
+  return value;
+}
+
 export async function listIssues(
   connection: Connection,
   options: IssueSearchOptions = {},
 ): Promise<YouTrackObject[]> {
-  return readCollection(connection, "api/issues", {
+  const query: Record<string, string> = {
     ...page(options, issueListFields),
     ...(options.query === undefined ? {} : { query: requiredText(options.query, "query") }),
-  });
+  };
+  const budget = options.maxBytes === undefined
+    ? undefined
+    : { remaining: positiveBudget(options.maxBytes, "max-bytes") };
+  return options.maxResults === undefined
+    ? readCollection(connection, "api/issues", query, budget)
+    : readPages(connection, "api/issues", query, {
+      top: Number(query.$top),
+      skip: Number(query.$skip),
+      maxResults: positiveBudget(options.maxResults, "max-results"),
+      budget,
+    });
 }
 
 export const getIssue = readObjectAt(issuePath, `${issueListFields},description,created`);
@@ -452,33 +514,6 @@ export async function uploadObjectCollection(
     throw new Error("YouTrack returned an invalid upload collection response.");
   }
   return value.map((item) => object(scrub(item, connection.token.trim())));
-}
-export async function createIssue(
-  connection: Connection,
-  input: unknown,
-): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["project", "summary", "description"]);
-  const project = mutationBody(body.project, ["id"]);
-  return mutate(connection, "api/issues", {
-    project: { id: narrative(project.id, "project.id") },
-    summary: narrative(body.summary, "summary"),
-    ...(Object.hasOwn(body, "description") ? { description: nullableText(body.description, "description") } : {}),
-  }, "id,idReadable,summary,updated");
-}
-
-export async function updateIssue(
-  connection: Connection,
-  id: string,
-  input: unknown,
-): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["summary", "description"]);
-  if (Object.keys(body).length === 0) {
-    throw new Error("YouTrack issue update requires summary or description.");
-  }
-  return mutate(connection, issuePath(id), {
-    ...(Object.hasOwn(body, "summary") ? { summary: narrative(body.summary, "summary") } : {}),
-    ...(Object.hasOwn(body, "description") ? { description: nullableText(body.description, "description") } : {}),
-  }, "id,idReadable,summary,updated");
 }
 
 export async function addComment(

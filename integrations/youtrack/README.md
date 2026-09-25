@@ -16,9 +16,10 @@ Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.C
 
 YouTrack uses the same `@eyeauras/cli-factory` workspace as TeamCity. The CLI
 provides standard profiles/auth/permissions and 118 REST operations: 98 ReadOnly and 20 Update.
-A separate ReadOnly command downloads one selected issue attachment; it is not REST operation 119.
-There are 117 service leaves: 116 for REST operations plus download. Two `--direct` selectors
-each select a second REST endpoint without adding another leaf.
+Five workflow leaves reuse those operations instead of adding REST operations: issue and article
+attachment download, article export, and `issues batch validate/apply`. There are 121 service
+leaves: 116 for REST operations plus these five. Two `--direct` selectors each select a second
+REST endpoint without adding another leaf.
 The foundational read projections are:
 
 | Command | Default fields |
@@ -38,9 +39,17 @@ onboarding or credential access on CLI, execute and RPC. The static errors are
 `YouTrack top must be a positive safe decimal integer.` and
 `YouTrack skip must be a nonnegative safe decimal integer.`; they never include the supplied input.
 Directly callable service methods retain their own range validation.
-Each collection command makes one request, and rejects an oversized server page. No `--all`
-or implicit nested follow-up requests are provided. Issue IDs are encoded as opaque path
-segments, including readable IDs such as `DEMO-1`.
+Each collection command makes one request, and rejects an oversized server page. Multi-page reads
+happen only for the explicit `issues list --all` described below and for field `name` selectors in
+issue writes (their field list is read completely; cancellable); no other nested follow-up requests
+are made. Issue IDs are encoded as opaque path segments, including readable IDs such as `DEMO-1`.
+
+`issues list --all --max-results <n>` reads every page (`--top` is the page size, `--skip` the start)
+with the same query and projection. Success means the selection is complete: the result is the
+same JSON array in server order, with repeated `id`s removed. More than `n` issues, responses over
+the optional `--max-bytes <n>` (total decoded bytes; also valid without `--all`) or any failed page
+fail the whole command without partial output or retries. `--all` and `--max-results` require each
+other. Offset paging is not a snapshot: concurrent changes can still omit issues.
 
 ```powershell
 npm run youtrack -- project list --top 3 --profile youtrack-dev
@@ -54,7 +63,8 @@ Empty collections are `[]`. Signed/credential-bearing URLs and the active bearer
 scrubbed recursively, including explicitly projected nested fields. Unsigned URLs remain
 unchanged. Failures expose HTTP status and safe Retry-After information, never raw server
 errors or authentication material. Remote mutations require the Update gate, described below.
-The ReadOnly download command writes only its explicitly requested local file beneath profile AppData.
+The ReadOnly download and export commands write only their explicitly requested local file beneath
+profile AppData.
 
 JSON responses have no CLI byte ceiling. Invalid/truncated identity transfer lengths, stream failure
 or cancellation fail with `YouTrack response stream failed or was cancelled.` without response content.
@@ -127,17 +137,37 @@ This documentation does not enable it automatically. The local proof remains Rea
 
 | Command | Required `--body` JSON object |
 |---|---|
-| `issues create` | Nonempty `project.id` and `summary`; optional string or null `description` |
-| `issues update <issueID>` | Nonempty subset of `summary` and `description`; summary must be nonempty |
+| `issues create` | `project` as exactly one of `{id}`/`{shortName}`, nonempty `summary`; optional string or null `description`, optional `customFields` |
+| `issues update <issueID>` | Nonempty subset of `summary`, `description` and `customFields`; summary must be nonempty |
 | `issues comments add <issueID>` | Nonempty `text` only |
 
 Missing `--body` and malformed JSON fail before profile onboarding or credential access.
 Description and comment text preserve multiline Markdown. Omitted fields remain unchanged;
 `description: null` clears the description. Unknown fields (including nested project properties)
-are rejected locally. The `issues create` and `issues update` bodies do not accept custom fields,
-state/assignee, visibility or notification controls. Use the separate `issues fields set` command
-for supported custom-field changes described below. A project may require custom fields without
-defaults; creation then fails safely with the server's status rather than guessing missing values.
+are rejected locally. Visibility, notification controls and state-machine events are not accepted.
+
+`customFields` is a nonempty array sent in the same single POST, so a project's required fields
+can be set at creation. Each entry has an explicit `$type`, exactly one of `id` or `name`, and a
+`value` validated like `issues fields set` below (`null`/`[]` clear on update). A field may appear
+once. `StateMachineIssueCustomField` is rejected: a new issue starts in its workflow's initial
+state, and transitions stay on `issues fields set` events or `commands apply`. Selectors resolve
+exactly before the write: `project.shortName` by one project read (case-insensitive match
+required), field `name` (case-sensitive) against all fields of the project (create) or issue
+(update). Zero or several matches fail before the POST; `id` entries need no lookup. Value
+selectors (`id`, `name`, `login` for users) are resolved by YouTrack inside the request; `$type`
+is never inferred and nothing is cached.
+
+```powershell
+npm run youtrack -- issues create --profile youtrack-dev --body '{"project":{"shortName":"DEMO"},"summary":"Example","customFields":[{"$type":"SingleEnumIssueCustomField","name":"Priority","value":{"name":"Major"}}]}'
+```
+
+Every narrative write also accepts a UTF-8 file for its text field: `--description-file` (issue
+create/update), `--content-file` (article create/update) and `--text-file` (issue/article comment
+add/update). `--body` stays required (use `{}` when the file supplies the only field) and must not
+also contain that field. Files are read only after Update admission, as strict UTF-8 with an
+initial BOM removed and otherwise unchanged (line endings included); invalid encoding, directories
+and unreadable paths fail before any request. Clearing still uses `--body` with `null`. There is no
+local size ceiling, and stdin is not used because JSON-RPC owns it.
 
 For Windows **CMD**, replace the example project ID before deliberately running a write:
 
@@ -192,7 +222,7 @@ Project fields expose field types and settings without following bundle referenc
 preserve polymorphic values, including scalar, null and array values. `issues fields set` accepts
 an explicit `$type` and `value`: single/multi Enum, Build, Version, Owned, Group and User types;
 State, Simple, Date, Period and Text types. References use explicit identity selectors (`id`,
-`name`, and `login` for users); the CLI performs no name lookup. Single values can use `null`,
+`name`, and `login` for users); `fields set` performs no lookup of its own. Single values can use `null`,
 multi values use `[]` to clear. Period values accept nonnegative 32-bit integer `minutes`
 and/or `presentation`; dates use
 integer Unix milliseconds. Text values use `{ "text": "..." }`. StateMachine fields instead
@@ -286,15 +316,16 @@ add six operations. The hierarchy commands read only the selected relationship a
 recursively traverse descendants. A literal JSON null parent remains null; an empty body,
 404 or malformed response is still an error. Article attachment upload requires one explicit
 `--file`, the Update gate, and uses native multipart after checking that the file is regular.
-It supports `--fields` for the response. No implicit file discovery or article binary download
-is provided, and upload never grants permissions.
+It supports `--fields` for the response. No implicit file discovery is provided, and upload never
+grants permissions.
 
 ```powershell
 npm run youtrack -- issues attachments download DEMO-1 1-1 --profile youtrack-dev
 npm run youtrack -- issues attachments download DEMO-1 1-1 --name report.txt --max-bytes 1048576 --profile youtrack-dev
+npm run youtrack -- article attachment download KB-A-1 7-1 --profile youtrack-dev
 ```
 
-Issue attachment download first reads the exact attachment's fixed metadata, then requests only
+Issue and article attachment downloads first read the exact attachment's fixed metadata, then request only
 its returned URL. The file request sends neither Authorization nor cookies, follows no redirects,
 and accepts only the configured origin and documented attachment path beneath its context.
 External/CDN URLs fail rather than relaxing this policy. Signatures stay in memory and never
@@ -314,6 +345,60 @@ replacement are rejected. Unknown replacement files are never removed. This prot
 current-user-owned AppData; it cannot prevent every malicious same-account replacement after the
 last identity check. Errors report whether publication occurred and whether private staging cleanup
 failed, without raw filesystem/service details. The local proof never invokes download or upload.
+
+`article export <article> [--name <basename>]` (ReadOnly) saves the article content, with signed
+URLs scrubbed like console output, as `downloads/<idReadable>.md` through the same no-overwrite
+publication. Edit it and send it back with `article update <article> --body '{}' --content-file <path>`.
+The result's `redacted: true` means the file contains `[redacted]` placeholders where console-output
+scrubbing removed text (signed or credential-bearing URLs, undecodable URL-like text or the token);
+sending it back unchanged would replace that text in YouTrack, so restore it first or edit that
+article elsewhere.
+The local `downloads list`, `downloads delete <name>` and `downloads clean` built-ins (ungated, no
+network) show or remove saved files: only regular files directly in the selected profile's
+`downloads` directory, never links, subdirectories, staging or other profiles.
+
+## Issue batches
+
+`issues batch validate --file <manifest>` (ReadOnly; sends no requests and never uses the token,
+but like every service command runs against a configured profile) and `issues batch apply --file
+<manifest>` (Update, checked before the file is read) accept a `.json` array of rows or a UTF-8 `.csv`
+with a header row. A row is `action` (`create`/`update`), `issue` (update only, an exact ID, never a
+search) and the same body fields as `issues create/update`. CSV columns are `action`, `issue`,
+`project.id`, `project.shortName`, `summary`, `description` and `customFields` (a JSON array cell);
+an empty cell omits the field, so clearing needs JSON. CSV syntax errors and unknown or repeated
+columns fail as a whole; unknown keys and invalid rows fail with the row number. Either way nothing
+is written. Name selectors are resolved per row during apply.
+
+Apply runs rows in order, one request per write plus exact selector reads, without retries,
+rollback or compensation; a batch is not atomic. It stops at the first unsuccessful row unless
+`--continue-on-error` is given. Each row reports `completed` (with the write result), `failed`
+(rejected before the write or with HTTP 4xx: not applied), `uncertain` (connectivity, 5xx or an
+invalid response: it may have been applied) or `unattempted`; the overall `status` is `completed`
+or `incomplete`, with counts. The command itself succeeds (exit code 0) once rows ran, so callers
+must check `status`. `--failed-rows <name>.json` saves the `failed` and `unattempted` rows
+as a manifest under `downloads` for deliberate resubmission; `uncertain` rows are left out and must
+be checked in YouTrack first. A save failure is reported in `failedRows.error` without hiding row results.
+
+## Compared with `yt` 0.22.2
+
+The everyday issue and article workflows have explicit, typed commands:
+- issue creation and updates with custom fields in one request;
+- exact human-readable selectors;
+- budgeted `issues list --all`;
+- JSON/CSV batches;
+- attachment downloads, article export and text-file inputs.
+
+Deliberate differences:
+- field types are never guessed and selectors never take the first match;
+- field-value names are validated by YouTrack rather than pre-resolved;
+- a failed batch never deletes created issues to compensate.
+
+Not provided:
+- project, user, group and role administration;
+- deletion wrappers;
+- burndown and velocity reports;
+- interactive tables, themes, tutorials and aliases;
+- stdin input (JSON-RPC owns stdin).
 
 ## Local proof and offline tests
 

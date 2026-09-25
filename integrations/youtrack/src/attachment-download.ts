@@ -1,6 +1,8 @@
 import { ProfileFileError, publishProfileFile } from "@eyeauras/cli-factory";
 import {
-  getIssueAttachmentDownloadMetadata,
+  encodedID,
+  getAttachmentDownloadMetadata,
+  issuePath,
   type Connection,
   youTrackUrl,
 } from "./client.js";
@@ -107,10 +109,32 @@ export async function downloadIssueAttachment(
   appDataDirectory: string,
   options: DownloadOptions = {},
 ): Promise<AttachmentDownloadResult> {
+  const path = `${issuePath(issueID)}/attachments/${encodedID(attachmentID, "attachment ID")}`;
+  return downloadAttachment(connection, path, attachmentID, appDataDirectory, options);
+}
+
+export async function downloadArticleAttachment(
+  connection: Connection,
+  articleID: string,
+  attachmentID: string,
+  appDataDirectory: string,
+  options: DownloadOptions = {},
+): Promise<AttachmentDownloadResult> {
+  const path = `api/articles/${encodedID(articleID, "article ID")}/attachments/${encodedID(attachmentID, "attachment ID")}`;
+  return downloadAttachment(connection, path, attachmentID, appDataDirectory, options);
+}
+
+async function downloadAttachment(
+  connection: Connection,
+  attachmentPath: string,
+  attachmentID: string,
+  appDataDirectory: string,
+  options: DownloadOptions,
+): Promise<AttachmentDownloadResult> {
   const requestedName = options.name === undefined ? undefined : downloadName(options.name);
   const maxBytes = options.maxBytes === undefined ? undefined : downloadLimit(options.maxBytes);
   try {
-    const metadata = await getIssueAttachmentDownloadMetadata(connection, issueID, attachmentID);
+    const metadata = await getAttachmentDownloadMetadata(connection, attachmentPath);
     if (metadata.id !== attachmentID) {
       throw new DownloadError("YouTrack returned a different attachment identity for the download.");
     }

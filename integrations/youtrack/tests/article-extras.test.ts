@@ -239,7 +239,7 @@ const reads = [
   ["article", "parent", "get", "fixture-parent"],
 ];
 
-test("actual CLI mounts exactly the six extra leaves with read/write fields and proper paths", async (t) => {
+test("actual CLI mounts the six article-extra REST leaves with read/write fields and proper paths", async (t) => {
   const f = await configured(t);
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
   const tails = ["/attachments", "/attachments/fixture-attachment", "/childArticles", "/childArticles/fixture-child", "/parentArticle", "/attachments"];

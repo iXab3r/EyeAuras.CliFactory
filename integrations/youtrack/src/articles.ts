@@ -1,3 +1,4 @@
+import { saveProfileFile, type PublishedProfileFile } from "@eyeauras/cli-factory";
 import {
   encodedID,
   fields,
@@ -23,6 +24,30 @@ function articlePath(articleID: string): string {
 
 export const listArticles = readCollectionAt("api/articles", articleListFields);
 export const getArticle = readObjectAt(articlePath, articleDetailFields);
+
+/**
+ * Save the scrubbed article content as a profile-owned file for a fetch/edit/update workflow.
+ * `redacted` warns that URL placeholders would replace the originals if the file were sent back.
+ */
+export async function exportArticle(
+  connection: Connection,
+  articleID: string,
+  appDataDirectory: string,
+  name?: string,
+): Promise<{ id: string; redacted: boolean } & PublishedProfileFile> {
+  const article = await getArticle(connection, articleID, { fields: "id,idReadable,content" });
+  const id = typeof article.idReadable === "string" ? article.idReadable : article.id;
+  if (typeof id !== "string" || !id || (article.content !== null && typeof article.content !== "string")) {
+    throw new Error("YouTrack returned an invalid article for export.");
+  }
+  const saved = await saveProfileFile({
+    appDataDirectory,
+    name: name ?? `${id.replace(/[^a-zA-Z0-9._-]/g, "_")}.md`,
+    content: article.content ?? "",
+    signal: connection.signal,
+  });
+  return { id, ...saved, redacted: article.content?.includes("[redacted]") ?? false };
+}
 
 export async function createArticle(
   connection: Connection,

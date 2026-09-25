@@ -46,7 +46,12 @@ caller timeouts/cancellation and startup/shutdown recovery deadlines remain supp
 YouTrack no longer limits explicit issue selection to 20 IDs or page size to 100. TeamCity no longer
 caps typed/bulk items, roles, restrictions, tags, keys, mutes, backup modules, decoded collections
 or page sizes. Default page sizes remain convenient defaults and do not limit an explicit request.
-No automatic pagination, recursive discovery, command replay or extra remote requests are added.
+Pagination happens only when a command asks for it explicitly, and there is no recursive
+discovery or command replay. The YouTrack `issues list --all` requires a caller-selected
+`--max-results` budget (optional `--max-bytes`) and fails rather than truncating. A YouTrack field
+`name` selector reads the project's or issue's complete field list page by page (cancellable,
+without a budget: the list is finite service metadata); `project.shortName` reads one project, and
+exact IDs add no requests. Batch manifests have no row-count ceiling.
 
 TeamCity's extra text/path/XML/cron/identifier lengths, avatar pixel maximum and debug-token TTL
 maximum have been removed. Profile, category and AppData-name length checks are removed while
@@ -70,7 +75,8 @@ its published result-count limit is not copied as a new local ceiling.
 
 ## Upgrading
 
-Use Core, YouTrack CLI and TeamCity CLI 0.2.0 together. Integration packages depend on Core 0.2.0.
+Use Core, YouTrack CLI and TeamCity CLI from the same release (0.2.0 or later) together; each
+integration package depends on the matching Core version.
 Library consumers replace the removed `readBoundedResponseBody` import with `readResponseBody`;
 pass `maxBytes` only when an explicit caller budget is intended. No credentials or profile data
 are migrated or deleted. A running IPC host must be stopped after the workspace build changes.

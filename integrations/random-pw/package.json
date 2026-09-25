@@ -20,7 +20,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@eyeauras/cli-factory": "0.2.0",
+    "@eyeauras/cli-factory": "0.3.0",
     "@eyeauras/cli-factory-ipc": "0.1.0",
     "@eyeauras/cli-factory-playwright": "0.1.0",
     "@eyeauras/random-common": "0.1.0"
