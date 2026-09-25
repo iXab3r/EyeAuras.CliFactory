@@ -379,6 +379,27 @@ must check `status`. `--failed-rows <name>.json` saves the `failed` and `unattem
 as a manifest under `downloads` for deliberate resubmission; `uncertain` rows are left out and must
 be checked in YouTrack first. A save failure is reported in `failedRows.error` without hiding row results.
 
+## Compared with `yt` 0.22.2
+
+The everyday issue and article workflows have explicit, typed commands:
+- issue creation and updates with custom fields in one request;
+- exact human-readable selectors;
+- budgeted `issues list --all`;
+- JSON/CSV batches;
+- attachment downloads, article export and text-file inputs.
+
+Deliberate differences:
+- field types are never guessed and selectors never take the first match;
+- field-value names are validated by YouTrack rather than pre-resolved;
+- a failed batch never deletes created issues to compensate.
+
+Not provided:
+- project, user, group and role administration;
+- deletion wrappers;
+- burndown and velocity reports;
+- interactive tables, themes, tutorials and aliases;
+- stdin input (JSON-RPC owns stdin).
+
 ## Local proof and offline tests
 
 After configuring a profile, explicitly run:
