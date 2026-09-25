@@ -162,7 +162,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
         command("batch", "Validate or apply JSON/CSV manifests of issue creates and updates", [
           command(
             "validate",
-            "Validate a manifest locally; sends no requests and never uses the token",
+            "Validate a manifest locally; sends no requests and never uses the token (needs a configured profile)",
             async ({ options }) => {
               const rows = await manifest(options);
               const updates = rows.filter((row) => row.issue !== undefined).length;

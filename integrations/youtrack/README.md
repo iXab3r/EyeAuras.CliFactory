@@ -349,9 +349,10 @@ failed, without raw filesystem/service details. The local proof never invokes do
 `article export <article> [--name <basename>]` (ReadOnly) saves the article content, with signed
 URLs scrubbed like console output, as `downloads/<idReadable>.md` through the same no-overwrite
 publication. Edit it and send it back with `article update <article> --body '{}' --content-file <path>`.
-The result's `redacted: true` means the file contains `[redacted]` placeholders for signed or
-credential-bearing URLs; sending it back unchanged would replace those URLs in YouTrack, so restore
-them first or edit that article elsewhere.
+The result's `redacted: true` means the file contains `[redacted]` placeholders where console-output
+scrubbing removed text (signed or credential-bearing URLs, undecodable URL-like text or the token);
+sending it back unchanged would replace that text in YouTrack, so restore it first or edit that
+article elsewhere.
 The local `downloads list`, `downloads delete <name>` and `downloads clean` built-ins (ungated, no
 network) show or remove saved files: only regular files directly in the selected profile's
 `downloads` directory, never links, subdirectories, staging or other profiles.
