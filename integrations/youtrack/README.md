@@ -39,9 +39,10 @@ onboarding or credential access on CLI, execute and RPC. The static errors are
 `YouTrack top must be a positive safe decimal integer.` and
 `YouTrack skip must be a nonnegative safe decimal integer.`; they never include the supplied input.
 Directly callable service methods retain their own range validation.
-Each collection command makes one request, and rejects an oversized server page. The only
-multi-page read is the explicit `issues list --all` described below; no implicit nested follow-up
-requests are made. Issue IDs are encoded as opaque path segments, including readable IDs such as `DEMO-1`.
+Each collection command makes one request, and rejects an oversized server page. Multi-page reads
+happen only for the explicit `issues list --all` described below and for field `name` selectors in
+issue writes (their field list is read completely; cancellable); no other nested follow-up requests
+are made. Issue IDs are encoded as opaque path segments, including readable IDs such as `DEMO-1`.
 
 `issues list --all --max-results <n>` reads every page (`--top` is the page size, `--skip` the start)
 with the same query and projection. Success means the selection is complete: the result is the
@@ -62,7 +63,8 @@ Empty collections are `[]`. Signed/credential-bearing URLs and the active bearer
 scrubbed recursively, including explicitly projected nested fields. Unsigned URLs remain
 unchanged. Failures expose HTTP status and safe Retry-After information, never raw server
 errors or authentication material. Remote mutations require the Update gate, described below.
-The ReadOnly download command writes only its explicitly requested local file beneath profile AppData.
+The ReadOnly download and export commands write only their explicitly requested local file beneath
+profile AppData.
 
 JSON responses have no CLI byte ceiling. Invalid/truncated identity transfer lengths, stream failure
 or cancellation fail with `YouTrack response stream failed or was cancelled.` without response content.
@@ -347,26 +349,32 @@ failed, without raw filesystem/service details. The local proof never invokes do
 `article export <article> [--name <basename>]` (ReadOnly) saves the article content, with signed
 URLs scrubbed like console output, as `downloads/<idReadable>.md` through the same no-overwrite
 publication. Edit it and send it back with `article update <article> --body '{}' --content-file <path>`.
+The result's `redacted: true` means the file contains `[redacted]` placeholders for signed or
+credential-bearing URLs; sending it back unchanged would replace those URLs in YouTrack, so restore
+them first or edit that article elsewhere.
 The local `downloads list`, `downloads delete <name>` and `downloads clean` built-ins (ungated, no
 network) show or remove saved files: only regular files directly in the selected profile's
 `downloads` directory, never links, subdirectories, staging or other profiles.
 
 ## Issue batches
 
-`issues batch validate --file <manifest>` (ReadOnly, local only: no network or credential use) and
-`issues batch apply --file <manifest>` (Update, checked before the file is read) accept a `.json`
-array of rows or a UTF-8 `.csv` with a header row. A row is `action` (`create`/`update`), `issue`
-(update only, an exact ID, never a search) and the same body fields as `issues create/update`. CSV
-columns are `action`, `issue`, `project.id`, `project.shortName`, `summary`, `description` and
-`customFields` (a JSON array cell); an empty cell omits the field, so clearing needs JSON. Unknown
-columns or keys, and any invalid row, fail before the first write with the row number.
+`issues batch validate --file <manifest>` (ReadOnly; sends no requests and never uses the token,
+but like every service command runs against a configured profile) and `issues batch apply --file
+<manifest>` (Update, checked before the file is read) accept a `.json` array of rows or a UTF-8 `.csv`
+with a header row. A row is `action` (`create`/`update`), `issue` (update only, an exact ID, never a
+search) and the same body fields as `issues create/update`. CSV columns are `action`, `issue`,
+`project.id`, `project.shortName`, `summary`, `description` and `customFields` (a JSON array cell);
+an empty cell omits the field, so clearing needs JSON. CSV syntax errors and unknown or repeated
+columns fail as a whole; unknown keys and invalid rows fail with the row number. Either way nothing
+is written. Name selectors are resolved per row during apply.
 
 Apply runs rows in order, one request per write plus exact selector reads, without retries,
 rollback or compensation; a batch is not atomic. It stops at the first unsuccessful row unless
 `--continue-on-error` is given. Each row reports `completed` (with the write result), `failed`
 (rejected before the write or with HTTP 4xx: not applied), `uncertain` (connectivity, 5xx or an
 invalid response: it may have been applied) or `unattempted`; the overall `status` is `completed`
-or `incomplete`, with counts. `--failed-rows <name>.json` saves the `failed` and `unattempted` rows
+or `incomplete`, with counts. The command itself succeeds (exit code 0) once rows ran, so callers
+must check `status`. `--failed-rows <name>.json` saves the `failed` and `unattempted` rows
 as a manifest under `downloads` for deliberate resubmission; `uncertain` rows are left out and must
 be checked in YouTrack first. A save failure is reported in `failedRows.error` without hiding row results.
 

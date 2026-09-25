@@ -163,14 +163,17 @@ export function issueWrite(input: unknown, create: boolean): IssueWrite {
     throw new Error("YouTrack issue update requires summary, description or customFields.");
   }
   const write: IssueWrite = { body: {} };
-  if (create) write.project = oneOf(mutationBody(body.project, ["id", "shortName"]), ["id", "shortName"], "project");
+  if (create) {
+    write.project = oneOf(mutationBody(body.project, ["id", "shortName"]), ["id", "shortName"], "project");
+    encodedID(String(Object.values(write.project)[0]), "project selector");
+  }
   if (create || Object.hasOwn(body, "summary")) write.body.summary = narrative(body.summary, "summary");
   if (Object.hasOwn(body, "description")) write.body.description = nullableText(body.description, "description");
   if (Object.hasOwn(body, "customFields")) {
     if (!Array.isArray(body.customFields) || !body.customFields.length) {
       throw new Error("YouTrack customFields must be a nonempty array.");
     }
-    write.customFields = body.customFields.map((item: unknown) => {
+    const customFields: YouTrackObject[] = body.customFields.map((item: unknown) => {
       const entry = mutationBody(item, ["$type", "id", "name", "value"]);
       const type = narrative(entry.$type, "field $type");
       if (type === "StateMachineIssueCustomField") {
@@ -179,6 +182,11 @@ export function issueWrite(input: unknown, create: boolean): IssueWrite {
       if (!Object.hasOwn(entry, "value")) throw new Error("YouTrack custom field requires value.");
       return { $type: type, ...oneOf(entry, ["id", "name"], "custom field"), value: fieldValue(type, entry.value) };
     });
+    // Identical selectors fail locally; an id and a name for one field fail after resolution.
+    if (new Set(customFields.map(({ id, name }) => JSON.stringify([id, name]))).size !== customFields.length) {
+      throw new Error("YouTrack customFields must not repeat a field.");
+    }
+    write.customFields = customFields;
   }
   return write;
 }

@@ -83,8 +83,9 @@ test("article attachment download and export publish profile-owned files that cl
     "/context/api/files/7-1 no-auth",
   ]);
 
-  const exported = await f.cli.execute(["article", "export", "KB-A-1", "--profile", "dev"]) as { id: string; path: string };
-  assert.equal(exported.path, join(downloads, "KB-A-1.md"));
+  const exported = await f.cli.execute(["article", "export", "KB-A-1", "--profile", "dev"]) as
+    { id: string; path: string; redacted: boolean };
+  assert.deepEqual([exported.id, exported.path, exported.redacted], ["KB-A-1", join(downloads, "KB-A-1.md"), true]);
   assert.equal(await readFile(exported.path, "utf8"), "See [redacted]\nLine ü");
   await assert.rejects(f.cli.execute(["article", "export", "KB-A-1", "--profile", "dev"]), /already exists; no overwrite/);
   await f.cli.execute(["article", "export", "KB-A-1", "--name", "copy.md", "--profile", "dev"]);

@@ -115,6 +115,8 @@ test("invalid bodies fail locally and unresolved selectors fail before any POST"
     { project: { id: "0-1" }, summary: "S", customFields: [{ ...field, event: { id: "start" } }] },
     { project: { id: "0-1" }, summary: "S", customFields: [{ $type: "StateMachineIssueCustomField", id: "1-1", value: null }] },
     { project: { id: "0-1" }, summary: "S", customFields: [{ $type: "UnknownIssueCustomField", id: "1-1", value: null }] },
+    { project: { id: "0-1" }, summary: "S", customFields: [field, field] },
+    { project: { shortName: ".." }, summary: "S" },
   ]) await assert.rejects(createIssue(local, body), /YouTrack/);
   await assert.rejects(updateIssue(local, "DEMO-1", { customFields: [{ ...field, value: [] }] }), /YouTrack/);
 
