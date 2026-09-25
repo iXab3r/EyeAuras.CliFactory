@@ -1,14 +1,12 @@
 export { createYouTrackCli } from "./cli.js";
 export {
   addComment,
-  createIssue,
   currentUser,
   getIssue,
   listComments,
   listIssues,
   listProjects,
   readUser,
-  updateIssue,
   type Connection,
   type IssueSearchOptions,
   type PageOptions,
@@ -23,7 +21,9 @@ export {
 } from "./issue-query.js";
 export {
   getProject, getProjectField, listProjectFields, listUsers, getIssueField, listIssueFields, setIssueField,
+  createIssue, updateIssue,
 } from "./issue-fields.js";
+export { manifestRows, applyIssueBatch, type BatchRow } from "./issue-batch.js";
 export {
   listLinkTypes, getLinkType, listIssueLinks, getIssueLink, listLinkedIssues, addIssueLink,
   removeIssueLink, listTags, getTag, listIssueTags, addIssueTag, removeIssueTag,
@@ -55,7 +55,7 @@ export {
 } from "./group-directory.js";
 export {
   listArticles, getArticle, createArticle, updateArticle, listArticleComments, getArticleComment,
-  addArticleComment, updateArticleComment, listProjectArticles,
+  addArticleComment, updateArticleComment, listProjectArticles, exportArticle,
 } from "./articles.js";
 export { listAgiles, getAgile, listSprints, getSprint, createSprint, updateSprint } from "./agile.js";
 export {
@@ -68,5 +68,5 @@ export {
   listChildArticles, getChildArticle, getParentArticle,
 } from "./article-extras.js";
 export {
-  downloadIssueAttachment, type DownloadOptions, type AttachmentDownloadResult,
+  downloadIssueAttachment, downloadArticleAttachment, type DownloadOptions, type AttachmentDownloadResult,
 } from "./attachment-download.js";

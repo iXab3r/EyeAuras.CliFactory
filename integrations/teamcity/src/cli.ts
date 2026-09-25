@@ -1,6 +1,7 @@
 import {
   command,
   createCli,
+  downloadCommands,
   integerParser,
   Permission,
   tokenAuth,
@@ -133,7 +134,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
   return createCli({
     name: "teamcity-cli",
     description: "AI-friendly access to TeamCity",
-    version: "0.2.0",
+    version: "0.3.0",
     applicationId: "teamcity-cli",
     permissions: { categories: adminCategories },
     profile: {
@@ -177,6 +178,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         }).currentUser();
       },
     }),
+    builtins: [downloadCommands],
     commands: [
       command("server", "Inspect the TeamCity server", [
         ...admin.server,

@@ -3,7 +3,7 @@ export { tokenAuth } from "./auth.js";
 export { validateArgv } from "./argv.js";
 export { visitResources } from "./resources.js";
 export { privateDirectory, privateEndpoint } from "./private-storage.js";
-export { ProfileFileError, publishProfileFile } from "./profile-file.js";
+export { downloadCommands, ProfileFileError, publishProfileFile, saveProfileFile } from "./profile-file.js";
 export type {
   ProfileFileOptions,
   PublishedProfileFile,

@@ -241,6 +241,15 @@ These path checks protect current-user AppData and detectable replacement; no pa
 eliminate every same-user replacement race after the last check, including exotic in-place mutation
 with forged metadata. There is no retry, resume, opening, execution or extraction.
 
+`saveProfileFile({ appDataDirectory, name, content, signal? })` publishes integration-generated
+text (exports, result manifests) through this same staging and no-overwrite path. Core's
+`downloadCommands` is an opt-in `builtins` group for integrations that save files:
+`downloads list`, `downloads delete <name>` and `downloads clean` list or remove only regular files
+directly inside the selected profile's `downloads` directory, rechecking the directory chain
+before each unlink. Like other built-ins they are local, ungated and need no configured service;
+they never follow links or touch subdirectories, staging, other profiles or remote data.
+TeamCity and YouTrack opt in.
+
 ## Runtime shape
 
 ```mermaid

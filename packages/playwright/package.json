@@ -12,7 +12,7 @@
     "test:compiled": "node --test dist/tests/*.test.js"
   },
   "dependencies": {
-    "@eyeauras/cli-factory": "0.2.0",
+    "@eyeauras/cli-factory": "0.3.0",
     "playwright": "1.62.1"
   }
 }

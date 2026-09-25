@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+import { downloadArticleAttachment, downloadIssueAttachment } from "../src/attachment-download.js";
 import {
   currentUser,
+  getAttachmentDownloadMetadata,
   getIssue,
-  getIssueAttachmentDownloadMetadata,
   listProjects,
   readNullableObject,
   readObject,
@@ -124,7 +125,8 @@ test("download metadata uses only its fixed endpoint and transient projection", 
     assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
     return HttpResponse.json({ ...metadata, ignored: { private: "do not retain" } });
   }));
-  assert.deepEqual(await getIssueAttachmentDownloadMetadata(options, "DEMO/1", "attachment/1"), metadata);
+  assert.deepEqual(
+    await getAttachmentDownloadMetadata(options, "api/issues/DEMO%2F1/attachments/attachment%2F1"), metadata);
   assert.equal(calls, 1);
   assert.equal((await readObject(options, "api/issues/DEMO%2F1/attachments/attachment%2F1", {
     fields: "id,name,mimeType,url",
@@ -141,7 +143,7 @@ test("download metadata rejects malformed and credential-reflecting fields safel
     ...["id", "name", "mimeType", "url"].map((key) => ({ ...metadata, [key]: "synthetic-token" })),
   ]) {
     server.use(http.get("*/api/issues/DEMO-1/attachments/1-1", () => HttpResponse.json(value)));
-    await assert.rejects(getIssueAttachmentDownloadMetadata(options, "DEMO-1", "1-1"), (error: Error) => {
+    await assert.rejects(getAttachmentDownloadMetadata(options, "api/issues/DEMO-1/attachments/1-1"), (error: Error) => {
       assert.match(error.message, /^YouTrack returned (an invalid object response|invalid attachment download metadata or no download URL)\.$/);
       assert.ok(!error.message.includes("synthetic-token"));
       return true;
@@ -150,7 +152,8 @@ test("download metadata rejects malformed and credential-reflecting fields safel
   let calls = 0;
   const fetch: typeof globalThis.fetch = async () => { calls++; return Response.json(metadata); };
   for (const id of [".", "..", "", "bad\nid"]) {
-    await assert.rejects(getIssueAttachmentDownloadMetadata({ ...options, fetch }, "DEMO-1", id));
+    await assert.rejects(downloadIssueAttachment({ ...options, fetch }, "DEMO-1", id, "/unused"));
+    await assert.rejects(downloadArticleAttachment({ ...options, fetch }, id, "1-1", "/unused"));
   }
   assert.equal(calls, 0);
 });

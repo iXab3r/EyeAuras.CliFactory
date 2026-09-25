@@ -1,9 +1,10 @@
 # npm installation and release
 
-The current release line is 0.2.0 for Core, YouTrack CLI and TeamCity CLI. Publish Core first,
+The current release line is 0.3.0 for Core, YouTrack CLI and TeamCity CLI. Publish Core first,
 then both integrations, using reviewed archives from the same tested tree. Registry publication
-and registry installation must be verified before reporting release availability. Core and
-YouTrack 0.1.0 were previously published; version 0.2.0 replaces their content-limit contract.
+and registry installation must be verified before reporting release availability. Version 0.2.0
+of all three packages (and 0.1.0 of Core and YouTrack) was previously published; 0.3.0 adds the
+YouTrack workflow commands, Core's `saveProfileFile` and the `downloads` built-ins.
 
 ## Package and executable names
 
@@ -91,17 +92,17 @@ selected package. Always build/test the whole workspace first so Core is current
    and archive contents for generated noise, secrets and private service data before
    uploading anything. Package allowlist checks are not a content privacy review.
 4. Log in interactively with `npm login`. Publish the reviewed tarballs in dependency
-   order; these filenames match the `0.2.0` manifests:
+   order; these filenames match the `0.3.0` manifests:
 
    ```sh
-   npm publish ./eyeauras-cli-factory-0.2.0.tgz --access public --registry https://registry.npmjs.org/
-   npm publish ./eyeauras-youtrack-cli-0.2.0.tgz --access public --registry https://registry.npmjs.org/
-   npm publish ./eyeauras-teamcity-cli-0.2.0.tgz --access public --registry https://registry.npmjs.org/
+   npm publish ./eyeauras-cli-factory-0.3.0.tgz --access public --registry https://registry.npmjs.org/
+   npm publish ./eyeauras-youtrack-cli-0.3.0.tgz --access public --registry https://registry.npmjs.org/
+   npm publish ./eyeauras-teamcity-cli-0.3.0.tgz --access public --registry https://registry.npmjs.org/
    ```
 
    Wait for the Core version to be available before publishing the integrations.
    Publishing tarballs uploads the reviewed build rather than rebuilding it.
-5. Verify `npm view <package>@0.2.0 version bin` for each package. In a clean environment,
+5. Verify `npm view <package>@0.3.0 version bin` for each package. In a clean environment,
    install the two CLI versions **from the registry**, then check `--help`, `--version`,
    JSON and JSON-RPC. Local tarball proof does not prove registry availability.
 6. Record the published versions and registry-install evidence, update release status

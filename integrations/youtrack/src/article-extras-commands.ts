@@ -1,5 +1,6 @@
 import { command } from "@eyeauras/cli-factory";
 import { requiredText } from "./client.js";
+import { articleAttachmentDownloadCommand } from "./attachment-download-commands.js";
 import { pagedRead, projectedRead, updateCommand, projectionOptions, readOptions } from "./cli-support.js";
 import {
   getArticleAttachment,
@@ -11,7 +12,8 @@ import {
 } from "./article-extras.js";
 
 export const articlesExtraChildren = [
-  command("attachment", "Inspect article attachment metadata and upload one file", [
+  command("attachment", "Inspect, upload or download one selected article attachment", [
+    articleAttachmentDownloadCommand,
     pagedRead(
       "list <article>",
       "List one page of attachment metadata without downloading files",
