@@ -109,9 +109,9 @@ from an array result or from the view's `rows` accessor, under column headers, o
 omitting empty values. Accessors return values; they never print. Core owns the layout and the
 `age`, `duration` and `bytes` formats. There is no template language. Without a view, or when a
 table's rows are not an array, the generic fallback renders the value, so a shape mismatch never
-reads as "no results". `--json`, JSON-RPC and `execute` always return the unchanged domain value. A record may also
-have titled `sections`, one line per item. An empty section says `none`; an accessor that returns
-`undefined` omits it.
+reads as "no results". `--json`, JSON-RPC and `execute` always return the unchanged domain value.
+A record may also have titled `sections`, one line per item. An empty section says `none`; an
+accessor that returns `undefined` omits it.
 
 Tables fit a terminal. The width is the output TTY's columns minus one. Pipes, files and other
 non-TTY streams are never truncated. Only columns marked `shrink` lose characters, widest first,
