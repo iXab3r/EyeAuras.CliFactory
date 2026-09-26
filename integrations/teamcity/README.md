@@ -547,7 +547,8 @@ Help leads with everyday work:
   `Administration` and Core's local `Configuration`.
 - `builds --help` starts with `list`, `show`, `tests`, `problems` and `changes`, followed by
   `Files`, `Control` and `Evidence`.
-- `jobs`, `projects`, `queue` and `agents` start with their list, show and run commands.
+- `jobs`, `projects`, `queue` and `agents` start with their everyday commands: list and show, plus
+  `jobs run` and `queue cancel`.
 - Examples appear at the root and on `jobs` and `builds`.
 
 A typo such as `teamcity-cli bulds` is reported as an unknown command with a suggestion. An argument

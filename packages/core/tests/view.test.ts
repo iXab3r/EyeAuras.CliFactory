@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import {
@@ -153,7 +154,12 @@ test("Core's downloads list is a table of saved files for the selected profile",
   }));
   const listed = await f.run(app, ["downloads", "list"]);
   assert.equal(listed.exitCode, 0, listed.stderr);
-  assert.match(listed.stdout, /^NAME\s+SIZE\s+MODIFIED\s+PATH\nreport\.txt\s+9 B\s+\d+s\s+\S*report\.txt\n$/);
+  const [header, row, ...rest] = listed.stdout.split("\n");
+  assert.match(header ?? "", /^NAME\s+SIZE\s+MODIFIED\s+PATH$/);
+  assert.match(row ?? "", /^report\.txt\s+9 B\s+\d+s\s+/);
+  // Redirected output is never shortened, whatever characters the temporary path contains.
+  assert.ok(row?.endsWith(join(f.appArguments.AppDataDirectory, "downloads", "report.txt")), row);
+  assert.deepEqual(rest, [""]);
 });
 
 test("help groups siblings in declaration order, adds examples and keeps local commands last", async (t) => {
