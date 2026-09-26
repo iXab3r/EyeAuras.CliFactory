@@ -71,3 +71,41 @@ test("an uncertain mutation and a denied permission say what is known and what t
   });
   assert.equal(posts, 1, "An uncertain mutation is never repeated.");
 });
+
+test("an interrupted read reports interrupted; an interrupted write keeps its unknown outcome", async (t) => {
+  const runtime = await createTestRuntime(t, {
+    profiles: [{
+      name: "default", url: "https://teamcity.test",
+      permissions: [Permission.ReadOnly, Permission.Update],
+    }],
+  });
+  let interrupt = new AbortController();
+  let requests = 0;
+  // The request hangs until the caller's Ctrl+C aborts it.
+  runtime.runtime.fetch = (_input, init) => new Promise((_resolve, reject) => {
+    requests++;
+    init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+    interrupt.abort();
+  });
+  const cli = runtime.createCli();
+  const read = await runtime.run(cli, ["builds", "show", "101", "--json"], { signal: interrupt.signal });
+  assert.equal(read.exitCode, 130);
+  assert.deepEqual(JSON.parse(read.stderr), {
+    error: { code: "interrupted", message: "Interrupted.", exitCode: 130, profile: "default" },
+  });
+
+  interrupt = new AbortController();
+  const write = await runtime.run(cli, ["jobs", "run", "Demo_Tests", "--json"], {
+    signal: interrupt.signal,
+  });
+  assert.equal(write.exitCode, 130);
+  assert.deepEqual(JSON.parse(write.stderr), {
+    error: {
+      code: "run.unknownOutcome",
+      message: "The queue request's outcome is unknown; check for a new build before running it again.",
+      exitCode: 130, profile: "default",
+      next: [["builds", "list", "--job", "Demo_Tests", "--state", "any", "--profile", "default"]],
+    },
+  });
+  assert.equal(requests, 2, "Neither request is repeated.");
+});

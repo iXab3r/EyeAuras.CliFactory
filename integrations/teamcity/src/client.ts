@@ -3988,11 +3988,15 @@ export class TeamCityClient {
         ...(this.#signal === undefined ? {} : { signal: this.#signal }),
       });
     } catch {
-      throw new TeamCityUnknownOutcomeError(
-        "TeamCity network request failed; remote outcome is unknown.",
-      );
+      throw this.#lost(method, "TeamCity network request failed; remote outcome is unknown.");
     }
     return response;
+  }
+  /** A read stopped by its own signal has no remote outcome; a write's outcome stays unknown. */
+  #lost(method: HttpMethod, message: string): Error {
+    return method === "GET" && this.#signal?.aborted === true
+      ? new Error("The TeamCity request was stopped.")
+      : new TeamCityUnknownOutcomeError(message);
   }
   async #requestText(
     method: HttpMethod,
@@ -4048,9 +4052,7 @@ export class TeamCityClient {
             bytes += chunk.value.byteLength;
           }
         } catch {
-          throw new TeamCityUnknownOutcomeError(
-            "TeamCity response stream failed; remote outcome is unknown.",
-          );
+          throw this.#lost(method, "TeamCity response stream failed; remote outcome is unknown.");
         } finally {
           void reader.cancel().catch(() => undefined);
           reader.releaseLock();
@@ -4071,9 +4073,7 @@ export class TeamCityClient {
       });
       return Buffer.from(bytes).toString("utf8");
     } catch {
-      throw new TeamCityUnknownOutcomeError(
-        "TeamCity response stream failed; remote outcome is unknown.",
-      );
+      throw this.#lost(method, "TeamCity response stream failed; remote outcome is unknown.");
     }
   }
 }

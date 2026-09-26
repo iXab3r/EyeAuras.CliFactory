@@ -253,8 +253,9 @@ snapshot.
 
 **Ctrl+C.** The packaged executable turns the first Ctrl+C into a local stop; a second one exits
 immediately. A stopped wait keeps its last known state, as above. Any other interrupted command
-exits 130: an interrupted queue request still reports `run.unknownOutcome`, an interrupted
-download keeps its message about the saved data, and other failures report `interrupted`.
+exits 130. An interrupted read reports `interrupted`, and an interrupted download keeps its
+message about the saved data. An interrupted write keeps its unknown outcome:
+`run.unknownOutcome` for a queue request, `request.unknownOutcome` for others.
 
 ## Triggers, features, dependencies and templates
 
@@ -676,13 +677,17 @@ Some commands print a compact view instead of every field:
   build, `builds diagnose` for a failed one, and the artifact list for a finished one.
 - `jobs run` and `builds wait` print the same summary with the outcome. The title says `Queued:`
   only while a new build still waits in the queue.
+- `builds tests` prints STATUS, FLAGS (new, muted, ignored, investigated), DURATION and TEST.
+  Test details and stack traces appear only in `--json`.
+- `builds problems` prints TYPE, FLAGS and a one-line DESCRIPTION, worded as `builds diagnose`
+  words it.
 - File listings print NAME, SIZE and MODIFIED.
 - Downloads print the full local path, byte count and SHA-256 of the saved file.
 
-In a terminal, `builds list` fits its width by shortening only BRANCH, and Core's
-`downloads list` only its PATH. Build and job IDs and file names are never cut; an impossible fit
-wraps. Redirected output is not shortened. `--json` and JSON-RPC return the same complete data as
-before.
+In a terminal, `builds list` fits its width by shortening only BRANCH, `builds problems` only
+DESCRIPTION, and Core's `downloads list` only its PATH. Build and job IDs, test names and file
+names are never cut; an impossible fit wraps. Redirected output is not shortened. `--json` and
+JSON-RPC return the same complete data as before.
 
 ## Machine-oriented output
 
@@ -710,14 +715,14 @@ failed outcome:
 
 JSON-RPC returns the same fields, apart from `message`, in `error.data`, and adds `result` for a
 failed outcome. Every `next` argv can be sent back to `cli.execute` unchanged. TeamCity adds these
-codes to Core's `usage`, `permission.denied`, `profile.notFound`, `profile.notConfigured` and
-`error`:
+codes to Core's `usage`, `permission.denied`, `profile.notFound`, `profile.notConfigured`,
+`interrupted` and `error`:
 
 | Code | Meaning |
 |---|---|
 | `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.serverError` | TeamCity answered with that HTTP status; the response body is never read or shown |
 | `request.unknownOutcome` | The request may or may not have reached TeamCity; mutations are never repeated |
-| `run.unknownOutcome` | The queue request was lost; check `builds list --job <id> --state queued` |
+| `run.unknownOutcome` | The queue request's outcome is unknown; check `builds list --job <id> --state any` |
 | `build.failed`, `build.canceled`, `build.unknown`, `build.missing` | Waited build outcome, with the build as data |
 | `wait.timeout` (exit 124), `wait.interrupted` (exit 130), `wait.failed` | Observation stopped; the build continues on the server |
 | `diagnose.partial`, `list.incomplete`, `batch.partial`, `build.statusPartial`, `labels.partial` | Partial data or a partial write, printed in full and exiting 1 |
