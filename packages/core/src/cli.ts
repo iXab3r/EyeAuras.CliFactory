@@ -78,7 +78,6 @@ function afterInterrupt(error: unknown, interrupt: AbortSignal | undefined): unk
   if (interrupt?.aborted !== true || (error instanceof CliError && error.exitCode === 130)) {
     return error;
   }
-  // No cause: an aborted request rejects with the caller's own abort reason, which stays private.
   if (!(error instanceof CliError)) {
     const message = error instanceof ProfileFileError ? error.message : "Interrupted.";
     return new CliError(message, { code: "interrupted", exitCode: 130 });
@@ -364,7 +363,11 @@ export function createCli(definition: CliDefinition): CliApplication {
             writeResult(output, result, globals.json === true, presentation);
           }
         } catch (caught) {
-          const failure = afterInterrupt(caught, execution.interrupt);
+          const interrupted = afterInterrupt(caught, execution.interrupt);
+          // Every failure once a profile is selected carries it; control values pass untouched.
+          const failure = interrupted instanceof Error && !(interrupted instanceof CliError)
+            ? new CliError(interrupted.message, { code: "error" })
+            : interrupted;
           if (failure instanceof CliError) failure.profile = profile.name;
           throw failure;
         }
@@ -503,11 +506,11 @@ export function createCli(definition: CliDefinition): CliApplication {
             : { help: capturedOutput.trimEnd() };
         }
         const message = capturedError.trim() || error_.message;
-        throw new CliError(message, { code: "usage", cause: error_ });
+        throw new CliError(message, { code: "usage" });
       }
       // An option parser rejected its value before any handler ran: that is invalid usage too.
       if (!parsed && error_ instanceof Error && !(error_ instanceof CliError))
-        throw new CliError(error_.message, { code: "usage", cause: error_ });
+        throw new CliError(error_.message, { code: "usage" });
       throw error_;
     }
 

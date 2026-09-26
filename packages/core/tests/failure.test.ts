@@ -114,8 +114,9 @@ test("a failed outcome keeps its data on stdout and reports the reason and exit 
   assert.deepEqual([plain.exitCode, plain.stdout, plain.stderr], [1, "", "Ordinary failure.\n"]);
   const plainJson = await f.run(app, ["plain", "--json"]);
   assert.equal(plainJson.stdout, "");
+  // An untyped failure still names the profile that ran it.
   assert.deepEqual(JSON.parse(plainJson.stderr), {
-    error: { code: "error", message: "Ordinary failure.", exitCode: 1 },
+    error: { code: "error", message: "Ordinary failure.", exitCode: 1, profile: "default" },
   });
 });
 
@@ -205,7 +206,11 @@ test("execute rejects with the result and JSON-RPC returns it in the error data"
     },
     {
       jsonrpc: "2.0", id: 2,
-      error: { code: -32000, message: "Ordinary failure.", data: { code: "error", exitCode: 1 } },
+      error: {
+        code: -32000,
+        message: "Ordinary failure.",
+        data: { code: "error", exitCode: 1, profile: "default" },
+      },
     },
   ]);
 });

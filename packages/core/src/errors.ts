@@ -7,8 +7,6 @@ export interface CliErrorOptions {
   result?: unknown;
   /** Follow-up argv of the same CLI, without the CLI name or `--profile`. */
   next?: readonly (readonly string[])[];
-  /** Kept for debugging in process; never written to any output. */
-  cause?: unknown;
 }
 
 /** A command failure with a stable code; a failed outcome keeps its domain result. */
@@ -21,7 +19,8 @@ export class CliError extends Error {
   public profile: string | undefined;
 
   public constructor(message: string, options: CliErrorOptions) {
-    super(message, options.cause === undefined ? undefined : { cause: options.cause });
+    // Never a cause: rejected input and native errors stay out of every error Core hands on.
+    super(message);
     this.name = "CliError";
     if (!/^[a-z][A-Za-z0-9.-]*$/.test(options.code)) {
       throw new Error("CliError code must be a dotted lowercase-first identifier.");

@@ -252,14 +252,16 @@ contain ANSI decoration.
 
 Every failure has one machine form: `{ code, message, exitCode, profile?, next? }`.
 - `message` is the same safe text a person sees.
-- `profile` is present once one was selected.
+- `profile` is present once one was selected, whether or not the error was typed.
 - Each `next` argv ends with `--profile <selected>`.
 
 The form reaches each caller as follows:
-- **CLI with `--json`:** stderr receives exactly one line, `{"error": {...}}`, and stdout stays
-  empty. The one exception is a failed outcome: its result is printed on stdout.
-- **JSON-RPC:** every error response carries the form, minus `message`, as `error.data`, plus
-  `result` for a failed outcome.
+- **CLI with `--json`:** the failure is one line on stderr, `{"error": {...}}`. Other stderr lines
+  an integration documents, such as saved artifact paths, may precede it. stdout stays empty,
+  except for a failed outcome, whose result is printed there.
+- **JSON-RPC:** every command failure (error `-32000`) carries the form, minus `message`, as
+  `error.data`, plus `result` for a failed outcome. Protocol errors have no `data`.
+- **`execute`:** rejects with a `CliError` that has these fields, `result` included.
 - **Human mode:** only the message is printed, followed by `Next:` lines when no result was shown.
 
 Core owns these codes:
@@ -275,8 +277,9 @@ Integrations add their own dotted codes by throwing `CliError` or a subclass. Th
 plain-text error format for JSON callers.
 
 Without a view, the generic renderer prints an object whose `items` is a list of records as a
-table followed by its other fields that have a value, on one line. That is the shape of a paged
-selection. A table view may add one `footer` line, for example whether more results exist.
+table followed by its other fields on one line, with `null` spelled out, so an unknown `hasMore`
+stays visible. That is the shape of a paged selection. A table view may add one `footer` line,
+for example whether more results exist.
 
 ### JSON-RPC is a persistent transport
 
