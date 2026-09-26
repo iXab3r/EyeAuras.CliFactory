@@ -170,10 +170,9 @@ function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: Vi
   for (const section of view.sections ?? []) {
     const items = section.lines(value);
     if (items === undefined) continue;
-    const width = context.width === undefined ? undefined : context.width - 2;
+    // Never cut: section lines are often identifiers, such as test names.
     lines.push("", `${section.title(value)}:`,
-      ...(items.length === 0 ? ["none"] : items).map((item) =>
-        `  ${width === undefined ? item : truncate(item, width)}`));
+      ...(items.length === 0 ? ["none"] : items).map((item) => `  ${item}`));
   }
   const commands = nextCommands(view.next?.(value) ?? [], context.cliName, context.profile);
   if (commands.length > 0) lines.push("", "Next:", ...commands.map((line) => `  ${line}`));

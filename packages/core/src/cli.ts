@@ -35,6 +35,8 @@ import type {
 interface ExecutionOptions {
   render: boolean;
   signal: AbortSignal;
+  /** The caller's own signal: its abort is an interrupt, unlike closing the application. */
+  interrupt?: AbortSignal;
   io: CliIo;
   cwd: string;
   environment: Readonly<NodeJS.ProcessEnv>;
@@ -66,6 +68,20 @@ class ReportedFailure extends Error {
   public constructor(public readonly exitCode: number) {
     super("The command failure was already reported.");
   }
+}
+
+/** After an interrupt every failure exits 130; a typed one keeps its code, message and data. */
+function afterInterrupt(error: unknown, interrupt: AbortSignal | undefined): unknown {
+  if (interrupt?.aborted !== true || (error instanceof CliError && error.exitCode === 130)) {
+    return error;
+  }
+  if (!(error instanceof CliError)) {
+    return new CliError("Interrupted.", { code: "interrupted", exitCode: 130 });
+  }
+  return new CliError(error.message, {
+    code: error.code, exitCode: 130, next: error.next,
+    ...(error.result === undefined ? {} : { result: error.result }),
+  });
 }
 
 /** Parser errors show one usage line instead of a command's complete help. */
@@ -329,9 +345,10 @@ export function createCli(definition: CliDefinition): CliApplication {
         const presentation = view && { view, cliName: definition.name, profile: profile.name };
         try {
           result = await handler(commandInput, context);
-        } catch (failure) {
+        } catch (caught) {
+          const failure = afterInterrupt(caught, execution.interrupt);
           if (!(failure instanceof CliError)) throw failure;
-          failure.profile ??= profile.name;
+          failure.profile = profile.name;
           if (!execution.render) throw failure;
           // A failed outcome still shows its data; stderr and the exit code say that it failed.
           if (failure.result !== undefined) {
@@ -501,6 +518,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     signal: invocation.signal
       ? AbortSignal.any([lifetime.signal, invocation.signal])
       : lifetime.signal,
+    ...(invocation.signal ? { interrupt: invocation.signal } : {}),
     cwd: invocation.cwd ?? process.cwd(),
     environment: Object.freeze({ ...(invocation.environment ?? process.env) }),
   });
@@ -528,8 +546,9 @@ export function createCli(definition: CliDefinition): CliApplication {
           await execute(argv, execution);
           return 0;
         });
-      } catch (error) {
-        if (error instanceof ReportedFailure) return error.exitCode;
+      } catch (caught) {
+        if (caught instanceof ReportedFailure) return caught.exitCode;
+        const error = afterInterrupt(caught, invocation.signal);
         execution.io.error.write(
           `${error instanceof Error ? error.message : String(error)}\n`,
         );

@@ -922,13 +922,14 @@ test("already-cancelled JSON-RPC returns without waiting for caller stdin", asyn
     runtime,
     commands: [],
   });
+  // A caller's cancelled signal is an interrupt, so the session ends with exit 130.
   assert.equal(
     await app.run(["--json-rpc"], {
       ...streams,
       input,
       signal: AbortSignal.abort(),
     }),
-    1,
+    130,
   );
   assert.equal(input.destroyed, false);
   input.destroy();

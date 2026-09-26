@@ -111,7 +111,7 @@ omitting empty values. Accessors return values; they never print. Core owns the 
 table's rows are not an array, the generic fallback renders the value, so a shape mismatch never
 reads as "no results". `--json`, JSON-RPC and `execute` always return the unchanged domain value.
 A record may also have titled `sections`, one line per item. An empty section says `none`; an
-accessor that returns `undefined` omits it.
+accessor that returns `undefined` omits it. Section lines are never cut: a long one wraps.
 
 Tables fit a terminal. The width is the output TTY's columns minus one. Pipes, files and other
 non-TTY streams are never truncated. Only columns marked `shrink` lose characters, widest first,
@@ -151,12 +151,17 @@ Core records the selected `profile`. Each caller receives the same failure in it
 
 A result is never printed as success next to a contradicting error, and it is never discarded.
 Reading a failed build with `show` is still a successful read. Only commands whose contract is the
-outcome itself throw: waiting for a build, partial operations and similar. Exit codes are:
+outcome itself throw, such as waiting for a build. Exit codes are:
 - 0 — success;
 - 1 — errors and failed outcomes;
 - 2 — misuse of the `--json-rpc` transport;
 - 124 — a deadline expired;
 - 130 — an interrupt stopped the command.
+
+An interrupt is an abort of the caller's own signal, such as the first Ctrl+C of a packaged
+executable. Any failure after it exits 130. A `CliError` keeps its code, message, `next` and
+`result`; any other error becomes `interrupted` with the message `Interrupted.`. Closing the
+application is not an interrupt.
 
 Other errors keep their plain message until the CLI-wide machine error envelope replaces it.
 

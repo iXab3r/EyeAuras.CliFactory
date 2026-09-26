@@ -13,6 +13,21 @@ const outcomeView = recordView<Outcome>({
   fields: [{ label: "Outcome", value: (value) => value.outcome }],
 });
 
+/** One error object thrown by every invocation, as a module-level constant would be. */
+const reused = new CliError("Reused failure.", { code: "item.reused", next: [["inspect", "1"]] });
+
+/** Set by a test: interrupts the running command from inside its handler. */
+let interruptNow: () => void = () => undefined;
+
+/** Interrupts, then fails the way an aborted network request would. */
+function abortedRequest(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    const fail = () => reject(new Error("socket closed"));
+    signal.addEventListener("abort", fail, { once: true });
+    interruptNow();
+  });
+}
+
 async function fixture(t: test.TestContext) {
   const f = await createCliFixture(t, {
     applicationId: "outcome-cli",
@@ -37,6 +52,17 @@ async function fixture(t: test.TestContext) {
       }),
       command("plain", "Throw an ordinary error", () => {
         throw new Error("Ordinary failure.");
+      }),
+      command("hang", "Fail untyped after an interrupt", (_input, context) =>
+        abortedRequest(context.signal)),
+      command("queue", "Fail typed after an interrupt", async (_input, context) => {
+        await abortedRequest(context.signal).catch(() => undefined);
+        throw new CliError("Queue outcome unknown.", {
+          code: "item.unknownOutcome", next: [["list"]],
+        });
+      }),
+      command("reused", "Throw a shared error object", () => {
+        throw reused;
       }),
     ],
     runtime,
@@ -105,6 +131,41 @@ test("execute rejects with the result and JSON-RPC returns it in the error data"
     },
     { jsonrpc: "2.0", id: 2, error: { code: -32000, message: "Ordinary failure." } },
   ]);
+});
+
+test("after an interrupt every failure exits 130, and a typed one keeps its code and next", async (t) => {
+  const { f, app } = await fixture(t);
+  const interrupted = async (argv: string[]) => {
+    const controller = new AbortController();
+    interruptNow = () => controller.abort();
+    const result = await f.run(app, argv, { signal: controller.signal });
+    return [result.exitCode, result.stdout, result.stderr];
+  };
+  assert.deepEqual(await interrupted(["hang"]), [130, "", "Interrupted.\n"]);
+  assert.deepEqual(await interrupted(["queue", "--profile", "uat"]), [
+    130, "", "Queue outcome unknown.\nNext:\n  outcome-cli list --profile uat\n",
+  ]);
+
+  const controller = new AbortController();
+  interruptNow = () => controller.abort();
+  await assert.rejects(app.execute(["hang"], controller.signal), (error: unknown) =>
+    error instanceof CliError && error.code === "interrupted" && error.exitCode === 130);
+  interruptNow = () => undefined;
+});
+
+test("a failure reports the profile that ran it, even when the error object is reused", async (t) => {
+  const { f, app } = await fixture(t);
+  reused.profile = "stale";
+  assert.deepEqual(await f.rpc(app, [["reused", "--profile", "uat"]]), [{
+    jsonrpc: "2.0", id: 0,
+    error: {
+      code: -32000,
+      message: "Reused failure.",
+      data: {
+        code: "item.reused", exitCode: 1, profile: "uat", next: [["inspect", "1", "--profile", "uat"]],
+      },
+    },
+  }]);
 });
 
 test("CliError validates its code and exit status", () => {
