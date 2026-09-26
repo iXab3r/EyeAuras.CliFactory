@@ -22,7 +22,8 @@ import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
 import { clientLeaf } from "./command-support.js";
-import { buildRecord, buildTable, helpLayout, withView } from "./presentation.js";
+import { buildTable, helpLayout, withView } from "./presentation.js";
+import { createBuildFlowCommands } from "./build-flow.js";
 import type {
   TeamCityBuildState,
   TeamCityBuildStatus,
@@ -132,13 +133,15 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
   const admin = createAdminCommands(client, pageOptions, system.users);
   const infrastructure = createInfrastructureCommands(client, pageOptions, files.instances);
   const operators = createOperatorCommands(client, pageOptions, bulk, triage, system.pools);
+  const flow = createBuildFlowCommands(client);
   return createCli({
     name: "teamcity-cli",
     description: "AI-friendly access to TeamCity",
     examples: [
-      "builds list --job Demo_Tests --limit 20",
-      "builds show 101",
-      "jobs run Demo_Tests --branch main",
+      "builds list --job Demo_Tests --branch main --limit 20",
+      "builds show --job Demo_Tests --branch main --latest",
+      "jobs run Demo_Tests --branch main --param env.MODE=test --wait --timeout 10m",
+      "builds diagnose 101",
       "builds artifacts download 101 dist/app.zip --output app.zip",
     ],
     version: "0.3.1",
@@ -233,7 +236,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...files.projects,
       ], "Configuration")),
       command("jobs", "Work with TeamCity build configurations", helpLayout([
-        ["Everyday", ["list", "show", "status", "run"]],
+        ["Everyday", ["list", "show", "run"]],
       ], [
         leaf(
           "list",
@@ -257,37 +260,18 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           Permission.ReadOnly,
           (c, { args }) => c.getJob(args.id),
         ),
-        leaf(
-          "status <id>",
-          "Show the latest operational build status for a job",
-          Permission.ReadOnly,
-          (c, { args }) => c.getJobStatus(args.id),
-        ),
-        leaf(
-          "run <id>",
-          "Queue a new build for a job",
-          Permission.Update,
-          (c, { args, options }) => {
-            const branch = stringOption(options, "branch");
-            const comment = stringOption(options, "comment");
-            return c.runJob(args.id, {
-              ...(branch === undefined ? {} : { branch }),
-              ...(comment === undefined ? {} : { comment }),
-            });
-          },
-          [
-            { flags: "--branch <name>", description: "Build a specific branch" },
-            { flags: "--comment <text>", description: "Attach a queue comment" },
-          ],
-        ),
+        flow.run,
         ...authoring.jobs,
         ...system.jobs,
         ...files.jobs,
       ], "Configuration"), {
-        examples: ["jobs list --project Demo", "jobs run Demo_Tests --branch main"],
+        examples: [
+          "jobs list --project Demo",
+          "jobs run Demo_Tests --branch main --param env.MODE=test --wait",
+        ],
       }),
       command("builds", "Inspect and control TeamCity builds", helpLayout([
-        ["Everyday", ["list", "show", "tests", "problems", "changes"]],
+        ["Everyday", ["list", "show", "wait", "diagnose", "tests", "problems", "changes"]],
         ["Files", ["artifacts", "artifacts-path", "source", "icon", "aggregate-icon"]],
         ["Control", [
           "cancel", "batch", "tags", "pin", "comment", "number", "status-text", "log", "finish",
@@ -298,16 +282,18 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...files.builds,
         withView(buildTable, leaf(
           "list",
-          "List operational builds across all branches",
+          "List queued, running and finished builds; all branches unless --branch",
           Permission.ReadOnly,
           (c, { options }) => {
             const job = stringOption(options, "job");
             const project = stringOption(options, "project");
+            const branch = stringOption(options, "branch");
             const state = stringOption(options, "state") as TeamCityBuildState | undefined;
             const status = stringOption(options, "status") as TeamCityBuildStatus | undefined;
             return c.listBuilds({
               ...(job === undefined ? {} : { job }),
               ...(project === undefined ? {} : { project }),
+              ...(branch === undefined ? {} : { branch }),
               ...(state === undefined ? {} : { state }),
               ...(status === undefined ? {} : { status }),
               ...pageValues(options),
@@ -316,6 +302,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           [
             { flags: "--job <id>", description: "Limit builds to one job" },
             { flags: "--project <id>", description: "Limit builds to one affected project" },
+            { flags: "--branch <name>", description: "Limit builds to one branch name" },
             {
               flags: "--state <state>",
               description: "queued, running, finished, or any",
@@ -329,12 +316,9 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             ...pageOptions,
           ],
         )),
-        withView(buildRecord, leaf(
-          "show <id>",
-          "Show one build",
-          Permission.ReadOnly,
-          (c, { args }) => c.getBuild(positiveInteger(args.id)),
-        )),
+        flow.show,
+        flow.wait,
+        flow.diagnose,
         leaf(
           "tests <id>",
           "List test occurrences for a build",
@@ -385,9 +369,10 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ),
       ], "Evidence"), {
         examples: [
-          "builds list --job Demo_Tests --state finished --limit 20",
-          "builds show 101",
-          "builds problems 101",
+          "builds list --job Demo_Tests --branch main --limit 20",
+          "builds show --job Demo_Tests --branch main --latest",
+          "builds wait 101 --timeout 10m",
+          "builds diagnose 101",
           "builds artifacts list 101",
         ],
       }),

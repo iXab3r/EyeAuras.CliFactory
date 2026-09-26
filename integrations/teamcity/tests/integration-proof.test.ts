@@ -66,7 +66,12 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     if (command === "server status") return json({ version: "private-version" });
     if (command === "projects list --limit 3") return json([{ id: privateValues.project }]);
     if (command === "jobs list --limit 3") return json([{ id: privateValues.job }]);
-    if (command === "builds list --limit 3") return json([{ id: privateValues.build }]);
+    if (command === "builds list --limit 3") {
+      return json([{ id: privateValues.build, state: "finished", buildTypeId: privateValues.job }]);
+    }
+    if (command === `builds show --job ${privateValues.job} --latest`) {
+      return json({ id: privateValues.build, state: "finished" });
+    }
     if (command === "queue list --limit 3") return json([]);
     if (command === "agents list --limit 3") return json([{ id: privateValues.agent }]);
     if (command === "vcs roots list --limit 3") return json([{ id: privateValues.root }]);
@@ -92,12 +97,12 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
       ["projects", "show", privateValues.project],
       ["jobs", "list", "--limit", "3"],
       ["jobs", "show", privateValues.job],
-      ["jobs", "status", privateValues.job],
       ["builds", "list", "--limit", "3"],
       ["builds", "show", String(privateValues.build)],
       ["builds", "tests", String(privateValues.build), "--limit", "3"],
       ["builds", "problems", String(privateValues.build), "--limit", "3"],
       ["builds", "changes", String(privateValues.build), "--limit", "3"],
+      ["builds", "show", "--job", privateValues.job, "--latest"],
       ["queue", "list", "--limit", "3"],
       ["agents", "list", "--limit", "3"],
       ["agents", "show", String(privateValues.agent)],

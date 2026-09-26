@@ -9,6 +9,7 @@ const baseUrl = "https://teamcity.test";
 
 const buildFields =
   "id,buildTypeId,number,state,status,statusText,branchName,defaultBranch,personal," +
+  "failedToStart,canceledInfo(timestamp)," +
   "queuedDate,startDate,finishDate,percentageComplete,queuePosition,waitReason,webUrl," +
   "agent(id,name)";
 const agentFields =

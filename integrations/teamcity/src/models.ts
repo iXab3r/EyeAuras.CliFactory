@@ -58,6 +58,9 @@ export interface TeamCityBuild {
   branchName?: string;
   defaultBranch?: boolean;
   personal?: boolean;
+  failedToStart?: boolean;
+  /** Present when the build was canceled; only its timestamp is read. */
+  canceledInfo?: { timestamp?: string };
   queuedDate?: string;
   startDate?: string;
   finishDate?: string;
@@ -66,6 +69,28 @@ export interface TeamCityBuild {
   waitReason?: string;
   webUrl?: string;
   agent?: TeamCityBuildAgent;
+}
+
+export interface TeamCityBuildSummary extends TeamCityBuild {
+  testOccurrences?: {
+    count?: number;
+    passed?: number;
+    failed?: number;
+    newFailed?: number;
+    ignored?: number;
+    muted?: number;
+  };
+  problemOccurrences?: { count?: number; newFailed?: number };
+}
+
+export interface TeamCityFailedTest {
+  id: string;
+  name: string;
+  status: string;
+  newFailure?: boolean;
+  muted?: boolean;
+  currentlyMuted?: boolean;
+  ignored?: boolean;
 }
 
 export interface TeamCityPageOptions {

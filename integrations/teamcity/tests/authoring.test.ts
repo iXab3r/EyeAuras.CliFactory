@@ -620,9 +620,10 @@ test("offline workflow authors a project/job, launches it and cleans up explicit
     ["jobs", "run", "Example_Build"],
   ])
     await cli.execute(argv);
-  assert.deepEqual(await cli.execute(["jobs", "status", "Example_Build"]), {
-    jobId: "Example_Build",
-    latestBuild: { id: 42, state: "finished", status: "SUCCESS" },
+  assert.deepEqual(await cli.execute(["builds", "show", "--job", "Example_Build", "--latest"]), {
+    id: 42,
+    state: "finished",
+    status: "SUCCESS",
   });
   for (const argv of [
     ["jobs", "vcs", "detach", "Example_Build", "Example_Git"],

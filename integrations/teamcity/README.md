@@ -35,9 +35,10 @@ Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.C
 |---|---|---|
 | `server status` | Show server version, role, and clock | `ReadOnly` |
 | `projects list`, `projects show <id>` | Discover projects | `ReadOnly` |
-| `jobs list`, `jobs show <id>`, `jobs status <id>` | Discover build configurations and their latest operational build | `ReadOnly` |
-| `jobs run <id>` | Queue a build, optionally with `--branch` and `--comment` | `Update` |
-| `builds list`, `builds show <id>` | Inspect builds across all branches and states | `ReadOnly` |
+| `jobs list`, `jobs show <id>` | Discover build configurations | `ReadOnly` |
+| `jobs run <id>` | Queue one build, optionally with `--branch`, `--comment`, one-off `--param` values and `--wait` for its result | `Update` |
+| `builds list`, `builds show <id>`, `builds show --job <id> --latest` | Inspect builds across all branches and states, one `--branch`, or the latest finished build of a job | `ReadOnly` |
+| `builds wait <id>`, `builds diagnose <id>` | Wait for a result; summarize problems and failed tests | `ReadOnly` |
 | `builds tests/problems/changes <id>` | Diagnose a build | `ReadOnly` |
 | `builds cancel <id>` | Cancel a running build | `Update` |
 | `queue list` | Inspect queued builds | `ReadOnly` |
@@ -147,9 +148,81 @@ acknowledgement; a missing entity remains an HTTP error, not a successful delete
 Mutations are not automatically retried. HTTP errors expose status only, not remote body text;
 malformed JSON errors contain no response excerpts.
 
-`jobs status` and `builds list` deliberately disable TeamCity's implicit build filter and include
-default and non-default branches. This keeps running, failed, canceled, personal, and branch
-builds visible instead of reporting an older successful default-branch build.
+`builds list` deliberately disables TeamCity's implicit build filter and includes default and
+non-default branches. This keeps running, failed, canceled, personal and branch builds visible,
+instead of reporting an older successful default-branch build.
+
+## Run, wait and diagnose
+
+```text
+teamcity-cli builds list --job Demo_Tests --branch main --limit 20
+teamcity-cli builds show --job Demo_Tests --branch main --latest
+teamcity-cli jobs run Demo_Tests --branch main --param env.MODE=test --wait --timeout 10m
+teamcity-cli builds wait 101
+teamcity-cli builds diagnose 101
+```
+
+**Choosing a build.**
+- `--branch <name>` limits `builds list` to one branch as TeamCity names it. A name containing
+  locator characters is sent as an explicit value condition, so TeamCity never re-parses it as
+  locator syntax.
+- `builds show` takes exactly one selector: a numeric build ID, or `--job <id> --latest`, optionally
+  with `--branch`. Mixing them, or giving `--job`/`--branch` without `--latest`, fails before any
+  request.
+- `--latest` reads once and returns the first finished, non-personal build in TeamCity's order
+  (newest start first), whatever its result, including failed and canceled builds. Without
+  `--branch` it searches all branches; in human mode stderr names the scope.
+- Queued and running builds are listed with `builds list --state queued|running`. TeamCity lists
+  queued builds in queue order, not newest first, so "latest" never means "next in queue".
+- Latest is resolved per call. To keep working on one build, reuse the returned ID.
+
+**Running.**
+- `jobs run` sends one POST to the build queue. Without `--wait` it returns
+  `{ "accepted": true, "build": {...} }`: the build was queued, which does not mean it will succeed.
+- Each `--param name=value` applies to that one build only and never changes the job
+  configuration. Repeat the option for more parameters; duplicate names are rejected.
+- Parameter values are not echoed in output or errors. Never pass secrets in argv; secret
+  parameters are not supported here.
+- If the queue response is lost, the outcome is unknown. The command fails with
+  `run.unknownOutcome` and a `builds list --job <id> --state queued` suggestion. It never repeats
+  the POST.
+
+**Waiting.** `jobs run --wait` (still `Update`) and `builds wait <id>` (`ReadOnly`) only read the
+build: GET `/builds/id:<id>`, every `--interval` (default 5s, 1s–10m). `--timeout` (default 10m,
+1s–24h) covers queue time and each read. Nothing ever cancels the build. The results are:
+
+| Result | Exit | Output |
+|---|---|---|
+| Finished `SUCCESS` | 0 | `{ build, outcome: "succeeded" }`, plus `accepted: true` for `run` |
+| Finished `FAILURE` or failed to start | 1 | same result with `outcome: "failed"` |
+| Canceled | 1 | `outcome: "canceled"` |
+| Finished without a known result | 1 | `outcome: "unknown"` |
+| `--timeout` elapsed | 124 | last known state, `outcome: "timedOut"`; the build continues |
+| Ctrl+C | 130 | last known state, `outcome: "interrupted"`; the build continues |
+| The build disappeared during the wait | 1 | last known state, `outcome: "missing"` |
+| A read failed after the build was accepted | 1 | the accepted build and ID, with a `builds wait <id>` suggestion |
+
+Failed outcomes follow Core's contract:
+- **CLI:** the result goes to stdout and the reason to stderr.
+- **JSON-RPC:** an error whose `data` holds `code`, `exitCode`, `result` and follow-up argv.
+- **Programmatic `execute`:** rejects with a `CliError` that carries `.result`.
+
+`builds show` still succeeds for a failed build: it is only a read. In human mode, state changes
+appear on stderr, for example `Build 101: running`. JSON output is one final value.
+
+**Diagnosing.** `builds diagnose <id>` reads the build with its test and problem counters. It adds
+up to 10 problem occurrences and up to 20 failed test identities, never stack traces or build
+logs. Each section is one of:
+- `complete`;
+- `truncated`, with more available through `builds problems` or `builds tests --status failure`;
+- `unavailable`, with the reason `denied`, `not-found` or `failed`.
+
+An unavailable section sets `partial: true` and exits 1 with the data: missing information is
+never reported as "no failures". The sections are read concurrently and are not an atomic
+snapshot.
+
+**Ctrl+C.** The packaged executable turns the first Ctrl+C into a local stop; a second one exits
+immediately.
 
 ## Triggers, features, dependencies and templates
 
@@ -606,8 +679,8 @@ npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
 This command builds Core and TeamCity and then runs the compiled CLI as child processes. It uses
 the selected current-user profile and its OS-keyring credential, not test-only URL/token inputs.
 The fixed 19-row inventory covers authentication, permission inspection, server, bounded projects,
-jobs/status, builds/tests/problems/changes, queue, agents, VCS root discovery and a persistent
-JSON-RPC session. It deliberately excludes unpaged scoped parameter/step/extension/dependency/attachment lists;
+jobs, builds/tests/problems/changes, the latest finished build of a listed finished build's job,
+queue, agents, VCS root discovery and a persistent JSON-RPC session. It deliberately excludes unpaged scoped parameter/step/extension/dependency/attachment lists;
 their contracts and all authoring/operator mutations are covered offline, not claimed as live-verified.
 All new v2 routes are contract-tested offline; the fixed live inventory was not broadened.
 
