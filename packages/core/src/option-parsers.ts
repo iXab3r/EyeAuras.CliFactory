@@ -18,6 +18,29 @@ export function integerParser({ min, max, signed, errorMessage }: {
   };
 }
 
+const durationSyntax = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/;
+
+/** `90s`, `10m` or `1h30m` in milliseconds within inclusive millisecond bounds. */
+export function durationParser({ min, max, errorMessage }: {
+  min: number;
+  max: number;
+  errorMessage: string;
+}): (value: string) => number {
+  if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 0 || min > max) {
+    throw new Error("Duration parser bounds must be ordered nonnegative safe integers.");
+  }
+  return value => {
+    const match = durationSyntax.exec(value);
+    const [, hours = "0", minutes = "0", seconds = "0"] = match ?? [];
+    const milliseconds = ((Number(hours) * 60 + Number(minutes)) * 60 + Number(seconds)) * 1000;
+    if (!match || value === "" || !Number.isSafeInteger(milliseconds) || milliseconds < min ||
+      milliseconds > max) {
+      throw new Error(errorMessage);
+    }
+    return milliseconds;
+  };
+}
+
 /** Parse JSON to unknown, without exposing the input or the native parser's error/cause. */
 export function jsonParser(errorMessage: string): (value: string) => unknown {
   return value => {

@@ -46,6 +46,8 @@ export interface CommandContext {
   io: CliIo;
   cwd: string;
   environment: Readonly<NodeJS.ProcessEnv>;
+  /** One plain line on stderr for a human user; a no-op for JSON, JSON-RPC and execute callers. */
+  progress(message: string): void;
 }
 
 export interface CommandInput {

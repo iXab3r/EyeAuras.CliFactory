@@ -15,7 +15,8 @@ import { CommandGate } from "./command-gate.js";
 import { validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
-import type { HumanView } from "./view.js";
+import { nextCommands, type HumanView } from "./view.js";
+import { CliError } from "./errors.js";
 import type {
   CliApplication,
   CliInvocation,
@@ -58,6 +59,13 @@ function declaredOption(specification: OptionDefinition): Option {
     option.default(specification.defaultValue);
   if (specification.parse) option.argParser(specification.parse);
   return option;
+}
+
+/** A failure already written to the invocation's streams; `run` only returns its exit code. */
+class ReportedFailure extends Error {
+  public constructor(public readonly exitCode: number) {
+    super("The command failure was already reported.");
+  }
 }
 
 /** Parser errors show one usage line instead of a command's complete help. */
@@ -177,6 +185,7 @@ export function createCli(definition: CliDefinition): CliApplication {
   const contextFor = (
     profile: Profile,
     execution: ExecutionOptions,
+    human = false,
   ): CommandContext => ({
     appArguments: appArguments.WithProfile(profile.name),
     profile,
@@ -186,6 +195,8 @@ export function createCli(definition: CliDefinition): CliApplication {
     io: execution.io,
     cwd: execution.cwd,
     environment: execution.environment,
+    // Plain lines only: JSON, JSON-RPC and execute callers never see progress.
+    progress: human ? (message) => void execution.io.error.write(`${message}\n`) : () => undefined,
   });
   const execute = async (
     argv: readonly string[],
@@ -312,16 +323,29 @@ export function createCli(definition: CliDefinition): CliApplication {
         }
         if (requiresConfiguredProfile)
           profile = await ensureConfigured(profile, globals, ownsExclusive);
-        const context = contextFor(profile, execution);
+        const human = execution.render && globals.json !== true;
+        const context = contextFor(profile, execution, human);
         context.signal.throwIfAborted();
-        result = await handler(commandInput, context);
+        const presentation = view && { view, cliName: definition.name, profile: profile.name };
+        try {
+          result = await handler(commandInput, context);
+        } catch (failure) {
+          if (!(failure instanceof CliError)) throw failure;
+          failure.profile ??= profile.name;
+          if (!execution.render) throw failure;
+          // A failed outcome still shows its data; stderr and the exit code say that it failed.
+          if (failure.result !== undefined) {
+            writeResult(output, failure.result, globals.json === true, presentation);
+          }
+          // A rendered result carries its own suggestions; stderr adds them only without one.
+          const next = human && failure.result === undefined
+            ? nextCommands(failure.next, definition.name, profile.name)
+            : [];
+          error.write(`${failure.message}\n${next.length ? `Next:\n${next.map((line) => `  ${line}\n`).join("")}` : ""}`);
+          throw new ReportedFailure(failure.exitCode);
+        }
         if (execution.render) {
-          writeResult(
-            output,
-            result,
-            globals.json === true,
-            view && { view, cliName: definition.name, profile: profile.name },
-          );
+          writeResult(output, result, globals.json === true, presentation);
         }
       };
       try {
@@ -505,10 +529,12 @@ export function createCli(definition: CliDefinition): CliApplication {
           return 0;
         });
       } catch (error) {
+        if (error instanceof ReportedFailure) return error.exitCode;
         execution.io.error.write(
           `${error instanceof Error ? error.message : String(error)}\n`,
         );
-        return error === rpcModeError ? 2 : 1;
+        if (error === rpcModeError) return 2;
+        return error instanceof CliError ? error.exitCode : 1;
       }
     },
     execute(argv, signal): Promise<unknown> {
