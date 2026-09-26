@@ -5,7 +5,12 @@ import {
   type HumanView,
   type ViewField,
 } from "@eyeauras/cli-factory";
-import type { TeamCityBuild, TeamCityBuildSummary } from "./models.js";
+import type {
+  TeamCityBuild,
+  TeamCityBuildSummary,
+  TeamCityProblemOccurrence,
+  TeamCityTestOccurrence,
+} from "./models.js";
 import { buildOutcome } from "./outcome.js";
 import type { TeamCityPage } from "./paging.js";
 import type { Diagnosis, DiagnosisSection, FollowedBuild } from "./build-flow.js";
@@ -187,6 +192,52 @@ export const diagnosisRecord = recordView<Diagnosis>({
         : [["builds", "tests", id, "--status", "failure"]]),
     ];
   },
+});
+
+/** What sets a test or problem occurrence apart: new, muted, ignored or under investigation. */
+function flags(item: {
+  newFailure?: boolean; muted?: boolean; currentlyMuted?: boolean; ignored?: boolean;
+  currentlyInvestigated?: boolean;
+}): string {
+  return [
+    item.newFailure === true ? "new" : undefined,
+    item.muted === true || item.currentlyMuted === true ? "muted" : undefined,
+    item.ignored === true ? "ignored" : undefined,
+    item.currentlyInvestigated === true ? "investigated" : undefined,
+  ].filter((flag) => flag !== undefined).join(",");
+}
+
+/** `builds tests`: one line per test, without details; `--json` keeps every field. */
+export const testTable = tableView<TeamCityTestOccurrence, TeamCityPage<TeamCityTestOccurrence>>({
+  rows: (page) => page.items,
+  footer: completeness,
+  columns: [
+    { header: "STATUS", value: (test) => test.status },
+    { header: "FLAGS", value: flags },
+    { header: "DURATION", value: (test) => test.duration, format: "duration" },
+    { header: "TEST", value: (test) => test.name },
+  ],
+  empty: "No tests found.",
+});
+
+/** `builds problems`: one line per problem, described as `diagnose` does. */
+export const problemTable = tableView<
+  TeamCityProblemOccurrence,
+  TeamCityPage<TeamCityProblemOccurrence>
+>({
+  rows: (page) => page.items,
+  footer: completeness,
+  columns: [
+    { header: "TYPE", value: (problem) => problem.type },
+    { header: "FLAGS", value: flags },
+    {
+      header: "DESCRIPTION",
+      value: (problem) =>
+        (problem.problem?.description ?? problem.details ?? problem.identity).split(/\r?\n/, 1)[0],
+      shrink: true,
+    },
+  ],
+  empty: "No problems found.",
 });
 
 interface RemoteFile {
