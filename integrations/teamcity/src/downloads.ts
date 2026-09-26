@@ -76,8 +76,8 @@ export async function saveDownload(
   options: DownloadOptions,
   format: DownloadFormat,
   openResponse: () => Promise<Response>,
+  refused: (status: number) => Error,
   signal?: AbortSignal,
-  refused?: (status: number) => Error,
 ) {
   const name = options.output;
   if (
@@ -116,7 +116,7 @@ export async function saveDownload(
     });
     return { ...saved, mediaType: media };
   } catch (error) {
-    if (status !== undefined && refused && error instanceof ProfileFileError && !error.cleanupFailed) {
+    if (status !== undefined && error instanceof ProfileFileError && !error.cleanupFailed) {
       throw refused(status);
     }
     throw error;

@@ -87,14 +87,15 @@ Every collection command with `--limit <count>` and `--start <offset>` returns a
 ```
 
 **How a page is filled.** `--limit` is the most items to return, not the size of one request.
-- The CLI asks for one extra item: if it arrives, `hasMore` is `true`.
+- Each request asks for one item more than it keeps. If it arrives, more exist: reading goes on
+  after the kept items, or `hasMore` is `true` once `--limit` is reached.
 - It follows TeamCity's continuation, including the `lookupLimit` expansions that TeamCity adds
   after scanning 5000 entities. It reads only the numbers in `nextHref`, never the link itself.
 - TeamCity continues after the items it served, or at the same start with a deeper `lookupLimit`
   when it served none. The CLI follows only such a continuation and computes the next start
   itself, so no item is read twice or skipped.
 - It stops after 10 requests, after 30 seconds, or on a continuation it does not follow.
-- A single request asks for at most 1,001 items: up to 1,000, plus the one that proves more.
+- A single request keeps at most 1,000 items, so it asks for at most 1,001.
 
 **What the fields mean.**
 - `hasMore: false` only when TeamCity confirmed the end.
@@ -729,7 +730,7 @@ codes to Core's `usage`, `usage.jsonRpc`, `permission.denied`, `profile.notFound
 | Code | Meaning |
 |---|---|
 | `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.serverError` | TeamCity answered with that HTTP status, also for a refused download; the response body is never read or shown |
-| `request.failed` | A read was lost in transit; nothing was changed, so it can be retried |
+| `request.failed` | A read was lost in transit; nothing was changed, so it can be retried. A lost download reports Core's download error instead |
 | `request.unknownOutcome` | A write was lost in transit; it may or may not have been applied, and is never repeated |
 | `run.unknownOutcome` | The queue request's outcome is unknown; check `builds list --job <id> --state any` |
 | `build.failed`, `build.canceled`, `build.unknown`, `build.missing` | Waited build outcome, with the build as data |

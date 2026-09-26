@@ -97,13 +97,33 @@ test("an unexpected continuation, the request budget and the time budget leave c
   });
 });
 
-test("a full page without a continuation is not proof of the end", async () => {
-  const full = scripted([{ items: Array.from({ length: pageBudget.size + 1 }, (_, i) => i) }]);
-  const page = await readPages(5000, 0, full.read);
-  assert.deepEqual(full.requests, [{ start: 0, count: pageBudget.size + 1 }]);
-  assert.equal(page.count, pageBudget.size + 1);
-  assert.equal(page.hasMore, null);
-  assert.equal(page.nextStart, pageBudget.size + 1);
+/** A server that honors start and count over `total` numbered items and never sends a continuation. */
+function collection(total: number) {
+  const requests: Array<{ start: number; count: number }> = [];
+  const read: Read = async ({ start, count }) => {
+    requests.push({ start, count });
+    const length = Math.max(0, Math.min(count, total - start));
+    return { items: Array.from({ length }, (_, i) => start + i), nextHref: undefined };
+  };
+  return { read, requests };
+}
+
+test("a request keeps at most one page size; its extra item proves more and reading goes on", async () => {
+  const size = pageBudget.size;
+  for (const [limit, total, requests, hasMore] of [
+    [1001, 5000, [{ start: 0, count: size + 1 }, { start: size, count: 2 }], true],
+    [2500, 2500, [
+      { start: 0, count: size + 1 }, { start: size, count: size + 1 }, { start: 2 * size, count: 501 },
+    ], false],
+  ] as const) {
+    const server = collection(total);
+    const page = await readPages(limit, 0, server.read);
+    assert.deepEqual(server.requests, requests, `limit ${limit}`);
+    assert.equal(page.count, limit);
+    assert.deepEqual(page.items.slice(-2), [limit - 2, limit - 1], "Nothing is read twice or skipped.");
+    assert.equal(page.hasMore, hasMore);
+    assert.equal(page.nextStart, hasMore ? limit : null);
+  }
 });
 
 test("a limit of a whole page size still asks for the one item that proves more", async () => {

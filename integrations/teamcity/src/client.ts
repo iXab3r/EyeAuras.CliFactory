@@ -3942,8 +3942,8 @@ export class TeamCityClient {
       options,
       format,
       () => this.#response("GET", path, query, undefined, accept),
-      this.#signal,
       (status) => new TeamCityHttpError(status, `TeamCity request failed with HTTP ${status}.`),
+      this.#signal,
     );
   }
   async #response(
@@ -3991,7 +3991,6 @@ export class TeamCityClient {
     }
     return response;
   }
-  /** A read stopped by its own signal has no remote outcome; a write's outcome stays unknown. */
   /**
    * A request or response lost in transit. A write may have been applied, so its outcome is
    * unknown; a read changed nothing and can be retried, unless its own signal stopped it.

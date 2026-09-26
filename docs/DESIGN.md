@@ -261,7 +261,9 @@ The form reaches each caller as follows:
   except for a failed outcome, whose result is printed there.
 - **JSON-RPC:** every command failure (error `-32000`) carries the form, minus `message`, as
   `error.data`, plus `result` for a failed outcome. Protocol errors have no `data`.
-- **`execute`:** rejects with a `CliError` that has these fields, `result` included.
+- **`execute`:** rejects with a `CliError` that has these fields, `result` included, once the
+  command runs. A failure before that, such as invalid argv or a closing application, is the
+  original error.
 - **Human mode:** only the message is printed, followed by `Next:` lines when no result was shown.
 
 Core owns these codes:
