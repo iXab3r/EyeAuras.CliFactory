@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { createTestRuntime } from "./support.js";
 import { advancedAuthoringCases } from "./advanced-authoring-cases.js";
+import { onePage } from "./authoring-cases.js";
 
 const base = "https://teamcity.test/app/rest";
 const server = setupServer();
@@ -230,7 +231,10 @@ test("S3 handles empty lists, full property clearing and safe malformed/delete e
   );
   for (const example of advancedAuthoringCases) {
     if (example.argv.includes("list") || ["aliases", "branches", "tags"].includes(example.argv[1]!))
-      assert.deepEqual(await cli.execute(example.argv), []);
+      assert.deepEqual(
+        await cli.execute(example.argv),
+        example.argv[1] === "branches" ? onePage([]) : [],
+      );
     if (example.method === "DELETE") await assert.rejects(cli.execute(example.argv), /HTTP 404/);
   }
   let calls = 0;

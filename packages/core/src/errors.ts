@@ -19,6 +19,7 @@ export class CliError extends Error {
   public profile: string | undefined;
 
   public constructor(message: string, options: CliErrorOptions) {
+    // Never a cause: rejected input and native errors stay out of every error Core hands on.
     super(message);
     this.name = "CliError";
     if (!/^[a-z][A-Za-z0-9.-]*$/.test(options.code)) {
@@ -34,4 +35,29 @@ export class CliError extends Error {
     this.next = options.next ?? [];
     this.profile = undefined;
   }
+}
+
+/** The machine form of any failure; `next` argv already select the same profile. */
+export interface MachineError {
+  code: string;
+  message: string;
+  exitCode: number;
+  profile?: string;
+  next?: string[][];
+}
+
+export function machineError(error: unknown): MachineError {
+  if (!(error instanceof CliError)) {
+    return { code: "error", message: error instanceof Error ? error.message : String(error), exitCode: 1 };
+  }
+  const profile = error.profile;
+  return {
+    code: error.code,
+    message: error.message,
+    exitCode: error.exitCode,
+    ...(profile === undefined ? {} : { profile }),
+    ...(error.next.length === 0
+      ? {}
+      : { next: error.next.map((argv) => (profile === undefined ? [...argv] : [...argv, "--profile", profile])) }),
+  };
 }

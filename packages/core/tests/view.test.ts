@@ -159,7 +159,8 @@ test("a view that does not match its result falls back to generic output, never 
   const result = await f.run(app, ["rows"]);
   assert.equal(result.exitCode, 0, result.stderr);
   assert.doesNotMatch(result.stdout, /Nothing here/);
-  assert.match(result.stdout, /^items: .*1234567890/);
+  // The generic selection table: raw keys, not the view's headers.
+  assert.match(result.stdout, /^id\s+name\s+state\s+started\n-+ .*\n101\s.*\n1234567890\s+Short/);
 });
 
 test("Core's downloads list is a table of saved files for the selected profile", async (t) => {

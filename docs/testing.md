@@ -124,13 +124,14 @@ The command builds Core and TeamCity first, then invokes the compiled CLI throug
 19 proof rows cover local permission inspection, authentication, bounded collection/detail reads,
 build diagnostics, the latest finished build of a listed job, VCS root discovery and a two-request
 JSON-RPC session. The latest lookup uses a job that the build list showed with a finished build, so
-an empty history skips it instead of failing. `builds wait`, `diagnose` and `jobs run` are proven
-offline only. Unpaged scoped authoring
-lists are not included; their behavior and all mutations are proven with MSW. It accepts no endpoint
-or token override, removes `TEAMCITY_TOKEN` regardless of casing, and uses the shared CI preflight.
-The 64 KiB per-stream bound replaces TeamCity's formerly unbounded capture; oversized responses now
-fail the affected row instead of accumulating indefinitely. The two RPC requests still share one
-child process and both response envelopes and service results must validate.
+an empty history skips it instead of failing. Paged rows accept only a consistent page:
+`count` must equal the number of items, `hasMore` must be a boolean or `null`, and `nextStart` a
+number or `null`. `builds wait`, `diagnose` and `jobs run` are proven offline only. Unpaged scoped
+authoring lists are not included; their behavior and all mutations are proven with MSW. It accepts
+no endpoint or token override, removes `TEAMCITY_TOKEN` regardless of casing, and uses the shared
+CI preflight. The 64 KiB per-stream bound replaces TeamCity's formerly unbounded capture; oversized
+responses now fail the affected row instead of accumulating indefinitely. The two RPC requests
+still share one child process and both response envelopes and service results must validate.
 
 ### YouTrack
 

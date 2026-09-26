@@ -443,7 +443,8 @@ test("operator list/detail/create contracts have one request in each human and J
     response: unknown; expected: unknown; body?: unknown;
   }> = [
     { argv: ["pools", "list"], permission: "ReadOnly", method: "GET", path: "/agentPools",
-      query: { locator: "start:0,count:100", fields: "agentPool(id,name)" }, response: { agentPool: [pool] }, expected: [pool] },
+      query: { locator: "start:0,count:101", fields: "nextHref,agentPool(id,name)" }, response: { agentPool: [pool] },
+      expected: { count: 1, items: [pool], hasMore: false, nextStart: null } },
     { argv: ["pools", "show", "1"], permission: "ReadOnly", method: "GET", path: "/agentPools/id:1",
       query: { fields: "id,name" }, response: pool, expected: pool },
     { argv: ["pools", "create", "--name", "Pool"], permission: "Update", method: "POST", path: "/agentPools",

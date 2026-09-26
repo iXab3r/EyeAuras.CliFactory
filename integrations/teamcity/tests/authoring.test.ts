@@ -5,7 +5,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { TeamCityClient, TeamCityHttpError } from "../src/client.js";
 import { createTestRuntime } from "./support.js";
-import { authoringCases } from "./authoring-cases.js";
+import { authoringCases, onePage } from "./authoring-cases.js";
 import { configurationCases } from "./configuration-cases.js";
 import { advancedAuthoringCases } from "./advanced-authoring-cases.js";
 import { operatorCases } from "./operator-cases.js";
@@ -501,7 +501,8 @@ test("empty scoped lists, missing deletes and malformed JSON have explicit safe 
     ["jobs", "vcs", "list", "Build"],
     ["vcs", "roots", "list"],
   ])
-    assert.deepEqual(await cli.execute(argv), []);
+    // Paged collections return an empty page; unpaged scoped lists stay arrays.
+    assert.deepEqual(await cli.execute(argv), argv[0] === "vcs" ? onePage([]) : []);
   for (const example of authoringCases.filter((c) => c.method === "DELETE")) {
     await assert.rejects(cli.execute(example.argv), /HTTP 404/);
   }

@@ -1,4 +1,4 @@
-import type { AuthoringCase } from "./authoring-cases.js";
+import { onePage, type AuthoringCase } from "./authoring-cases.js";
 
 const pool = { id: 1, name: "Pool" };
 const agent = { id: 7, name: "Agent" };
@@ -17,9 +17,9 @@ export const operatorCases: AuthoringCase[] = [
     argv: ["pools", "list"],
     method: "GET",
     path: "/agentPools",
-    query: { locator: "start:0,count:100", fields: "agentPool(id,name)" },
+    query: { locator: "start:0,count:101", fields: "nextHref,agentPool(id,name)" },
     response: { agentPool: [pool] },
-    expected: [pool],
+    expected: onePage([pool]),
   },
   {
     argv: ["pools", "create", "--name", "Pool"],
@@ -65,9 +65,9 @@ export const operatorCases: AuthoringCase[] = [
     argv: ["pools", "agents", "list", "1"],
     method: "GET",
     path: `${poolPath}/agents`,
-    query: { locator: "start:0,count:100", fields: "agent(id,name)" },
+    query: { locator: "start:0,count:101", fields: "nextHref,agent(id,name)" },
     response: { agent: [agent] },
-    expected: [agent],
+    expected: onePage([agent]),
   },
   {
     argv: ["pools", "agents", "assign", "1", "7"],

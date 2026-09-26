@@ -21,6 +21,7 @@ import type {
   TeamCityProblemOccurrence,
 } from "./models.js";
 import { buildOutcome, type BuildOutcome } from "./outcome.js";
+import type { TeamCityPage } from "./paging.js";
 import { buildRecord, diagnosisRecord, followedRecord, withView } from "./presentation.js";
 
 type ClientFor = (context: CommandContext) => Promise<TeamCityClient>;
@@ -207,18 +208,16 @@ async function observe(
 
 async function section<T, R>(
   context: CommandContext,
-  read: () => Promise<T[]>,
-  limit: number,
+  read: () => Promise<TeamCityPage<T>>,
   project: (item: T) => R,
 ): Promise<DiagnosisSection<R>> {
   try {
-    const items = await read();
-    return {
-      status: items.length > limit ? "truncated" : "complete",
-      items: items.slice(0, limit).map(project),
-    };
+    const page = await read();
+    // Only a confirmed end is complete: more items, or an unknown rest, is truncated.
+    return { status: page.hasMore === false ? "complete" : "truncated", items: page.items.map(project) };
   } catch (error) {
-    if (context.signal.aborted) throw error;
+    // A stop is reported as such, never with a section's partial page as the result.
+    if (context.signal.aborted) throw new Error("The diagnosis was stopped.");
     const status = error instanceof TeamCityHttpError ? error.status : undefined;
     return {
       status: "unavailable",
@@ -307,9 +306,8 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
       const client = await clientFor(context);
       const build = await client.getBuildSummary(id);
       const [problems, failedTests] = await Promise.all([
-        section(context, () => client.listBuildProblems(id, { limit: problemLimit + 1 }),
-          problemLimit, problem),
-        section(context, () => client.listFailedTests(id, testLimit + 1), testLimit, failedTest),
+        section(context, () => client.listBuildProblems(id, { limit: problemLimit }), problem),
+        section(context, () => client.listFailedTests(id, testLimit), failedTest),
       ]);
       const outcome = buildOutcome(build);
       const diagnosis: Diagnosis = {

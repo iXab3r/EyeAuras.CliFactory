@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, readdir, mkdir, writeFile, symlink, realpath } f
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
-import { AppArguments } from "@eyeauras/cli-factory";
+import { AppArguments, CliError } from "@eyeauras/cli-factory";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { createTestRuntime } from "./support.js";
@@ -194,7 +194,9 @@ test("download transport failures keep HTTP status semantics and remove private 
         }),
       );
       await assert.rejects(t.cli.execute(download), (error: unknown) => {
-        assert.ok(error instanceof Error);
+        assert.ok(error instanceof CliError);
+        // A refused file keeps TeamCity's HTTP code; a broken transfer is Core's download error.
+        assert.equal(error.code, kind === "status" ? "http.serverError" : "error");
         assert.match(
           error.message,
           kind === "status" ? /TeamCity request failed with HTTP 503/ : /Download failed/,

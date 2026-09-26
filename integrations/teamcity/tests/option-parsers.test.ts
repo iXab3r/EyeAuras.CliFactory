@@ -14,8 +14,9 @@ test("TeamCity paging preserves defaults, leading zeros, signed zero and safe of
   const f = await createTestRuntime(t);
   const cli = f.createCli();
   const locators = [
-    "archived:false,start:0,count:100", "archived:false,start:0,count:1",
-    "archived:false,start:9007199254740991,count:100", "archived:false,start:3,count:1", "archived:false,start:0,count:1001",
+    // One extra item proves whether more exist; a request keeps at most 1000 plus that one.
+    "archived:false,start:0,count:101", "archived:false,start:0,count:2",
+    "archived:false,start:9007199254740991,count:101", "archived:false,start:3,count:2", "archived:false,start:0,count:1001",
   ];
   let calls = 0;
   server.use(http.get("https://teamcity.test/app/rest/projects", ({ request }) => {
@@ -25,7 +26,12 @@ test("TeamCity paging preserves defaults, leading zeros, signed zero and safe of
   for (const options of [
     [], ["--limit", "001", "--start", "-0"],
     ["--limit", "100", "--start", "9007199254740991"], ["--limit", "1", "--start", "0003"], ["--limit", "1001"],
-  ]) assert.deepEqual(await cli.execute(["projects", "list", ...options]), []);
+  ]) {
+    assert.deepEqual(
+      await cli.execute(["projects", "list", ...options]),
+      { count: 0, items: [], hasMore: false, nextStart: null },
+    );
+  }
   assert.equal(calls, 5);
 });
 
@@ -56,11 +62,14 @@ test("TeamCity invalid paging and JSON reject before TTY onboarding, credentials
       f.resetOutput();
       assert.equal(await cli.run([...argv, ...suffix]), 1);
       assert.equal(f.stdout(), "");
-      assert.equal(f.stderr().trim(), message);
+      assert.deepEqual(
+        suffix.length ? JSON.parse(f.stderr()) : f.stderr().trim(),
+        suffix.length ? { error: { code: "usage", message, exitCode: 1 } } : message,
+      );
     }
   }
   assert.deepEqual(await f.rpc(cli, cases.map(row => row.argv)), cases.map(({ message }, id) => ({
-    jsonrpc: "2.0", id, error: { code: -32000, message },
+    jsonrpc: "2.0", id, error: { code: -32000, message, data: { code: "usage", exitCode: 1 } },
   })));
   assert.equal(calls, 0);
 });

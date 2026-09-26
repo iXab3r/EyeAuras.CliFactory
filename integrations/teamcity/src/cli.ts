@@ -22,7 +22,7 @@ import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
 import { clientLeaf, positiveInteger } from "./command-support.js";
-import { buildTable, helpLayout, withView } from "./presentation.js";
+import { buildTable, helpLayout, problemTable, testTable, withView } from "./presentation.js";
 import { createBuildFlowCommands } from "./build-flow.js";
 import type {
   TeamCityBuildState,
@@ -314,7 +314,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         flow.show,
         flow.wait,
         flow.diagnose,
-        leaf(
+        withView(testTable, leaf(
           "tests <id>",
           "List test occurrences for a build",
           Permission.ReadOnly,
@@ -328,20 +328,20 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           [
             {
               flags: "--status <status>",
-              description: "TeamCity test status",
+              description: "failure, success, error, warning, normal or unknown",
               parse: testStatus,
             },
             ...pageOptions,
           ],
-        ),
-        leaf(
+        )),
+        withView(problemTable, leaf(
           "problems <id>",
           "List problem occurrences for a build",
           Permission.ReadOnly,
           (c, { args, options }) =>
             c.listBuildProblems(positiveInteger(args.id), pageValues(options)),
           pageOptions,
-        ),
+        )),
         leaf(
           "changes <id>",
           "List source changes associated with a build",

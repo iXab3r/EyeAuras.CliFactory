@@ -1,4 +1,8 @@
 // Synthetic contracts from the official TeamCity REST reference, not captured service payloads.
+/** A single page that TeamCity reported complete. */
+export const onePage = <T>(items: T[]) =>
+  ({ count: items.length, items, hasMore: false, nextStart: null });
+
 export interface AuthoringCase {
   argv: string[];
   method: "GET" | "POST" | "PUT" | "DELETE";
@@ -232,9 +236,11 @@ export const authoringCases: AuthoringCase[] = [
     argv: ["vcs", "roots", "list", "--project", "Example", "--limit", "2", "--start", "3"],
     method: "GET",
     path: "/vcs-roots",
-    query: { fields: `vcs-root(${rootFields})`, locator: "project:(id:Example),start:3,count:2" },
+    query: {
+      fields: `nextHref,vcs-root(${rootFields})`, locator: "project:(id:Example),start:3,count:3",
+    },
     response: { "vcs-root": [root] },
-    expected: [root],
+    expected: onePage([root]),
   },
   {
     argv: ["vcs", "roots", "show", "Example_Git"],

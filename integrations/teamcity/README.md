@@ -79,8 +79,41 @@ Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.C
 | `builds statistics list/show`, `builds status/finish-date/canceled-info`, `builds fields show` | Inspect selected build evidence | `ReadOnly` |
 | `changes show/parents` | Inspect change metadata and direct parents, not source files | `ReadOnly` |
 
-Top-level collection commands accept `--limit <count>` as a positive safe integer and `--start <offset>` starting at
-zero. They return one plain array page and never auto-page. Run a branch without a leaf, such as
+Every collection command with `--limit <count>` and `--start <offset>` returns a page, whether
+`builds list`, `projects list`, `queue list`, `audit list` or one of the other 22. The page's shape:
+
+```json
+{ "count": 2, "items": [ ... ], "hasMore": true, "nextStart": 2 }
+```
+
+**How a page is filled.** `--limit` is the most items to return, not the size of one request.
+- Each request asks for one item more than it keeps. If it arrives, more exist: reading goes on
+  after the kept items, or `hasMore` is `true` once `--limit` is reached.
+- It follows TeamCity's continuation, including the `lookupLimit` expansions that TeamCity adds
+  after scanning 5000 entities. It reads only the numbers in `nextHref`, never the link itself.
+- TeamCity continues after the items it served, or at the same start with a deeper `lookupLimit`
+  when it served none. The CLI follows only such a continuation and computes the next start
+  itself, so no item is read twice or skipped.
+- It stops after 10 requests, after 30 seconds, or on a continuation it does not follow.
+- A single request keeps at most 1,000 items, so it asks for at most 1,001.
+
+**What the fields mean.**
+- `hasMore: false` only when TeamCity confirmed the end.
+- `hasMore: null` means not established: the budget ran out, the continuation was not followed,
+  or a full page came without a continuation.
+- `nextStart` is the `--start` value that continues after the items returned. It is `null` when
+  there is none, including when nothing was read: `--start` cannot carry a `lookupLimit`. Paging
+  on while `nextStart` is not `null` always makes progress. Offsets can shift while new builds
+  arrive, so this is not a snapshot.
+
+**When a later request fails.** The command exits 1 with the `list.incomplete` code. The items
+already read are still printed, with `hasMore: null`. A later request stopped by Ctrl+C reports
+`interrupted` instead.
+
+Human output shows the items as a table. `builds list`, `builds tests` and `builds problems` add a
+line such as `Shown: 20. More results: yes; continue with --start 20.` Other lists end with their
+fields, such as `count: 100  hasMore: null  nextStart: 100`. `queue delete-page` is a mutation and
+still deletes exactly one requested page. Run a branch without a leaf, such as
 `teamcity-cli builds`, to see its generated help and options.
 
 Paging defaults remain `--limit 100 --start 0`. These options accept decimal digits with an optional
@@ -218,8 +251,9 @@ appear on stderr, for example `Build 101: running`. JSON output is one final val
 **Diagnosing.** `builds diagnose <id>` reads the build with its test and problem counters. It adds
 up to 10 problem occurrences and up to 20 failed test identities, never stack traces or build
 logs. Each section is one of:
-- `complete`;
+- `complete`, titled `all N` in human output when it has items, such as `Problems (all 2)`;
 - `truncated`, with more available through `builds problems` or `builds tests --status failure`;
+  human output says `first 20 of 25`;
 - `unavailable`, with the reason `denied`, `not-found` or `failed`.
 
 An unavailable section sets `partial: true` and exits 1 with the data: missing information is
@@ -228,8 +262,9 @@ snapshot.
 
 **Ctrl+C.** The packaged executable turns the first Ctrl+C into a local stop; a second one exits
 immediately. A stopped wait keeps its last known state, as above. Any other interrupted command
-exits 130: an interrupted queue request still reports `run.unknownOutcome`, an interrupted
-download keeps its message about the saved data, and other failures report `interrupted`.
+exits 130. An interrupted read reports `interrupted`, and an interrupted download keeps its
+message about the saved data. An interrupted write keeps its unknown outcome:
+`run.unknownOutcome` for a queue request, `request.unknownOutcome` for others.
 
 ## Triggers, features, dependencies and templates
 
@@ -343,8 +378,9 @@ reject nonnumeric payloads without echoing them. Generic build fields permit onl
 `state`, `branchName`; status/finish-date/number use named commands. Absent agent pool and cancellation
 comment normalize JSON null/empty responses to null. Other JSON endpoints decode strictly.
 
-Pool list and pool-agent list are bounded pages. Pool projects, agent compatibility, queue-compatible
-agents, tags, statistics and direct parent changes are native scoped lists, not auto-paged streams.
+Pool list and pool-agent list are pages, like every other `--limit`/`--start` collection. Pool
+projects, agent compatibility, queue-compatible agents, tags, statistics and direct parent changes
+are native scoped lists, not pages.
 Unrequested nested server/user/credential fields are excluded. Metadata itself may still be private:
 do not publish real output or use it as a fixture without sanitization. There is no schema-free
 JSON/HTTP escape hatch or unbounded global queue clearing. Later sections describe the explicit
@@ -368,12 +404,20 @@ All these writes require Update and are mock-tested, not exercised against a liv
 
 ## Build triage and evidence
 
-`builds batch` requires repeated `--build <id>` (distinct IDs). Status/show are reads;
-cancel/delete/comment/pin/tags are Update operations. Bulk write results expose error counts and
-partial failures, never unconditional success or raw server diagnostics. `finish`/`finish-at`
-return accepted timestamps, not proof of completion; `start-agentless` starts queued work without
-an agent. Log append rejects service-message controls. VCS labels mutate an external VCS and require
-one `--root-instance`; inspect individual returned statuses.
+`builds batch` requires repeated `--build <id>` (distinct IDs). Status and show are reads;
+cancel, delete, comment, pin and tags are Update operations.
+
+A batch write returns `{ count, errorCount, items: [{ buildId, succeeded }] }`. TeamCity marks only
+the failed items; its per-item message is never shown. Counts that disagree with the items mean
+success is unknown, and the command fails. When any item fails, the command exits 1 with the
+`batch.partial` code, and the complete per-item result is still printed. Two other writes can
+succeed partly:
+- `builds set-status` with reported errors exits 1 with `build.statusPartial`;
+- `builds vcs-labels add` with a `FAILED` label exits 1 with `labels.partial`.
+
+`finish`/`finish-at` return accepted timestamps, not proof of completion. `start-agentless` starts
+queued work without an agent. Log append rejects service-message controls. VCS labels mutate an
+external VCS and require one `--root-instance`.
 
 Investigations use a strict typed item, for example:
 
@@ -642,13 +686,17 @@ Some commands print a compact view instead of every field:
   build, `builds diagnose` for a failed one, and the artifact list for a finished one.
 - `jobs run` and `builds wait` print the same summary with the outcome. The title says `Queued:`
   only while a new build still waits in the queue.
+- `builds tests` prints STATUS, FLAGS (new, muted, ignored, investigated), DURATION and TEST.
+  Test details and stack traces appear only in `--json`.
+- `builds problems` prints TYPE, FLAGS and a one-line DESCRIPTION, worded as `builds diagnose`
+  words it.
 - File listings print NAME, SIZE and MODIFIED.
 - Downloads print the full local path, byte count and SHA-256 of the saved file.
 
-In a terminal, `builds list` fits its width by shortening only BRANCH, and Core's
-`downloads list` only its PATH. Build and job IDs and file names are never cut; an impossible fit
-wraps. Redirected output is not shortened. `--json` and JSON-RPC return the same complete data as
-before.
+In a terminal, `builds list` fits its width by shortening only BRANCH, `builds problems` only
+DESCRIPTION, and Core's `downloads list` only its PATH. Build and job IDs, test names and file
+names are never cut; an impossible fit wraps. Redirected output is not shortened. `--json` and
+JSON-RPC return the same complete data as before.
 
 ## Machine-oriented output
 
@@ -666,6 +714,28 @@ object per line:
 {"jsonrpc":"2.0","id":1,"method":"cli.execute","params":{"argv":["server","status","--profile","uat"]}}
 {"jsonrpc":"2.0","id":2,"method":"cli.execute","params":{"argv":["jobs","list","--profile","production"]}}
 ```
+
+With `--json`, a failure writes one line to stderr and nothing to stdout, except the result of a
+failed outcome:
+
+```json
+{"error":{"code":"permission.denied","message":"Permission 'Update' is disabled for profile 'uat'.","exitCode":1,"profile":"uat","next":[["permissions","grant","Update","--profile","uat"]]}}
+```
+
+JSON-RPC returns the same fields, apart from `message`, in `error.data`, and adds `result` for a
+failed outcome. Every `next` argv can be sent back to `cli.execute` unchanged. TeamCity adds these
+codes to Core's `usage`, `usage.jsonRpc`, `permission.denied`, `profile.notFound`,
+`profile.notConfigured`, `interrupted` and `error`:
+
+| Code | Meaning |
+|---|---|
+| `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.serverError` | TeamCity answered with that HTTP status, also for a refused download; the response body is never read or shown |
+| `request.failed` | A read was lost in transit; nothing was changed, so it can be retried. A lost download reports Core's download error instead |
+| `request.unknownOutcome` | A write was lost in transit; it may or may not have been applied, and is never repeated |
+| `run.unknownOutcome` | The queue request's outcome is unknown; check `builds list --job <id> --state any` |
+| `build.failed`, `build.canceled`, `build.unknown`, `build.missing` | Waited build outcome, with the build as data |
+| `wait.timeout` (exit 124), `wait.interrupted` (exit 130), `wait.failed` | Observation stopped; the build continues on the server |
+| `diagnose.partial`, `list.incomplete`, `batch.partial`, `build.statusPartial`, `labels.partial` | Partial data or a partial write, printed in full and exiting 1 |
 
 ## Tests and local integration proof
 

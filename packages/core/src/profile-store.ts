@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { AppArguments, type IAppArguments } from "./app-arguments.js";
+import { CliError } from "./errors.js";
 import type { Profile, ProfileStoreContract, ProfileValues } from "./types.js";
 
 interface ProfileDocument {
@@ -91,7 +92,7 @@ export class ProfileStore implements ProfileStoreContract {
     const selectedName = name ?? document.active;
     const values = document.profiles[selectedName];
     if (!Object.hasOwn(document.profiles, selectedName) || !values) {
-      throw new Error(`Profile '${selectedName}' does not exist.`);
+      throw new CliError(`Profile '${selectedName}' does not exist.`, { code: "profile.notFound" });
     }
 
     return { name: selectedName, values: structuredClone(values) };
@@ -129,8 +130,9 @@ export class ProfileStore implements ProfileStoreContract {
     return this.#mutate(async () => {
       const document = await this.#load();
       if (!Object.hasOwn(document.profiles, name)) {
-        throw new Error(
+        throw new CliError(
           `Profile '${name}' does not exist. Create it with 'profile create ${name}'.`,
+          { code: "profile.notFound" },
         );
       }
       const nextValues = {
@@ -151,8 +153,9 @@ export class ProfileStore implements ProfileStoreContract {
       const document = await this.#load();
       const values = document.profiles[name];
       if (!Object.hasOwn(document.profiles, name) || !values) {
-        throw new Error(
+        throw new CliError(
           `Profile '${name}' does not exist. Create it with 'profile create ${name}'.`,
+          { code: "profile.notFound" },
         );
       }
 
@@ -169,7 +172,7 @@ export class ProfileStore implements ProfileStoreContract {
     return this.#mutate(async () => {
       const document = await this.#load();
       if (!Object.hasOwn(document.profiles, name)) {
-        throw new Error(`Profile '${name}' does not exist.`);
+        throw new CliError(`Profile '${name}' does not exist.`, { code: "profile.notFound" });
       }
       if (Object.keys(document.profiles).length === 1) {
         throw new Error(
@@ -200,7 +203,7 @@ export class ProfileStore implements ProfileStoreContract {
     const document = await this.#load();
     const selectedName = name ?? document.active;
     if (!Object.hasOwn(document.profiles, selectedName)) {
-      throw new Error(`Profile '${selectedName}' does not exist.`);
+      throw new CliError(`Profile '${selectedName}' does not exist.`, { code: "profile.notFound" });
     }
     const permissions =
       document.permissions && Object.hasOwn(document.permissions, selectedName)
@@ -217,7 +220,7 @@ export class ProfileStore implements ProfileStoreContract {
     return this.#mutate(async () => {
       const document = await this.#load();
       if (!Object.hasOwn(document.profiles, name)) {
-        throw new Error(`Profile '${name}' does not exist.`);
+        throw new CliError(`Profile '${name}' does not exist.`, { code: "profile.notFound" });
       }
       const uniquePermissions = [...new Set(permissions)];
       document.permissions ??= {};
