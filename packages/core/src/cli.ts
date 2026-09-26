@@ -17,6 +17,7 @@ import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import { nextCommands, type HumanView } from "./view.js";
 import { CliError } from "./errors.js";
+import { ProfileFileError } from "./profile-file.js";
 import type {
   CliApplication,
   CliInvocation,
@@ -70,13 +71,17 @@ class ReportedFailure extends Error {
   }
 }
 
-/** After an interrupt every failure exits 130; a typed one keeps its code, message and data. */
+/**
+ * After an interrupt every failure exits 130; a typed one keeps its code, message and data. A
+ * download error keeps its static message: it says whether private data was left behind.
+ */
 function afterInterrupt(error: unknown, interrupt: AbortSignal | undefined): unknown {
   if (interrupt?.aborted !== true || (error instanceof CliError && error.exitCode === 130)) {
     return error;
   }
   if (!(error instanceof CliError)) {
-    return new CliError("Interrupted.", { code: "interrupted", exitCode: 130 });
+    const message = error instanceof ProfileFileError ? error.message : "Interrupted.";
+    return new CliError(message, { code: "interrupted", exitCode: 130 });
   }
   return new CliError(error.message, {
     code: error.code, exitCode: 130, next: error.next,
@@ -539,6 +544,9 @@ export function createCli(definition: CliDefinition): CliApplication {
                   ...execution,
                   render: false,
                   signal: execution.signal,
+                }).catch((error: unknown) => {
+                  // Also before the handler runs: while queued or checking the profile.
+                  throw afterInterrupt(error, invocation.signal);
                 }),
             });
             return 0;
@@ -558,7 +566,9 @@ export function createCli(definition: CliDefinition): CliApplication {
     },
     execute(argv, signal): Promise<unknown> {
       const execution = executionFor(false, signal ? { signal } : {});
-      return track(() => execute(argv, execution));
+      return track(() => execute(argv, execution)).catch((error: unknown) => {
+        throw afterInterrupt(error, signal);
+      });
     },
     dispose(): Promise<void> {
       if (!disposal) {

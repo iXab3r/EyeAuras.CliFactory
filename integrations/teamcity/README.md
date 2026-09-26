@@ -184,17 +184,17 @@ teamcity-cli builds diagnose 101
 - Parameter values are not echoed in output or errors. Never pass secrets in argv; secret
   parameters are not supported here.
 - If the queue response is lost or unreadable, or TeamCity or a proxy answers with a 5xx status,
-  the outcome is unknown. The command fails with `run.unknownOutcome` and a
-  `builds list --job <id> --state any` suggestion, with `--branch` when the run had one. It lists
-  builds in every state, because an accepted build can leave the queue within seconds. The command
-  never repeats the POST.
+  the outcome is unknown. The command fails with `run.unknownOutcome` and suggests
+  `builds list --job <id> --state any`, preceded by the same list for the run's `--branch` when
+  it had one. Both list builds in every state, because an accepted build can leave the queue
+  within seconds. The command never repeats the POST.
 - `--branch` selects the branch to build; without it TeamCity builds the job's default branch.
 
 **Waiting.** `jobs run --wait` (still `Update`) and `builds wait <id>` (`ReadOnly`) only read the
 build: GET `/builds/id:<id>`, every `--interval` (default 5s, 1s–10m). `--timeout` (default 10m,
-1s–24h) starts once the build is accepted, so it covers queue time and each read, but not the
-queue request itself. Queueing and waiting use one client, so one profile and credential. Nothing
-ever cancels the build. The results are:
+1s–24h) starts when waiting starts: for `jobs run --wait`, once the build is accepted. It covers
+queue time and each read, but not the queue request itself. Queueing and waiting use one client,
+so one profile and credential. Nothing ever cancels the build. The results are:
 
 | Result | Exit | Output |
 |---|---|---|
@@ -228,8 +228,8 @@ snapshot.
 
 **Ctrl+C.** The packaged executable turns the first Ctrl+C into a local stop; a second one exits
 immediately. A stopped wait keeps its last known state, as above. Any other interrupted command
-exits 130: an interrupted queue request still reports `run.unknownOutcome`, and other failures
-report `interrupted`.
+exits 130: an interrupted queue request still reports `run.unknownOutcome`, an interrupted
+download keeps its message about the saved data, and other failures report `interrupted`.
 
 ## Triggers, features, dependencies and templates
 

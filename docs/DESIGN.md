@@ -159,9 +159,10 @@ outcome itself throw, such as waiting for a build. Exit codes are:
 - 130 — an interrupt stopped the command.
 
 An interrupt is an abort of the caller's own signal, such as the first Ctrl+C of a packaged
-executable. Any failure after it exits 130. A `CliError` keeps its code, message, `next` and
-`result`; any other error becomes `interrupted` with the message `Interrupted.`. Closing the
-application is not an interrupt.
+executable. Any failure after it exits 130 on every transport, even one before the handler runs.
+A `CliError` keeps its code, message, `next` and `result`. Any other error becomes `interrupted`
+with the message `Interrupted.`, except a download error, which keeps its static message about
+the saved data. Core does not map closing the application to 130.
 
 Other errors keep their plain message until the CLI-wide machine error envelope replaces it.
 

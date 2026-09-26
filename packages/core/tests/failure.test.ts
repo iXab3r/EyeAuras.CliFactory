@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CliError, command, createCli, durationParser, recordView } from "../src/index.js";
+import {
+  CliError,
+  command,
+  createCli,
+  durationParser,
+  ProfileFileError,
+  recordView,
+} from "../src/index.js";
 import { createCliFixture } from "../src/testing.js";
 
 interface Outcome {
@@ -63,6 +70,13 @@ async function fixture(t: test.TestContext) {
       }),
       command("reused", "Throw a shared error object", () => {
         throw reused;
+      }),
+      command("save", "Fail a download after an interrupt", async (_input, context) => {
+        await abortedRequest(context.signal).catch(() => undefined);
+        throw new ProfileFileError(
+          "Download was not published, and private staging cleanup failed; inspect the profile temp directory.",
+          false, true,
+        );
       }),
     ],
     runtime,
@@ -145,12 +159,20 @@ test("after an interrupt every failure exits 130, and a typed one keeps its code
   assert.deepEqual(await interrupted(["queue", "--profile", "uat"]), [
     130, "", "Queue outcome unknown.\nNext:\n  outcome-cli list --profile uat\n",
   ]);
+  // A download error still says what happened to the private data.
+  assert.deepEqual(await interrupted(["save"]), [
+    130, "",
+    "Download was not published, and private staging cleanup failed; inspect the profile temp directory.\n",
+  ]);
 
   const controller = new AbortController();
   interruptNow = () => controller.abort();
   await assert.rejects(app.execute(["hang"], controller.signal), (error: unknown) =>
     error instanceof CliError && error.code === "interrupted" && error.exitCode === 130);
   interruptNow = () => undefined;
+  // Also before any handler runs.
+  await assert.rejects(app.execute(["plain"], AbortSignal.abort()), (error: unknown) =>
+    error instanceof CliError && error.code === "interrupted" && error.exitCode === 130);
 });
 
 test("a failure reports the profile that ran it, even when the error object is reused", async (t) => {

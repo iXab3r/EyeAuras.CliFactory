@@ -129,7 +129,25 @@ async function follow(
   known?: TeamCityBuild,
 ): Promise<FollowedBuild> {
   const deadline = AbortSignal.timeout(timing.timeout);
-  deadline.addEventListener("abort", () => stop.abort(), { once: true });
+  const expire = () => stop.abort();
+  deadline.addEventListener("abort", expire, { once: true });
+  try {
+    return await observe(client, deadline, context, id, timing, shape, known);
+  } finally {
+    // An unfired timeout with a listener stays alive until it fires, which can take hours.
+    deadline.removeEventListener("abort", expire);
+  }
+}
+
+async function observe(
+  client: TeamCityClient,
+  deadline: AbortSignal,
+  context: CommandContext,
+  id: number,
+  timing: { timeout: number; interval: number },
+  shape: (build: TeamCityBuild, outcome?: FollowedBuild["outcome"]) => FollowedBuild,
+  known?: TeamCityBuild,
+): Promise<FollowedBuild> {
   const signal = AbortSignal.any([context.signal, deadline]);
   const resume = [["builds", "wait", String(id)]];
   let last = known;
@@ -333,14 +351,16 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
         if (!(error instanceof TeamCityUnknownOutcomeError)) throw error;
         // Never queue again automatically: the first request may already have been accepted.
         // An accepted build can leave the queue within seconds, so the check covers every state.
+        // The job-wide check stays even with a branch, which a person's view may have to omit.
+        const check = ["builds", "list", "--job", job];
         throw new CliError(
           "The queue request's outcome is unknown; check for a new build before running it again.",
           {
             code: "run.unknownOutcome",
-            next: [[
-              "builds", "list", "--job", job,
-              ...(branch === undefined ? [] : ["--branch", branch]), "--state", "any",
-            ]],
+            next: [
+              ...(branch === undefined ? [] : [[...check, "--branch", branch, "--state", "any"]]),
+              [...check, "--state", "any"],
+            ],
           },
         );
       }

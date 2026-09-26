@@ -324,11 +324,13 @@ test("a 5xx or unreadable queue response is unknown too, and a refusal stays a p
   let posts = 0;
   server.use(
     http.post(`${base}/buildQueue`, () =>
-      responses[posts++]?.() ?? new HttpResponse(null, { status: 400 })),
+      responses[posts++]?.() ?? new HttpResponse(null, { status: posts > 5 ? 400 : 504 })),
     http.all(`${base}/*`, () => new HttpResponse(null, { status: 500 })),
   );
   const runtime = await updater(t);
   const cli = runtime.createCli();
+  const unknown =
+    "The queue request's outcome is unknown; check for a new build before running it again.\nNext:\n";
   for (const _ of responses) {
     const result = await runtime.run(cli, [
       "jobs", "run", "Demo_Tests", "--branch", "release/1.0", "--wait",
@@ -337,18 +339,44 @@ test("a 5xx or unreadable queue response is unknown too, and a refusal stays a p
     assert.equal(result.stdout, "");
     assert.equal(
       result.stderr,
-      "The queue request's outcome is unknown; check for a new build before running it again.\n" +
-        "Next:\n  teamcity-cli builds list --job Demo_Tests --branch release/1.0 --state any " +
-        "--profile default\n",
+      unknown +
+        "  teamcity-cli builds list --job Demo_Tests --branch release/1.0 --state any " +
+        "--profile default\n" +
+        "  teamcity-cli builds list --job Demo_Tests --state any --profile default\n",
     );
   }
   assert.equal(posts, responses.length);
+  // A branch that a person's view cannot print safely still leaves the job-wide check.
+  const spaced = await runtime.run(cli, ["jobs", "run", "Demo_Tests", "--branch", "feature/a b"]);
+  assert.equal(spaced.exitCode, 1);
+  assert.equal(
+    spaced.stderr,
+    unknown + "  teamcity-cli builds list --job Demo_Tests --state any --profile default\n",
+  );
   // TeamCity refused the request, so nothing was queued.
   const refused = await runtime.run(cli, ["jobs", "run", "Demo_Tests"]);
   assert.equal(refused.exitCode, 1);
   assert.match(refused.stderr, /HTTP 400/);
   assert.doesNotMatch(refused.stderr, /outcome is unknown/);
-  assert.equal(posts, responses.length + 1);
+  assert.equal(posts, responses.length + 2);
+});
+
+test("a read that never answers is still bounded by the deadline", async (t) => {
+  const runtime = await createTestRuntime(t);
+  let reads = 0;
+  runtime.runtime.fetch = (_input, init) => new Promise((_resolve, reject) => {
+    reads++;
+    init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+  });
+  const started = Date.now();
+  const result = await runtime.run(runtime.createCli(), [
+    "builds", "wait", "201", "--timeout", "1s", "--json",
+  ]);
+  assert.equal(result.exitCode, 124);
+  assert.ok(Date.now() - started < 5_000, "The deadline aborts the read in flight.");
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /"code":"wait\.timeout"|did not finish in time/);
+  assert.equal(reads, 1);
 });
 
 test("diagnose is bounded, marks truncation and never turns missing data into no failures", async (t) => {
