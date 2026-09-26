@@ -1,0 +1,46 @@
+name: Release
+
+# Manual only. All release logic lives in the C# driver (build/); see docs/npm-release.md.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release; must equal the committed package versions
+        required: true
+        type: string
+      dry-run:
+        description: Run everything without publishing or creating the GitHub Release
+        type: boolean
+        default: true
+
+permissions:
+  contents: write # GitHub Release and its tag
+  id-token: write # npm trusted publishing (OIDC)
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Install the pinned npm (trusted publishing needs npm 11.5.1+)
+        run: npm install --global "$(node -p "require('./package.json').packageManager")"
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
+        run: dotnet run --project build -- --target Release --release-version "$VERSION" $DRY_RUN
