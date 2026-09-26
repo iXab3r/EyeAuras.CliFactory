@@ -136,7 +136,7 @@ function sectionTitle<T>(name: string, section: DiagnosisSection<T>, total?: num
   const shown = section.items.length;
   // "all" says outright that nothing was left out, not only that no cap was hit.
   if (section.status === "complete") return `${name} (${shown > 0 ? "all " : ""}${shown})`;
-  return `${name} (first ${shown}${total === undefined ? "; more exist" : ` of ${total}`})`;
+  return `${name} (first ${shown}${total === undefined ? "; more may exist" : ` of ${total}`})`;
 }
 
 function sectionLines<T>(section: DiagnosisSection<T>, line: (item: T) => string): string[] {

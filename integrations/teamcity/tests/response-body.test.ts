@@ -11,7 +11,9 @@ after(() => server.close());
 const baseUrl = "https://teamcity.example.com";
 const connection = { baseUrl, token: "synthetic-token" };
 const limit = 2 * 1024 * 1024;
-const failure = "TeamCity response stream failed; remote outcome is unknown.";
+// A read changed nothing, so its lost response is a retryable failure, not an unknown outcome.
+const failure =
+  "TeamCity's response was cut off; nothing was changed, and the read can be retried.";
 function safeFailure(error: unknown, message = failure): boolean {
   assert.ok(error instanceof Error);
   assert.equal(error.message, message);

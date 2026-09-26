@@ -159,6 +159,19 @@ test("S6 partial and malformed bulk/status results never become unconditional su
   assert.equal(status.exitCode, 1);
   assert.deepEqual(JSON.parse(status.stdout), { build: { id: 42 }, errorCount: 1, partialFailure: true });
   assert.equal(JSON.parse(status.stderr).error.code, "build.statusPartial");
+
+  // TeamCity's VcsLabel status: SUCCESSFUL_SET, IS_BEING_SET, FAILED, DISABLED_FOR_THE_ROOT, ...
+  const labels = [
+    { text: "v1", status: "SUCCESSFUL_SET", buildId: 42 },
+    { text: "v1", status: "FAILED", buildId: 42 },
+  ];
+  server.use(http.post(base + "/builds/id:42/vcsLabels", () => HttpResponse.json({ vcsLabel: labels })));
+  const labeled = await runtime.run(cli, [
+    "builds", "vcs-labels", "add", "42", "--label", "v1", "--root-instance", "8", "--json",
+  ]);
+  assert.equal(labeled.exitCode, 1, "A label that could not be set fails the write.");
+  assert.deepEqual(JSON.parse(labeled.stdout), labels);
+  assert.equal(JSON.parse(labeled.stderr).error.code, "labels.partial");
 });
 
 test("S6 typed investigation replacement uses one exact target and no hidden reads or retries", async (testContext) => {

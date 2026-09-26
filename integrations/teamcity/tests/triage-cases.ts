@@ -252,8 +252,8 @@ export const triageCases: AuthoringCase[] = [
     text: true,
     jsonResponse: true,
     body: "v1",
-    response: { vcsLabel: [{ text: "v1", status: "FAILURE", buildId: 42 }] },
-    expected: [{ text: "v1", status: "FAILURE", buildId: 42 }],
+    response: { vcsLabel: [{ text: "v1", status: "SUCCESSFUL_SET", buildId: 42 }] },
+    expected: [{ text: "v1", status: "SUCCESSFUL_SET", buildId: 42 }],
   },
   {
     argv: ["changes", "duplicates", "7"],

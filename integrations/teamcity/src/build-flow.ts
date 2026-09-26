@@ -216,7 +216,8 @@ async function section<T, R>(
     // Only a confirmed end is complete: more items, or an unknown rest, is truncated.
     return { status: page.hasMore === false ? "complete" : "truncated", items: page.items.map(project) };
   } catch (error) {
-    if (context.signal.aborted) throw error;
+    // A stop is reported as such, never with a section's partial page as the result.
+    if (context.signal.aborted) throw new Error("The diagnosis was stopped.");
     const status = error instanceof TeamCityHttpError ? error.status : undefined;
     return {
       status: "unavailable",

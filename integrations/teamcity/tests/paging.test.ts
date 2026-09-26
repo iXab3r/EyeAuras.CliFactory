@@ -68,19 +68,24 @@ test("an empty page that only raises the lookup limit is followed; its limit is 
   ]);
 });
 
-test("a repeated continuation, the request budget and the time budget leave completeness unknown", async () => {
-  const loop = scripted([{ items: [1], next: "start:0,count:6" }]);
-  assert.deepEqual(await readPages(5, 0, loop.read), {
-    count: 1, items: [1], hasMore: null, nextStart: 0,
-  });
-  assert.equal(loop.requests.length, 1, "A continuation that does not advance is not followed.");
+test("an unexpected continuation, the request budget and the time budget leave completeness unknown", async () => {
+  // TeamCity continues after the items it served; a start behind or beyond that is not followed,
+  // and the next start is always past what was read, so a caller that pages on cannot loop.
+  for (const next of ["start:0,count:6", "start:6,count:6"]) {
+    const odd = scripted([{ items: [1], next }]);
+    assert.deepEqual(await readPages(5, 0, odd.read), {
+      count: 1, items: [1], hasMore: null, nextStart: 1,
+    });
+    assert.equal(odd.requests.length, 1, next);
+  }
 
   let limit = 5000;
   const deep: Read = async () => ({ items: [], nextHref: href(`start:0,count:3,lookupLimit:${limit += 5000}`) });
   let calls = 0;
   const counted: Read = async (request) => { calls++; return deep(request); };
+  // Nothing was read, and `--start` cannot carry the lookup limit: there is no continuation.
   assert.deepEqual(await readPages(2, 0, counted), {
-    count: 0, items: [], hasMore: null, nextStart: 0,
+    count: 0, items: [], hasMore: null, nextStart: null,
   });
   assert.equal(calls, pageBudget.requests);
 
@@ -93,10 +98,20 @@ test("a repeated continuation, the request budget and the time budget leave comp
 });
 
 test("a full page without a continuation is not proof of the end", async () => {
-  const full = scripted([{ items: Array.from({ length: pageBudget.size }, (_, i) => i) }]);
+  const full = scripted([{ items: Array.from({ length: pageBudget.size + 1 }, (_, i) => i) }]);
   const page = await readPages(5000, 0, full.read);
-  assert.equal(page.count, pageBudget.size);
+  assert.deepEqual(full.requests, [{ start: 0, count: pageBudget.size + 1 }]);
+  assert.equal(page.count, pageBudget.size + 1);
   assert.equal(page.hasMore, null);
+  assert.equal(page.nextStart, pageBudget.size + 1);
+});
+
+test("a limit of a whole page size still asks for the one item that proves more", async () => {
+  const more = scripted([{ items: Array.from({ length: pageBudget.size + 1 }, (_, i) => i) }]);
+  const page = await readPages(pageBudget.size, 0, more.read);
+  assert.deepEqual(more.requests, [{ start: 0, count: pageBudget.size + 1 }]);
+  assert.equal(page.count, pageBudget.size);
+  assert.equal(page.hasMore, true);
   assert.equal(page.nextStart, pageBudget.size);
 });
 
@@ -111,6 +126,12 @@ test("a failed later page keeps the items read so far; a failed first page is th
   });
   const first = scripted([failure]);
   await assert.rejects(readPages(3, 0, first.read), (error: unknown) => error === failure);
+  // A later page stopped by the caller reports the stop, not an incomplete list.
+  const stopped = scripted([{ items: [1, 2], next: "start:2,count:4" }, failure]);
+  await assert.rejects(
+    readPages(3, 0, stopped.read, Date.now, AbortSignal.abort()),
+    (error: unknown) => error === failure,
+  );
 });
 
 test("builds list reads across a lookup-limit continuation and reports completeness", async (t) => {

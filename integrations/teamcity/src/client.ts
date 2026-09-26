@@ -3284,12 +3284,10 @@ export class TeamCityClient {
     fields: string,
     project: (item: unknown) => T,
     page: TeamCityPageOptions,
-    query: Record<string, string> = {},
   ): Promise<TeamCityPage<T>> {
     const { limit, start } = normalizePage(page);
     return readPages(limit, start, async (request) => {
       const response = triage.object(await this.#requestJson("GET", path, {
-        ...query,
         locator: joinLocator(
           ...locator,
           `start:${request.start}`,
@@ -3299,7 +3297,7 @@ export class TeamCityClient {
         fields: `nextHref,${key}(${fields})`,
       }));
       return { items: triage.array(response[key]).map(project), nextHref: response.nextHref };
-    });
+    }, Date.now, this.#signal);
   }
 
   public async getRestInfo() {
@@ -3945,6 +3943,7 @@ export class TeamCityClient {
       format,
       () => this.#response("GET", path, query, undefined, accept),
       this.#signal,
+      (status) => new TeamCityHttpError(status, `TeamCity request failed with HTTP ${status}.`),
     );
   }
   async #response(
@@ -3988,15 +3987,26 @@ export class TeamCityClient {
         ...(this.#signal === undefined ? {} : { signal: this.#signal }),
       });
     } catch {
-      throw this.#lost(method, "TeamCity network request failed; remote outcome is unknown.");
+      throw this.#lost(method, "request");
     }
     return response;
   }
   /** A read stopped by its own signal has no remote outcome; a write's outcome stays unknown. */
-  #lost(method: HttpMethod, message: string): Error {
-    return method === "GET" && this.#signal?.aborted === true
-      ? new Error("The TeamCity request was stopped.")
-      : new TeamCityUnknownOutcomeError(message);
+  /**
+   * A request or response lost in transit. A write may have been applied, so its outcome is
+   * unknown; a read changed nothing and can be retried, unless its own signal stopped it.
+   */
+  #lost(method: HttpMethod, stage: "request" | "response"): Error {
+    if (method !== "GET") {
+      return new TeamCityUnknownOutcomeError(stage === "request"
+        ? "TeamCity network request failed; remote outcome is unknown."
+        : "TeamCity response stream failed; remote outcome is unknown.");
+    }
+    if (this.#signal?.aborted === true) return new Error("The TeamCity request was stopped.");
+    return new CliError(stage === "request"
+      ? "TeamCity could not be reached; nothing was changed, and the read can be retried."
+      : "TeamCity's response was cut off; nothing was changed, and the read can be retried.",
+    { code: "request.failed" });
   }
   async #requestText(
     method: HttpMethod,
@@ -4052,7 +4062,7 @@ export class TeamCityClient {
             bytes += chunk.value.byteLength;
           }
         } catch {
-          throw this.#lost(method, "TeamCity response stream failed; remote outcome is unknown.");
+          throw this.#lost(method, "response");
         } finally {
           void reader.cancel().catch(() => undefined);
           reader.releaseLock();
@@ -4073,7 +4083,7 @@ export class TeamCityClient {
       });
       return Buffer.from(bytes).toString("utf8");
     } catch {
-      throw this.#lost(method, "TeamCity response stream failed; remote outcome is unknown.");
+      throw this.#lost(method, "response");
     }
   }
 }

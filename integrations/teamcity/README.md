@@ -90,21 +90,28 @@ Every collection command with `--limit <count>` and `--start <offset>` returns a
 - The CLI asks for one extra item: if it arrives, `hasMore` is `true`.
 - It follows TeamCity's continuation, including the `lookupLimit` expansions that TeamCity adds
   after scanning 5000 entities. It reads only the numbers in `nextHref`, never the link itself.
-- It stops after 10 requests, after 30 seconds, or on a continuation that does not advance.
-- A single request asks for at most 1000 items.
+- TeamCity continues after the items it served, or at the same start with a deeper `lookupLimit`
+  when it served none. The CLI follows only such a continuation and computes the next start
+  itself, so no item is read twice or skipped.
+- It stops after 10 requests, after 30 seconds, or on a continuation it does not follow.
+- A single request asks for at most 1,001 items: up to 1,000, plus the one that proves more.
 
 **What the fields mean.**
 - `hasMore: false` only when TeamCity confirmed the end.
-- `hasMore: null` means not established: the budget ran out, the continuation looped, or a full
-  page came without a continuation.
-- `nextStart` is the `--start` value that continues the selection when it is known. Offsets can
-  shift while new builds arrive, so this is not a snapshot.
+- `hasMore: null` means not established: the budget ran out, the continuation was not followed,
+  or a full page came without a continuation.
+- `nextStart` is the `--start` value that continues after the items returned. It is `null` when
+  there is none, including when nothing was read: `--start` cannot carry a `lookupLimit`. Paging
+  on while `nextStart` is not `null` always makes progress. Offsets can shift while new builds
+  arrive, so this is not a snapshot.
 
 **When a later request fails.** The command exits 1 with the `list.incomplete` code. The items
-already read are still printed, with `hasMore: null`.
+already read are still printed, with `hasMore: null`. A later request stopped by Ctrl+C reports
+`interrupted` instead.
 
-Human output shows the items as a table. `builds list` adds a line such as
-`Shown: 20. More results: yes; continue with --start 20.` `queue delete-page` is a mutation and
+Human output shows the items as a table. `builds list`, `builds tests` and `builds problems` add a
+line such as `Shown: 20. More results: yes; continue with --start 20.` Other lists end with their
+fields, such as `count: 100  hasMore: null  nextStart: 100`. `queue delete-page` is a mutation and
 still deletes exactly one requested page. Run a branch without a leaf, such as
 `teamcity-cli builds`, to see its generated help and options.
 
@@ -243,7 +250,7 @@ appear on stderr, for example `Build 101: running`. JSON output is one final val
 **Diagnosing.** `builds diagnose <id>` reads the build with its test and problem counters. It adds
 up to 10 problem occurrences and up to 20 failed test identities, never stack traces or build
 logs. Each section is one of:
-- `complete`, titled with `all` in human output, such as `Problems (all 2)`;
+- `complete`, titled `all N` in human output when it has items, such as `Problems (all 2)`;
 - `truncated`, with more available through `builds problems` or `builds tests --status failure`;
   human output says `first 20 of 25`;
 - `unavailable`, with the reason `denied`, `not-found` or `failed`.
@@ -716,13 +723,14 @@ failed outcome:
 
 JSON-RPC returns the same fields, apart from `message`, in `error.data`, and adds `result` for a
 failed outcome. Every `next` argv can be sent back to `cli.execute` unchanged. TeamCity adds these
-codes to Core's `usage`, `permission.denied`, `profile.notFound`, `profile.notConfigured`,
-`interrupted` and `error`:
+codes to Core's `usage`, `usage.jsonRpc`, `permission.denied`, `profile.notFound`,
+`profile.notConfigured`, `interrupted` and `error`:
 
 | Code | Meaning |
 |---|---|
-| `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.serverError` | TeamCity answered with that HTTP status; the response body is never read or shown |
-| `request.unknownOutcome` | The request may or may not have reached TeamCity; mutations are never repeated |
+| `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.serverError` | TeamCity answered with that HTTP status, also for a refused download; the response body is never read or shown |
+| `request.failed` | A read was lost in transit; nothing was changed, so it can be retried |
+| `request.unknownOutcome` | A write was lost in transit; it may or may not have been applied, and is never repeated |
 | `run.unknownOutcome` | The queue request's outcome is unknown; check `builds list --job <id> --state any` |
 | `build.failed`, `build.canceled`, `build.unknown`, `build.missing` | Waited build outcome, with the build as data |
 | `wait.timeout` (exit 124), `wait.interrupted` (exit 130), `wait.failed` | Observation stopped; the build continues on the server |

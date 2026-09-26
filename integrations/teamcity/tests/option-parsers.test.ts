@@ -14,9 +14,9 @@ test("TeamCity paging preserves defaults, leading zeros, signed zero and safe of
   const f = await createTestRuntime(t);
   const cli = f.createCli();
   const locators = [
-    // One extra item proves whether more exist; a single request asks for at most 1000.
+    // One extra item proves whether more exist; a request keeps at most 1000 plus that one.
     "archived:false,start:0,count:101", "archived:false,start:0,count:2",
-    "archived:false,start:9007199254740991,count:101", "archived:false,start:3,count:2", "archived:false,start:0,count:1000",
+    "archived:false,start:9007199254740991,count:101", "archived:false,start:3,count:2", "archived:false,start:0,count:1001",
   ];
   let calls = 0;
   server.use(http.get("https://teamcity.test/app/rest/projects", ({ request }) => {

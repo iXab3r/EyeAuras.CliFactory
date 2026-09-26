@@ -109,3 +109,41 @@ test("an interrupted read reports interrupted; an interrupted write keeps its un
   });
   assert.equal(requests, 2, "Neither request is repeated.");
 });
+
+test("a read lost in transit is a retryable failure, never an unknown outcome", async (t) => {
+  const runtime = await createTestRuntime(t);
+  let reads = 0;
+  runtime.runtime.fetch = async () => {
+    reads++;
+    throw new TypeError("synthetic connection reset");
+  };
+  const result = await runtime.run(runtime.createCli(), ["builds", "show", "101", "--json"]);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.stdout, "");
+  assert.deepEqual(JSON.parse(result.stderr), {
+    error: {
+      code: "request.failed",
+      message: "TeamCity could not be reached; nothing was changed, and the read can be retried.",
+      exitCode: 1,
+      profile: "default",
+    },
+  });
+  assert.equal(reads, 1);
+});
+
+test("an unconfigured profile fails with a stable code before any request", async (t) => {
+  const runtime = await createTestRuntime(t, { profiles: [{ name: "default" }], tokens: {} });
+  let requests = 0;
+  runtime.runtime.fetch = async () => {
+    requests++;
+    return HttpResponse.json({});
+  };
+  const result = await runtime.run(runtime.createCli(), ["builds", "list", "--json"]);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.stdout, "");
+  const { error } = JSON.parse(result.stderr) as { error: Record<string, unknown> };
+  assert.equal(error.code, "profile.notConfigured");
+  assert.equal(error.profile, "default");
+  assert.match(String(error.message), /^Profile 'default' is not configured/);
+  assert.equal(requests, 0);
+});

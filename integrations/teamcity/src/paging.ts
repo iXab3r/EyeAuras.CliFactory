@@ -11,7 +11,10 @@ export interface TeamCityPage<T> {
   nextStart: number | null;
 }
 
-/** Requests per selection and the time after which no new page starts. */
+/**
+ * Requests per selection, the time after which no new page starts, and items per request; each
+ * request asks for one more item than it keeps, which proves that more exist.
+ */
 export const pageBudget = { requests: 10, milliseconds: 30_000, size: 1_000 };
 
 interface Continuation {
@@ -61,7 +64,11 @@ export function continuation(nextHref: unknown): Continuation | undefined {
 /**
  * Read up to `limit` items from `start`, following TeamCity's continuation within the budget.
  * One extra item proves that more exist; a short page without a continuation proves the end;
- * an empty page with a continuation, a repeated continuation or an exhausted budget leaves it open.
+ * an unexpected continuation, one that makes no progress, or an exhausted budget leaves it open.
+ *
+ * TeamCity continues after the items it served, or, having served none because its lookup limit
+ * was reached, at the same start with a deeper `lookupLimit` (`PagerDataImpl` in JetBrains'
+ * teamcity-rest). Any other continuation is not followed.
  */
 export async function readPages<T>(
   limit: number,
@@ -71,41 +78,47 @@ export async function readPages<T>(
     nextHref: unknown;
   }>,
   now: () => number = Date.now,
+  signal?: AbortSignal,
 ): Promise<TeamCityPage<T>> {
   const began = now();
   const items: T[] = [];
+  // `--start` cannot carry a lookup limit: only a start past the first one continues anything.
   const page = (hasMore: boolean | null, nextStart: number | null): TeamCityPage<T> => ({
-    count: items.length, items, hasMore, nextStart,
+    count: items.length,
+    items,
+    hasMore,
+    nextStart: nextStart !== null && nextStart > start ? nextStart : null,
   });
   let position: Continuation = { start };
   for (let request = 1; ; request++) {
     const need = limit - items.length;
-    const count = Math.min(need + 1, pageBudget.size);
+    const count = Math.min(need, pageBudget.size) + 1;
     let response: Awaited<ReturnType<typeof read>>;
     try {
       response = await read({ ...position, count });
     } catch (error) {
-      if (request === 1) throw error;
+      // A stopped read reports the stop, not an incomplete list.
+      if (request === 1 || signal?.aborted === true) throw error;
       // Items already read are kept, and the list is never presented as complete.
       throw new CliError("Reading more results failed; the list is incomplete.", {
-        code: "list.incomplete", result: page(null, position.start), cause: error,
+        code: "list.incomplete", result: page(null, position.start),
       });
     }
     items.push(...response.items.slice(0, need));
     if (response.items.length > need) return page(true, position.start + need);
+    const reached = position.start + response.items.length;
     const next = continuation(response.nextHref);
     if (next === undefined) {
       // Without a continuation only a short page proves the end.
-      return response.items.length < count
-        ? page(false, null)
-        : page(null, position.start + response.items.length);
+      return response.items.length < count ? page(false, null) : page(null, reached);
     }
-    const advances = next.start > position.start ||
-      (next.start === position.start && (next.lookupLimit ?? 0) > (position.lookupLimit ?? 0));
+    const lookupLimit = next.lookupLimit ?? position.lookupLimit;
+    const advances = next.start === reached &&
+      (reached > position.start || (lookupLimit ?? 0) > (position.lookupLimit ?? 0));
     if (!advances || items.length >= limit || request >= pageBudget.requests ||
       now() - began >= pageBudget.milliseconds) {
-      return page(null, next.start);
+      return page(null, reached);
     }
-    position = next;
+    position = lookupLimit === undefined ? { start: reached } : { start: reached, lookupLimit };
   }
 }
