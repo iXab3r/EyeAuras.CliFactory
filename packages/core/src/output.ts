@@ -49,10 +49,11 @@ export function formatHuman(value: unknown): string {
     }
     return table(value);
   }
-  // A selection object: its items as a table, then its other fields on one line.
+  // A selection object: its items as a table, then its other present fields on one line.
   if (isRecord(value) && Array.isArray(value.items) && value.items.every(isRecord)) {
     const { items, ...details } = value;
     const summary = Object.entries(details)
+      .filter(([, entry]) => entry !== null && entry !== undefined)
       .map(([key, entry]) => `${key}: ${displayCell(entry)}`)
       .join("  ");
     return [formatHuman(items), ...(summary ? ["", summary] : [])].join("\n");

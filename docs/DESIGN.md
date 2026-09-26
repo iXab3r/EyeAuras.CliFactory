@@ -274,8 +274,8 @@ Integrations add their own dotted codes by throwing `CliError` or a subclass. Th
 plain-text error format for JSON callers.
 
 Without a view, the generic renderer prints an object whose `items` is a list of records as a
-table followed by its other fields on one line. That is the shape of a paged selection. A table
-view may add one `footer` line, for example whether more results exist.
+table followed by its other fields that have a value, on one line. That is the shape of a paged
+selection. A table view may add one `footer` line, for example whether more results exist.
 
 ### JSON-RPC is a persistent transport
 
