@@ -27,6 +27,15 @@ A CLI is a recursive command declaration. Every node has a name and description;
 contain children and leaf nodes execute handlers. The framework generates help at every node.
 Authors must not hand-write a dispatch switch or separate help pages.
 
+Help presentation comes from the same declaration. A node may name a help `group`. Siblings then
+appear under that heading, with groups and their members in declaration order. A node or the CLI
+definition may list `examples`: invocations without the CLI name, which Core prefixes and shows
+after that help. A bare group shows exactly its `--help` text, examples included. Root help lists
+service commands first. Core's local profile, auth, permission and download commands follow under
+`Configuration`. A parser error prints one error line and that command's one-line usage with a
+`--help` hint, never its complete help. A stray word after a group is an unknown command, with
+Commander's suggestion.
+
 A service option may declare `required: true` in its existing `OptionDefinition`. The parser
 rejects a missing required value before profile onboarding, keyring access or the handler, in
 ordinary CLI, programmatic and JSON-RPC execution. A declared default satisfies this requirement;
@@ -88,6 +97,24 @@ writes diagnostics to stderr.
 
 This separation is the basis for future output formats. A new format must be implemented once in
 the runner, not once per command.
+
+A leaf may declare an optional human `view` next to its handler. `tableView` lists rows, taken
+from an array result or from the view's `rows` accessor, under column headers. It can print an
+`empty` message and one `footer` line. `recordView` prints an optional title, then aligned
+`Label: value` fields, omitting empty values. Accessors only select values. Core owns the layout
+and the `age`, `duration` and `bytes` formats. There is no template language, and integrations
+never print. Without a view, the generic fallback renders the value. `--json`, JSON-RPC and
+`execute` always return the unchanged domain value.
+
+Tables fit a terminal. The width is the output TTY's columns minus one. Pipes, files and other
+non-TTY streams are never truncated. Only columns marked `shrink` lose characters, widest first,
+ending in `…`. Identifiers are never marked, so an impossible fit wraps rather than cuts an ID.
+Views use no colour: text such as `FAILURE` carries the meaning.
+
+A record may suggest `next` commands of the same CLI as argv arrays. Core prefixes the CLI name
+and appends `--profile <selected>`, so copying a suggestion never switches profile. An action
+whose tokens are not all plain safe characters (letters, digits and `._:/@+=-`) is omitted
+rather than quoted. Suggestions only print; nothing runs automatically.
 
 ### Profiles own non-secret configuration
 

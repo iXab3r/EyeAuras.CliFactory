@@ -377,6 +377,34 @@ Keep connection construction in the integration. If many operations later prove 
 service dialect, add the smallest local declaration helper around these bound leaves. Do not move
 paths, projections, paging, request bodies, response policy or service validation into Core.
 
+### Present everyday commands well
+
+Most leaves need nothing: the generic renderer prints any returned value. Give the few everyday
+commands a declared view, help group and examples in the same declaration. Core renders them;
+`--json` and JSON-RPC still return the unchanged value.
+
+```ts
+import { command, tableView } from "@eyeauras/cli-factory";
+
+const releases = tableView<Release>({
+  columns: [
+    { header: "ID", value: (release) => release.id },
+    { header: "NAME", value: (release) => release.name, shrink: true },
+    { header: "AGE", value: (release) => new Date(release.created), format: "age" },
+  ],
+  empty: "No releases found.",
+});
+
+command("releases", "Work with releases", [
+  command("list", "List releases", listReleases, { view: releases, group: "Everyday" }),
+], { examples: ["releases list --limit 20"] });
+```
+
+Mark only secondary text `shrink`, never identifiers. Use `recordView` for one object and its
+`next` suggestions, which Core prints with the CLI name and selected profile. Service date formats
+stay in the integration: convert them to `Date` in the accessor. See
+[DESIGN.md](DESIGN.md#handlers-return-domain-data) for width and formatting rules.
+
 ## Grow by useful phases
 
 Use the **Reconciliation Lead** function role when an API expansion must close a declared
