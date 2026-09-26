@@ -14,6 +14,7 @@ import {
 } from "node:fs/promises";
 import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { command } from "./command.js";
+import { tableView } from "./view.js";
 import { privateDirectory } from "./private-storage.js";
 import { consumeResponseBody } from "./response-body.js";
 
@@ -411,9 +412,19 @@ async function deleteSavedFiles(appDataDirectory: string, name?: string): Promis
 /** Local built-ins for files saved by publishProfileFile/saveProfileFile in the selected profile. */
 export const downloadCommands = command("downloads", "List or delete files saved in this profile's downloads directory", [
   command("list", "List saved files without reading them", async (_input, context) =>
-    (await savedFiles(context.appArguments.AppDataDirectory)).files),
+    (await savedFiles(context.appArguments.AppDataDirectory)).files, {
+    view: tableView<{ name: string; path: string; bytes: number; modified: string }>({
+      columns: [
+        { header: "NAME", value: (file) => file.name },
+        { header: "SIZE", value: (file) => file.bytes, format: "bytes" },
+        { header: "MODIFIED", value: (file) => new Date(file.modified), format: "age" },
+        { header: "PATH", value: (file) => file.path, shrink: true },
+      ],
+      empty: "No saved files.",
+    }),
+  }),
   command("delete <name>", "Delete one saved file", ({ args }, context) =>
     deleteSavedFiles(context.appArguments.AppDataDirectory, args.name)),
   command("clean", "Delete every saved file", (_input, context) =>
     deleteSavedFiles(context.appArguments.AppDataDirectory)),
-]);
+], { group: "Configuration" });
