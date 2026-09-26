@@ -122,7 +122,10 @@ npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
 
 The command builds Core and TeamCity first, then invokes the compiled CLI through that profile. Its
 19 proof rows cover local permission inspection, authentication, bounded collection/detail reads,
-build diagnostics, VCS root discovery and a two-request JSON-RPC session. Unpaged scoped authoring
+build diagnostics, the latest finished build of a listed job, VCS root discovery and a two-request
+JSON-RPC session. The latest lookup uses a job that the build list showed with a finished build, so
+an empty history skips it instead of failing. `builds wait`, `diagnose` and `jobs run` are proven
+offline only. Unpaged scoped authoring
 lists are not included; their behavior and all mutations are proven with MSW. It accepts no endpoint
 or token override, removes `TEAMCITY_TOKEN` regardless of casing, and uses the shared CI preflight.
 The 64 KiB per-stream bound replaces TeamCity's formerly unbounded capture; oversized responses now

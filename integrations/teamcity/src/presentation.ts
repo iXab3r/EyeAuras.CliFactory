@@ -3,8 +3,11 @@ import {
   tableView,
   type CommandDefinition,
   type HumanView,
+  type ViewField,
 } from "@eyeauras/cli-factory";
-import type { TeamCityBuild } from "./models.js";
+import type { TeamCityBuild, TeamCityBuildSummary } from "./models.js";
+import { buildOutcome } from "./outcome.js";
+import type { Diagnosis, DiagnosisSection, FollowedBuild } from "./build-flow.js";
 
 const timestamp = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})([+-]\d{2})(\d{2})$/;
 
@@ -19,7 +22,9 @@ export function teamCityDate(value: string | undefined): Date | undefined {
 
 /** A running build's intermediate status is not a result, so only finished builds show one. */
 function result(build: TeamCityBuild): string {
-  return build.state === "finished" ? build.status ?? "UNKNOWN" : "-";
+  const outcome = buildOutcome(build);
+  if (outcome === undefined) return "-";
+  return outcome === "canceled" ? "CANCELED" : build.status ?? "UNKNOWN";
 }
 
 function elapsed(build: TeamCityBuild): number | undefined {
@@ -27,6 +32,50 @@ function elapsed(build: TeamCityBuild): number | undefined {
   if (start === undefined) return undefined;
   const end = build.state === "finished" ? teamCityDate(build.finishDate)?.getTime() : Date.now();
   return end === undefined ? undefined : end - start;
+}
+
+function title(build: TeamCityBuild): string {
+  return [
+    `Build ${build.id}${build.number === undefined ? "" : ` (#${build.number})`}`,
+    build.buildTypeId,
+    build.branchName,
+  ].filter((part) => part !== undefined).join(" · ");
+}
+
+/** The summary fields of one build, taken from any result that contains it. */
+function buildFields<Value>(select: (value: Value) => TeamCityBuild): ViewField<Value>[] {
+  return [
+    {
+      label: "State",
+      value: (value) => {
+        const build = select(value);
+        return build.state === "running" && build.percentageComplete !== undefined
+          ? `running (${build.percentageComplete}%)`
+          : build.state;
+      },
+    },
+    {
+      label: "Result",
+      value: (value) => (select(value).state === "finished" ? result(select(value)) : undefined),
+    },
+    { label: "Status", value: (value) => select(value).statusText },
+    { label: "Queue position", value: (value) => select(value).queuePosition },
+    { label: "Wait reason", value: (value) => select(value).waitReason },
+    { label: "Duration", value: (value) => elapsed(select(value)), format: "duration" },
+    { label: "Agent", value: (value) => select(value).agent?.name },
+    { label: "Web", value: (value) => select(value).webUrl },
+  ];
+}
+
+/** What to run next for a build in its current state. */
+function nextFor(build: TeamCityBuild): string[][] {
+  const id = String(build.id);
+  const outcome = buildOutcome(build);
+  if (outcome === undefined) return [["builds", "wait", id]];
+  return [
+    ...(outcome === "failed" ? [["builds", "diagnose", id]] : []),
+    ["builds", "artifacts", "list", id],
+  ];
 }
 
 export const buildTable = tableView<TeamCityBuild>({
@@ -46,36 +95,86 @@ export const buildTable = tableView<TeamCityBuild>({
 });
 
 export const buildRecord = recordView<TeamCityBuild>({
-  title: (build) =>
-    [
-      `Build ${build.id}${build.number === undefined ? "" : ` (#${build.number})`}`,
-      build.buildTypeId,
-      build.branchName,
-    ].filter((part) => part !== undefined).join(" · "),
+  title,
+  fields: buildFields((build) => build),
+  next: nextFor,
+});
+
+/** `jobs run` and `builds wait`: the build, plus its outcome once it has one. */
+export const followedRecord = recordView<FollowedBuild>({
+  // "Queued" only while the new build still waits; a followed build shows its state instead.
+  title: (value) => (value.accepted && value.build.state === "queued"
+    ? `Queued: ${title(value.build)}`
+    : title(value.build)),
   fields: [
-    {
-      label: "State",
-      value: (build) =>
-        build.state === "running" && build.percentageComplete !== undefined
-          ? `running (${build.percentageComplete}%)`
-          : build.state,
-    },
-    { label: "Result", value: (build) => (build.state === "finished" ? result(build) : undefined) },
-    { label: "Status", value: (build) => build.statusText },
-    { label: "Queue position", value: (build) => build.queuePosition },
-    { label: "Wait reason", value: (build) => build.waitReason },
-    { label: "Duration", value: elapsed, format: "duration" },
-    { label: "Agent", value: (build) => build.agent?.name },
-    { label: "Web", value: (build) => build.webUrl },
+    { label: "Outcome", value: (value) => value.outcome },
+    ...buildFields<FollowedBuild>((value) => value.build),
   ],
-  next: (build) => {
-    if (build.state !== "finished") return [];
-    const id = String(build.id);
+  // A build that disappeared cannot be waited for or read again.
+  next: (value) => (value.outcome === "missing" ? [] : nextFor(value.build)),
+});
+
+const reasons = { denied: "access denied", "not-found": "not found", failed: "read failed" };
+
+function sectionTitle<T>(name: string, section: DiagnosisSection<T>, total?: number): string {
+  if (section.status === "unavailable") return name;
+  const shown = section.items.length;
+  if (section.status === "complete") return `${name} (${shown})`;
+  return `${name} (first ${shown}${total === undefined ? "; more exist" : ` of ${total}`})`;
+}
+
+function sectionLines<T>(section: DiagnosisSection<T>, line: (item: T) => string): string[] {
+  return section.status === "unavailable"
+    ? [`unavailable: ${reasons[section.reason]}`]
+    : section.items.map(line);
+}
+
+function testCounts(build: TeamCityBuildSummary): string | undefined {
+  const tests = build.testOccurrences;
+  if (tests?.count === undefined) return undefined;
+  return [
+    `${tests.count} total`,
+    `${tests.passed ?? 0} passed`,
+    `${tests.failed ?? 0} failed (${tests.newFailed ?? 0} new)`,
+    `${tests.muted ?? 0} muted`,
+    `${tests.ignored ?? 0} ignored`,
+  ].join(", ");
+}
+
+export const diagnosisRecord = recordView<Diagnosis>({
+  title: (diagnosis) => title(diagnosis.build),
+  fields: [
+    ...buildFields<Diagnosis>((diagnosis) => diagnosis.build).filter((field) =>
+      ["State", "Result", "Status", "Duration", "Web"].includes(field.label)),
+    { label: "Tests", value: (diagnosis) => testCounts(diagnosis.build) },
+    { label: "Partial", value: (diagnosis) => (diagnosis.partial ? "yes, see unavailable sections" : undefined) },
+  ],
+  sections: [
+    {
+      title: (diagnosis) =>
+        sectionTitle("Problems", diagnosis.problems, diagnosis.build.problemOccurrences?.count),
+      lines: (diagnosis) =>
+        sectionLines(diagnosis.problems, (problem) =>
+          `${problem.newFailure ? "(new) " : ""}${problem.type}: ` +
+          `${(problem.description ?? problem.details ?? problem.identity).split(/\r?\n/, 1)[0]}`),
+    },
+    {
+      title: (diagnosis) =>
+        sectionTitle("Failed tests", diagnosis.failedTests, diagnosis.build.testOccurrences?.failed),
+      lines: (diagnosis) =>
+        sectionLines(diagnosis.failedTests, (test) =>
+          `${test.name}${test.newFailure ? " (new)" : ""}${test.muted ? " (muted)" : ""}`),
+    },
+  ],
+  next: (diagnosis) => {
+    const id = String(diagnosis.build.id);
     return [
-      ...(build.status === "FAILURE"
-        ? [["builds", "problems", id], ["builds", "tests", id, "--status", "failure"]]
-        : []),
-      ["builds", "artifacts", "list", id],
+      ...(diagnosis.problems.status === "complete" && diagnosis.problems.items.length === 0
+        ? []
+        : [["builds", "problems", id]]),
+      ...(diagnosis.failedTests.status === "complete" && diagnosis.failedTests.items.length === 0
+        ? []
+        : [["builds", "tests", id, "--status", "failure"]]),
     ];
   },
 });

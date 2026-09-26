@@ -12,6 +12,7 @@ import { readResponseBody, type ScopedSecrets, type IAppArguments } from "@eyeau
 import * as files from "./file-models.js";
 import { saveDownload, type DownloadOptions } from "./downloads.js";
 import {
+  branchDimension,
   idPath,
   joinLocator,
   nestedId,
@@ -78,8 +79,10 @@ import type {
   TeamCityBuild,
   TeamCityBuildState,
   TeamCityBuildStatus,
+  TeamCityBuildSummary,
   TeamCityChange,
   TeamCityClientOptions,
+  TeamCityFailedTest,
   TeamCityJob,
   TeamCityPageOptions,
   TeamCityProblemOccurrence,
@@ -120,8 +123,13 @@ const projectFields = "id,name,parentProjectId,archived,description,webUrl";
 const jobFields = "id,name,projectId,projectName,paused,description,webUrl";
 const buildFields =
   "id,buildTypeId,number,state,status,statusText,branchName,defaultBranch,personal," +
+  "failedToStart,canceledInfo(timestamp)," +
   "queuedDate,startDate,finishDate,percentageComplete,queuePosition,waitReason,webUrl," +
   "agent(id,name)";
+const summaryFields =
+  `${buildFields},testOccurrences(count,passed,failed,newFailed,ignored,muted),` +
+  "problemOccurrences(count,newFailed)";
+const failedTestFields = "id,name,status,newFailure,muted,currentlyMuted,ignored";
 const testOccurrenceFields =
   "id,name,status,duration,ignored,newFailure,muted," +
   "currentlyMuted,currentlyInvestigated,details";
@@ -178,6 +186,7 @@ export interface ListJobsOptions extends TeamCityPageOptions {
 export interface ListBuildsOptions extends TeamCityPageOptions {
   job?: string;
   project?: string;
+  branch?: string;
   state?: TeamCityBuildState;
   status?: TeamCityBuildStatus;
 }
@@ -200,6 +209,8 @@ export interface ListAgentsOptions extends TeamCityPageOptions {
 export interface RunJobOptions {
   branch?: string;
   comment?: string;
+  /** One-off, non-secret parameters for this build only; the job configuration is unchanged. */
+  properties?: readonly PlainProperty[];
 }
 
 export interface CancelBuildOptions {
@@ -233,6 +244,20 @@ function decodeJson<T>(contents: string): T {
   } catch {
     throw new Error("TeamCity response was not valid JSON.");
   }
+}
+
+/** The queued build in a queue response, or `undefined` when it has no usable build ID. */
+function queuedBuild(contents: string): TeamCityBuild | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(contents);
+  } catch {
+    return undefined;
+  }
+  const id = (value as { id?: unknown } | null)?.id;
+  return typeof id === "number" && Number.isSafeInteger(id) && id > 0
+    ? (value as TeamCityBuild)
+    : undefined;
 }
 
 function projectPath(id: string): string {
@@ -281,6 +306,14 @@ function agentPath(id: number): string {
 }
 function buildPath(id: number, owner: "builds" | "queue" = "builds"): string {
   return `/app/rest/${owner === "queue" ? "buildQueue" : "builds"}/id:${positiveId(id, "Build ID")}`;
+}
+
+/** The request may or may not have reached TeamCity; mutations must not be repeated blindly. */
+export class TeamCityUnknownOutcomeError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "TeamCityUnknownOutcomeError";
+  }
 }
 
 export class TeamCityHttpError extends Error {
@@ -375,27 +408,33 @@ export class TeamCityClient {
     );
   }
 
-  public async getJobStatus(id: string): Promise<{
-    jobId: string;
-    latestBuild: TeamCityBuild | null;
-  }> {
+  /**
+   * The first finished, non-personal build of one job in TeamCity's order (newest start first),
+   * on one branch or on all branches. Any result counts, including failed and canceled builds.
+   */
+  public async getLatestFinishedBuild(
+    job: string,
+    branch?: string,
+  ): Promise<TeamCityBuild | undefined> {
     const response = await this.#requestJson<BuildsResponse>("GET", "/app/rest/builds", {
       locator: joinLocator(
-        nestedId("buildType", id, "TeamCity job ID"),
         "defaultFilter:false",
-        "branch:default:any",
+        nestedId("buildType", job, "TeamCity job ID"),
+        branchDimension(branch),
+        "state:finished",
+        "personal:false",
         "count:1",
       ),
       fields: `build(${buildFields})`,
     });
-    return { jobId: id, latestBuild: response.build?.[0] ?? null };
+    return response.build?.[0];
   }
 
   public async listBuilds(options: ListBuildsOptions = {}): Promise<TeamCityBuild[]> {
     const response = await this.#requestJson<BuildsResponse>("GET", "/app/rest/builds", {
       locator: joinLocator(
         "defaultFilter:false",
-        "branch:default:any",
+        branchDimension(options.branch),
         options.job ? nestedId("buildType", options.job, "TeamCity job ID") : undefined,
         options.project
           ? nestedId("affectedProject", options.project, "TeamCity project ID")
@@ -415,6 +454,32 @@ export class TeamCityClient {
       `/app/rest/builds/id:${positiveId(id, "TeamCity build ID")}`,
       { fields: buildFields },
     );
+  }
+
+  /** One build with its test and problem counters, for a bounded diagnosis. */
+  public getBuildSummary(id: number): Promise<TeamCityBuildSummary> {
+    return this.#requestJson<TeamCityBuildSummary>(
+      "GET",
+      `/app/rest/builds/id:${positiveId(id, "TeamCity build ID")}`,
+      { fields: summaryFields },
+    );
+  }
+
+  /** Failed test identities only: no stack traces or other details. */
+  public async listFailedTests(id: number, count: number): Promise<TeamCityFailedTest[]> {
+    const response = await this.#requestJson<{ testOccurrence?: TeamCityFailedTest[] }>(
+      "GET",
+      "/app/rest/testOccurrences",
+      {
+        locator: joinLocator(
+          `build:(id:${positiveId(id, "TeamCity build ID")})`,
+          "status:failure",
+          ...pageDimensions({ limit: count }),
+        ),
+        fields: `testOccurrence(${failedTestFields})`,
+      },
+    );
+    return response.testOccurrence ?? [];
   }
 
   public async listBuildTests(
@@ -512,22 +577,48 @@ export class TeamCityClient {
     );
   }
 
-  public runJob(id: string, options: RunJobOptions = {}): Promise<TeamCityBuild> {
+  /**
+   * Queue one build. A lost or unreadable response, or a 5xx from TeamCity or a proxy, may hide an
+   * accepted build, so each of them is an unknown outcome rather than a plain failure.
+   */
+  public async runJob(id: string, options: RunJobOptions = {}): Promise<TeamCityBuild> {
     const jobId = requiredText(id, "TeamCity job ID");
-    return this.#requestJson<TeamCityBuild>(
-      "POST",
-      "/app/rest/buildQueue",
-      { fields: buildFields },
-      {
-        buildType: { id: jobId },
-        ...(options.branch === undefined
-          ? {}
-          : { branchName: requiredText(options.branch, "TeamCity branch name") }),
-        ...(options.comment === undefined
-          ? {}
-          : { comment: { text: requiredText(options.comment, "Build comment") } }),
-      },
-    );
+    let contents: string;
+    try {
+      contents = await this.#request(
+        "POST",
+        "/app/rest/buildQueue",
+        { fields: buildFields },
+        {
+          buildType: { id: jobId },
+          ...(options.branch === undefined
+            ? {}
+            : { branchName: requiredText(options.branch, "TeamCity branch name") }),
+          ...(options.comment === undefined
+            ? {}
+            : { comment: { text: requiredText(options.comment, "Build comment") } }),
+          ...(options.properties === undefined || options.properties.length === 0
+            ? {}
+            : {
+                properties: {
+                  property: options.properties.map(({ name, value }) => ({ name, value })),
+                },
+              }),
+        },
+      );
+    } catch (error) {
+      if (!(error instanceof TeamCityHttpError) || error.status < 500) throw error;
+      throw new TeamCityUnknownOutcomeError(
+        `TeamCity failed with HTTP ${error.status}; the build may still have been queued.`,
+      );
+    }
+    const build = queuedBuild(contents);
+    if (build === undefined) {
+      throw new TeamCityUnknownOutcomeError(
+        "TeamCity accepted the request without a readable build; it may have been queued.",
+      );
+    }
+    return build;
   }
 
   public cancelBuild(id: number, options: CancelBuildOptions = {}): Promise<TeamCityBuild> {
@@ -3936,7 +4027,9 @@ export class TeamCityClient {
         ...(this.#signal === undefined ? {} : { signal: this.#signal }),
       });
     } catch {
-      throw new Error("TeamCity network request failed; remote outcome is unknown.");
+      throw new TeamCityUnknownOutcomeError(
+        "TeamCity network request failed; remote outcome is unknown.",
+      );
     }
     return response;
   }
@@ -3977,7 +4070,9 @@ export class TeamCityClient {
       response.status !== responseOptions.expectedStatus
     ) {
       void response.body?.cancel().catch(() => undefined);
-      throw new Error("TeamCity returned an unexpected success status; remote outcome is unknown.");
+      throw new TeamCityUnknownOutcomeError(
+        "TeamCity returned an unexpected success status; remote outcome is unknown.",
+      );
     }
     if (responseOptions.discard) {
       // Bounded drain works with intercepted/tee streams too; cancel the remainder without
@@ -3992,7 +4087,9 @@ export class TeamCityClient {
             bytes += chunk.value.byteLength;
           }
         } catch {
-          throw new Error("TeamCity response stream failed; remote outcome is unknown.");
+          throw new TeamCityUnknownOutcomeError(
+            "TeamCity response stream failed; remote outcome is unknown.",
+          );
         } finally {
           void reader.cancel().catch(() => undefined);
           reader.releaseLock();
@@ -4013,7 +4110,7 @@ export class TeamCityClient {
       });
       return Buffer.from(bytes).toString("utf8");
     } catch {
-      throw new Error(
+      throw new TeamCityUnknownOutcomeError(
         "TeamCity response stream failed; remote outcome is unknown.",
       );
     }

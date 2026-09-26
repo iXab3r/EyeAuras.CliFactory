@@ -20,7 +20,9 @@ export type {
   TargetCommandHandler,
   TargetCommands,
 } from "./target-commands.js";
-export { integerParser, jsonParser } from "./option-parsers.js";
+export { durationParser, integerParser, jsonParser } from "./option-parsers.js";
+export { CliError } from "./errors.js";
+export type { CliErrorOptions } from "./errors.js";
 export { formatHuman, writeResult } from "./output.js";
 export { recordView, tableView } from "./view.js";
 export type {
@@ -30,6 +32,7 @@ export type {
   ViewColumn,
   ViewField,
   ViewFormat,
+  ViewSection,
   ViewValue,
 } from "./view.js";
 export { Permission } from "./permissions.js";

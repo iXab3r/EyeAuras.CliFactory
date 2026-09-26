@@ -406,6 +406,22 @@ Use `recordView` for one object and its
 stay in the integration: convert them to `Date` in the accessor. See
 [DESIGN.md](DESIGN.md#handlers-return-domain-data) for width and formatting rules.
 
+### Report failed outcomes without losing data
+
+When the point of a command is an outcome, throw a `CliError` on failure instead of returning
+data that callers must inspect. Examples are waiting for a job or applying a batch.
+
+```ts
+throw new CliError("Release 42 failed.", {
+  code: "release.failed", result: { release, outcome: "failed" }, next: [["releases", "logs", "42"]],
+});
+```
+
+Core writes the `result` to stdout with the command's view and the message to stderr, and exits
+with `exitCode` (default 1). JSON-RPC returns the result in `error.data`, and `execute` rejects
+with the error. Keep messages static and safe. A plain read of a failed object is not a failure.
+Use `context.progress(message)` for occasional human-only status lines during long work.
+
 ## Grow by useful phases
 
 Use the **Reconciliation Lead** function role when an API expansion must close a declared

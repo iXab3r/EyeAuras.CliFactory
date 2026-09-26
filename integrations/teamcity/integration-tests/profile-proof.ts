@@ -135,14 +135,8 @@ export async function runProfileProof(
       objectValue(value, "Job response");
       return "response parsed";
     });
-    await executeJson("jobs status", ["jobs", "status", jobId], (value) => {
-      objectValue(value, "Job status response");
-      return "response parsed";
-    });
   } else {
-    const reason = jobItems === undefined ? "source list failed" : "source list empty";
-    skip("jobs show", reason);
-    skip("jobs status", reason);
+    skip("jobs show", jobItems === undefined ? "source list failed" : "source list empty");
   }
 
   const builds = await executeJson(
@@ -169,6 +163,28 @@ export async function runProfileProof(
     for (const method of ["builds show", "builds tests", "builds problems", "builds changes"]) {
       skip(method, reason);
     }
+  }
+  // A job known to have a finished build, so an empty history cannot fail the latest lookup.
+  const finishedJob = buildItems
+    ?.map((item) => objectValue(item, "Build"))
+    .find((item) => item.state === "finished" && typeof item.buildTypeId === "string")
+    ?.buildTypeId as string | undefined;
+  if (finishedJob) {
+    await executeJson(
+      "builds show --latest",
+      ["builds", "show", "--job", finishedJob, "--latest"],
+      (value) => {
+        if (objectValue(value, "Latest build response").state !== "finished") {
+          throw new Error("Latest build is not finished.");
+        }
+        return "response parsed";
+      },
+    );
+  } else {
+    skip(
+      "builds show --latest",
+      buildItems === undefined ? "source list failed" : "no finished build in source list",
+    );
   }
 
   await executeJson(

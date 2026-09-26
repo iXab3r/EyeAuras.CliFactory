@@ -67,9 +67,9 @@ test("help starts with everyday commands, keeps every command and shows scenario
   assert.equal(await cli.run(["builds", "--help"]), 0);
   const builds = runtime.stdout();
   assert.deepEqual(headings(builds), ["Options:", "Everyday:", "Files:", "Control:", "Evidence:", "Examples:"]);
-  assert.deepEqual(commandsUnder(builds, "Everyday:").slice(0, 2), ["list", "show"]);
+  assert.deepEqual(commandsUnder(builds, "Everyday:").slice(0, 4), ["list", "show", "wait", "diagnose"]);
   const all = ["Everyday:", "Files:", "Control:", "Evidence:"].flatMap((heading) => commandsUnder(builds, heading));
-  assert.equal(all.length, 37, "Regrouping must not drop or duplicate a builds command.");
+  assert.equal(all.length, 39, "Regrouping must not drop or duplicate a builds command.");
   assert.equal(new Set(all).size, all.length);
   assert.match(builds, /Examples:\n {2}teamcity-cli builds list --job Demo_Tests/);
 
@@ -78,7 +78,7 @@ test("help starts with everyday commands, keeps every command and shows scenario
   assert.equal(runtime.stdout(), builds, "A bare group shows the same help, examples included.");
 
   for (const [branch, everyday] of [
-    ["jobs", ["list", "show", "status", "run"]],
+    ["jobs", ["list", "show", "run"]],
     ["projects", ["list", "show"]],
     ["queue", ["list", "show", "cancel"]],
     ["agents", ["list", "show"]],
@@ -98,7 +98,7 @@ test("help starts with everyday commands, keeps every command and shows scenario
     ["Options:", "Everyday:", "Triage:", "Administration:", "Configuration:", "Commands:", "Examples:"],
   );
   assert.deepEqual(commandsUnder(root, "Everyday:"), ["builds", "jobs", "projects", "queue", "agents"]);
-  assert.match(root, /Examples:\n {2}teamcity-cli builds list --job Demo_Tests --limit 20\n/);
+  assert.match(root, /Examples:\n {2}teamcity-cli builds list --job Demo_Tests --branch main --limit 20\n/);
 });
 
 test("builds list reads at 120 and 80 columns without cutting IDs while JSON keeps every field", async (t) => {
@@ -160,14 +160,14 @@ test("builds show summarizes one build and suggests safe profile-bound next comm
       "Web:       https://teamcity.test/build/101\n" +
       "\n" +
       "Next:\n" +
-      "  teamcity-cli builds problems 101 --profile uat\n" +
-      "  teamcity-cli builds tests 101 --status failure --profile uat\n" +
+      "  teamcity-cli builds diagnose 101 --profile uat\n" +
       "  teamcity-cli builds artifacts list 101 --profile uat\n",
   );
 
   const live = await runtime.run(cli, ["builds", "show", "1234567890", "--profile", "uat"]);
   assert.match(live.stdout, /^State: {5}running \(40%\)$/m);
-  assert.doesNotMatch(live.stdout, /Result:|Next:/, "A running build has no result yet.");
+  assert.doesNotMatch(live.stdout, /Result:/, "A running build has no result yet.");
+  assert.match(live.stdout, /Next:\n {2}teamcity-cli builds wait 1234567890 --profile uat\n$/);
 
   assert.deepEqual(await runtime.json(cli, ["builds", "show", "101", "--profile", "uat"]), failed);
 });

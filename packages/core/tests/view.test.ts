@@ -102,6 +102,24 @@ test("records align present fields and print only safe follow-up commands with t
   );
 });
 
+test("record sections list whole items, say none when empty and disappear when not applicable", () => {
+  const view = recordView<{ problems?: string[]; tests: string[] }>({
+    fields: [{ label: "Kind", value: () => "summary" }],
+    sections: [
+      { title: () => "Problems", lines: (value) => value.problems },
+      { title: (value) => `Tests (${value.tests.length})`, lines: (value) => value.tests },
+    ],
+  });
+  const context = { now, cliName: "demo-cli", profile: "default" };
+  assert.equal(
+    renderView(view, { problems: [], tests: ["alpha", "a-very-long-test-name-that-cannot-fit"] }, {
+      ...context, width: 20,
+    }),
+    "Kind:  summary\n\nProblems:\n  none\n\nTests (2):\n  alpha\n  a-very-long-test-name-that-cannot-fit",
+  );
+  assert.equal(renderView(view, { tests: [] }, context), "Kind:  summary\n\nTests (0):\n  none");
+});
+
 test("one declaration renders its view for humans while JSON, execute and RPC keep domain data", async (t) => {
   const f = await createCliFixture(t, { applicationId: "view-cli" });
   const app = f.createApplication((runtime) => createCli({

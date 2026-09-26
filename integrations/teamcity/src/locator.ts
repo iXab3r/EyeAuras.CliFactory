@@ -45,6 +45,18 @@ export function idLocator(value: string, description: string): string {
   return `id:${locatorValue(value, description)}`;
 }
 
+/**
+ * All branches, or one branch name. TeamCity re-parses a branch value as a nested locator even
+ * after base64 decoding, so a non-simple name travels as an explicit value condition.
+ */
+export function branchDimension(name?: string): string {
+  if (name === undefined) return "branch:default:any";
+  const value = requiredText(name, "TeamCity branch name");
+  return simpleLocatorValuePattern.test(value)
+    ? `branch:(name:${value})`
+    : `branch:(name:(value:($base64:${Buffer.from(value).toString("base64url")})))`;
+}
+
 export function nestedId(
   dimension: string,
   value: string,

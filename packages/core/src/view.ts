@@ -29,9 +29,16 @@ export interface TableViewSpec<Row, Value> {
   empty?: string;
 }
 
+/** A titled list after a record's fields: one line per item; `undefined` omits the section. */
+export interface ViewSection<Value> {
+  title: (value: Value) => string;
+  lines: (value: Value) => readonly string[] | undefined;
+}
+
 export interface RecordViewSpec<Value> {
   title?: (value: Value) => string | undefined;
   fields: readonly ViewField<Value>[];
+  sections?: readonly ViewSection<Value>[];
   /**
    * Follow-up commands of this CLI as argv without the CLI name. Core adds the CLI name and the
    * selected profile, and omits an action containing anything other than plain safe tokens.
@@ -160,13 +167,28 @@ function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: Vi
     .filter(([, text]) => text !== "");
   const labelWidth = Math.max(0, ...fields.map(([label]) => label.length + 1));
   lines.push(...fields.map(([label, text]) => `${`${label}:`.padEnd(labelWidth)}  ${text}`));
-  const actions = (view.next?.(value) ?? [])
-    .map((argv) => [...argv, "--profile", context.profile])
-    .filter((argv) => argv.length > 2 && argv.every((token) => safeToken.test(token)));
-  if (actions.length > 0) {
-    lines.push("", "Next:", ...actions.map((argv) => `  ${[context.cliName, ...argv].join(" ")}`));
+  for (const section of view.sections ?? []) {
+    const items = section.lines(value);
+    if (items === undefined) continue;
+    // Never cut: section lines are often identifiers, such as test names.
+    lines.push("", `${section.title(value)}:`,
+      ...(items.length === 0 ? ["none"] : items).map((item) => `  ${item}`));
   }
+  const commands = nextCommands(view.next?.(value) ?? [], context.cliName, context.profile);
+  if (commands.length > 0) lines.push("", "Next:", ...commands.map((line) => `  ${line}`));
   return lines.join("\n");
+}
+
+/** Printable follow-up commands with the selected profile; an action with an unsafe token is omitted. */
+export function nextCommands(
+  actions: readonly (readonly string[])[],
+  cliName: string,
+  profile: string,
+): string[] {
+  return actions
+    .map((argv) => [...argv, "--profile", profile])
+    .filter((argv) => argv.length > 2 && argv.every((token) => safeToken.test(token)))
+    .map((argv) => [cliName, ...argv].join(" "));
 }
 
 /** The view's text, or undefined when a table's rows are not an array. */

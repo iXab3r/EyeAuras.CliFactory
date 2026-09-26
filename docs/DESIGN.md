@@ -55,6 +55,10 @@ supply static, non-secret error messages; rejected input and native error causes
 Defaults remain in the option declaration and are not passed through the parser. Independently
 callable service methods keep their own domain validation.
 
+`durationParser({ min, max, errorMessage })` returns milliseconds for up to three ordered
+segments: `<digits>h`, `<digits>m`, `<digits>s`, as in `90s`, `10m` or `1h30m`. Other spellings,
+fractions, signs and values outside the inclusive millisecond bounds reject with the static message.
+
 `jsonParser` itself preserves JSON `null`. Existing Commander handling of required-value options
 normalizes a null callback result to an empty string; this helper does not change that behavior.
 Null fields inside objects and null items inside returned arrays are unaffected.
@@ -106,6 +110,8 @@ omitting empty values. Accessors return values; they never print. Core owns the 
 `age`, `duration` and `bytes` formats. There is no template language. Without a view, or when a
 table's rows are not an array, the generic fallback renders the value, so a shape mismatch never
 reads as "no results". `--json`, JSON-RPC and `execute` always return the unchanged domain value.
+A record may also have titled `sections`, one line per item. An empty section says `none`; an
+accessor that returns `undefined` omits it. Section lines are never cut: a long one wraps.
 
 Tables fit a terminal. The width is the output TTY's columns minus one. Pipes, files and other
 non-TTY streams are never truncated. Only columns marked `shrink` lose characters, widest first,
@@ -118,6 +124,47 @@ A record may suggest `next` commands of the same CLI as argv arrays. Core prefix
 and appends `--profile <selected>`, so copying a suggestion never switches profile. An action
 whose tokens are not all plain safe characters (letters, digits and `._:/@+=-`) is omitted
 rather than quoted. Suggestions only print; nothing runs automatically.
+
+`context.progress(message)` writes one plain line to stderr, only when a person runs the command
+without `--json`. JSON, JSON-RPC and `execute` callers never receive progress. There is no cursor
+control, so redirected stderr stays readable, and progress is never part of the result.
+
+### Failures keep their domain result
+
+A handler reports a failed domain outcome, such as a finished build with `FAILURE`, by throwing
+Core's `CliError` with the `result` it would otherwise have returned. The error has these fields:
+- `code`: a stable, dotted machine reason;
+- `message`: safe text without response bodies or credentials;
+- `exitCode`: 1 unless another documented status is given;
+- optional `result`;
+- optional `next`: argv suggestions of the same CLI, without the CLI name or `--profile`.
+
+Core records the selected `profile`. Each caller receives the same failure in its own form:
+- **Ordinary CLI:** the result goes to stdout exactly as success would render it (view or
+  `--json`), the message goes to stderr, and the process exits with `exitCode`. In human mode,
+  `next` is printed on stderr, with the CLI name and profile, only when there is no result; a
+  result's view shows its own suggestions.
+- **JSON-RPC:** the response is the error `{ code: -32000, message, data: { code, exitCode,
+  profile, next?, result? } }`. Each `next` argv already ends with `--profile <selected>` and can be
+  sent back to `cli.execute`.
+- **`execute`:** the returned promise rejects with the `CliError`, `result` included.
+
+A result is never printed as success next to a contradicting error, and it is never discarded.
+Reading a failed build with `show` is still a successful read. Only commands whose contract is the
+outcome itself throw, such as waiting for a build. Exit codes are:
+- 0 — success;
+- 1 — errors and failed outcomes;
+- 2 — misuse of the `--json-rpc` transport;
+- 124 — a deadline expired;
+- 130 — an interrupt stopped the command.
+
+An interrupt is an abort of the caller's own signal, such as the first Ctrl+C of a packaged
+executable. Any failure after it exits 130 on every transport, even one before the handler runs.
+A `CliError` keeps its code, message, `next` and `result`. Any other error becomes `interrupted`
+with the message `Interrupted.`, except a download error, which keeps its static message about
+the saved data. Core does not map closing the application to 130.
+
+Other errors keep their plain message until the CLI-wide machine error envelope replaces it.
 
 ### Profiles own non-secret configuration
 

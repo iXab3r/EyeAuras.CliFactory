@@ -10,6 +10,7 @@ const token = "fixture-token";
 
 const buildFields =
   "id,buildTypeId,number,state,status,statusText,branchName,defaultBranch,personal," +
+  "failedToStart,canceledInfo(timestamp)," +
   "queuedDate,startDate,finishDate,percentageComplete,queuePosition,waitReason,webUrl," +
   "agent(id,name)";
 
@@ -196,43 +197,39 @@ test("gets one job with its documented minimal fields", async () => {
   assert.equal((await client().getJob("Example_Build")).description, "Builds the fixture");
 });
 
-test("jobs status requests the real latest build without TeamCity default filtering", async () => {
+test("latest finished build is one server-ordered read within a job and optional branch", async () => {
+  const latest = {
+    id: 42,
+    buildTypeId: "Example_Build",
+    number: "42",
+    state: "finished",
+    status: "FAILURE",
+    branchName: "feature/fix",
+    defaultBranch: false,
+  };
+  const locators: string[] = [];
   server.use(
     http.get(`${baseUrl}/app/rest/builds`, ({ request }) => {
       const url = assertReadRequest(request);
-      assert.equal(
-        url.searchParams.get("locator"),
-        "buildType:(id:Example_Build),defaultFilter:false,branch:default:any,count:1",
-      );
+      locators.push(url.searchParams.get("locator") ?? "");
       assert.equal(url.searchParams.get("fields"), `build(${buildFields})`);
-      return HttpResponse.json({
-        build: [
-          {
-            id: 42,
-            buildTypeId: "Example_Build",
-            number: "42",
-            state: "finished",
-            status: "FAILURE",
-            branchName: "feature/fix",
-            defaultBranch: false,
-          },
-        ],
-      });
+      return HttpResponse.json(locators.length < 3 ? { build: [latest] } : {});
     }),
   );
 
-  assert.deepEqual(await client().getJobStatus("Example_Build"), {
-    jobId: "Example_Build",
-    latestBuild: {
-      id: 42,
-      buildTypeId: "Example_Build",
-      number: "42",
-      state: "finished",
-      status: "FAILURE",
-      branchName: "feature/fix",
-      defaultBranch: false,
-    },
-  });
+  assert.deepEqual(await client().getLatestFinishedBuild("Example_Build"), latest);
+  assert.deepEqual(await client().getLatestFinishedBuild("Example_Build", "main"), latest);
+  assert.equal(await client().getLatestFinishedBuild("Example_Build", "feature/fix,v2"), undefined);
+  assert.deepEqual(locators, [
+    "defaultFilter:false,buildType:(id:Example_Build),branch:default:any,state:finished," +
+      "personal:false,count:1",
+    "defaultFilter:false,buildType:(id:Example_Build),branch:(name:main),state:finished," +
+      "personal:false,count:1",
+    // TeamCity re-parses a branch value as a locator, so other names are explicit conditions.
+    "defaultFilter:false,buildType:(id:Example_Build)," +
+      `branch:(name:(value:($base64:${Buffer.from("feature/fix,v2").toString("base64url")}))),` +
+      "state:finished,personal:false,count:1",
+  ]);
 });
 
 test("reports HTTP and malformed-JSON failures without exposing credentials", async () => {

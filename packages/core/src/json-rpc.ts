@@ -1,6 +1,7 @@
 import { once } from "node:events";
 import { requestLines } from "./lines.js";
 import { validateArgv } from "./argv.js";
+import { CliError } from "./errors.js";
 import type { Readable, Writable } from "node:stream";
 
 interface JsonRpcRequest {
@@ -64,16 +65,31 @@ function errorResponse(
   code: number,
   message: string,
   signal?: AbortSignal,
+  data?: Record<string, unknown>,
 ): Promise<void> {
   return response(
     output,
     {
       jsonrpc: "2.0",
       id: id ?? null,
-      error: { code, message },
+      error: { code, message, ...(data === undefined ? {} : { data }) },
     },
     signal,
   );
+}
+
+/** Machine form of a CliError: follow-up argv are ready for cli.execute in the same profile. */
+function cliErrorData(error: CliError): Record<string, unknown> {
+  const profile = error.profile;
+  return {
+    code: error.code,
+    exitCode: error.exitCode,
+    ...(profile === undefined ? {} : { profile }),
+    ...(error.next.length === 0
+      ? {}
+      : { next: error.next.map((argv) => (profile === undefined ? [...argv] : [...argv, "--profile", profile])) }),
+    ...(error.result === undefined ? {} : { result: error.result }),
+  };
 }
 
 export async function runJsonRpc(options: {
@@ -156,6 +172,7 @@ export async function runJsonRpc(options: {
           -32000,
           error instanceof Error ? error.message : String(error),
           options.signal,
+          error instanceof CliError ? cliErrorData(error) : undefined,
         );
       continue;
     }

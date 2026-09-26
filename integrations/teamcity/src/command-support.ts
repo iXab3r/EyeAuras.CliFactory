@@ -1,4 +1,5 @@
 import {
+  integerParser,
   jsonParser,
   targetCommands,
   type CommandContext,
@@ -9,6 +10,10 @@ import type { TeamCityClient } from "./client.js";
 import type { PlainProperty } from "./authoring-models.js";
 import { requiredText } from "./locator.js";
 
+export const positiveInteger = integerParser({
+  min: 1, max: Number.MAX_SAFE_INTEGER, signed: true,
+  errorMessage: "Expected a positive integer within the safe integer range.",
+});
 export function text(values: Record<string, unknown>, key: string): string {
   if (typeof values[key] !== "string") throw new Error(`Missing ${key}.`);
   return values[key];
@@ -43,20 +48,26 @@ export function jsonOption(flags: string, description: string, repeat = false): 
     },
   };
 }
-function collectProperty(value: string, previous: unknown): PlainProperty[] {
-  const separator = value.indexOf("=");
-  if (separator < 1) throw new Error("--property requires a non-empty key=value pair.");
-  const name = requiredText(value.slice(0, separator), "Property key");
-  const properties = Array.isArray(previous) ? (previous as PlainProperty[]) : [];
-  if (properties.some((p) => p.name === name))
-    throw new Error("Duplicate property keys are not allowed.");
-  return [...properties, { name, value: value.slice(separator + 1) }];
+/** A repeatable non-secret `key=value` option; values are never echoed in errors. */
+export function pairOption(flag: string, description: string): OptionDefinition {
+  return {
+    flags: `${flag} <key=value>`,
+    description,
+    parse(value, previous) {
+      const separator = value.indexOf("=");
+      if (separator < 1) throw new Error(`${flag} requires a non-empty key=value pair.`);
+      const name = requiredText(value.slice(0, separator), "Property key");
+      const properties = Array.isArray(previous) ? (previous as PlainProperty[]) : [];
+      if (properties.some((p) => p.name === name))
+        throw new Error("Duplicate property keys are not allowed.");
+      return [...properties, { name, value: value.slice(separator + 1) }];
+    },
+  };
 }
-export const propertyOption: OptionDefinition = {
-  flags: "--property <key=value>",
-  description: "Repeat for each non-secret property; never credentials",
-  parse: collectProperty,
-};
+export const propertyOption = pairOption(
+  "--property",
+  "Repeat for each non-secret property; never credentials",
+);
 
 export type ClientLeaf = TargetCommand<TeamCityClient>;
 

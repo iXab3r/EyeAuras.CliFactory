@@ -15,7 +15,9 @@ import { CommandGate } from "./command-gate.js";
 import { validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
-import type { HumanView } from "./view.js";
+import { nextCommands, type HumanView } from "./view.js";
+import { CliError } from "./errors.js";
+import { ProfileFileError } from "./profile-file.js";
 import type {
   CliApplication,
   CliInvocation,
@@ -34,6 +36,8 @@ import type {
 interface ExecutionOptions {
   render: boolean;
   signal: AbortSignal;
+  /** The caller's own signal: its abort is an interrupt, unlike closing the application. */
+  interrupt?: AbortSignal;
   io: CliIo;
   cwd: string;
   environment: Readonly<NodeJS.ProcessEnv>;
@@ -58,6 +62,31 @@ function declaredOption(specification: OptionDefinition): Option {
     option.default(specification.defaultValue);
   if (specification.parse) option.argParser(specification.parse);
   return option;
+}
+
+/** A failure already written to the invocation's streams; `run` only returns its exit code. */
+class ReportedFailure extends Error {
+  public constructor(public readonly exitCode: number) {
+    super("The command failure was already reported.");
+  }
+}
+
+/**
+ * After an interrupt every failure exits 130; a typed one keeps its code, message and data. A
+ * download error keeps its static message: it says whether private data was left behind.
+ */
+function afterInterrupt(error: unknown, interrupt: AbortSignal | undefined): unknown {
+  if (interrupt?.aborted !== true || (error instanceof CliError && error.exitCode === 130)) {
+    return error;
+  }
+  if (!(error instanceof CliError)) {
+    const message = error instanceof ProfileFileError ? error.message : "Interrupted.";
+    return new CliError(message, { code: "interrupted", exitCode: 130 });
+  }
+  return new CliError(error.message, {
+    code: error.code, exitCode: 130, next: error.next,
+    ...(error.result === undefined ? {} : { result: error.result }),
+  });
 }
 
 /** Parser errors show one usage line instead of a command's complete help. */
@@ -177,6 +206,7 @@ export function createCli(definition: CliDefinition): CliApplication {
   const contextFor = (
     profile: Profile,
     execution: ExecutionOptions,
+    human = false,
   ): CommandContext => ({
     appArguments: appArguments.WithProfile(profile.name),
     profile,
@@ -186,6 +216,8 @@ export function createCli(definition: CliDefinition): CliApplication {
     io: execution.io,
     cwd: execution.cwd,
     environment: execution.environment,
+    // Plain lines only: JSON, JSON-RPC and execute callers never see progress.
+    progress: human ? (message) => void execution.io.error.write(`${message}\n`) : () => undefined,
   });
   const execute = async (
     argv: readonly string[],
@@ -312,16 +344,30 @@ export function createCli(definition: CliDefinition): CliApplication {
         }
         if (requiresConfiguredProfile)
           profile = await ensureConfigured(profile, globals, ownsExclusive);
-        const context = contextFor(profile, execution);
+        const human = execution.render && globals.json !== true;
+        const context = contextFor(profile, execution, human);
         context.signal.throwIfAborted();
-        result = await handler(commandInput, context);
+        const presentation = view && { view, cliName: definition.name, profile: profile.name };
+        try {
+          result = await handler(commandInput, context);
+        } catch (caught) {
+          const failure = afterInterrupt(caught, execution.interrupt);
+          if (!(failure instanceof CliError)) throw failure;
+          failure.profile = profile.name;
+          if (!execution.render) throw failure;
+          // A failed outcome still shows its data; stderr and the exit code say that it failed.
+          if (failure.result !== undefined) {
+            writeResult(output, failure.result, globals.json === true, presentation);
+          }
+          // A rendered result carries its own suggestions; stderr adds them only without one.
+          const next = human && failure.result === undefined
+            ? nextCommands(failure.next, definition.name, profile.name)
+            : [];
+          error.write(`${failure.message}\n${next.length ? `Next:\n${next.map((line) => `  ${line}\n`).join("")}` : ""}`);
+          throw new ReportedFailure(failure.exitCode);
+        }
         if (execution.render) {
-          writeResult(
-            output,
-            result,
-            globals.json === true,
-            view && { view, cliName: definition.name, profile: profile.name },
-          );
+          writeResult(output, result, globals.json === true, presentation);
         }
       };
       try {
@@ -477,6 +523,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     signal: invocation.signal
       ? AbortSignal.any([lifetime.signal, invocation.signal])
       : lifetime.signal,
+    ...(invocation.signal ? { interrupt: invocation.signal } : {}),
     cwd: invocation.cwd ?? process.cwd(),
     environment: Object.freeze({ ...(invocation.environment ?? process.env) }),
   });
@@ -497,6 +544,9 @@ export function createCli(definition: CliDefinition): CliApplication {
                   ...execution,
                   render: false,
                   signal: execution.signal,
+                }).catch((error: unknown) => {
+                  // Also before the handler runs: while queued or checking the profile.
+                  throw afterInterrupt(error, invocation.signal);
                 }),
             });
             return 0;
@@ -504,16 +554,21 @@ export function createCli(definition: CliDefinition): CliApplication {
           await execute(argv, execution);
           return 0;
         });
-      } catch (error) {
+      } catch (caught) {
+        if (caught instanceof ReportedFailure) return caught.exitCode;
+        const error = afterInterrupt(caught, invocation.signal);
         execution.io.error.write(
           `${error instanceof Error ? error.message : String(error)}\n`,
         );
-        return error === rpcModeError ? 2 : 1;
+        if (error === rpcModeError) return 2;
+        return error instanceof CliError ? error.exitCode : 1;
       }
     },
     execute(argv, signal): Promise<unknown> {
       const execution = executionFor(false, signal ? { signal } : {});
-      return track(() => execute(argv, execution));
+      return track(() => execute(argv, execution)).catch((error: unknown) => {
+        throw afterInterrupt(error, signal);
+      });
     },
     dispose(): Promise<void> {
       if (!disposal) {
