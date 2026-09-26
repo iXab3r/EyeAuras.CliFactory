@@ -243,8 +243,9 @@ appear on stderr, for example `Build 101: running`. JSON output is one final val
 **Diagnosing.** `builds diagnose <id>` reads the build with its test and problem counters. It adds
 up to 10 problem occurrences and up to 20 failed test identities, never stack traces or build
 logs. Each section is one of:
-- `complete`;
+- `complete`, titled with `all` in human output, such as `Problems (all 2)`;
 - `truncated`, with more available through `builds problems` or `builds tests --status failure`;
+  human output says `first 20 of 25`;
 - `unavailable`, with the reason `denied`, `not-found` or `failed`.
 
 An unavailable section sets `partial: true` and exits 1 with the data: missing information is

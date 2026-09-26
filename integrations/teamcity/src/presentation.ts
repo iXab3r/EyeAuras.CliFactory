@@ -134,7 +134,8 @@ const reasons = { denied: "access denied", "not-found": "not found", failed: "re
 function sectionTitle<T>(name: string, section: DiagnosisSection<T>, total?: number): string {
   if (section.status === "unavailable") return name;
   const shown = section.items.length;
-  if (section.status === "complete") return `${name} (${shown})`;
+  // "all" says outright that nothing was left out, not only that no cap was hit.
+  if (section.status === "complete") return `${name} (${shown > 0 ? "all " : ""}${shown})`;
   return `${name} (first ${shown}${total === undefined ? "; more exist" : ` of ${total}`})`;
 }
 

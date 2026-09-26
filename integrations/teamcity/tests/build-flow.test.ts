@@ -448,7 +448,7 @@ test("diagnose is bounded, marks truncation and never turns missing data into no
   const human = await runtime.run(cli, ["builds", "diagnose", "101"]);
   assert.equal(human.exitCode, 0, human.stderr);
   assert.match(human.stdout, /^Tests: +65 total, 40 passed, 25 failed \(3 new\), 1 muted, 0 ignored$/m);
-  assert.match(human.stdout, /Problems \(1\):\n {2}\(new\) TC_EXIT_CODE: Process exited with code 1\n/);
+  assert.match(human.stdout, /Problems \(all 1\):\n {2}\(new\) TC_EXIT_CODE: Process exited with code 1\n/);
   assert.match(human.stdout, /Failed tests \(first 20 of 25\):\n {2}Synthetic\.Test0 \(new\)\n/);
 
   problemsStatus = 403;
