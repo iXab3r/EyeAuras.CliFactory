@@ -79,8 +79,33 @@ Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.C
 | `builds statistics list/show`, `builds status/finish-date/canceled-info`, `builds fields show` | Inspect selected build evidence | `ReadOnly` |
 | `changes show/parents` | Inspect change metadata and direct parents, not source files | `ReadOnly` |
 
-Top-level collection commands accept `--limit <count>` as a positive safe integer and `--start <offset>` starting at
-zero. They return one plain array page and never auto-page. Run a branch without a leaf, such as
+Every collection command with `--limit <count>` and `--start <offset>` returns a page, whether
+`builds list`, `projects list`, `queue list`, `audit list` or one of the other 22. The page's shape:
+
+```json
+{ "count": 2, "items": [ ... ], "hasMore": true, "nextStart": 2 }
+```
+
+**How a page is filled.** `--limit` is the most items to return, not the size of one request.
+- The CLI asks for one extra item: if it arrives, `hasMore` is `true`.
+- It follows TeamCity's continuation, including the `lookupLimit` expansions that TeamCity adds
+  after scanning 5000 entities. It reads only the numbers in `nextHref`, never the link itself.
+- It stops after 10 requests, after 30 seconds, or on a continuation that does not advance.
+- A single request asks for at most 1000 items.
+
+**What the fields mean.**
+- `hasMore: false` only when TeamCity confirmed the end.
+- `hasMore: null` means not established: the budget ran out, the continuation looped, or a full
+  page came without a continuation.
+- `nextStart` is the `--start` value that continues the selection when it is known. Offsets can
+  shift while new builds arrive, so this is not a snapshot.
+
+**When a later request fails.** The command exits 1 with the `list.incomplete` code. The items
+already read are still printed, with `hasMore: null`.
+
+Human output shows the items as a table. `builds list` adds a line such as
+`Shown: 20. More results: yes; continue with --start 20.` `queue delete-page` is a mutation and
+still deletes exactly one requested page. Run a branch without a leaf, such as
 `teamcity-cli builds`, to see its generated help and options.
 
 Paging defaults remain `--limit 100 --start 0`. These options accept decimal digits with an optional
@@ -343,8 +368,9 @@ reject nonnumeric payloads without echoing them. Generic build fields permit onl
 `state`, `branchName`; status/finish-date/number use named commands. Absent agent pool and cancellation
 comment normalize JSON null/empty responses to null. Other JSON endpoints decode strictly.
 
-Pool list and pool-agent list are bounded pages. Pool projects, agent compatibility, queue-compatible
-agents, tags, statistics and direct parent changes are native scoped lists, not auto-paged streams.
+Pool list and pool-agent list are pages, like every other `--limit`/`--start` collection. Pool
+projects, agent compatibility, queue-compatible agents, tags, statistics and direct parent changes
+are native scoped lists, not pages.
 Unrequested nested server/user/credential fields are excluded. Metadata itself may still be private:
 do not publish real output or use it as a fixture without sanitization. There is no schema-free
 JSON/HTTP escape hatch or unbounded global queue clearing. Later sections describe the explicit
@@ -368,12 +394,20 @@ All these writes require Update and are mock-tested, not exercised against a liv
 
 ## Build triage and evidence
 
-`builds batch` requires repeated `--build <id>` (distinct IDs). Status/show are reads;
-cancel/delete/comment/pin/tags are Update operations. Bulk write results expose error counts and
-partial failures, never unconditional success or raw server diagnostics. `finish`/`finish-at`
-return accepted timestamps, not proof of completion; `start-agentless` starts queued work without
-an agent. Log append rejects service-message controls. VCS labels mutate an external VCS and require
-one `--root-instance`; inspect individual returned statuses.
+`builds batch` requires repeated `--build <id>` (distinct IDs). Status and show are reads;
+cancel, delete, comment, pin and tags are Update operations.
+
+A batch write returns `{ count, errorCount, items: [{ buildId, succeeded }] }`. TeamCity marks only
+the failed items; its per-item message is never shown. Counts that disagree with the items mean
+success is unknown, and the command fails. When any item fails, the command exits 1 with the
+`batch.partial` code, and the complete per-item result is still printed. Two other writes can
+succeed partly:
+- `builds set-status` with reported errors exits 1 with `build.statusPartial`;
+- `builds vcs-labels add` with a `FAILED` label exits 1 with `labels.partial`.
+
+`finish`/`finish-at` return accepted timestamps, not proof of completion. `start-agentless` starts
+queued work without an agent. Log append rejects service-message controls. VCS labels mutate an
+external VCS and require one `--root-instance`.
 
 Investigations use a strict typed item, for example:
 
@@ -666,6 +700,27 @@ object per line:
 {"jsonrpc":"2.0","id":1,"method":"cli.execute","params":{"argv":["server","status","--profile","uat"]}}
 {"jsonrpc":"2.0","id":2,"method":"cli.execute","params":{"argv":["jobs","list","--profile","production"]}}
 ```
+
+With `--json`, a failure writes one line to stderr and nothing to stdout, except the result of a
+failed outcome:
+
+```json
+{"error":{"code":"permission.denied","message":"Permission 'Update' is disabled for profile 'uat'.","exitCode":1,"profile":"uat","next":[["permissions","grant","Update","--profile","uat"]]}}
+```
+
+JSON-RPC returns the same fields, apart from `message`, in `error.data`, and adds `result` for a
+failed outcome. Every `next` argv can be sent back to `cli.execute` unchanged. TeamCity adds these
+codes to Core's `usage`, `permission.denied`, `profile.notFound`, `profile.notConfigured` and
+`error`:
+
+| Code | Meaning |
+|---|---|
+| `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.serverError` | TeamCity answered with that HTTP status; the response body is never read or shown |
+| `request.unknownOutcome` | The request may or may not have reached TeamCity; mutations are never repeated |
+| `run.unknownOutcome` | The queue request was lost; check `builds list --job <id> --state queued` |
+| `build.failed`, `build.canceled`, `build.unknown`, `build.missing` | Waited build outcome, with the build as data |
+| `wait.timeout` (exit 124), `wait.interrupted` (exit 130), `wait.failed` | Observation stopped; the build continues on the server |
+| `diagnose.partial`, `list.incomplete`, `batch.partial`, `build.statusPartial`, `labels.partial` | Partial data or a partial write, printed in full and exiting 1 |
 
 ## Tests and local integration proof
 

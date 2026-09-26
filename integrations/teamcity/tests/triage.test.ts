@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { CliError } from "@eyeauras/cli-factory";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { TeamCityClient } from "../src/client.js";
@@ -104,36 +105,40 @@ test("S6 validates bounded identities, controls, typed bodies and timestamps bef
 });
 
 test("S6 partial and malformed bulk/status results never become unconditional success", async (testContext) => {
-  const { cli } = await writable(testContext);
-  for (const result of [
-    { count: 2, errorCount: 0, operationResult: [] },
-    {
-      count: 2,
-      errorCount: 2,
-      operationResult: [
-        {
-          message: "synthetic-private",
-          related: { build: { id: 42, token: "synthetic-private" } },
-        },
-      ],
-    },
-  ]) {
-    server.use(http.delete(base + "/builds/multiple/*", () => HttpResponse.json(result)));
-    assert.deepEqual(
-      await cli.execute(["builds", "batch", "delete", "--build", "42", "--build", "43"]),
-      {
-        count: 2,
-        errorCount: result.errorCount,
-        partialFailure: result.errorCount > 0,
-        buildIds: result.operationResult.length ? [42] : [],
-      },
-    );
-  }
+  const { cli, runtime } = await writable(testContext);
+  // TeamCity marks only the failed item with a message; the message itself is never shown.
+  server.use(http.delete(base + "/builds/multiple/*", () => HttpResponse.json({
+    count: 2,
+    errorCount: 1,
+    operationResult: [
+      { related: { build: { id: 42 } } },
+      { message: "synthetic-private", related: { build: { id: 43, token: "synthetic-private" } } },
+    ],
+  })));
+  const partial = {
+    count: 2,
+    errorCount: 1,
+    items: [{ buildId: 42, succeeded: true }, { buildId: 43, succeeded: false }],
+  };
+  await assert.rejects(
+    cli.execute(["builds", "batch", "delete", "--build", "42", "--build", "43"]),
+    (error: unknown) =>
+      error instanceof CliError && error.code === "batch.partial" &&
+      assert.deepEqual(error.result, partial) === undefined,
+  );
+  const shown = await runtime.run(cli, ["builds", "batch", "delete", "--build", "42", "--build", "43", "--json"]);
+  assert.equal(shown.exitCode, 1, "A partly failed batch exits non-zero.");
+  assert.deepEqual(JSON.parse(shown.stdout), partial);
+  assert.equal(JSON.parse(shown.stderr).error.code, "batch.partial");
+  assert.doesNotMatch(shown.stdout + shown.stderr, /synthetic-private/);
+
   for (const result of [
     {},
     { count: 1 },
     { count: 1, errorCount: 2 },
     { count: 1, errorCount: "0" },
+    { count: 2, errorCount: 0, operationResult: [] },
+    { count: 1, errorCount: 0, operationResult: [{ message: "hidden failure", related: { build: { id: 42 } } }] },
   ]) {
     server.use(http.delete(base + "/builds/multiple/*", () => HttpResponse.json(result)));
     await assert.rejects(
@@ -146,6 +151,14 @@ test("S6 partial and malformed bulk/status results never become unconditional su
     cli.execute(["builds", "set-status", "42", "SUCCESS", "--comment", "Synthetic"]),
     /success is unknown/,
   );
+  server.use(http.post(base + "/builds/id:42/status", () =>
+    HttpResponse.json({ build: { id: 42 }, errors: { item: ["synthetic-private"] } })));
+  const status = await runtime.run(
+    cli, ["builds", "set-status", "42", "SUCCESS", "--comment", "Synthetic", "--json"],
+  );
+  assert.equal(status.exitCode, 1);
+  assert.deepEqual(JSON.parse(status.stdout), { build: { id: 42 }, errorCount: 1, partialFailure: true });
+  assert.equal(JSON.parse(status.stderr).error.code, "build.statusPartial");
 });
 
 test("S6 typed investigation replacement uses one exact target and no hidden reads or retries", async (testContext) => {
@@ -329,7 +342,9 @@ test("S6 persistent RPC keeps profile auth/gates and generated help isolated", a
     http.delete("https://uat.test/app/rest/builds/multiple/*", ({ request }) => {
       assert.equal(request.headers.get("Authorization"), "Bearer fixture-uat-token");
       calls.push("uat");
-      return HttpResponse.json({ count: 1, errorCount: 0 });
+      return HttpResponse.json({
+        count: 1, errorCount: 0, operationResult: [{ related: { build: { id: 42 } } }],
+      });
     }),
     http.get(base + "/tests/*", ({ request }) => {
       assert.equal(request.headers.get("Authorization"), "Bearer fixture-token");

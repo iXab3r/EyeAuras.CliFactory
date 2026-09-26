@@ -56,12 +56,13 @@ test("builds list filters one branch with a locator TeamCity cannot re-parse", a
   }));
   const runtime = await createTestRuntime(t);
   const cli = runtime.createCli();
-  assert.deepEqual(await cli.execute(["builds", "list", "--job", "Demo_Tests", "--branch", "main"]), []);
-  assert.deepEqual(await cli.execute(["builds", "list", "--branch", "release/1.0,hotfix"]), []);
+  const empty = { count: 0, items: [], hasMore: false, nextStart: null };
+  assert.deepEqual(await cli.execute(["builds", "list", "--job", "Demo_Tests", "--branch", "main"]), empty);
+  assert.deepEqual(await cli.execute(["builds", "list", "--branch", "release/1.0,hotfix"]), empty);
   assert.deepEqual(locators, [
-    "defaultFilter:false,branch:(name:main),buildType:(id:Demo_Tests),start:0,count:100",
+    "defaultFilter:false,branch:(name:main),buildType:(id:Demo_Tests),start:0,count:101",
     "defaultFilter:false,branch:(name:(value:($base64:" +
-      `${Buffer.from("release/1.0,hotfix").toString("base64url")}))),start:0,count:100`,
+      `${Buffer.from("release/1.0,hotfix").toString("base64url")}))),start:0,count:101`,
   ]);
 });
 
@@ -214,7 +215,9 @@ test("failed, canceled and unknown results exit 1 with the final build as data",
     const result = await runtime.run(cli, ["jobs", "run", "Demo_Tests", "--wait", "--json"]);
     assert.equal(result.exitCode, 1, outcome);
     assert.deepEqual(JSON.parse(result.stdout), { accepted: true, build, outcome });
-    assert.equal(result.stderr, `${message}\n`);
+    assert.deepEqual(JSON.parse(result.stderr), {
+      error: { code: `build.${outcome}`, message, exitCode: 1, profile: "default" },
+    });
     assert.deepEqual(seen, { posts: 1, reads: 1, other: 0 });
 
     const waited = await runtime.run(cli, ["builds", "wait", "201", "--json"]);
@@ -439,7 +442,7 @@ test("diagnose is bounded, marks truncation and never turns missing data into no
   assert.deepEqual(complete.failedTests.items[0], { id: "test-0", name: "Synthetic.Test0", newFailure: true });
   assert.ok(queries.includes("build:(id:101),start:0,count:11"));
   assert.ok(queries.includes("build:(id:101),status:failure,start:0,count:21"));
-  assert.ok(queries.includes("testOccurrence(id,name,status,newFailure,muted,currentlyMuted,ignored)"),
+  assert.ok(queries.includes("nextHref,testOccurrence(id,name,status,newFailure,muted,currentlyMuted,ignored)"),
     "Failed tests are read without stack traces.");
 
   const human = await runtime.run(cli, ["builds", "diagnose", "101"]);

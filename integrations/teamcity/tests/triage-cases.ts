@@ -1,4 +1,4 @@
-import type { AuthoringCase } from "./authoring-cases.js";
+import { onePage, type AuthoringCase } from "./authoring-cases.js";
 
 // Independent synthetic wire contracts from the official REST reference.
 const B = "id,buildTypeId,number,state,status";
@@ -9,13 +9,17 @@ const I =
   "id,state,assignee(id),assignment(text,timestamp),scope(project(id),buildTypes(buildType(id))),target(anyProblem,tests(test(id)),problems(problem(id))),resolution(type,time)";
 const M =
   "id,assignment(text,timestamp),scope(project(id),buildTypes(buildType(id))),target(anyProblem,tests(test(id)),problems(problem(id))),resolution(type,time)";
-const multiFields = "count,errorCount,operationResult(related(build(id)))";
+const multiFields = "count,errorCount,operationResult(text,related(build(id)))";
 const multi = {
   count: 2,
-  errorCount: 1,
+  errorCount: 0,
   operationResult: [{ related: { build: { id: 42 } } }, { related: { build: { id: 43 } } }],
 };
-const multiResult = { count: 2, errorCount: 1, partialFailure: true, buildIds: [42, 43] };
+const multiResult = {
+  count: 2,
+  errorCount: 0,
+  items: [{ buildId: 42, succeeded: true }, { buildId: 43, succeeded: true }],
+};
 const build = { id: 42, buildTypeId: "Build", number: "42", state: "running", status: "SUCCESS" };
 const change = { id: 7, version: "abc", date: "20260830T100000+0000", comment: "Synthetic" };
 const problem = { id: "12", type: "execution", identity: "example" };
@@ -220,8 +224,8 @@ export const triageCases: AuthoringCase[] = [
     path: "/builds/id:42/status",
     query: { fields: `build(${B}),errors(item)` },
     body: { status: "FAILURE", comment: "Synthetic" },
-    response: { build, errors: { item: ["synthetic-private-detail"] } },
-    expected: { build, errorCount: 1, partialFailure: true },
+    response: { build },
+    expected: { build, errorCount: 0, partialFailure: false },
   },
   buildRead(
     "test-occurrences",
@@ -301,9 +305,9 @@ export const triageCases: AuthoringCase[] = [
     argv: ["investigations", "list"],
     method: "GET",
     path: "/investigations",
-    query: { locator: "start:0,count:100", fields: `count,nextHref,investigation(${I})` },
+    query: { locator: "start:0,count:101", fields: `nextHref,investigation(${I})` },
     response: { investigation: [investigation] },
-    expected: [investigation],
+    expected: onePage([investigation]),
   },
   {
     argv: ["investigations", "create", ...invArgs],
@@ -351,9 +355,9 @@ export const triageCases: AuthoringCase[] = [
     argv: ["mutes", "list"],
     method: "GET",
     path: "/mutes",
-    query: { locator: "start:0,count:100", fields: `count,nextHref,mute(${M})` },
+    query: { locator: "start:0,count:101", fields: `nextHref,mute(${M})` },
     response: { mute: [mute] },
-    expected: [mute],
+    expected: onePage([mute]),
   },
   {
     argv: ["mutes", "create", ...muteArgs],
@@ -394,9 +398,9 @@ export const triageCases: AuthoringCase[] = [
     argv: ["tests", "list"],
     method: "GET",
     path: "/tests",
-    query: { locator: "start:0,count:100", fields: "count,nextHref,test(id,name)" },
+    query: { locator: "start:0,count:101", fields: "nextHref,test(id,name)" },
     response: { test: [testInfo] },
-    expected: [testInfo],
+    expected: onePage([testInfo]),
   },
   {
     argv: ["tests", "show", testInfo.id],
@@ -418,9 +422,9 @@ export const triageCases: AuthoringCase[] = [
     argv: ["problems", "list"],
     method: "GET",
     path: "/problems",
-    query: { locator: "start:0,count:100", fields: "count,nextHref,problem(id,type,identity)" },
+    query: { locator: "start:0,count:101", fields: "nextHref,problem(id,type,identity)" },
     response: { problem: [problem] },
-    expected: [problem],
+    expected: onePage([problem]),
   },
   {
     argv: ["problems", "show", "12"],

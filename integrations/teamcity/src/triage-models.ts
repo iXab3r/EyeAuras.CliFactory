@@ -14,7 +14,8 @@ export const investigationFields = muteFields.replace(
   "id,assignment",
   "id,state,assignee(id),assignment",
 );
-export const multipleFields = "count,errorCount,operationResult(related(build(id)))";
+// TeamCity includes an item's failure message only when `text` is requested.
+export const multipleFields = "count,errorCount,operationResult(text,related(build(id)))";
 export const labelFields = "count,vcsLabel,text,status,buildId";
 
 export function object(value: unknown): Record<string, unknown> {
@@ -137,16 +138,18 @@ export function safeMultiple(value: unknown) {
     errorCount > count
   )
     throw new Error("Invalid multiple-operation counts; success is unknown.");
-  return {
-    count,
-    errorCount,
-    partialFailure: errorCount > 0,
-    buildIds: array(raw.operationResult).flatMap((v) => {
-      const related = object(v).related;
-      const build = related === undefined ? undefined : object(related).build;
-      return build === undefined ? [] : [safeScalars(build, ["id"]).id];
-    }),
-  };
+  // TeamCity attaches a message only to a failed item; the message itself is never exposed.
+  const items = array(raw.operationResult).map((v) => {
+    const result = object(v);
+    const build = result.related === undefined ? undefined : object(result.related).build;
+    return {
+      ...(build === undefined ? {} : { buildId: safeScalars(build, ["id"]).id }),
+      succeeded: result.message === undefined,
+    };
+  });
+  if (items.length !== count || items.filter((item) => !item.succeeded).length !== errorCount)
+    throw new Error("Invalid multiple-operation results; success is unknown.");
+  return { count, errorCount, items };
 }
 export function buildUnion(ids: readonly number[]) {
   const values = distinctIds(ids.map((id) => positiveId(id, "Build ID")));

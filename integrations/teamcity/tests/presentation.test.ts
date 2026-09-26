@@ -132,7 +132,11 @@ test("builds list reads at 120 and 80 columns without cutting IDs while JSON kee
   assert.match(redirected.stdout, /feature\/a-deliberately-long-synthetic-branch-name/);
 
   builds = [typical, running];
-  assert.deepEqual(await runtime.json(cli, ["builds", "list"]), [typical, running]);
+  assert.deepEqual(
+    await runtime.json(cli, ["builds", "list"]),
+    { count: 2, items: [typical, running], hasMore: false, nextStart: null },
+  );
+  assert.match(redirected.stdout, /\n\nShown: 1\. More results: no\.\n$/);
 });
 
 test("builds show summarizes one build and suggests safe profile-bound next commands", async (t) => {

@@ -8,7 +8,12 @@ import {
   preflightSecretKeys,
   persistSecretKeys,
 } from "./credential-inputs.js";
-import { readResponseBody, type ScopedSecrets, type IAppArguments } from "@eyeauras/cli-factory";
+import {
+  CliError,
+  readResponseBody,
+  type ScopedSecrets,
+  type IAppArguments,
+} from "@eyeauras/cli-factory";
 import * as files from "./file-models.js";
 import { saveDownload, type DownloadOptions } from "./downloads.js";
 import {
@@ -16,10 +21,12 @@ import {
   idPath,
   joinLocator,
   nestedId,
+  normalizePage,
   pageDimensions,
   positiveId,
   requiredText,
 } from "./locator.js";
+import { readPages, type TeamCityPage } from "./paging.js";
 import {
   propertyFields,
   stepFields,
@@ -142,36 +149,12 @@ const agentFields =
   "id,name,connected,enabled,authorized,uptodate,webUrl," +
   "build(id,buildTypeId,number,state,status)";
 
-interface ProjectsResponse {
-  project?: TeamCityProject[];
-}
-
-interface BuildTypesResponse {
-  buildType?: TeamCityJob[];
-}
-
 interface BuildsResponse {
   build?: TeamCityBuild[];
 }
 
-interface TestOccurrencesResponse {
-  testOccurrence?: TeamCityTestOccurrence[];
-}
-
-interface ProblemOccurrencesResponse {
-  problemOccurrence?: TeamCityProblemOccurrence[];
-}
-
 interface RawTeamCityChange extends Omit<TeamCityChange, "committer"> {
   commiter?: { vcsUsername?: string };
-}
-
-interface ChangesResponse {
-  change?: RawTeamCityChange[];
-}
-
-interface AgentsResponse {
-  agent?: TeamCityAgent[];
 }
 
 export interface ListProjectsOptions extends TeamCityPageOptions {
@@ -309,18 +292,27 @@ function buildPath(id: number, owner: "builds" | "queue" = "builds"): string {
 }
 
 /** The request may or may not have reached TeamCity; mutations must not be repeated blindly. */
-export class TeamCityUnknownOutcomeError extends Error {
+export class TeamCityUnknownOutcomeError extends CliError {
   public constructor(message: string) {
-    super(message);
+    super(message, { code: "request.unknownOutcome" });
     this.name = "TeamCityUnknownOutcomeError";
   }
 }
 
-export class TeamCityHttpError extends Error {
+function httpCode(status: number): string {
+  if (status === 401) return "http.unauthorized";
+  if (status === 403) return "http.forbidden";
+  if (status === 404) return "http.notFound";
+  if (status === 409) return "http.conflict";
+  return status >= 500 ? "http.serverError" : "http.rejected";
+}
+
+/** TeamCity answered with an error status; the body is never read or echoed. */
+export class TeamCityHttpError extends CliError {
   public readonly status: number;
 
   public constructor(status: number, message: string) {
-    super(message);
+    super(message, { code: httpCode(status) });
     this.name = "TeamCityHttpError";
     this.status = status;
   }
@@ -364,19 +356,20 @@ export class TeamCityClient {
     });
   }
 
-  public async listProjects(options: ListProjectsOptions = {}): Promise<TeamCityProject[]> {
-    const locator = joinLocator(
-      options.parent
-        ? nestedId("project", options.parent, "TeamCity parent project ID")
-        : undefined,
-      options.includeArchived === true ? undefined : "archived:false",
-      ...pageDimensions(options),
+  public listProjects(options: ListProjectsOptions = {}): Promise<TeamCityPage<TeamCityProject>> {
+    return this.#list(
+      "/app/rest/projects",
+      [
+        options.parent
+          ? nestedId("project", options.parent, "TeamCity parent project ID")
+          : undefined,
+        options.includeArchived === true ? undefined : "archived:false",
+      ],
+      "project",
+      projectFields,
+      (item) => item as TeamCityProject,
+      options,
     );
-    const response = await this.#requestJson<ProjectsResponse>("GET", "/app/rest/projects", {
-      locator,
-      fields: `project(${projectFields})`,
-    });
-    return response.project ?? [];
   }
 
   public getProject(id: string): Promise<TeamCityProject> {
@@ -387,17 +380,18 @@ export class TeamCityClient {
     );
   }
 
-  public async listJobs(options: ListJobsOptions = {}): Promise<TeamCityJob[]> {
-    const locator = joinLocator(
-      "templateFlag:false",
-      options.project ? nestedId("project", options.project, "TeamCity project ID") : undefined,
-      ...pageDimensions(options),
+  public listJobs(options: ListJobsOptions = {}): Promise<TeamCityPage<TeamCityJob>> {
+    return this.#list(
+      "/app/rest/buildTypes",
+      [
+        "templateFlag:false",
+        options.project ? nestedId("project", options.project, "TeamCity project ID") : undefined,
+      ],
+      "buildType",
+      jobFields,
+      (item) => item as TeamCityJob,
+      options,
     );
-    const response = await this.#requestJson<BuildTypesResponse>("GET", "/app/rest/buildTypes", {
-      locator,
-      fields: `buildType(${jobFields})`,
-    });
-    return response.buildType ?? [];
   }
 
   public getJob(id: string): Promise<TeamCityJob> {
@@ -430,9 +424,10 @@ export class TeamCityClient {
     return response.build?.[0];
   }
 
-  public async listBuilds(options: ListBuildsOptions = {}): Promise<TeamCityBuild[]> {
-    const response = await this.#requestJson<BuildsResponse>("GET", "/app/rest/builds", {
-      locator: joinLocator(
+  public listBuilds(options: ListBuildsOptions = {}): Promise<TeamCityPage<TeamCityBuild>> {
+    return this.#list(
+      "/app/rest/builds",
+      [
         "defaultFilter:false",
         branchDimension(options.branch),
         options.job ? nestedId("buildType", options.job, "TeamCity job ID") : undefined,
@@ -441,11 +436,12 @@ export class TeamCityClient {
           : undefined,
         options.state ? `state:${options.state}` : undefined,
         options.status ? `status:${options.status}` : undefined,
-        ...pageDimensions(options),
-      ),
-      fields: `build(${buildFields})`,
-    });
-    return response.build ?? [];
+      ],
+      "build",
+      buildFields,
+      (item) => item as TeamCityBuild,
+      options,
+    );
   }
 
   public getBuild(id: number): Promise<TeamCityBuild> {
@@ -466,107 +462,105 @@ export class TeamCityClient {
   }
 
   /** Failed test identities only: no stack traces or other details. */
-  public async listFailedTests(id: number, count: number): Promise<TeamCityFailedTest[]> {
-    const response = await this.#requestJson<{ testOccurrence?: TeamCityFailedTest[] }>(
-      "GET",
+  public listFailedTests(id: number, limit: number): Promise<TeamCityPage<TeamCityFailedTest>> {
+    return this.#list(
       "/app/rest/testOccurrences",
-      {
-        locator: joinLocator(
-          `build:(id:${positiveId(id, "TeamCity build ID")})`,
-          "status:failure",
-          ...pageDimensions({ limit: count }),
-        ),
-        fields: `testOccurrence(${failedTestFields})`,
-      },
+      [`build:(id:${positiveId(id, "TeamCity build ID")})`, "status:failure"],
+      "testOccurrence",
+      failedTestFields,
+      (item) => item as TeamCityFailedTest,
+      { limit },
     );
-    return response.testOccurrence ?? [];
   }
 
-  public async listBuildTests(
+  public listBuildTests(
     id: number,
     options: ListBuildTestsOptions = {},
-  ): Promise<TeamCityTestOccurrence[]> {
-    const response = await this.#requestJson<TestOccurrencesResponse>(
-      "GET",
+  ): Promise<TeamCityPage<TeamCityTestOccurrence>> {
+    return this.#list(
       "/app/rest/testOccurrences",
-      {
-        locator: joinLocator(
-          `build:(id:${positiveId(id, "TeamCity build ID")})`,
-          options.status ? `status:${options.status}` : undefined,
-          ...pageDimensions(options),
-        ),
-        fields: `testOccurrence(${testOccurrenceFields})`,
-      },
-    );
-    return response.testOccurrence ?? [];
-  }
-
-  public async listBuildProblems(
-    id: number,
-    options: TeamCityPageOptions = {},
-  ): Promise<TeamCityProblemOccurrence[]> {
-    const response = await this.#requestJson<ProblemOccurrencesResponse>(
-      "GET",
-      "/app/rest/problemOccurrences",
-      {
-        locator: joinLocator(
-          `build:(id:${positiveId(id, "TeamCity build ID")})`,
-          ...pageDimensions(options),
-        ),
-        fields: `problemOccurrence(${problemOccurrenceFields})`,
-      },
-    );
-    return response.problemOccurrence ?? [];
-  }
-
-  public async listBuildChanges(
-    id: number,
-    options: TeamCityPageOptions = {},
-  ): Promise<TeamCityChange[]> {
-    const response = await this.#requestJson<ChangesResponse>("GET", "/app/rest/changes", {
-      locator: joinLocator(
+      [
         `build:(id:${positiveId(id, "TeamCity build ID")})`,
-        ...pageDimensions(options),
-      ),
-      fields: `change(${changeFields})`,
-    });
-    return (response.change ?? []).map((change) => ({
-      id: change.id,
-      version: change.version,
-      date: change.date,
-      ...(change.internalVersion === undefined ? {} : { internalVersion: change.internalVersion }),
-      ...(change.commitDate === undefined ? {} : { commitDate: change.commitDate }),
-      ...(change.comment === undefined ? {} : { comment: change.comment }),
-      ...(change.webUrl === undefined ? {} : { webUrl: change.webUrl }),
-      ...(change.commiter?.vcsUsername === undefined
-        ? {}
-        : { committer: change.commiter.vcsUsername }),
-    }));
+        options.status ? `status:${options.status}` : undefined,
+      ],
+      "testOccurrence",
+      testOccurrenceFields,
+      (item) => item as TeamCityTestOccurrence,
+      options,
+    );
   }
 
-  public async listQueue(options: ListQueueOptions = {}): Promise<TeamCityBuild[]> {
-    const response = await this.#requestJson<BuildsResponse>("GET", "/app/rest/buildQueue", {
-      locator: joinLocator(
+  public listBuildProblems(
+    id: number,
+    options: TeamCityPageOptions = {},
+  ): Promise<TeamCityPage<TeamCityProblemOccurrence>> {
+    return this.#list(
+      "/app/rest/problemOccurrences",
+      [`build:(id:${positiveId(id, "TeamCity build ID")})`],
+      "problemOccurrence",
+      problemOccurrenceFields,
+      (item) => item as TeamCityProblemOccurrence,
+      options,
+    );
+  }
+
+  public listBuildChanges(
+    id: number,
+    options: TeamCityPageOptions = {},
+  ): Promise<TeamCityPage<TeamCityChange>> {
+    return this.#list(
+      "/app/rest/changes",
+      [`build:(id:${positiveId(id, "TeamCity build ID")})`],
+      "change",
+      changeFields,
+      (item) => {
+        const change = item as RawTeamCityChange;
+        return {
+          id: change.id,
+          version: change.version,
+          date: change.date,
+          ...(change.internalVersion === undefined
+            ? {}
+            : { internalVersion: change.internalVersion }),
+          ...(change.commitDate === undefined ? {} : { commitDate: change.commitDate }),
+          ...(change.comment === undefined ? {} : { comment: change.comment }),
+          ...(change.webUrl === undefined ? {} : { webUrl: change.webUrl }),
+          ...(change.commiter?.vcsUsername === undefined
+            ? {}
+            : { committer: change.commiter.vcsUsername }),
+        };
+      },
+      options,
+    );
+  }
+
+  public listQueue(options: ListQueueOptions = {}): Promise<TeamCityPage<TeamCityBuild>> {
+    return this.#list(
+      "/app/rest/buildQueue",
+      [
         options.job ? nestedId("buildType", options.job, "TeamCity job ID") : undefined,
         options.project ? nestedId("project", options.project, "TeamCity project ID") : undefined,
-        ...pageDimensions(options),
-      ),
-      fields: `build(${buildFields})`,
-    });
-    return response.build ?? [];
+      ],
+      "build",
+      buildFields,
+      (item) => item as TeamCityBuild,
+      options,
+    );
   }
 
-  public async listAgents(options: ListAgentsOptions = {}): Promise<TeamCityAgent[]> {
-    const response = await this.#requestJson<AgentsResponse>("GET", "/app/rest/agents", {
-      locator: joinLocator(
+  public listAgents(options: ListAgentsOptions = {}): Promise<TeamCityPage<TeamCityAgent>> {
+    return this.#list(
+      "/app/rest/agents",
+      [
         `connected:${options.connected ?? "any"}`,
         `enabled:${options.enabled ?? "any"}`,
         `authorized:${options.authorized ?? "any"}`,
-        ...pageDimensions(options),
-      ),
-      fields: `agent(${agentFields})`,
-    });
-    return response.agent ?? [];
+      ],
+      "agent",
+      agentFields,
+      (item) => item as TeamCityAgent,
+      options,
+    );
   }
 
   public getAgent(id: number): Promise<TeamCityAgent> {
@@ -1206,18 +1200,16 @@ export class TeamCityClient {
     return result.item ?? [];
   }
 
-  public async listJobBranches(jobId: string, options: TeamCityPageOptions = {}) {
-    const result = await this.#requestJson<{
-      branch?: { name: string; default?: boolean; active?: boolean }[];
-    }>("GET", `${jobPath(jobId)}/branches`, {
-      locator: joinLocator(...pageDimensions(options)),
-      fields: "branch(name,default,active)",
-    });
-    return (result.branch ?? []).map(({ name, default: isDefault, active }) => ({
-      name,
-      ...(isDefault === undefined ? {} : { default: isDefault }),
-      ...(active === undefined ? {} : { active }),
-    }));
+  public listJobBranches(jobId: string, options: TeamCityPageOptions = {}) {
+    return this.#list(`${jobPath(jobId)}/branches`, [], "branch", "name,default,active", (item) => {
+      const { name, default: isDefault, active } =
+        item as { name: string; default?: boolean; active?: boolean };
+      return {
+        name,
+        ...(isDefault === undefined ? {} : { default: isDefault }),
+        ...(active === undefined ? {} : { active }),
+      };
+    }, options);
   }
 
   public async listJobTags(jobId: string) {
@@ -1229,21 +1221,15 @@ export class TeamCityClient {
     return (result.tag ?? []).map((tag) => tag.name);
   }
 
-  public async listVcsRoots(options: TeamCityPageOptions & { project?: string } = {}) {
-    const result = await this.#requestJson<{ "vcs-root"?: VcsRoot[] }>(
-      "GET",
+  public listVcsRoots(options: TeamCityPageOptions & { project?: string } = {}) {
+    return this.#list(
       "/app/rest/vcs-roots",
-      {
-        locator: joinLocator(
-          options.project === undefined
-            ? undefined
-            : nestedId("project", options.project, "Project ID"),
-          ...pageDimensions(options),
-        ),
-        fields: `vcs-root(${rootFields})`,
-      },
+      [options.project === undefined ? undefined : nestedId("project", options.project, "Project ID")],
+      "vcs-root",
+      rootFields,
+      (item) => safeRoot(item as VcsRoot),
+      options,
     );
-    return (result["vcs-root"] ?? []).map(safeRoot);
   }
 
   public async getVcsRoot(id: string) {
@@ -1311,13 +1297,9 @@ export class TeamCityClient {
     return { jobId: jobId.trim(), rootId: rootId.trim(), rules };
   }
 
-  public async listPools(options: TeamCityPageOptions = {}) {
-    const result = await this.#requestJson<{ agentPool?: AgentPoolSummary[] }>(
-      "GET",
-      "/app/rest/agentPools",
-      { locator: joinLocator(...pageDimensions(options)), fields: "agentPool(id,name)" },
-    );
-    return (result.agentPool ?? []).map(safeNamed);
+  public listPools(options: TeamCityPageOptions = {}) {
+    return this.#list("/app/rest/agentPools", [], "agentPool", "id,name",
+      (item) => safeNamed(item as AgentPoolSummary), options);
   }
 
   public async createPool(name: string) {
@@ -1356,13 +1338,9 @@ export class TeamCityClient {
     return { poolId: id, field, value: result };
   }
 
-  public async listPoolAgents(id: number, options: TeamCityPageOptions = {}) {
-    const result = await this.#requestJson<{ agent?: AgentPoolSummary[] }>(
-      "GET",
-      `${poolPath(id)}/agents`,
-      { locator: joinLocator(...pageDimensions(options)), fields: "agent(id,name)" },
-    );
-    return (result.agent ?? []).map(safeNamed);
+  public listPoolAgents(id: number, options: TeamCityPageOptions = {}) {
+    return this.#list(`${poolPath(id)}/agents`, [], "agent", "id,name",
+      (item) => safeNamed(item as AgentPoolSummary), options);
   }
 
   public async assignPoolAgent(poolId: number, id: number) {
@@ -1857,16 +1835,14 @@ export class TeamCityClient {
     return { projectId: projectId.trim(), poolId, unassigned: true };
   }
 
-  public async listProjectBranches(projectId: string, options: TeamCityPageOptions = {}) {
-    const result = await this.#requestJson<{ branch?: { name: string; default?: boolean }[] }>(
-      "GET",
-      `${projectPath(projectId)}/branches`,
-      { locator: joinLocator(...pageDimensions(options)), fields: "branch(name,default)" },
-    );
-    return (result.branch ?? []).map((b) => ({
-      name: b.name,
-      ...(b.default === undefined ? {} : { default: b.default }),
-    }));
+  public listProjectBranches(projectId: string, options: TeamCityPageOptions = {}) {
+    return this.#list(`${projectPath(projectId)}/branches`, [], "branch", "name,default", (item) => {
+      const branch = item as { name: string; default?: boolean };
+      return {
+        name: branch.name,
+        ...(branch.default === undefined ? {} : { default: branch.default }),
+      };
+    }, options);
   }
 
   public async createProjectJob(projectId: string, id: string, name: string) {
@@ -2254,16 +2230,9 @@ export class TeamCityClient {
     return { changeId: id, field, value };
   }
 
-  public async listInvestigations(page: TeamCityPageOptions = {}) {
-    const value = await this.#requestJson<{ investigation?: unknown[] }>(
-      "GET",
-      "/app/rest/investigations",
-      {
-        locator: joinLocator(...pageDimensions(page)),
-        fields: `count,nextHref,investigation(${triage.investigationFields})`,
-      },
-    );
-    return (value.investigation ?? []).map((item) => triage.safeAssignment(item, true));
+  public listInvestigations(page: TeamCityPageOptions = {}) {
+    return this.#list("/app/rest/investigations", [], "investigation", triage.investigationFields,
+      (item) => triage.safeAssignment(item, true), page);
   }
 
   public async createInvestigation(input: unknown, replace = false) {
@@ -2310,12 +2279,9 @@ export class TeamCityClient {
     return { deleted: true };
   }
 
-  public async listMutes(page: TeamCityPageOptions = {}) {
-    const value = await this.#requestJson<{ mute?: unknown[] }>("GET", "/app/rest/mutes", {
-      locator: joinLocator(...pageDimensions(page)),
-      fields: `count,nextHref,mute(${triage.muteFields})`,
-    });
-    return (value.mute ?? []).map((item) => triage.safeAssignment(item, false));
+  public listMutes(page: TeamCityPageOptions = {}) {
+    return this.#list("/app/rest/mutes", [], "mute", triage.muteFields,
+      (item) => triage.safeAssignment(item, false), page);
   }
 
   public async createMute(input: unknown) {
@@ -2356,13 +2322,10 @@ export class TeamCityClient {
     return { muteId: id, deleted: true };
   }
 
-  public async listTriageEntities(kind: "test" | "problem", page: TeamCityPageOptions = {}) {
-    const fields = kind === "test" ? "id,name" : triage.problemFields;
-    const value = await this.#requestJson<Record<string, unknown>>("GET", `/app/rest/${kind}s`, {
-      locator: joinLocator(...pageDimensions(page)),
-      fields: `count,nextHref,${kind}(${fields})`,
-    });
-    return triage.array(value[kind]).map((item) => triage.safeEntity(item, kind));
+  public listTriageEntities(kind: "test" | "problem", page: TeamCityPageOptions = {}) {
+    return this.#list(`/app/rest/${kind}s`, [], kind,
+      kind === "test" ? "id,name" : triage.problemFields,
+      (item) => triage.safeEntity(item, kind), page);
   }
 
   public async getTriageEntity(kind: "test" | "problem", id: string) {
@@ -2420,12 +2383,9 @@ export class TeamCityClient {
     return (value.entry ?? []).map((item) => triage.safeScalars(item, ["name"]).name);
   }
 
-  public async listAccountUsers(page: TeamCityPageOptions = {}) {
-    const value = await this.#requestJson<{ user?: unknown[] }>("GET", "/app/rest/users", {
-      locator: joinLocator(...pageDimensions(page)),
-      fields: `count,user(${admin.accountUserFields})`,
-    });
-    return (value.user ?? []).map(admin.safeAccountUser);
+  public listAccountUsers(page: TeamCityPageOptions = {}) {
+    return this.#list("/app/rest/users", [], "user", admin.accountUserFields,
+      admin.safeAccountUser, page);
   }
 
   public async createAccountUser(username: string, name?: string) {
@@ -2806,20 +2766,17 @@ export class TeamCityClient {
   ) {
     if (kind === "profiles" && profile !== undefined)
       throw new Error("Profile filter is for images/instances only.");
-    const key = infrastructure.cloudCollection[kind];
-    const value = await this.#requestJson<Record<string, unknown>>(
-      "GET",
+    return this.#list(
       "/app/rest/cloud/" + kind,
-      {
-        locator: joinLocator(
-          project === undefined ? undefined : nestedId("project", project, "Project ID"),
-          profile === undefined ? undefined : nestedId("profile", profile, "Cloud profile ID"),
-          ...pageDimensions(page),
-        ),
-        fields: `count,nextHref,${key}(${infrastructure.cloudFields[kind]})`,
-      },
+      [
+        project === undefined ? undefined : nestedId("project", project, "Project ID"),
+        profile === undefined ? undefined : nestedId("profile", profile, "Cloud profile ID"),
+      ],
+      infrastructure.cloudCollection[kind],
+      infrastructure.cloudFields[kind],
+      (item) => infrastructure.safeCloud(item, kind),
+      page,
     );
-    return triage.array(value[key]).map((item) => infrastructure.safeCloud(item, kind));
   }
 
   public async getCloudProfile(id: string) {
@@ -2982,19 +2939,15 @@ export class TeamCityClient {
     return { rootId: id, field, updated: true };
   }
 
-  public async listVcsInstances(page: TeamCityPageOptions = {}, root?: string) {
-    const value = await this.#requestJson<Record<string, unknown>>(
-      "GET",
+  public listVcsInstances(page: TeamCityPageOptions = {}, root?: string) {
+    return this.#list(
       "/app/rest/vcs-root-instances",
-      {
-        locator: joinLocator(
-          root === undefined ? undefined : nestedId("vcsRoot", root, "Root ID"),
-          ...pageDimensions(page),
-        ),
-        fields: `count,nextHref,vcs-root-instance(${infrastructure.vcsInstanceFields})`,
-      },
+      [root === undefined ? undefined : nestedId("vcsRoot", root, "Root ID")],
+      "vcs-root-instance",
+      infrastructure.vcsInstanceFields,
+      infrastructure.safeVcsInstance,
+      page,
     );
-    return triage.array(value["vcs-root-instance"]).map(infrastructure.safeVcsInstance);
   }
 
   public async checkVcsInstanceChanges(id: string) {
@@ -3323,6 +3276,32 @@ export class TeamCityClient {
     return decodeJson<T>(contents);
   }
 
+  /** A bounded selection of `key` items that follows TeamCity's continuation; see `readPages`. */
+  async #list<T>(
+    path: string,
+    locator: readonly (string | undefined)[],
+    key: string,
+    fields: string,
+    project: (item: unknown) => T,
+    page: TeamCityPageOptions,
+    query: Record<string, string> = {},
+  ): Promise<TeamCityPage<T>> {
+    const { limit, start } = normalizePage(page);
+    return readPages(limit, start, async (request) => {
+      const response = triage.object(await this.#requestJson("GET", path, {
+        ...query,
+        locator: joinLocator(
+          ...locator,
+          `start:${request.start}`,
+          `count:${request.count}`,
+          request.lookupLimit === undefined ? undefined : `lookupLimit:${request.lookupLimit}`,
+        ),
+        fields: `nextHref,${key}(${fields})`,
+      }));
+      return { items: triage.array(response[key]).map(project), nextHref: response.nextHref };
+    });
+  }
+
   public async getRestInfo() {
     const value = await this.#requestText("GET", "/app/rest");
     const path = value.match(
@@ -3358,17 +3337,14 @@ export class TeamCityClient {
       stored: true,
     };
   }
-  public async listAudit(page: TeamCityPageOptions, project?: string) {
-    return system.collection(
-      await this.#requestJson("GET", "/app/rest/audit", {
-        locator: joinLocator(
-          project ? nestedId("affectedProject", project, "Project ID") : undefined,
-          ...pageDimensions(page),
-        ),
-        fields: `count,auditEvent(${system.auditFields})`,
-      }),
+  public listAudit(page: TeamCityPageOptions, project?: string) {
+    return this.#list(
+      "/app/rest/audit",
+      [project ? nestedId("affectedProject", project, "Project ID") : undefined],
       "auditEvent",
+      system.auditFields,
       system.safeAudit,
+      page,
     );
   }
   public async getAudit(id: string) {
@@ -3413,17 +3389,14 @@ export class TeamCityClient {
       infrastructure.safeVcsInstance,
     );
   }
-  public async listDashboards(page: TeamCityPageOptions, project?: string) {
-    return system.collection(
-      await this.#requestJson("GET", "/app/rest/deploymentDashboards", {
-        locator: joinLocator(
-          project ? nestedId("project", project, "Project ID") : undefined,
-          ...pageDimensions(page),
-        ),
-        fields: `count,deploymentDashboard(${system.dashboardFields})`,
-      }),
+  public listDashboards(page: TeamCityPageOptions, project?: string) {
+    return this.#list(
+      "/app/rest/deploymentDashboards",
+      [project ? nestedId("project", project, "Project ID") : undefined],
       "deploymentDashboard",
+      system.dashboardFields,
       system.safeDashboard,
+      page,
     );
   }
   public async createDashboard(id: string, name: string, project: string) {
@@ -3449,15 +3422,9 @@ export class TeamCityClient {
     await this.#request("DELETE", system.dashboardPath(id));
     return { id, deleted: true };
   }
-  public async listDeploymentInstances(id: string, page: TeamCityPageOptions) {
-    return system.collection(
-      await this.#requestJson("GET", system.dashboardPath(id) + "/instances", {
-        locator: joinLocator(...pageDimensions(page)),
-        fields: `count,deploymentInstance(${system.instanceFields})`,
-      }),
-      "deploymentInstance",
-      system.safeInstance,
-    );
+  public listDeploymentInstances(id: string, page: TeamCityPageOptions) {
+    return this.#list(system.dashboardPath(id) + "/instances", [], "deploymentInstance",
+      system.instanceFields, system.safeInstance, page);
   }
   public async upsertDeploymentInstance(
     dashboard: string,
@@ -3507,18 +3474,12 @@ export class TeamCityClient {
     await this.#request("DELETE", system.instancePath(dashboard, id));
     return { dashboardId: dashboard, instanceId: id, deleted: true };
   }
-  public async listHealth(
+  public listHealth(
     options: { project?: string; global?: boolean },
     page: TeamCityPageOptions,
   ) {
-    return system.collection(
-      await this.#requestJson("GET", "/app/rest/health", {
-        locator: joinLocator(system.healthLocator(options), ...pageDimensions(page)),
-        fields: `count,healthItem(${system.healthFields})`,
-      }),
-      "healthItem",
-      system.safeHealth,
-    );
+    return this.#list("/app/rest/health", [system.healthLocator(options)], "healthItem",
+      system.healthFields, system.safeHealth, page);
   }
   public async getHealth(options: { project?: string; global?: boolean; category?: string }) {
     return system.safeHealth(

@@ -7,6 +7,7 @@ import {
 } from "@eyeauras/cli-factory";
 import type { TeamCityBuild, TeamCityBuildSummary } from "./models.js";
 import { buildOutcome } from "./outcome.js";
+import type { TeamCityPage } from "./paging.js";
 import type { Diagnosis, DiagnosisSection, FollowedBuild } from "./build-flow.js";
 
 const timestamp = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})([+-]\d{2})(\d{2})$/;
@@ -78,7 +79,16 @@ function nextFor(build: TeamCityBuild): string[][] {
   ];
 }
 
-export const buildTable = tableView<TeamCityBuild>({
+/** Whether a selection is complete, and how to continue it. */
+function completeness(page: TeamCityPage<unknown>): string {
+  const more = page.hasMore === true ? "yes" : page.hasMore === false ? "no" : "unknown";
+  const next = page.nextStart === null ? "" : `; continue with --start ${page.nextStart}`;
+  return `Shown: ${page.count}. More results: ${more}${next}.`;
+}
+
+export const buildTable = tableView<TeamCityBuild, TeamCityPage<TeamCityBuild>>({
+  rows: (page) => page.items,
+  footer: completeness,
   columns: [
     { header: "BUILD", value: (build) => build.id },
     { header: "JOB", value: (build) => build.buildTypeId },
