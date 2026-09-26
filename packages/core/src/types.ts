@@ -1,5 +1,6 @@
 import type { Readable, Writable } from "node:stream";
 import type { IAppArguments } from "./app-arguments.js";
+import type { HumanView } from "./view.js";
 
 export type ProfileValues = Record<string, unknown>;
 
@@ -66,17 +67,28 @@ export interface OptionDefinition {
   parse?: (value: string, previous: unknown) => unknown;
 }
 
-export interface CommandSettings {
-  options?: readonly OptionDefinition[];
-  permission?: string;
+/** Help presentation shared by branches and leaves. */
+export interface CommandHelp {
+  /** Heading that groups this command among its siblings in help; siblings keep declaration order. */
+  group?: string;
+  /** Example invocations without the CLI name, shown after this command's help. */
+  examples?: readonly string[];
 }
 
-export interface CommandDefinition {
+export interface CommandSettings extends CommandHelp {
+  options?: readonly OptionDefinition[];
+  permission?: string;
+  /** Human presentation of the returned value; `--json` and JSON-RPC ignore it. */
+  view?: HumanView;
+}
+
+export interface CommandDefinition extends CommandHelp {
   /** Command name followed by optional Commander-style arguments, for example `show <id>`. */
   name: string;
   description: string;
   options?: readonly OptionDefinition[];
   permission?: string;
+  view?: HumanView;
   children?: readonly CommandDefinition[];
   run?: CommandHandler;
 }
@@ -160,6 +172,8 @@ export interface CliRuntime {
 export interface CliDefinition {
   name: string;
   description: string;
+  /** Example invocations without the CLI name, shown after the root help. */
+  examples?: readonly string[];
   version?: string;
   applicationId?: string;
   profile?: ProfileDefinition;

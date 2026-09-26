@@ -15,6 +15,7 @@ import { CommandGate } from "./command-gate.js";
 import { validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
+import type { HumanView } from "./view.js";
 import type {
   CliApplication,
   CliInvocation,
@@ -57,6 +58,27 @@ function declaredOption(specification: OptionDefinition): Option {
     option.default(specification.defaultValue);
   if (specification.parse) option.argParser(specification.parse);
   return option;
+}
+
+/** Parser errors show one usage line instead of a command's complete help. */
+function shortUsage(command: Command, path: string): string {
+  return `Usage: ${path} ${command.usage()}\nRun '${path} --help' for details.`;
+}
+
+function addExamples(command: Command, cliName: string, examples?: readonly string[]): void {
+  if (!examples?.length) return;
+  const lines = examples.map((example) => `  ${cliName} ${example}`).join("\n");
+  command.addHelpText("after", `\nExamples:\n${lines}\n`);
+}
+
+/** Groups keep an action so a bare group shows help; a stray word is still an unknown command. */
+function rejectUnknownSubcommand(group: Command): void {
+  const unknown = group.args[0];
+  if (unknown === undefined) return;
+  // Commander's own report adds its "(Did you mean ...?)" suggestion.
+  const report = (group as Command & { unknownCommand?: () => never }).unknownCommand;
+  if (typeof report === "function") report.call(group);
+  group.error(`error: unknown command '${unknown}'`, { code: "commander.unknownCommand" });
 }
 
 function commandParts(syntax: string): { name: string; arguments: string[] } {
@@ -179,7 +201,6 @@ export function createCli(definition: CliDefinition): CliApplication {
     const program = new Command()
       .name(definition.name)
       .description(definition.description)
-      .showHelpAfterError()
       .showSuggestionAfterError()
       .helpCommand(true)
       .option("--json", "Emit machine-readable JSON")
@@ -202,15 +223,21 @@ export function createCli(definition: CliDefinition): CliApplication {
 
     program.configureOutput({
       writeOut: (text) => {
+        capturedOutput += text;
         if (execution.render) output.write(text);
-        else capturedOutput += text;
       },
+      // Parser errors become the thrown message, so every caller reports them exactly once.
       writeErr: (text) => {
-        if (execution.render) error.write(text);
-        else capturedError += text;
+        capturedError += text;
       },
     });
     program.exitOverride();
+    // Commander's own output, so a bare group shows exactly what --help shows, examples included.
+    const showHelp = (target: Command) => {
+      const start = capturedOutput.length;
+      target.outputHelp();
+      result = { help: capturedOutput.slice(start).trimEnd() };
+    };
 
     const {
       commands: profileCommands,
@@ -265,13 +292,10 @@ export function createCli(definition: CliDefinition): CliApplication {
       requiredPermission?: string,
       requiresConfiguredProfile = false,
       exclusive = false,
+      view?: HumanView,
     ): Promise<void> => {
       if (!handler) {
-        const help = command.helpInformation().trimEnd();
-        result = { help };
-        if (execution.render) {
-          output.write(`${help}\n`);
-        }
+        showHelp(command);
         return;
       }
       const invoke = async (ownsExclusive: boolean) => {
@@ -292,7 +316,12 @@ export function createCli(definition: CliDefinition): CliApplication {
         context.signal.throwIfAborted();
         result = await handler(commandInput, context);
         if (execution.render) {
-          writeResult(output, result, globals.json === true);
+          writeResult(
+            output,
+            result,
+            globals.json === true,
+            view && { view, cliName: definition.name, profile: profile.name },
+          );
         }
       };
       try {
@@ -306,21 +335,29 @@ export function createCli(definition: CliDefinition): CliApplication {
 
     const addDefinition = (
       parent: Command,
+      parentPath: string,
       item: CommandDefinition,
       configured = true,
       exclusive = false,
     ): void => {
       const parts = commandParts(item.name);
+      const path = `${parentPath} ${parts.name}`;
+      if (item.view && !item.run) {
+        throw new Error(`Command '${path}' declares a view but has no handler.`);
+      }
       const current = new Command(parts.name)
         .copyInheritedSettings(parent)
         .description(item.description)
-        .configureOutput(parent.configureOutput());
+        .configureOutput(parent.configureOutput())
+        .allowExcessArguments(item.run === undefined);
+      if (item.group) current.helpGroup(`${item.group}:`);
       if (item.permission) {
         current.addHelpText(
           "after",
           `\nRequired permission: ${item.permission}\n`,
         );
       }
+      addExamples(current, definition.name, item.examples);
       for (const argument of parts.arguments) {
         current.argument(argument);
       }
@@ -328,10 +365,12 @@ export function createCli(definition: CliDefinition): CliApplication {
         current.addOption(declaredOption(specification));
       }
       for (const child of item.children ?? []) {
-        addDefinition(current, child, configured, exclusive);
+        addDefinition(current, path, child, configured, exclusive);
       }
+      current.showHelpAfterError(shortUsage(current, path));
       current.action(async (...parameters: unknown[]) => {
         const actionCommand = parameters.at(-1) as Command;
+        if (!item.run) rejectUnknownSubcommand(actionCommand);
         const options = (parameters.at(-2) ?? {}) as Record<string, unknown>;
         const positional = parameters.slice(0, -2);
         const args = Object.fromEntries(
@@ -347,33 +386,39 @@ export function createCli(definition: CliDefinition): CliApplication {
           item.permission,
           configured,
           exclusive,
+          item.view,
         );
       });
       parent.addCommand(current);
     };
 
+    // Service commands lead the root help; Core's local configuration follows under its own heading.
+    for (const item of definition.commands) {
+      addDefinition(program, definition.name, item);
+    }
     for (const item of profileCommands)
-      addDefinition(program, item, false, true);
+      addDefinition(program, definition.name, { group: "Configuration", ...item }, false, true);
     if (permissionCategories)
       addDefinition(
         program,
-        createPermissionCommand(
-          permissionCategories,
-          profileStore,
-          enabledPermissions,
-        ),
+        definition.name,
+        {
+          group: "Configuration",
+          ...createPermissionCommand(permissionCategories, profileStore, enabledPermissions),
+        },
         false,
         true,
       );
-
-    for (const item of definition.commands) {
-      addDefinition(program, item);
-    }
     for (const item of definition.builtins ?? [])
-      addDefinition(program, item, false);
+      addDefinition(program, definition.name, item, false);
+    program
+      .allowExcessArguments(true)
+      .showHelpAfterError(shortUsage(program, definition.name));
+    addExamples(program, definition.name, definition.examples);
 
-    program.action(async () =>
-      gate.run(
+    program.action(async () => {
+      rejectUnknownSubcommand(program);
+      await gate.run(
         async () => {
           const globals = program.opts() as GlobalOptions;
           if (
@@ -394,16 +439,12 @@ export function createCli(definition: CliDefinition): CliApplication {
               return;
             }
           }
-          const help = program.helpInformation().trimEnd();
-          result = { help };
-          if (execution.render) {
-            output.write(`${help}\n`);
-          }
+          showHelp(program);
         },
         execution.signal,
         true,
-      ),
-    );
+      );
+    });
 
     try {
       await program.parseAsync(["node", definition.name, ...argv]);

@@ -2,6 +2,7 @@ import { command, Permission, type CommandContext } from "@eyeauras/cli-factory"
 import type { TeamCityClient } from "./client.js";
 import { clientLeaf, option, text } from "./command-support.js";
 import { referenceKey, type FileTree } from "./file-models.js";
+import { fileTable, savedFileRecord, withView } from "./presentation.js";
 export function createFileCommands(clientFor: (c: CommandContext) => Promise<TeamCityClient>) {
   const leaf = clientLeaf(clientFor),
     R = Permission.ReadOnly;
@@ -12,7 +13,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   const output = [
     option(
       "--output <name>",
-      "New basename inside active profile downloads; never overwrite",
+      "New file name (not a path) in the selected profile's downloads directory; never overwrites",
       true,
     ),
     {
@@ -25,22 +26,22 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   });
   const tree = (name: string, kind: FileTree) =>
     command(name, "Literal relative paths; files may contain private data", [
-      leaf(
+      withView(fileTable, leaf(
         "list <id>",
         "List root files, not recursively",
         R,
         (c, { args, options }) =>
           c.listFiles(kind, args.id, undefined, Number(options.limit)),
         [count],
-      ),
-      leaf(
+      )),
+      withView(fileTable, leaf(
         "children <id> <path>",
         "List immediate children at a relative path",
         R,
         (c, { args, options }) =>
           c.listFiles(kind, args.id, args.path, Number(options.limit)),
         [count],
-      ),
+      )),
       leaf("metadata <id> <path>", "Read one file metadata object", R, (c, { args }) =>
         c.getFileMetadata(kind, args.id, args.path),
       ),
@@ -60,7 +61,11 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
               context.appArguments,
               destination(options),
             ),
-          { permission: R, options: [...output, ...(action === "archive" ? [count] : [])] },
+          {
+            permission: R,
+            options: [...output, ...(action === "archive" ? [count] : [])],
+            view: savedFileRecord,
+          },
         ),
       ),
     ]);
@@ -79,6 +84,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
       {
         permission: R,
         options: [...output, { ...option("--size <pixels>", "PNG size in pixels"), defaultValue: 64 }],
+        view: savedFileRecord,
       },
     ),
   );
@@ -100,7 +106,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
           context.appArguments,
           destination(options),
         ),
-      { permission: R, options: output },
+      { permission: R, options: output, view: savedFileRecord },
     ),
     ...(["icon", "aggregate-icon"] as const).map((action) =>
       command(
@@ -114,7 +120,11 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
             context.appArguments,
             destination(options),
           ),
-        { permission: R, options: [...output, ...(action === "aggregate-icon" ? [count] : [])] },
+        {
+          permission: R,
+          options: [...output, ...(action === "aggregate-icon" ? [count] : [])],
+          view: savedFileRecord,
+        },
       ),
     ),
     command(

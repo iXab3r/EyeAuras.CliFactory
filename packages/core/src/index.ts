@@ -22,6 +22,16 @@ export type {
 } from "./target-commands.js";
 export { integerParser, jsonParser } from "./option-parsers.js";
 export { formatHuman, writeResult } from "./output.js";
+export { recordView, tableView } from "./view.js";
+export type {
+  HumanView,
+  RecordViewSpec,
+  TableViewSpec,
+  ViewColumn,
+  ViewField,
+  ViewFormat,
+  ViewValue,
+} from "./view.js";
 export { Permission } from "./permissions.js";
 export { ProfileStore } from "./profile-store.js";
 export {
@@ -43,6 +53,7 @@ export type {
   CommandContext,
   CommandDefinition,
   CommandHandler,
+  CommandHelp,
   CommandInput,
   CommandSettings,
   OptionDefinition,

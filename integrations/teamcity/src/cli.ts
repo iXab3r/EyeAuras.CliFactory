@@ -22,6 +22,7 @@ import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
 import { clientLeaf } from "./command-support.js";
+import { buildRecord, buildTable, helpLayout, withView } from "./presentation.js";
 import type {
   TeamCityBuildState,
   TeamCityBuildStatus,
@@ -134,6 +135,12 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
   return createCli({
     name: "teamcity-cli",
     description: "AI-friendly access to TeamCity",
+    examples: [
+      "builds list --job Demo_Tests --limit 20",
+      "builds show 101",
+      "jobs run Demo_Tests --branch main",
+      "builds artifacts download 101 dist/app.zip --output app.zip",
+    ],
     version: "0.3.1",
     applicationId: "teamcity-cli",
     permissions: { categories: adminCategories },
@@ -179,7 +186,10 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       },
     }),
     builtins: [downloadCommands],
-    commands: [
+    commands: helpLayout([
+      ["Everyday", ["builds", "jobs", "projects", "queue", "agents"]],
+      ["Triage", ["changes", "investigations", "mutes", "tests", "problems"]],
+    ], [
       command("server", "Inspect the TeamCity server", [
         ...admin.server,
         ...infrastructure.server,
@@ -192,7 +202,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           (c) => c.getServerStatus(),
         ),
       ]),
-      command("projects", "Work with TeamCity projects", [
+      command("projects", "Work with TeamCity projects", helpLayout([["Everyday", ["list", "show"]]], [
         leaf(
           "list",
           "List projects",
@@ -221,8 +231,10 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...infrastructure.projects,
         ...system.projects,
         ...files.projects,
-      ]),
-      command("jobs", "Work with TeamCity build configurations", [
+      ], "Configuration")),
+      command("jobs", "Work with TeamCity build configurations", helpLayout([
+        ["Everyday", ["list", "show", "status", "run"]],
+      ], [
         leaf(
           "list",
           "List jobs",
@@ -271,11 +283,20 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...authoring.jobs,
         ...system.jobs,
         ...files.jobs,
-      ]),
-      command("builds", "Inspect and control TeamCity builds", [
+      ], "Configuration"), {
+        examples: ["jobs list --project Demo", "jobs run Demo_Tests --branch main"],
+      }),
+      command("builds", "Inspect and control TeamCity builds", helpLayout([
+        ["Everyday", ["list", "show", "tests", "problems", "changes"]],
+        ["Files", ["artifacts", "artifacts-path", "source", "icon", "aggregate-icon"]],
+        ["Control", [
+          "cancel", "batch", "tags", "pin", "comment", "number", "status-text", "log", "finish",
+          "finish-at", "set-status", "start-agentless", "reset-finish-cache", "delete",
+        ]],
+      ], [
         ...operators.builds,
         ...files.builds,
-        leaf(
+        withView(buildTable, leaf(
           "list",
           "List operational builds across all branches",
           Permission.ReadOnly,
@@ -307,13 +328,13 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             },
             ...pageOptions,
           ],
-        ),
-        leaf(
+        )),
+        withView(buildRecord, leaf(
           "show <id>",
           "Show one build",
           Permission.ReadOnly,
           (c, { args }) => c.getBuild(positiveInteger(args.id)),
-        ),
+        )),
         leaf(
           "tests <id>",
           "List test occurrences for a build",
@@ -362,8 +383,17 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           },
           [{ flags: "--comment <text>", description: "Explain the cancellation" }],
         ),
-      ]),
-      command("queue", "Inspect and control the TeamCity build queue", [
+      ], "Evidence"), {
+        examples: [
+          "builds list --job Demo_Tests --state finished --limit 20",
+          "builds show 101",
+          "builds problems 101",
+          "builds artifacts list 101",
+        ],
+      }),
+      command("queue", "Inspect and control the TeamCity build queue", helpLayout([
+        ["Everyday", ["list", "show", "cancel"]],
+      ], [
         ...operators.queue,
         leaf(
           "list",
@@ -396,8 +426,10 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           },
           [{ flags: "--comment <text>", description: "Explain the cancellation" }],
         ),
-      ]),
-      command("agents", "Inspect TeamCity build agents", [
+      ], "Control")),
+      command("agents", "Inspect TeamCity build agents", helpLayout([
+        ["Everyday", ["list", "show"]],
+      ], [
         ...operators.agents,
         leaf(
           "list",
@@ -439,7 +471,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           Permission.ReadOnly,
           (c, { args }) => c.getAgent(positiveInteger(args.id)),
         ),
-      ]),
+      ], "Control")),
       command("vcs", "Inspect and configure version control", [
         command("roots", "VCS root identities and configuration", [
           ...authoring.roots,
@@ -455,7 +487,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       admin.groups,
       ...infrastructure.rootsCommands,
       ...system.roots,
-    ],
+    ], "Administration"),
     ...(runtime === undefined ? {} : { runtime }),
   });
 }

@@ -1,5 +1,6 @@
 import { inspect } from "node:util";
 import type { Writable } from "node:stream";
+import { renderView, type HumanView } from "./view.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -56,8 +57,31 @@ export function formatHuman(value: unknown): string {
   return inspect(value, { colors: false, depth: null, maxArrayLength: null, maxStringLength: null, compact: false });
 }
 
-export function writeResult(output: Writable, value: unknown, json: boolean): void {
-  const rendered = json ? JSON.stringify(value ?? null) : formatHuman(value);
+/** A terminal's usable line width; files, pipes and other streams have none. */
+export function terminalWidth(output: Writable): number | undefined {
+  const tty = output as Writable & { isTTY?: boolean; columns?: number };
+  // Leave the last column free: some terminals wrap a line that exactly fills the width.
+  return tty.isTTY === true && typeof tty.columns === "number" && tty.columns > 1
+    ? tty.columns - 1
+    : undefined;
+}
+
+export function writeResult(
+  output: Writable,
+  value: unknown,
+  json: boolean,
+  presentation?: { view: HumanView; cliName: string; profile: string },
+): void {
+  const width = terminalWidth(output);
+  const viewed = json || !presentation
+    ? undefined
+    : renderView(presentation.view, value, {
+        cliName: presentation.cliName,
+        profile: presentation.profile,
+        now: Date.now(),
+        ...(width === undefined ? {} : { width }),
+      });
+  const rendered = json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value);
   if (rendered.length > 0) {
     output.write(`${rendered}\n`);
   }
