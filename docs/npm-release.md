@@ -44,7 +44,7 @@ dotnet run --project build -- --target <Target> [--release-version <x.y.z>] [--d
 
 | Target | What it does |
 |---|---|
-| `Verify` | `npm ci`, Playwright Chromium, `npm test` (under `xvfb-run` on Linux without a display) and `npm run test:packages`. CI runs it on the Linux/macOS/Windows × Node 22/24 matrix. |
+| `Verify` | The bootstrap (`scripts/bootstrap.cs`: submodules, then `npm ci`), Playwright Chromium, `npm test` (under `xvfb-run` on Linux without a display) and `npm run test:packages`. CI runs it on the Linux/macOS/Windows × Node 22/24 matrix. |
 | `SetVersion` | Writes `--release-version` to the three package versions, both `CliDefinition.version` strings and every workspace's exact Core pin, then refreshes `package-lock.json`. |
 | `Pack` | After `CheckRelease` and `Verify`, packs the three public packages into `output/release/` and writes `release-manifest.json` (version, commit, shasums, integrity). |
 | `Publish` | Publishes those archives in dependency order and waits until the registry serves each version with the packed shasum. |
