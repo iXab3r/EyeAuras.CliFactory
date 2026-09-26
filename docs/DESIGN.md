@@ -105,13 +105,14 @@ the runner, not once per command.
 
 A leaf may declare an optional human `view` next to its handler. `tableView` lists rows, taken
 from an array result or from the view's `rows` accessor, under column headers, or prints its
-`empty` message. `recordView` prints an optional title, then aligned `Label: value` fields,
-omitting empty values. Accessors return values; they never print. Core owns the layout and the
-`age`, `duration` and `bytes` formats. There is no template language. Without a view, or when a
-table's rows are not an array, the generic fallback renders the value, so a shape mismatch never
-reads as "no results". `--json`, JSON-RPC and `execute` always return the unchanged domain value.
-A record may also have titled `sections`, one line per item. An empty section says `none`; an
-accessor that returns `undefined` omits it. Section lines are never cut: a long one wraps.
+`empty` message; it may add one `footer` line. `recordView` prints an optional title, then
+aligned `Label: value` fields, omitting empty values. Accessors return values; they never print.
+Core owns the layout and the `age`, `duration` and `bytes` formats. There is no template language.
+Without a view, or when a table's rows are not an array, the generic fallback renders the value,
+so a shape mismatch never reads as "no results". `--json`, JSON-RPC and `execute` always return
+the unchanged domain value. A record may also have titled `sections`, one line per item. An empty
+section says `none`; an accessor that returns `undefined` omits it. Section lines are never cut:
+a long one wraps.
 
 Tables fit a terminal. The width is the output TTY's columns minus one. Pipes, files and other
 non-TTY streams are never truncated. Only columns marked `shrink` lose characters, widest first,
@@ -151,7 +152,8 @@ Core records the selected `profile`. Each caller receives the same failure in it
 
 A result is never printed as success next to a contradicting error, and it is never discarded.
 Reading a failed build with `show` is still a successful read. Only commands whose contract is the
-outcome itself throw, such as waiting for a build. Exit codes are:
+outcome itself throw, such as waiting for a build or an operation whose items partly failed. Exit
+codes are:
 - 0 — success;
 - 1 — errors and failed outcomes;
 - 2 — misuse of the `--json-rpc` transport;
@@ -164,7 +166,8 @@ A `CliError` keeps its code, message, `next` and `result`. Any other error becom
 with the message `Interrupted.`, except a download error, which keeps its static message about
 the saved data. Core does not map closing the application to 130.
 
-Other errors keep their plain message until the CLI-wide machine error envelope replaces it.
+Every other failure has the same machine form; see
+[machine output](#machine-output-is-a-first-class-contract).
 
 ### Profiles own non-secret configuration
 
@@ -244,9 +247,35 @@ consumer needs them.
 ### Machine output is a first-class contract
 
 Every leaf command supports `--json`. JSON values use stable service/domain field names and do not
-contain ANSI decoration. Errors have a stable structured form in JSON-RPC mode; a future CLI-wide
-JSON error envelope must update the current contract, consumers, documentation, and contract tests
-together; it must not retain a parallel old format.
+contain ANSI decoration.
+
+Every failure has one machine form: `{ code, message, exitCode, profile?, next? }`.
+- `message` is the same safe text a person sees.
+- `profile` is present once one was selected.
+- Each `next` argv ends with `--profile <selected>`.
+
+The form reaches each caller as follows:
+- **CLI with `--json`:** stderr receives exactly one line, `{"error": {...}}`, and stdout stays
+  empty. The one exception is a failed outcome: its result is printed on stdout.
+- **JSON-RPC:** every error response carries the form, minus `message`, as `error.data`, plus
+  `result` for a failed outcome.
+- **Human mode:** only the message is printed, followed by `Next:` lines when no result was shown.
+
+Core owns these codes:
+- `usage` — parser errors, including option values that a parser rejects;
+- `usage.jsonRpc` — misuse of the `--json-rpc` transport, exit 2;
+- `permission.denied` — the next step is `permissions grant <category>`;
+- `profile.notFound`;
+- `profile.notConfigured`;
+- `interrupted` — an untyped failure after an interrupt, exit 130;
+- `error` — any other error that has no type.
+
+Integrations add their own dotted codes by throwing `CliError` or a subclass. There is no parallel
+plain-text error format for JSON callers.
+
+Without a view, the generic renderer prints an object whose `items` is a list of records as a
+table followed by its other fields on one line. That is the shape of a paged selection. A table
+view may add one `footer` line, for example whether more results exist.
 
 ### JSON-RPC is a persistent transport
 
