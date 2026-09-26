@@ -98,6 +98,7 @@ packages/core/           shared factory primitives
 integrations/teamcity/   first executable integration
 docs/                    canonical design and practices
 scripts/                 .NET 10 bootstrap and repository tools
+build/                   C# (Cake Frosting) release driver used locally and by GitHub Actions
 .workspace/workstreams/  local Git-ignored coordination notes
 ```
 

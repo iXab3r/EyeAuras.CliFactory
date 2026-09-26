@@ -134,7 +134,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
   return createCli({
     name: "teamcity-cli",
     description: "AI-friendly access to TeamCity",
-    version: "0.3.0",
+    version: "0.3.1",
     applicationId: "teamcity-cli",
     permissions: { categories: adminCategories },
     profile: {

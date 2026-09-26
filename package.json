@@ -20,12 +20,13 @@
     "random-rest": "npm run start --workspace @eyeauras/random-rest-cli --",
     "random-pw": "npm run start --workspace @eyeauras/random-pw-cli --",
     "browser:install": "playwright install chromium",
-    "test:packages": "npm run build && node scripts/test-packages.mjs"
+    "test:packages": "npm run build && node scripts/test-packages.mjs",
+    "test:registry": "node scripts/test-packages.mjs --registry"
   },
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "npm@11.4.2",
+  "packageManager": "npm@11.20.0",
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^7.0.2"

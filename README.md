@@ -160,6 +160,7 @@ state remain available for the whole session.
 | `docs/roles`, `docs/practices` | GitHub Issues, Reconciliation Lead, and phased workstream practices |
 | `.workspace/workstreams` | Local Git-ignored coordination notes |
 | `scripts/bootstrap.cs` | .NET 10 file-based bootstrap for submodules and npm dependencies |
+| `build/` | C# release driver (verify, version, pack, publish) shared by local runs and GitHub Actions |
 
 `CliWrap.ts` is planned as a separate repository and will be connected as a Git submodule when
 its first process-pipeline consumer is implemented. It is deliberately not represented by an
@@ -167,8 +168,7 @@ empty placeholder today.
 
 ## Global CLI installation
 
-The first npm release is prepared locally; the following installation commands become
-available after registry publication:
+The CLIs are published on npm:
 
 ```sh
 npm install --global @eyeauras/youtrack-cli @eyeauras/teamcity-cli
@@ -180,11 +180,12 @@ The scoped package names install the unscoped commands shown above. Users need N
 22+ and npm; these two CLIs need no source checkout, TypeScript, .NET or browser.
 Authentication uses the normal OS credential store. Existing application IDs and profile
 storage stay unchanged. The release packages use the [MIT license](LICENSE).
-See the [npm release guide](docs/npm-release.md) for artifact checks and publication order.
+See the [npm release guide](docs/npm-release.md) for the release driver, artifact checks and publication.
 
 ## Getting started with development
 
-Requirements: Node.js 22+ and npm 11+. .NET 10 is only needed for the one-command bootstrap.
+Requirements: Node.js 22+ and npm 11+. .NET 10 is only needed for the one-command bootstrap and
+the release driver (`dotnet run --project build -- --target Verify` runs the full CI check locally).
 
 ```text
 dotnet run --file scripts/bootstrap.cs

@@ -18,3 +18,7 @@ output/
 
 # Local agent coordination; keep real worktrees elsewhere in .workspace untouched.
 /.workspace/workstreams/
+
+# Release driver build output.
+build/bin/
+build/obj/

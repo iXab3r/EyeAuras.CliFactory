@@ -1,6 +1,6 @@
 {
   "name": "@eyeauras/cli-factory",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Reusable primitives for consistent, AI-friendly TypeScript CLIs.",
   "type": "module",
   "main": "./dist/src/index.js",

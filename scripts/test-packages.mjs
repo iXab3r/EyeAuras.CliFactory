@@ -9,6 +9,9 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const npmCli = process.env.npm_execpath;
 assert.ok(npmCli, "Run this check through npm run test:packages.");
+// `--registry <version>` (npm run test:registry) installs that published version instead of this checkout.
+const registryVersion = process.argv.includes("--registry") ? process.argv[process.argv.indexOf("--registry") + 1] : undefined;
+assert.ok(registryVersion === undefined || /^\d+\.\d+\.\d+/.test(registryVersion), "Pass --registry <version>.");
 const packages = [
   { directory: "packages/core", name: "@eyeauras/cli-factory" },
   { directory: "integrations/teamcity", name: "@eyeauras/teamcity-cli", bin: "teamcity-cli", factory: "createTeamCityCli" },
@@ -64,7 +67,7 @@ try {
     writeFile(join(temporary, "npmrc"), ""), writeFile(join(temporary, "npmrc-global"), "")]);
   const license = await readFile(join(root, "LICENSE"), "utf8");
   const tarballs = [];
-  for (const entry of packages) {
+  for (const entry of registryVersion === undefined ? packages : []) {
     const manifest = JSON.parse(await readFile(join(root, entry.directory, "package.json"), "utf8"));
     assert.equal(manifest.name, entry.name);
     assert.notEqual(manifest.private, true);
@@ -92,12 +95,14 @@ try {
 
   // Install all three exact tarballs together; npm must satisfy the Core dependency from
   // the tarball, even before the first Core version exists on the public registry.
-  npm(["install", "--global", "--prefix", prefix, "--no-audit", "--no-fund", ...tarballs], { timeout: 180_000 });
+  const install = registryVersion === undefined ? tarballs : packages.map((entry) => `${entry.name}@${registryVersion}`);
+  npm(["install", "--global", "--prefix", prefix, "--no-audit", "--no-fund", ...install], { timeout: 180_000 });
   for (const entry of packages) {
     const installed = join(modules, ...entry.name.split("/"));
     assert.equal(await realpath(installed), installed, "Installed package must not be a workspace symlink.");
     const manifest = JSON.parse(await readFile(join(installed, "package.json"), "utf8"));
     assert.equal(manifest.name, entry.name);
+    if (registryVersion !== undefined) assert.equal(manifest.version, registryVersion);
     const coreUrl = JSON.parse(run(process.execPath, ["--input-type=module", "--eval", `
       for (const suffix of ["", "/testing", "/proof"]) await import("@eyeauras/cli-factory" + suffix);
       console.log(JSON.stringify(import.meta.resolve("@eyeauras/cli-factory")));

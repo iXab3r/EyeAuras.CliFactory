@@ -24,10 +24,25 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
-      - run: npm run browser:install -- --with-deps
-      - if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm test
-      - if: runner.os != 'Linux'
-        run: npm test
-      - run: npm run test:packages
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet run --project build -- --target Verify
+
+  release-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Release dry run of the committed version
+        run: >-
+          dotnet run --project build -- --target Release --dry-run
+          --release-version "$(node -p "require('./packages/core/package.json').version")"

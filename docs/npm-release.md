@@ -1,10 +1,8 @@
 # npm installation and release
 
-The current release line is 0.3.0 for Core, YouTrack CLI and TeamCity CLI. Publish Core first,
-then both integrations, using reviewed archives from the same tested tree. Registry publication
-and registry installation must be verified before reporting release availability. Version 0.2.0
-of all three packages (and 0.1.0 of Core and YouTrack) was previously published; 0.3.0 adds the
-YouTrack workflow commands, Core's `saveProfileFile` and the `downloads` built-ins.
+Core, YouTrack CLI and TeamCity CLI are released together under one version. The C# release
+driver in `build/` checks, packs, publishes (Core first) and verifies them. The same commands
+run locally and in the manually started GitHub Actions **Release** workflow.
 
 ## Package and executable names
 
@@ -14,7 +12,7 @@ YouTrack workflow commands, Core's `saveProfileFile` and the `downloads` built-i
 | `@eyeauras/youtrack-cli` | `youtrack-cli` |
 | `@eyeauras/teamcity-cli` | `teamcity-cli` |
 
-After publication, users install either or both CLI packages:
+Users install either or both CLI packages:
 
 ```sh
 npm install --global @eyeauras/youtrack-cli @eyeauras/teamcity-cli
@@ -36,81 +34,90 @@ should own the command instead of overwriting it with `--force`.
 The global npm executable directory must be on PATH. Profile data and credential
 identities remain keyed by the existing `youtrack-cli`/`teamcity-cli` application IDs.
 
-## Prepare and verify
+## Release driver
 
-Only the three packages above belong to this release. The root, IPC, Playwright and
-RANDOM packages remain private. All released packages include the owner-approved MIT
-notice, package metadata, README and built `dist/src` files; tests, fixtures, source
-TypeScript and integration-proof runners are excluded. Core's existing public
-`/testing` and `/proof` library exports remain included.
+Requirements are .NET 10, Node.js 22+ and npm. Run every command from the repository root:
 
-From the repository root:
-
-```sh
-npm ci
-npm run browser:install
-npm test
-npm run test:packages
+```text
+dotnet run --project build -- --target <Target> [--release-version <x.y.z>] [--dry-run]
 ```
 
-Use `xvfb-run --auto-servernum npm test` on Linux without a display. The browser is a
-development-test dependency, not a requirement of the installed TeamCity/YouTrack CLIs.
+| Target | What it does |
+|---|---|
+| `Verify` | `npm ci`, Playwright Chromium, `npm test` (under `xvfb-run` on Linux without a display) and `npm run test:packages`. CI runs it on the Linux/macOS/Windows × Node 22/24 matrix. |
+| `SetVersion` | Writes `--release-version` to the three package versions, both `CliDefinition.version` strings and every workspace's exact Core pin, then refreshes `package-lock.json`. |
+| `Pack` | After `CheckRelease` and `Verify`, packs the three public packages into `output/release/` and writes `release-manifest.json` (version, commit, shasums, integrity). |
+| `Publish` | Publishes those archives in dependency order and waits until the registry serves each version with the packed shasum. |
+| `VerifyRegistry` | `npm run test:registry -- <version>`: installs the published packages into a temporary prefix and repeats the executable, JSON and JSON-RPC checks. |
+| `Release` | All of the above, then GitHub Release `v<version>` (its tag at the packed commit) with the archives and the manifest. |
 
-`test:packages` builds the workspace, packs the three packages and checks the archive
-allowlist and required entry points. It then installs those exact tarballs together
-into a fresh temporary global prefix outside the checkout. npm may download public
-production dependencies; this explicit packaging check is separate from offline
-`npm test`. Its npm cache/config and global prefix are temporary, and it does not
-change the developer's installed commands or log in to any service.
+`--dry-run` runs every step without side effects: `npm publish --dry-run`, no registry check and
+no GitHub Release. Cake's own `--dryrun` only prints the plan; `--tree` and `--description` list
+the targets, and `--exclusive` runs one target without its dependencies.
 
-The check invokes npm's real executable links/shims for help, version and two successive
-JSON-RPC help requests. It also imports each installed integration and exercises JSON
-profile listing through Core's existing temporary fixture. It verifies that installed
-dependencies do not resolve through workspace links. Executable help calls neither read
-profiles nor use credentials; the JSON check uses synthetic AppData and memory secrets.
-Root/help output remains human text even when `--json` is supplied.
-CI runs this check on the same Node 22/24 and Linux/macOS/Windows matrix as the default suite.
+Before any work, `CheckRelease` requires `--release-version` to match every version site and lists
+each mismatch. A live release also requires a clean working tree whose `HEAD` is the current
+`origin/main` tip and, in GitHub Actions, npm 11.5.1 or later. Publication is idempotent: a version
+already published with the same shasum is skipped and the same version with different content is
+refused. A dry run only warns about the latter, so ordinary pull requests pass the CI release dry
+run until a release bumps the version. An existing GitHub Release is skipped; a tag on another
+commit is refused. Nothing is unpublished or retried: fix the cause and run the same command again.
 
-Each package has a `prepack` build hook. During the package check hooks are suppressed
-because the complete workspace has just been built; regular pack/publish rebuilds the
-selected package. Always build/test the whole workspace first so Core is current.
+## Releasing
 
-## Review and publish
+1. Run `dotnet run --project build -- --target SetVersion --release-version <x.y.z>` and merge the
+   change through a pull request. CI dry-runs the release of the committed version.
+2. Release from `main` in one of two ways:
+   - **GitHub Actions:** Actions → **Release** → *Run workflow* with the version, first with
+     *dry-run* checked, then unchecked. The workflow publishes through npm trusted publishing
+     (no npm token, provenance attached) and creates the GitHub Release.
+   - **Locally:** run `npm login`, then
+     `dotnet run --project build -- --target Release --release-version <x.y.z>`. npm asks for your
+     2FA for each package (terminal prompt or browser confirmation). The GitHub Release uses your
+     `gh` login. Local publication carries no provenance.
+3. The run ends with the registry check. The GitHub Release lists each published shasum.
 
-1. Verify publication rights to the npm `@eyeauras` scope. An npm organization and the
-   GitHub repository are separate identities. Set up npm account 2FA for manual publication.
-2. Choose the release versions. Keep each integration's Core dependency resolvable;
-   when changing a CLI version, also update its `CliDefinition.version` and lockfile.
-   The artifact check detects version mismatches.
-3. Run the preparation checks above. Pack all three packages from the same reviewed tree:
+## Trusted publishing setup
 
-   ```sh
-   npm pack --workspace @eyeauras/cli-factory --workspace @eyeauras/youtrack-cli --workspace @eyeauras/teamcity-cli
-   ```
+The Release workflow authenticates to npm through OIDC, so GitHub stores no npm secret. Each
+package trusts exactly `iXab3r/EyeAuras.CliFactory` with `.github/workflows/release.yml`; renaming
+the workflow file breaks publication until the trust is updated. The configuration is created once
+with npm 11.15+ (`npx -y npm@11 trust ...` works with an older npm) and the owner's interactive 2FA:
 
-   This writes three `.tgz` files in the current directory. Review `npm pack --dry-run`
-   and archive contents for generated noise, secrets and private service data before
-   uploading anything. Package allowlist checks are not a content privacy review.
-4. Log in interactively with `npm login`. Publish the reviewed tarballs in dependency
-   order; these filenames match the `0.3.0` manifests:
+```text
+npm trust github @eyeauras/cli-factory  --repo iXab3r/EyeAuras.CliFactory --file release.yml --allow-publish --yes
+npm trust github @eyeauras/youtrack-cli --repo iXab3r/EyeAuras.CliFactory --file release.yml --allow-publish --yes
+npm trust github @eyeauras/teamcity-cli --repo iXab3r/EyeAuras.CliFactory --file release.yml --allow-publish --yes
+```
 
-   ```sh
-   npm publish ./eyeauras-cli-factory-0.3.0.tgz --access public --registry https://registry.npmjs.org/
-   npm publish ./eyeauras-youtrack-cli-0.3.0.tgz --access public --registry https://registry.npmjs.org/
-   npm publish ./eyeauras-teamcity-cli-0.3.0.tgz --access public --registry https://registry.npmjs.org/
-   ```
+Anyone who can run the workflow (repository write access) can publish; no further approval is
+required by design. Optional later hardening on npmjs.com: package → Settings → Publishing access →
+"Require two-factor authentication and disallow tokens". OIDC and interactive 2FA publishing keep
+working with that setting.
 
-   Wait for the Core version to be available before publishing the integrations.
-   Publishing tarballs uploads the reviewed build rather than rebuilding it.
-5. Verify `npm view <package>@0.3.0 version bin` for each package. In a clean environment,
-   install the two CLI versions **from the registry**, then check `--help`, `--version`,
-   JSON and JSON-RPC. Local tarball proof does not prove registry availability.
-6. Record the published versions and registry-install evidence, update release status
-   in the public docs, and close the linked Issue/workstream only after its acceptance gates pass.
+## Package contents and checks
 
-No automatic publishing workflow is installed by this preparation. A later release
-automation can use npm trusted publishing after the scope and packages are configured.
+Only the three packages above are published. The root, IPC, Playwright and RANDOM packages remain
+private. Released packages include the MIT notice, package metadata, README and built `dist/src`
+files. Tests, fixtures, source TypeScript and integration-proof runners are excluded. Core's
+public `/testing` and `/proof` library exports remain included.
+
+`test:packages` builds the workspace, packs the three packages and checks the archive allowlist
+and required entry points. It then installs those exact tarballs together into a fresh temporary
+global prefix outside the checkout. `test:registry <version>` performs the same installed checks
+against the published packages instead. Both use a temporary npm cache, configuration and prefix,
+never change the developer's installed commands and never log in to any service.
+
+The installed checks invoke npm's real executable links/shims for help, version and two successive
+JSON-RPC help requests. They also import each installed integration and exercise JSON profile
+listing through Core's temporary fixture, and verify that dependencies do not resolve through
+workspace links. Executable help reads no profiles or credentials; the JSON check uses synthetic
+AppData and memory secrets. Root/help output remains human text even when `--json` is supplied.
+Packing suppresses the `prepack` build hooks because `Verify` has just built the whole workspace.
 
 Official references: [npm bin](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#bin),
 [scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/),
-[publishing tarballs](https://docs.npmjs.com/cli/v11/commands/npm-publish/).
+[publishing tarballs](https://docs.npmjs.com/cli/v11/commands/npm-publish/),
+[trusted publishing](https://docs.npmjs.com/trusted-publishers),
+[`npm trust`](https://docs.npmjs.com/cli/v11/commands/npm-trust),
+[Cake Frosting](https://cakebuild.net/docs/running-builds/runners/cake-frosting).
