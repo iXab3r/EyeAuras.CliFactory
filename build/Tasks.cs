@@ -9,7 +9,8 @@ public sealed class VerifyTask : AsyncFrostingTask<BuildContext>
 {
     public override async Task RunAsync(BuildContext context)
     {
-        await context.Run("npm", "ci");
+        // The documented bootstrap (submodules, then npm ci), so every CI platform exercises it.
+        await context.Run("dotnet", "run", "--file", "scripts/bootstrap.cs");
         await context.Exec("npm", context.GitHubActions
             ? ["run", "browser:install", "--", "--with-deps"]
             : ["run", "browser:install"]);

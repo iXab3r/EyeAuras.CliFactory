@@ -22,8 +22,7 @@ Run(git, "submodule", "update", "--init", "--recursive");
 
 if (!submodulesOnly && !skipInstall)
 {
-    var npmCommand = OperatingSystem.IsWindows() ? "npm.cmd" : "npm";
-    Run(npmCommand, File.Exists(Path.Combine(root, "package-lock.json")) ? "ci" : "install");
+    Run(ResolveNpm(), File.Exists(Path.Combine(root, "package-lock.json")) ? "ci" : "install");
 }
 
 Console.WriteLine("AI CLI Factory workspace is ready.");
@@ -54,6 +53,25 @@ static string ResolveGit()
         }
     }
     return "git";
+}
+
+// Windows starts a bare "npm.cmd" in a way that makes the shim resolve %~dp0 to the working
+// directory, so start the full path of the first PATH match, as the shell would.
+static string ResolveNpm()
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        return "npm";
+    }
+    foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+    {
+        var candidate = Path.Combine(directory.Trim(), "npm.cmd");
+        if (directory.Trim().Length > 0 && File.Exists(candidate))
+        {
+            return candidate;
+        }
+    }
+    return "npm.cmd";
 }
 
 static void Run(string executable, params string[] arguments)
