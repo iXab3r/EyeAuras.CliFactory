@@ -64,7 +64,10 @@ refused. A dry run only warns about the latter, so ordinary pull requests pass t
 run until a release bumps the version. An existing GitHub Release is skipped; a tag on another
 commit is refused. Nothing is unpublished or retried: fix the cause and run the same command again.
 Packed files use LF line endings on every OS, so the archives of a commit are byte-identical locally
-and in Actions, and a failed release can be resumed through either path.
+and in Actions (0.3.1 packed identically on Windows and Linux), and a failed release can be resumed
+through either path. A Windows clone made before `LICENSE` was forced to LF keeps CRLF copies that
+Git still reports as clean; delete the four `LICENSE` files once and run
+`git checkout -- LICENSE packages/core/LICENSE integrations/youtrack/LICENSE integrations/teamcity/LICENSE`.
 
 ## Releasing
 
