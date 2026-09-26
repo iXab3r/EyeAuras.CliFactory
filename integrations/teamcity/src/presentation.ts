@@ -32,7 +32,7 @@ function elapsed(build: TeamCityBuild): number | undefined {
 export const buildTable = tableView<TeamCityBuild>({
   columns: [
     { header: "BUILD", value: (build) => build.id },
-    { header: "JOB", value: (build) => build.buildTypeId, shrink: true },
+    { header: "JOB", value: (build) => build.buildTypeId },
     { header: "BRANCH", value: (build) => build.branchName, shrink: true },
     { header: "STATE", value: (build) => build.state },
     { header: "RESULT", value: result },
@@ -89,7 +89,7 @@ interface RemoteFile {
 export const fileTable = tableView<RemoteFile, { items: readonly RemoteFile[] }>({
   rows: (listing) => listing.items,
   columns: [
-    { header: "NAME", value: (file) => file.name, shrink: true },
+    { header: "NAME", value: (file) => file.name },
     { header: "SIZE", value: (file) => file.size, format: "bytes" },
     { header: "MODIFIED", value: (file) => teamCityDate(file.modificationTime), format: "age" },
   ],

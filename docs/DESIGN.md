@@ -34,7 +34,8 @@ after that help. A bare group shows exactly its `--help` text, examples included
 service commands first. Core's local profile, auth, permission and download commands follow under
 `Configuration`. A parser error prints one error line and that command's one-line usage with a
 `--help` hint, never its complete help. A stray word after a group is an unknown command, with
-Commander's suggestion.
+Commander's suggestion. One exception remains: Commander's `help <name>` for an unknown name
+prints the root help to stderr and exits 1.
 
 A service option may declare `required: true` in its existing `OptionDefinition`. The parser
 rejects a missing required value before profile onboarding, keyring access or the handler, in
@@ -99,17 +100,19 @@ This separation is the basis for future output formats. A new format must be imp
 the runner, not once per command.
 
 A leaf may declare an optional human `view` next to its handler. `tableView` lists rows, taken
-from an array result or from the view's `rows` accessor, under column headers. It can print an
-`empty` message and one `footer` line. `recordView` prints an optional title, then aligned
-`Label: value` fields, omitting empty values. Accessors only select values. Core owns the layout
-and the `age`, `duration` and `bytes` formats. There is no template language, and integrations
-never print. Without a view, the generic fallback renders the value. `--json`, JSON-RPC and
-`execute` always return the unchanged domain value.
+from an array result or from the view's `rows` accessor, under column headers, or prints its
+`empty` message. `recordView` prints an optional title, then aligned `Label: value` fields,
+omitting empty values. Accessors return values; they never print. Core owns the layout and the
+`age`, `duration` and `bytes` formats. There is no template language. Without a view, or when a
+table's rows are not an array, the generic fallback renders the value, so a shape mismatch never
+reads as "no results". `--json`, JSON-RPC and `execute` always return the unchanged domain value.
 
 Tables fit a terminal. The width is the output TTY's columns minus one. Pipes, files and other
 non-TTY streams are never truncated. Only columns marked `shrink` lose characters, widest first,
-ending in `…`. Identifiers are never marked, so an impossible fit wraps rather than cuts an ID.
-Views use no colour: text such as `FAILURE` carries the meaning.
+ending in `…`. Identifiers are never marked: IDs and names that commands take to select an object,
+such as file names. An impossible fit therefore wraps rather than cuts one. Descriptive text and
+filter values such as branch names may shrink; they stay complete in the object's detail view and
+in JSON. Views use no colour: text such as `FAILURE` carries the meaning.
 
 A record may suggest `next` commands of the same CLI as argv arrays. Core prefixes the CLI name
 and appends `--profile <selected>`, so copying a suggestion never switches profile. An action

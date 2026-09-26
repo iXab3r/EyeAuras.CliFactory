@@ -73,16 +73,15 @@ export function writeResult(
   presentation?: { view: HumanView; cliName: string; profile: string },
 ): void {
   const width = terminalWidth(output);
-  const rendered = json
-    ? JSON.stringify(value ?? null)
-    : presentation
-      ? renderView(presentation.view, value, {
-          cliName: presentation.cliName,
-          profile: presentation.profile,
-          now: Date.now(),
-          ...(width === undefined ? {} : { width }),
-        })
-      : formatHuman(value);
+  const viewed = json || !presentation
+    ? undefined
+    : renderView(presentation.view, value, {
+        cliName: presentation.cliName,
+        profile: presentation.profile,
+        now: Date.now(),
+        ...(width === undefined ? {} : { width }),
+      });
+  const rendered = json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value);
   if (rendered.length > 0) {
     output.write(`${rendered}\n`);
   }

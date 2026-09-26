@@ -542,12 +542,17 @@ actions; it does not replace TeamCity's own authorization.
 
 ## Human output
 
-Help leads with everyday work. The root lists `Everyday` (`builds`, `jobs`, `projects`, `queue`,
-`agents`), then `Triage`, `Administration` and Core's local `Configuration`. `builds --help` starts
-with `list`, `show`, `tests`, `problems` and `changes`, followed by `Files`, `Control` and
-`Evidence`. Examples appear at the root and on `jobs` and `builds`. A typo such as
-`teamcity-cli bulds` is reported as an unknown command with a suggestion. An argument error shows
-one usage line, not the full help.
+Help leads with everyday work:
+- The root lists `Everyday` (`builds`, `jobs`, `projects`, `queue`, `agents`), then `Triage`,
+  `Administration` and Core's local `Configuration`.
+- `builds --help` starts with `list`, `show`, `tests`, `problems` and `changes`, followed by
+  `Files`, `Control` and `Evidence`.
+- `jobs`, `projects`, `queue` and `agents` start with their list, show and run commands.
+- Examples appear at the root and on `jobs` and `builds`.
+
+A typo such as `teamcity-cli bulds` is reported as an unknown command with a suggestion. An argument
+error shows one usage line, not the full help. Commander's `help <name>` with an unknown name still
+prints the root help.
 
 Some commands print a compact view instead of every field:
 - `builds list` prints a table: BUILD, JOB, BRANCH, STATE, RESULT, AGE. RESULT is shown only for
@@ -557,8 +562,10 @@ Some commands print a compact view instead of every field:
 - File listings print NAME, SIZE and MODIFIED.
 - Downloads print the full local path, byte count and SHA-256 of the saved file.
 
-In a terminal, tables fit its width by shortening only JOB, BRANCH or file names, never IDs.
-Redirected output is not shortened. `--json` and JSON-RPC return the same complete data as before.
+In a terminal, `builds list` fits its width by shortening only BRANCH, and Core's
+`downloads list` only its PATH. Build and job IDs and file names are never cut; an impossible fit
+wraps. Redirected output is not shortened. `--json` and JSON-RPC return the same complete data as
+before.
 
 ## Machine-oriented output
 

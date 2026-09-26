@@ -391,7 +391,9 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "builds artifacts list 101",
         ],
       }),
-      command("queue", "Inspect and control the TeamCity build queue", [
+      command("queue", "Inspect and control the TeamCity build queue", helpLayout([
+        ["Everyday", ["list", "show", "cancel"]],
+      ], [
         ...operators.queue,
         leaf(
           "list",
@@ -424,8 +426,10 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           },
           [{ flags: "--comment <text>", description: "Explain the cancellation" }],
         ),
-      ]),
-      command("agents", "Inspect TeamCity build agents", [
+      ], "Control")),
+      command("agents", "Inspect TeamCity build agents", helpLayout([
+        ["Everyday", ["list", "show"]],
+      ], [
         ...operators.agents,
         leaf(
           "list",
@@ -467,7 +471,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           Permission.ReadOnly,
           (c, { args }) => c.getAgent(positiveInteger(args.id)),
         ),
-      ]),
+      ], "Control")),
       command("vcs", "Inspect and configure version control", [
         command("roots", "VCS root identities and configuration", [
           ...authoring.roots,

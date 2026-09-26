@@ -27,8 +27,6 @@ export interface TableViewSpec<Row, Value> {
   columns: readonly ViewColumn<Row>[];
   /** Printed instead of an empty table. */
   empty?: string;
-  /** One summary line printed after the table. */
-  footer?: (value: Value) => string | undefined;
 }
 
 export interface RecordViewSpec<Value> {
@@ -130,28 +128,27 @@ function fitWidths(widths: number[], columns: readonly ViewColumn<unknown>[], li
   return result;
 }
 
-function renderTable(view: TableViewSpec<unknown, unknown>, value: unknown, context: ViewContext): string {
-  const rows = view.rows ? view.rows(value) : Array.isArray(value) ? value : [];
-  const lines: string[] = [];
-  if (rows.length === 0) {
-    lines.push(view.empty ?? "No results.");
-  } else {
-    const cells = rows.map((row) =>
-      view.columns.map((column) => formatViewValue(column.value(row), column.format, context.now)));
-    const widths = fitWidths(
-      view.columns.map((column, index) =>
-        Math.max(column.header.length, ...cells.map((row) => row[index]?.length ?? 0))),
-      view.columns,
-      context.width,
-    );
-    const line = (row: readonly string[]) =>
-      row.map((cell, index) => truncate(cell, widths[index] ?? 0).padEnd(widths[index] ?? 0))
-        .join("  ").trimEnd();
-    lines.push(line(view.columns.map((column) => column.header)), ...cells.map(line));
-  }
-  const footer = view.footer?.(value);
-  if (footer) lines.push("", footer);
-  return lines.join("\n");
+function renderTable(
+  view: TableViewSpec<unknown, unknown>,
+  value: unknown,
+  context: ViewContext,
+): string | undefined {
+  const rows: unknown = view.rows ? view.rows(value) : value;
+  // A shape mismatch must never read as "no results"; the caller falls back to generic output.
+  if (!Array.isArray(rows)) return undefined;
+  if (rows.length === 0) return view.empty ?? "No results.";
+  const cells = rows.map((row) =>
+    view.columns.map((column) => formatViewValue(column.value(row), column.format, context.now)));
+  const widths = fitWidths(
+    view.columns.map((column, index) =>
+      Math.max(column.header.length, ...cells.map((row) => row[index]?.length ?? 0))),
+    view.columns,
+    context.width,
+  );
+  const line = (row: readonly string[]) =>
+    row.map((cell, index) => truncate(cell, widths[index] ?? 0).padEnd(widths[index] ?? 0))
+      .join("  ").trimEnd();
+  return [line(view.columns.map((column) => column.header)), ...cells.map(line)].join("\n");
 }
 
 function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: ViewContext): string {
@@ -172,6 +169,7 @@ function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: Vi
   return lines.join("\n");
 }
 
-export function renderView(view: HumanView, value: unknown, context: ViewContext): string {
+/** The view's text, or undefined when a table's rows are not an array. */
+export function renderView(view: HumanView, value: unknown, context: ViewContext): string | undefined {
   return view.kind === "table" ? renderTable(view, value, context) : renderRecord(view, value, context);
 }

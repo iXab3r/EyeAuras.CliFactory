@@ -77,9 +77,18 @@ test("help starts with everyday commands, keeps every command and shows scenario
   assert.equal(await cli.run(["builds"]), 0);
   assert.equal(runtime.stdout(), builds, "A bare group shows the same help, examples included.");
 
-  runtime.resetOutput();
-  assert.equal(await cli.run(["jobs", "--help"]), 0);
-  assert.deepEqual(commandsUnder(runtime.stdout(), "Everyday:"), ["list", "show", "status", "run"]);
+  for (const [branch, everyday] of [
+    ["jobs", ["list", "show", "status", "run"]],
+    ["projects", ["list", "show"]],
+    ["queue", ["list", "show", "cancel"]],
+    ["agents", ["list", "show"]],
+  ] as const) {
+    runtime.resetOutput();
+    assert.equal(await cli.run([branch, "--help"]), 0);
+    const help = runtime.stdout();
+    assert.equal(headings(help)[1], "Everyday:", `${branch} help starts with everyday commands`);
+    assert.deepEqual(commandsUnder(help, "Everyday:"), everyday);
+  }
 
   runtime.resetOutput();
   assert.equal(await cli.run(["--help"]), 0);
@@ -93,8 +102,9 @@ test("help starts with everyday commands, keeps every command and shows scenario
 });
 
 test("builds list reads at 120 and 80 columns without cutting IDs while JSON keeps every field", async (t) => {
-  server.use(http.get("https://teamcity.test/app/rest/builds", () =>
-    HttpResponse.json({ build: [failed, running] })));
+  const typical = { ...failed, buildTypeId: "Demo_UnitTests_Nightly" };
+  let builds: unknown[] = [typical, running];
+  server.use(http.get("https://teamcity.test/app/rest/builds", () => HttpResponse.json({ build: builds })));
   const runtime = await createTestRuntime(t);
   const cli = runtime.createCli();
 
@@ -103,16 +113,26 @@ test("builds list reads at 120 and 80 columns without cutting IDs while JSON kee
     assert.equal(await cli.run(["builds", "list"], { output: out.stream }), 0);
     const lines = out.text().trimEnd().split("\n");
     assert.match(lines[0] ?? "", /^BUILD\s+JOB\s+BRANCH\s+STATE\s+RESULT\s+AGE$/);
-    assert.match(lines[1] ?? "", /^101\s+Demo_UnitTests\S*\s+feature\/\S+\s+finished\s+FAILURE\s+\S+$/);
+    assert.match(lines[1] ?? "", /^101\s+Demo_UnitTests_Nightly\s+feature\/\S+\s+finished\s+FAILURE\s+\S+$/);
     assert.match(lines[2] ?? "", /^1234567890\s+Short\s+main\s+running\s+-\s+\S+$/);
     for (const line of lines) assert.ok(line.length < columns, `${line.length} >= ${columns}: ${line}`);
   }
+  const narrow = terminal(81);
+  assert.equal(await cli.run(["builds", "list"], { output: narrow.stream }), 0);
+  assert.match(narrow.text(), /feature\/a-de\S*…/, "Only the branch shrinks at 80 columns.");
+
+  // An ID that cannot fit is never cut: the line wraps instead.
+  builds = [failed];
+  const tooLong = terminal(81);
+  assert.equal(await cli.run(["builds", "list"], { output: tooLong.stream }), 0);
+  assert.match(tooLong.text(), /^101\s+Demo_UnitTests_With_A_Rather_Long_Configuration_Identifier\s/m);
 
   const redirected = await runtime.run(cli, ["builds", "list"]);
   assert.match(redirected.stdout, /Demo_UnitTests_With_A_Rather_Long_Configuration_Identifier/);
   assert.match(redirected.stdout, /feature\/a-deliberately-long-synthetic-branch-name/);
 
-  assert.deepEqual(await runtime.json(cli, ["builds", "list"]), [failed, running]);
+  builds = [typical, running];
+  assert.deepEqual(await runtime.json(cli, ["builds", "list"]), [typical, running]);
 });
 
 test("builds show summarizes one build and suggests safe profile-bound next commands", async (t) => {
