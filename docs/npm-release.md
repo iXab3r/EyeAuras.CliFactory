@@ -53,7 +53,8 @@ dotnet run --project build -- --target <Target> [--release-version <x.y.z>] [--d
 
 `--dry-run` runs every step without side effects: `npm publish --dry-run`, no registry check and
 no GitHub Release. Cake's own `--dryrun` only prints the plan; `--tree` and `--description` list
-the targets, and `--exclusive` runs one target without its dependencies.
+the targets, and `--exclusive` runs one target without its dependencies (for resuming a failed run).
+A live `Publish` still re-checks the clean `origin/main` tip and that the archives were packed from it.
 
 Before any work, `CheckRelease` requires `--release-version` to match every version site and lists
 each mismatch. A live release also requires a clean working tree whose `HEAD` is the current
@@ -62,6 +63,8 @@ already published with the same shasum is skipped and the same version with diff
 refused. A dry run only warns about the latter, so ordinary pull requests pass the CI release dry
 run until a release bumps the version. An existing GitHub Release is skipped; a tag on another
 commit is refused. Nothing is unpublished or retried: fix the cause and run the same command again.
+Packed files use LF line endings on every OS, so the archives of a commit are byte-identical locally
+and in Actions, and a failed release can be resumed through either path.
 
 ## Releasing
 
@@ -75,7 +78,8 @@ commit is refused. Nothing is unpublished or retried: fix the cause and run the 
      `dotnet run --project build -- --target Release --release-version <x.y.z>`. npm asks for your
      2FA for each package (terminal prompt or browser confirmation). The GitHub Release uses your
      `gh` login. Local publication carries no provenance.
-3. The run ends with the registry check. The GitHub Release lists each published shasum.
+3. The run checks the published packages from the registry, then creates the GitHub Release, which
+   lists each published shasum.
 
 ## Trusted publishing setup
 

@@ -14,7 +14,7 @@ public API. If code and design disagree, stop and reconcile them explicitly.
 | `integrations/**` | [`integrations/AGENTS.md`](integrations/AGENTS.md) + [`docs/integrations.md`](docs/integrations.md) | Thin, service-shaped products |
 | tests or fixtures | [`docs/testing.md`](docs/testing.md) | Mock-first evidence and sanitization |
 | GitHub Issues or issue templates | [`docs/roles/gh-issue-dev.md`](docs/roles/gh-issue-dev.md) + [`docs/practices/github-issues.md`](docs/practices/github-issues.md) | Issue delivery, status, review, merge, and verified closure |
-| `scripts/**`, `.github/**`, docs | This file + relevant design section | Repository tooling and public contract |
+| `scripts/**`, `build/**`, `.github/**`, docs | This file + relevant design section ([`docs/npm-release.md`](docs/npm-release.md) for releases) | Repository tooling and public contract |
 
 More specific `AGENTS.md` files override this router only inside their directory.
 The [role index](docs/roles/README.md) explains how domain and function roles compose.

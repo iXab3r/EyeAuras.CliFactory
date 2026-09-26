@@ -11,7 +11,7 @@ const npmCli = process.env.npm_execpath;
 assert.ok(npmCli, "Run this check through npm run test:packages.");
 // `--registry <version>` (npm run test:registry) installs that published version instead of this checkout.
 const registryVersion = process.argv.includes("--registry") ? process.argv[process.argv.indexOf("--registry") + 1] : undefined;
-assert.ok(registryVersion === undefined || /^\d+\.\d+\.\d+/.test(registryVersion), "Pass --registry <version>.");
+assert.ok(!process.argv.includes("--registry") || /^\d+\.\d+\.\d+/.test(registryVersion ?? ""), "Pass --registry <version>.");
 const packages = [
   { directory: "packages/core", name: "@eyeauras/cli-factory" },
   { directory: "integrations/teamcity", name: "@eyeauras/teamcity-cli", bin: "teamcity-cli", factory: "createTeamCityCli" },

@@ -43,13 +43,21 @@ public sealed class CheckReleaseTask : AsyncFrostingTask<BuildContext>
     {
         Versions.Check(context.Root, context.RequireVersion());
         if (context.DryRun) return;
+        await RequireReleasableSource(context);
+        if (context.GitHubActions && System.Version.Parse(await context.Read("npm", "--version")) < new System.Version(11, 5, 1))
+            throw new CakeException("Trusted publishing needs npm 11.5.1+; install the root packageManager version.");
+    }
+
+    /// <summary>Returns the clean origin/main tip; Publish repeats this so --exclusive cannot bypass it.</summary>
+    public static async Task<string> RequireReleasableSource(BuildContext context)
+    {
         if ((await context.Read("git", "status", "--porcelain")).Length > 0)
             throw new CakeException("A live release requires a clean working tree.");
         await context.Run("git", "fetch", "--quiet", "origin", "main");
-        if (await context.Read("git", "rev-parse", "HEAD") != await context.Read("git", "rev-parse", "FETCH_HEAD"))
-            throw new CakeException("A live release requires HEAD to be the current origin/main tip.");
-        if (context.GitHubActions && System.Version.Parse(await context.Read("npm", "--version")) < new System.Version(11, 5, 1))
-            throw new CakeException("Trusted publishing needs npm 11.5.1+; install the root packageManager version.");
+        var head = await context.Read("git", "rev-parse", "HEAD");
+        return head == await context.Read("git", "rev-parse", "FETCH_HEAD")
+            ? head
+            : throw new CakeException("A live release requires HEAD to be the current origin/main tip.");
     }
 }
 
@@ -91,6 +99,8 @@ public sealed class PublishTask : AsyncFrostingTask<BuildContext>
     public override async Task RunAsync(BuildContext context)
     {
         var manifest = context.ReadManifest();
+        if (!context.DryRun && await CheckReleaseTask.RequireReleasableSource(context) != manifest.Commit)
+            throw new CakeException("output/release was packed from another commit; run the Pack target.");
         foreach (var package in manifest.Packages)
         {
             var published = await PublishedShasum(context, package.Name, manifest.Version);
@@ -126,7 +136,8 @@ public sealed class PublishTask : AsyncFrostingTask<BuildContext>
     private static async Task<string?> PublishedShasum(BuildContext context, string name, string version)
     {
         var (exitCode, output) = await context.Exec("npm",
-            ["view", $"{name}@{version}", "dist.shasum", "--json", "--prefer-online"], capture: true, check: false);
+            ["view", $"{name}@{version}", "dist.shasum", "--json", "--prefer-online", "--registry", "https://registry.npmjs.org/"],
+            capture: true, check: false);
         if (exitCode != 0)
             return output.Contains("\"E404\"") ? null : throw new CakeException($"npm view {name}@{version} failed.");
         return output.Length > 0 ? JsonSerializer.Deserialize<string>(output) : null;
