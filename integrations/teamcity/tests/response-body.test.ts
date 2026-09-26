@@ -12,9 +12,9 @@ const baseUrl = "https://teamcity.example.com";
 const connection = { baseUrl, token: "synthetic-token" };
 const limit = 2 * 1024 * 1024;
 const failure = "TeamCity response stream failed; remote outcome is unknown.";
-function safeFailure(error: unknown): boolean {
+function safeFailure(error: unknown, message = failure): boolean {
   assert.ok(error instanceof Error);
-  assert.equal(error.message, failure);
+  assert.equal(error.message, message);
   assert.equal(error.cause, undefined);
   return true;
 }
@@ -71,7 +71,9 @@ test("TeamCity stream failure and pending abort are private and release the read
     });
     const pending = client.getApiVersion();
     if (abort) controller.abort(new Error("synthetic-private-abort"));
-    await assert.rejects(pending, safeFailure);
+    // A read stopped by its own signal has no remote outcome to report.
+    await assert.rejects(pending, (error) =>
+      safeFailure(error, abort ? "The TeamCity request was stopped." : failure));
     assert.equal(input.body?.locked, false);
   }
 });

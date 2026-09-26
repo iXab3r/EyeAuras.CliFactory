@@ -78,6 +78,7 @@ function afterInterrupt(error: unknown, interrupt: AbortSignal | undefined): unk
   if (interrupt?.aborted !== true || (error instanceof CliError && error.exitCode === 130)) {
     return error;
   }
+  // No cause: an aborted request rejects with the caller's own abort reason, which stays private.
   if (!(error instanceof CliError)) {
     const message = error instanceof ProfileFileError ? error.message : "Interrupted.";
     return new CliError(message, { code: "interrupted", exitCode: 130 });
