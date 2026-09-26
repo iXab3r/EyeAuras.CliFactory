@@ -65,10 +65,13 @@ static string ResolveNpm()
     }
     foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
     {
-        var candidate = Path.Combine(directory.Trim(), "npm.cmd");
-        if (directory.Trim().Length > 0 && File.Exists(candidate))
+        foreach (var name in new[] { "npm.cmd", "npm.exe" })
         {
-            return candidate;
+            var candidate = Path.Combine(directory.Trim(), name);
+            if (directory.Trim().Length > 0 && File.Exists(candidate))
+            {
+                return candidate;
+            }
         }
     }
     return "npm.cmd";
