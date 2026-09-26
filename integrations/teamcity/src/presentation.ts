@@ -102,12 +102,16 @@ export const buildRecord = recordView<TeamCityBuild>({
 
 /** `jobs run` and `builds wait`: the build, plus its outcome once it has one. */
 export const followedRecord = recordView<FollowedBuild>({
-  title: (value) => (value.accepted ? `Queued: ${title(value.build)}` : title(value.build)),
+  // "Queued" only while the new build still waits; a followed build shows its state instead.
+  title: (value) => (value.accepted && value.build.state === "queued"
+    ? `Queued: ${title(value.build)}`
+    : title(value.build)),
   fields: [
     { label: "Outcome", value: (value) => value.outcome },
     ...buildFields<FollowedBuild>((value) => value.build),
   ],
-  next: (value) => nextFor(value.build),
+  // A build that disappeared cannot be waited for or read again.
+  next: (value) => (value.outcome === "missing" ? [] : nextFor(value.build)),
 });
 
 const reasons = { denied: "access denied", "not-found": "not found", failed: "read failed" };

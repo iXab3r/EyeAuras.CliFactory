@@ -176,8 +176,28 @@ test("jobs run --wait keeps Update, queues once and follows only by reads to suc
     result.stderr,
     "Build 201: queued (position 1)\nBuild 201: running\nBuild 201: finished: succeeded\n",
   );
-  assert.match(result.stdout, /^Queued: Build 201 · Demo_Tests\nOutcome: +succeeded\nState: +finished\n/);
+  // "Queued" titles only a build still in the queue, not the finished result of the wait.
+  assert.match(result.stdout, /^Build 201 · Demo_Tests\nOutcome: +succeeded\nState: +finished\n/);
   assert.deepEqual(seen, { posts: 1, reads: 3, other: 0 });
+});
+
+test("jobs run --wait queues and waits with one client, reading its credential only once", async (t) => {
+  buildStates([queued, finished("SUCCESS")]);
+  const runtime = await updater(t);
+  let reads = 0;
+  const get = runtime.secretStore.get.bind(runtime.secretStore);
+  runtime.secretStore.get = async (service, account) => {
+    if (account.endsWith(":token")) reads++;
+    return get(service, account);
+  };
+  const cli = runtime.createCli();
+  assert.equal((await runtime.run(cli, ["jobs", "run", "Demo_Tests"])).exitCode, 0);
+  const queueOnly = reads;
+  assert.ok(queueOnly > 0);
+  reads = 0;
+  const waited = await runtime.run(cli, ["jobs", "run", "Demo_Tests", "--wait", "--interval", "1s"]);
+  assert.equal(waited.exitCode, 0, waited.stderr);
+  assert.equal(reads, queueOnly);
 });
 
 test("failed, canceled and unknown results exit 1 with the final build as data", async (t) => {
@@ -246,6 +266,13 @@ test("a build that disappears or cannot be read keeps its accepted ID and a resu
   assert.deepEqual(vanished, { posts: 0, reads: 2, other: 0 });
 
   server.resetHandlers();
+  buildStates([running, 404]);
+  const human = await runtime.run(cli, ["builds", "wait", "201", "--interval", "1s"]);
+  assert.equal(human.exitCode, 1);
+  // A build that disappeared cannot be waited for or read again: no follow-up commands.
+  assert.doesNotMatch(human.stdout, /Next:/);
+
+  server.resetHandlers();
   const broken = buildStates([500]);
   const updates = await updater(t);
   const failed = await updates.run(updates.createCli(), ["jobs", "run", "Demo_Tests", "--wait", "--json"]);
@@ -278,13 +305,50 @@ test("a lost queue response is reported as unknown and never retried", async (t)
   assert.equal(
     result.stderr,
     "The queue request's outcome is unknown; check for a new build before running it again.\n" +
-      "Next:\n  teamcity-cli builds list --job Demo_Tests --state queued --profile default\n",
+      "Next:\n  teamcity-cli builds list --job Demo_Tests --state any --profile default\n",
   );
   assert.doesNotMatch(result.stderr, /synthetic connection reset/);
   assert.equal(posts, 1);
   await assert.rejects(cli.execute(["jobs", "run", "Demo_Tests"]), (error: unknown) =>
     error instanceof CliError && error.code === "run.unknownOutcome" && error.result === undefined);
   assert.equal(posts, 2);
+});
+
+test("a 5xx or unreadable queue response is unknown too, and a refusal stays a plain failure", async (t) => {
+  const responses = [
+    () => new HttpResponse(null, { status: 502 }),
+    () => new HttpResponse(null, { status: 500 }),
+    () => new HttpResponse("<html>proxy</html>", { status: 200 }),
+    () => HttpResponse.json({ buildType: { id: "Demo_Tests" } }),
+  ];
+  let posts = 0;
+  server.use(
+    http.post(`${base}/buildQueue`, () =>
+      responses[posts++]?.() ?? new HttpResponse(null, { status: 400 })),
+    http.all(`${base}/*`, () => new HttpResponse(null, { status: 500 })),
+  );
+  const runtime = await updater(t);
+  const cli = runtime.createCli();
+  for (const _ of responses) {
+    const result = await runtime.run(cli, [
+      "jobs", "run", "Demo_Tests", "--branch", "release/1.0", "--wait",
+    ]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.stdout, "");
+    assert.equal(
+      result.stderr,
+      "The queue request's outcome is unknown; check for a new build before running it again.\n" +
+        "Next:\n  teamcity-cli builds list --job Demo_Tests --branch release/1.0 --state any " +
+        "--profile default\n",
+    );
+  }
+  assert.equal(posts, responses.length);
+  // TeamCity refused the request, so nothing was queued.
+  const refused = await runtime.run(cli, ["jobs", "run", "Demo_Tests"]);
+  assert.equal(refused.exitCode, 1);
+  assert.match(refused.stderr, /HTTP 400/);
+  assert.doesNotMatch(refused.stderr, /outcome is unknown/);
+  assert.equal(posts, responses.length + 1);
 });
 
 test("diagnose is bounded, marks truncation and never turns missing data into no failures", async (t) => {

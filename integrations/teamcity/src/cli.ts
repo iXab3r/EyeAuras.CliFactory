@@ -21,7 +21,7 @@ import { adminCategories } from "./admin-models.js";
 import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
-import { clientLeaf } from "./command-support.js";
+import { clientLeaf, positiveInteger } from "./command-support.js";
 import { buildTable, helpLayout, withView } from "./presentation.js";
 import { createBuildFlowCommands } from "./build-flow.js";
 import type {
@@ -69,11 +69,6 @@ async function client(context: CommandContext): Promise<TeamCityClient> {
     signal: context.signal,
   });
 }
-
-const positiveInteger = integerParser({
-  min: 1, max: Number.MAX_SAFE_INTEGER, signed: true,
-  errorMessage: "Expected a positive integer within the safe integer range.",
-});
 
 function oneOf<const T extends string>(
   description: string,

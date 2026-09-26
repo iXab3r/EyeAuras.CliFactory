@@ -1,4 +1,5 @@
 import {
+  integerParser,
   jsonParser,
   targetCommands,
   type CommandContext,
@@ -9,6 +10,10 @@ import type { TeamCityClient } from "./client.js";
 import type { PlainProperty } from "./authoring-models.js";
 import { requiredText } from "./locator.js";
 
+export const positiveInteger = integerParser({
+  min: 1, max: Number.MAX_SAFE_INTEGER, signed: true,
+  errorMessage: "Expected a positive integer within the safe integer range.",
+});
 export function text(values: Record<string, unknown>, key: string): string {
   if (typeof values[key] !== "string") throw new Error(`Missing ${key}.`);
   return values[key];

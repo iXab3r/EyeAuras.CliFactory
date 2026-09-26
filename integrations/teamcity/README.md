@@ -183,13 +183,18 @@ teamcity-cli builds diagnose 101
   configuration. Repeat the option for more parameters; duplicate names are rejected.
 - Parameter values are not echoed in output or errors. Never pass secrets in argv; secret
   parameters are not supported here.
-- If the queue response is lost, the outcome is unknown. The command fails with
-  `run.unknownOutcome` and a `builds list --job <id> --state queued` suggestion. It never repeats
-  the POST.
+- If the queue response is lost or unreadable, or TeamCity or a proxy answers with a 5xx status,
+  the outcome is unknown. The command fails with `run.unknownOutcome` and a
+  `builds list --job <id> --state any` suggestion, with `--branch` when the run had one. It lists
+  builds in every state, because an accepted build can leave the queue within seconds. The command
+  never repeats the POST.
+- `--branch` selects the branch to build; without it TeamCity builds the job's default branch.
 
 **Waiting.** `jobs run --wait` (still `Update`) and `builds wait <id>` (`ReadOnly`) only read the
 build: GET `/builds/id:<id>`, every `--interval` (default 5s, 1s–10m). `--timeout` (default 10m,
-1s–24h) covers queue time and each read. Nothing ever cancels the build. The results are:
+1s–24h) starts once the build is accepted, so it covers queue time and each read, but not the
+queue request itself. Queueing and waiting use one client, so one profile and credential. Nothing
+ever cancels the build. The results are:
 
 | Result | Exit | Output |
 |---|---|---|
@@ -222,7 +227,9 @@ never reported as "no failures". The sections are read concurrently and are not 
 snapshot.
 
 **Ctrl+C.** The packaged executable turns the first Ctrl+C into a local stop; a second one exits
-immediately.
+immediately. A stopped wait keeps its last known state, as above. Any other interrupted command
+exits 130: an interrupted queue request still reports `run.unknownOutcome`, and other failures
+report `interrupted`.
 
 ## Triggers, features, dependencies and templates
 
@@ -618,8 +625,8 @@ actions; it does not replace TeamCity's own authorization.
 Help leads with everyday work:
 - The root lists `Everyday` (`builds`, `jobs`, `projects`, `queue`, `agents`), then `Triage`,
   `Administration` and Core's local `Configuration`.
-- `builds --help` starts with `list`, `show`, `tests`, `problems` and `changes`, followed by
-  `Files`, `Control` and `Evidence`.
+- `builds --help` starts with `list`, `show`, `wait`, `diagnose`, `tests`, `problems` and
+  `changes`, followed by `Files`, `Control` and `Evidence`.
 - `jobs`, `projects`, `queue` and `agents` start with their everyday commands: list and show, plus
   `jobs run` and `queue cancel`.
 - Examples appear at the root and on `jobs` and `builds`.
@@ -631,8 +638,10 @@ prints the root help.
 Some commands print a compact view instead of every field:
 - `builds list` prints a table: BUILD, JOB, BRANCH, STATE, RESULT, AGE. RESULT is shown only for
   finished builds; a running build's intermediate status is not a result.
-- `builds show` prints a summary with `Next:` suggestions, such as problems and tests for a failed
-  build, or its artifact list.
+- `builds show` prints a summary with `Next:` suggestions: `builds wait` for a queued or running
+  build, `builds diagnose` for a failed one, and the artifact list for a finished one.
+- `jobs run` and `builds wait` print the same summary with the outcome. The title says `Queued:`
+  only while a new build still waits in the queue.
 - File listings print NAME, SIZE and MODIFIED.
 - Downloads print the full local path, byte count and SHA-256 of the saved file.
 

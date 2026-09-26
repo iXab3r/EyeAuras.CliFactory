@@ -3,7 +3,6 @@ import {
   CliError,
   command,
   durationParser,
-  integerParser,
   Permission,
   type CommandContext,
   type OptionDefinition,
@@ -13,7 +12,7 @@ import {
   TeamCityUnknownOutcomeError,
   type TeamCityClient,
 } from "./client.js";
-import { pairOption } from "./command-support.js";
+import { pairOption, positiveInteger } from "./command-support.js";
 import type { PlainProperty } from "./authoring-models.js";
 import type {
   TeamCityBuild,
@@ -68,11 +67,6 @@ const testLimit = 20;
 const defaultTimeout = 10 * 60_000;
 const defaultInterval = 5_000;
 
-const buildId = integerParser({
-  min: 1, max: Number.MAX_SAFE_INTEGER, signed: true,
-  errorMessage: "Expected a positive integer within the safe integer range.",
-});
-
 const waitOptions: readonly OptionDefinition[] = [
   {
     flags: "--timeout <duration>",
@@ -93,7 +87,7 @@ const waitOptions: readonly OptionDefinition[] = [
   },
 ];
 
-function text(values: Record<string, unknown>, key: string): string | undefined {
+function optionalString(values: Record<string, unknown>, key: string): string | undefined {
   return typeof values[key] === "string" ? values[key] : undefined;
 }
 
@@ -112,11 +106,22 @@ function describe(build: TeamCityBuild): string {
 }
 
 /**
- * Follow one build until it finishes, within a deadline that also bounds each read. Reads only:
- * it never cancels the build, and an interrupt or deadline only stops local observation.
+ * One client for the whole command, so queueing and waiting share one profile and credential.
+ * Its requests stop at an interrupt, or at the deadline once `follow` starts it.
+ */
+async function commandClient(clientFor: ClientFor, context: CommandContext) {
+  const stop = new AbortController();
+  const signal = AbortSignal.any([context.signal, stop.signal]);
+  return { client: await clientFor({ ...context, signal }), stop };
+}
+
+/**
+ * Follow one build until it finishes. The deadline starts here and also bounds each read of
+ * `client`. Reads only: it never cancels the build, and an interrupt or deadline only stops
+ * local observation.
  */
 async function follow(
-  clientFor: ClientFor,
+  { client, stop }: Awaited<ReturnType<typeof commandClient>>,
   context: CommandContext,
   id: number,
   timing: { timeout: number; interval: number },
@@ -124,8 +129,8 @@ async function follow(
   known?: TeamCityBuild,
 ): Promise<FollowedBuild> {
   const deadline = AbortSignal.timeout(timing.timeout);
+  deadline.addEventListener("abort", () => stop.abort(), { once: true });
   const signal = AbortSignal.any([context.signal, deadline]);
-  const client = await clientFor({ ...context, signal });
   const resume = [["builds", "wait", String(id)]];
   let last = known;
   let reported: string | undefined;
@@ -231,14 +236,14 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
     "show [build-id]",
     "Show one build by ID, or the latest finished build of a job with --job and --latest",
     async ({ args, options }, context) => {
-      const id = text(args, "build-id");
-      const job = text(options, "job");
-      const branch = text(options, "branch");
+      const id = optionalString(args, "build-id");
+      const job = optionalString(options, "job");
+      const branch = optionalString(options, "branch");
       if (options.latest !== true) {
         if (job !== undefined || branch !== undefined)
           throw new Error("--job and --branch select a build only together with --latest.");
         if (id === undefined) throw new Error("Specify a build ID, or --job <id> --latest.");
-        return (await clientFor(context)).getBuild(buildId(id));
+        return (await clientFor(context)).getBuild(positiveInteger(id));
       }
       if (id !== undefined) throw new Error("Use either a build ID or --latest, not both.");
       if (job === undefined) throw new Error("--latest requires --job <id>.");
@@ -268,10 +273,11 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
   const wait = withView(followedRecord, command(
     "wait <build-id>",
     "Wait for a build to finish; exits 1 unless it succeeded and 124 when time runs out",
-    async ({ args, options }, context) =>
-      follow(clientFor, context, buildId(args["build-id"]), pause(options), (build, outcome) => ({
-        build, ...(outcome === undefined ? {} : { outcome }),
-      })),
+    async ({ args, options }, context) => {
+      const id = positiveInteger(args["build-id"]);
+      return follow(await commandClient(clientFor, context), context, id, pause(options),
+        (build, outcome) => ({ build, ...(outcome === undefined ? {} : { outcome }) }));
+    },
     { permission: Permission.ReadOnly, options: waitOptions },
   ));
 
@@ -279,7 +285,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
     "diagnose <build-id>",
     `Summarize a build: state, up to ${problemLimit} problems and ${testLimit} failed tests; no logs`,
     async ({ args }, context) => {
-      const id = buildId(args["build-id"]);
+      const id = positiveInteger(args["build-id"]);
       const client = await clientFor(context);
       const build = await client.getBuildSummary(id);
       const [problems, failedTests] = await Promise.all([
@@ -313,11 +319,12 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
       const properties = (options.param ?? []) as PlainProperty[];
       if (options.wait !== true && (options.timeout !== undefined || options.interval !== undefined))
         throw new Error("--timeout and --interval apply only with --wait.");
-      const branch = text(options, "branch");
-      const comment = text(options, "comment");
+      const branch = optionalString(options, "branch");
+      const comment = optionalString(options, "comment");
+      const session = await commandClient(clientFor, context);
       let queued: TeamCityBuild;
       try {
-        queued = await (await clientFor(context)).runJob(job, {
+        queued = await session.client.runJob(job, {
           ...(branch === undefined ? {} : { branch }),
           ...(comment === undefined ? {} : { comment }),
           properties,
@@ -325,20 +332,30 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
       } catch (error) {
         if (!(error instanceof TeamCityUnknownOutcomeError)) throw error;
         // Never queue again automatically: the first request may already have been accepted.
+        // An accepted build can leave the queue within seconds, so the check covers every state.
         throw new CliError(
           "The queue request's outcome is unknown; check for a new build before running it again.",
-          { code: "run.unknownOutcome", next: [["builds", "list", "--job", job, "--state", "queued"]] },
+          {
+            code: "run.unknownOutcome",
+            next: [[
+              "builds", "list", "--job", job,
+              ...(branch === undefined ? [] : ["--branch", branch]), "--state", "any",
+            ]],
+          },
         );
       }
       if (options.wait !== true) return { accepted: true, build: queued };
-      return follow(clientFor, context, queued.id, pause(options), (build, outcome) => ({
+      return follow(session, context, queued.id, pause(options), (build, outcome) => ({
         accepted: true, build, ...(outcome === undefined ? {} : { outcome }),
       }), queued);
     },
     {
       permission: Permission.Update,
       options: [
-        { flags: "--branch <name>", description: "Build a specific branch" },
+        {
+          flags: "--branch <name>",
+          description: "Branch to build; the job's default branch when omitted",
+        },
         { flags: "--comment <text>", description: "Attach a queue comment" },
         pairOption(
           "--param",

@@ -246,6 +246,20 @@ function decodeJson<T>(contents: string): T {
   }
 }
 
+/** The queued build in a queue response, or `undefined` when it has no usable build ID. */
+function queuedBuild(contents: string): TeamCityBuild | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(contents);
+  } catch {
+    return undefined;
+  }
+  const id = (value as { id?: unknown } | null)?.id;
+  return typeof id === "number" && Number.isSafeInteger(id) && id > 0
+    ? (value as TeamCityBuild)
+    : undefined;
+}
+
 function projectPath(id: string): string {
   return `/app/rest/projects/${idPath(id, "Project ID")}`;
 }
@@ -563,29 +577,48 @@ export class TeamCityClient {
     );
   }
 
-  public runJob(id: string, options: RunJobOptions = {}): Promise<TeamCityBuild> {
+  /**
+   * Queue one build. A lost or unreadable response, or a 5xx from TeamCity or a proxy, may hide an
+   * accepted build, so each of them is an unknown outcome rather than a plain failure.
+   */
+  public async runJob(id: string, options: RunJobOptions = {}): Promise<TeamCityBuild> {
     const jobId = requiredText(id, "TeamCity job ID");
-    return this.#requestJson<TeamCityBuild>(
-      "POST",
-      "/app/rest/buildQueue",
-      { fields: buildFields },
-      {
-        buildType: { id: jobId },
-        ...(options.branch === undefined
-          ? {}
-          : { branchName: requiredText(options.branch, "TeamCity branch name") }),
-        ...(options.comment === undefined
-          ? {}
-          : { comment: { text: requiredText(options.comment, "Build comment") } }),
-        ...(options.properties === undefined || options.properties.length === 0
-          ? {}
-          : {
-              properties: {
-                property: options.properties.map(({ name, value }) => ({ name, value })),
-              },
-            }),
-      },
-    );
+    let contents: string;
+    try {
+      contents = await this.#request(
+        "POST",
+        "/app/rest/buildQueue",
+        { fields: buildFields },
+        {
+          buildType: { id: jobId },
+          ...(options.branch === undefined
+            ? {}
+            : { branchName: requiredText(options.branch, "TeamCity branch name") }),
+          ...(options.comment === undefined
+            ? {}
+            : { comment: { text: requiredText(options.comment, "Build comment") } }),
+          ...(options.properties === undefined || options.properties.length === 0
+            ? {}
+            : {
+                properties: {
+                  property: options.properties.map(({ name, value }) => ({ name, value })),
+                },
+              }),
+        },
+      );
+    } catch (error) {
+      if (!(error instanceof TeamCityHttpError) || error.status < 500) throw error;
+      throw new TeamCityUnknownOutcomeError(
+        `TeamCity failed with HTTP ${error.status}; the build may still have been queued.`,
+      );
+    }
+    const build = queuedBuild(contents);
+    if (build === undefined) {
+      throw new TeamCityUnknownOutcomeError(
+        "TeamCity accepted the request without a readable build; it may have been queued.",
+      );
+    }
+    return build;
   }
 
   public cancelBuild(id: number, options: CancelBuildOptions = {}): Promise<TeamCityBuild> {
