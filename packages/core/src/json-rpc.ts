@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import { requestLines } from "./lines.js";
 import { validateArgv } from "./argv.js";
-import { CliError } from "./errors.js";
+import { CliError, machineError } from "./errors.js";
 import type { Readable, Writable } from "node:stream";
 
 interface JsonRpcRequest {
@@ -78,17 +78,12 @@ function errorResponse(
   );
 }
 
-/** Machine form of a CliError: follow-up argv are ready for cli.execute in the same profile. */
-function cliErrorData(error: CliError): Record<string, unknown> {
-  const profile = error.profile;
+/** Every command failure carries its machine form; a failed outcome also keeps its result. */
+function errorData(error: unknown): { message: string; data: Record<string, unknown> } {
+  const { message, ...data } = machineError(error);
   return {
-    code: error.code,
-    exitCode: error.exitCode,
-    ...(profile === undefined ? {} : { profile }),
-    ...(error.next.length === 0
-      ? {}
-      : { next: error.next.map((argv) => (profile === undefined ? [...argv] : [...argv, "--profile", profile])) }),
-    ...(error.result === undefined ? {} : { result: error.result }),
+    message,
+    data: error instanceof CliError && error.result !== undefined ? { ...data, result: error.result } : data,
   };
 }
 
@@ -165,15 +160,10 @@ export async function runJsonRpc(options: {
     try {
       result = await options.execute(params.argv);
     } catch (error) {
-      if (expectsResponse)
-        await errorResponse(
-          options.output,
-          request.id,
-          -32000,
-          error instanceof Error ? error.message : String(error),
-          options.signal,
-          error instanceof CliError ? cliErrorData(error) : undefined,
-        );
+      if (expectsResponse) {
+        const { message, data } = errorData(error);
+        await errorResponse(options.output, request.id, -32000, message, options.signal, data);
+      }
       continue;
     }
     if (expectsResponse)

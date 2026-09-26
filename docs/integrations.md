@@ -422,6 +422,11 @@ with `exitCode` (default 1). JSON-RPC returns the result in `error.data`, and `e
 with the error. Keep messages static and safe. A plain read of a failed object is not a failure.
 Use `context.progress(message)` for occasional human-only status lines during long work.
 
+The same `CliError`, or a subclass, gives any other failure a stable machine code. An example is
+an HTTP error class that maps statuses to codes such as `http.notFound`. Core prints every failure
+as one JSON line on stderr under `--json` and in JSON-RPC `error.data`. An untyped error still
+works: it gets the code `error`.
+
 ## Grow by useful phases
 
 Use the **Reconciliation Lead** function role when an API expansion must close a declared

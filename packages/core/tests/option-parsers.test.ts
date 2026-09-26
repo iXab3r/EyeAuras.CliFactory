@@ -75,7 +75,7 @@ test("parser callbacks retain required options and defaults across execute, CLI 
   assert.equal(missing.exitCode, 1);
   assert.match(missing.stderr, /required option/);
   assert.deepEqual(await f.rpc(cli, [["read", "--body", "{"], ["read", "--body", "{}"]]), [
-    { jsonrpc: "2.0", id: 0, error: { code: -32000, message: "Invalid body." } },
+    { jsonrpc: "2.0", id: 0, error: { code: -32000, message: "Invalid body.", data: { code: "usage", exitCode: 1 } } },
     { jsonrpc: "2.0", id: 1, result: { count: 2, body: {} } },
   ]);
 });

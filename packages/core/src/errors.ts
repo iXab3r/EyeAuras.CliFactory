@@ -7,6 +7,8 @@ export interface CliErrorOptions {
   result?: unknown;
   /** Follow-up argv of the same CLI, without the CLI name or `--profile`. */
   next?: readonly (readonly string[])[];
+  /** Kept for debugging in process; never written to any output. */
+  cause?: unknown;
 }
 
 /** A command failure with a stable code; a failed outcome keeps its domain result. */
@@ -19,7 +21,7 @@ export class CliError extends Error {
   public profile: string | undefined;
 
   public constructor(message: string, options: CliErrorOptions) {
-    super(message);
+    super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = "CliError";
     if (!/^[a-z][A-Za-z0-9.-]*$/.test(options.code)) {
       throw new Error("CliError code must be a dotted lowercase-first identifier.");
@@ -34,4 +36,29 @@ export class CliError extends Error {
     this.next = options.next ?? [];
     this.profile = undefined;
   }
+}
+
+/** The machine form of any failure; `next` argv already select the same profile. */
+export interface MachineError {
+  code: string;
+  message: string;
+  exitCode: number;
+  profile?: string;
+  next?: string[][];
+}
+
+export function machineError(error: unknown): MachineError {
+  if (!(error instanceof CliError)) {
+    return { code: "error", message: error instanceof Error ? error.message : String(error), exitCode: 1 };
+  }
+  const profile = error.profile;
+  return {
+    code: error.code,
+    message: error.message,
+    exitCode: error.exitCode,
+    ...(profile === undefined ? {} : { profile }),
+    ...(error.next.length === 0
+      ? {}
+      : { next: error.next.map((argv) => (profile === undefined ? [...argv] : [...argv, "--profile", profile])) }),
+  };
 }

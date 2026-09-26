@@ -1,6 +1,7 @@
 import { rm } from "node:fs/promises";
 import { promptText } from "./auth.js";
 import { command } from "./command.js";
+import { CliError } from "./errors.js";
 import { assertProfileName, assertUniqueProfileName } from "./profile-store.js";
 import type {
   AuthContext,
@@ -144,9 +145,10 @@ export function createProfileCommands(
         : []),
       ...(state.authenticationMissing ? ["authentication is missing"] : []),
     ].join("; ");
-    return new Error(
+    return new CliError(
       `Profile '${profile.name}' is not configured (${details}). ` +
         `Run '${definition.name} profile configure ${profile.name}${missing.length > 0 ? ` ${missing.join(" ")}` : ""}'.`,
+      { code: "profile.notConfigured" },
     );
   };
 

@@ -16,7 +16,7 @@ import { validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import { nextCommands, type HumanView } from "./view.js";
-import { CliError } from "./errors.js";
+import { CliError, machineError } from "./errors.js";
 import { ProfileFileError } from "./profile-file.js";
 import type {
   CliApplication,
@@ -64,11 +64,10 @@ function declaredOption(specification: OptionDefinition): Option {
   return option;
 }
 
-/** A failure already written to the invocation's streams; `run` only returns its exit code. */
-class ReportedFailure extends Error {
-  public constructor(public readonly exitCode: number) {
-    super("The command failure was already reported.");
-  }
+/** `--json` given as a global option, before any `--` that turns the rest into data. */
+function jsonRequested(argv: readonly string[]): boolean {
+  const end = argv.indexOf("--");
+  return (end < 0 ? argv : argv.slice(0, end)).includes("--json");
 }
 
 /**
@@ -119,8 +118,9 @@ function commandParts(syntax: string): { name: string; arguments: string[] } {
 }
 
 export function createCli(definition: CliDefinition): CliApplication {
-  const rpcModeError = new Error(
+  const rpcModeError = new CliError(
     "The --json-rpc transport must be started without a CLI command.",
+    { code: "usage.jsonRpc", exitCode: 2 },
   );
   const defaultIo: CliIo = {
     input: definition.runtime?.input ?? process.stdin,
@@ -229,6 +229,8 @@ export function createCli(definition: CliDefinition): CliApplication {
     let result: unknown;
     let capturedOutput = "";
     let capturedError = "";
+    // Set once an action starts; earlier failures are parser (usage) errors.
+    let parsed = false;
     const needsConfiguration = Symbol("needs exclusive onboarding");
     const program = new Command()
       .name(definition.name)
@@ -333,41 +335,37 @@ export function createCli(definition: CliDefinition): CliApplication {
       const invoke = async (ownsExclusive: boolean) => {
         const globals = command.optsWithGlobals() as GlobalOptions;
         let profile = await resolveProfile(globals.profile);
-        if (requiredPermission) {
-          const enabled = await enabledPermissions(profile.name);
-          if (!enabled.has(requiredPermission)) {
-            throw new Error(
-              `Permission '${requiredPermission}' is disabled for profile '${profile.name}'. ` +
-                `Enable it explicitly with '${definition.name} permissions grant ${requiredPermission} --profile ${profile.name}'.`,
-            );
-          }
-        }
-        if (requiresConfiguredProfile)
-          profile = await ensureConfigured(profile, globals, ownsExclusive);
-        const human = execution.render && globals.json !== true;
-        const context = contextFor(profile, execution, human);
-        context.signal.throwIfAborted();
-        const presentation = view && { view, cliName: definition.name, profile: profile.name };
         try {
-          result = await handler(commandInput, context);
+          if (requiredPermission) {
+            const enabled = await enabledPermissions(profile.name);
+            if (!enabled.has(requiredPermission)) {
+              throw new CliError(
+                `Permission '${requiredPermission}' is disabled for profile '${profile.name}'.`,
+                { code: "permission.denied", next: [["permissions", "grant", requiredPermission]] },
+              );
+            }
+          }
+          if (requiresConfiguredProfile)
+            profile = await ensureConfigured(profile, globals, ownsExclusive);
+          const context = contextFor(profile, execution, execution.render && globals.json !== true);
+          context.signal.throwIfAborted();
+          const presentation = view && { view, cliName: definition.name, profile: profile.name };
+          try {
+            result = await handler(commandInput, context);
+          } catch (caught) {
+            const failure = afterInterrupt(caught, execution.interrupt);
+            // A failed outcome still shows its data; `run` reports the reason and exit code.
+            if (execution.render && failure instanceof CliError && failure.result !== undefined)
+              writeResult(output, failure.result, globals.json === true, presentation);
+            throw failure;
+          }
+          if (execution.render) {
+            writeResult(output, result, globals.json === true, presentation);
+          }
         } catch (caught) {
           const failure = afterInterrupt(caught, execution.interrupt);
-          if (!(failure instanceof CliError)) throw failure;
-          failure.profile = profile.name;
-          if (!execution.render) throw failure;
-          // A failed outcome still shows its data; stderr and the exit code say that it failed.
-          if (failure.result !== undefined) {
-            writeResult(output, failure.result, globals.json === true, presentation);
-          }
-          // A rendered result carries its own suggestions; stderr adds them only without one.
-          const next = human && failure.result === undefined
-            ? nextCommands(failure.next, definition.name, profile.name)
-            : [];
-          error.write(`${failure.message}\n${next.length ? `Next:\n${next.map((line) => `  ${line}\n`).join("")}` : ""}`);
-          throw new ReportedFailure(failure.exitCode);
-        }
-        if (execution.render) {
-          writeResult(output, result, globals.json === true, presentation);
+          if (failure instanceof CliError) failure.profile = profile.name;
+          throw failure;
         }
       };
       try {
@@ -417,6 +415,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       current.action(async (...parameters: unknown[]) => {
         const actionCommand = parameters.at(-1) as Command;
         if (!item.run) rejectUnknownSubcommand(actionCommand);
+        parsed = true;
         const options = (parameters.at(-2) ?? {}) as Record<string, unknown>;
         const positional = parameters.slice(0, -2);
         const args = Object.fromEntries(
@@ -464,6 +463,7 @@ export function createCli(definition: CliDefinition): CliApplication {
 
     program.action(async () => {
       rejectUnknownSubcommand(program);
+      parsed = true;
       await gate.run(
         async () => {
           const globals = program.opts() as GlobalOptions;
@@ -502,12 +502,30 @@ export function createCli(definition: CliDefinition): CliApplication {
             : { help: capturedOutput.trimEnd() };
         }
         const message = capturedError.trim() || error_.message;
-        throw new Error(message, { cause: error_ });
+        throw new CliError(message, { code: "usage", cause: error_ });
       }
+      // An option parser rejected its value before any handler ran: that is invalid usage too.
+      if (!parsed && error_ instanceof Error && !(error_ instanceof CliError))
+        throw new CliError(error_.message, { code: "usage", cause: error_ });
       throw error_;
     }
 
     return result;
+  };
+
+  /** The one place a CLI failure is reported: a JSON envelope, or text with follow-ups. */
+  const report = (error: unknown, argv: readonly string[], stream: CliIo["error"]): number => {
+    const failure = machineError(error);
+    if (jsonRequested(argv)) {
+      stream.write(`${JSON.stringify({ error: failure })}\n`);
+      return failure.exitCode;
+    }
+    // A rendered result carries its own suggestions; stderr adds them only without one.
+    const next = error instanceof CliError && error.result === undefined && error.profile !== undefined
+      ? nextCommands(error.next, definition.name, error.profile)
+      : [];
+    stream.write(`${failure.message}\n${next.length ? `Next:\n${next.map((line) => `  ${line}\n`).join("")}` : ""}`);
+    return failure.exitCode;
   };
 
   const executionFor = (
@@ -554,14 +572,8 @@ export function createCli(definition: CliDefinition): CliApplication {
           await execute(argv, execution);
           return 0;
         });
-      } catch (caught) {
-        if (caught instanceof ReportedFailure) return caught.exitCode;
-        const error = afterInterrupt(caught, invocation.signal);
-        execution.io.error.write(
-          `${error instanceof Error ? error.message : String(error)}\n`,
-        );
-        if (error === rpcModeError) return 2;
-        return error instanceof CliError ? error.exitCode : 1;
+      } catch (error) {
+        return report(afterInterrupt(error, invocation.signal), argv, execution.io.error);
       }
     },
     execute(argv, signal): Promise<unknown> {
