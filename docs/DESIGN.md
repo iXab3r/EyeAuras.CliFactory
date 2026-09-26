@@ -152,8 +152,9 @@ Core records the selected `profile`. Each caller receives the same failure in it
 
 A result is never printed as success next to a contradicting error, and it is never discarded.
 Reading a failed build with `show` is still a successful read. Only commands whose contract is the
-outcome itself throw, such as waiting for a build or an operation whose items partly failed. Exit
-codes are:
+outcome itself throw, such as waiting for a build. A write over several items should also throw
+when some items failed, with every item's result; TeamCity's batch writes do. YouTrack `apply`
+predates this rule: it exits 0 and reports `status: incomplete`. Exit codes are:
 - 0 — success;
 - 1 — errors and failed outcomes;
 - 2 — misuse of the `--json-rpc` transport;
