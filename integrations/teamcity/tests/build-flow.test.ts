@@ -366,7 +366,12 @@ test("a read that never answers is still bounded by the deadline", async (t) => 
   let reads = 0;
   runtime.runtime.fetch = (_input, init) => new Promise((_resolve, reject) => {
     reads++;
-    init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+    // A real socket keeps the process alive while it waits, and the deadline's timer does not.
+    const socket = setInterval(() => undefined, 60_000);
+    init?.signal?.addEventListener("abort", () => {
+      clearInterval(socket);
+      reject(init.signal?.reason);
+    }, { once: true });
   });
   const started = Date.now();
   const result = await runtime.run(runtime.createCli(), [
