@@ -68,3 +68,18 @@ test("profiles have explicit create, update, default, and delete semantics", asy
   assert.equal(persisted.permissions, undefined);
   assert.doesNotMatch(JSON.stringify(persisted), /token|password|secret/i);
 });
+
+
+test("fresh profile stores retain explicit and omitted ports without touching existing files", async (t) => {
+  const rootDirectory = await mkdtemp(join(tmpdir(), "cli-factory-url-profiles-"));
+  t.after(() => rm(rootDirectory, { recursive: true, force: true }));
+  const options = { applicationId: "test-cli", rootDirectory };
+  const store = new ProfileStore(options);
+  const urls = ["http://example.test:80/context", "https://example.test:443/context/", "https://example.test/context", "http://example.test:8111/context", "https://example.test:8443/context"];
+  for (const [i, url] of urls.entries()) await store.create("profile-" + i, { url });
+  const file = join(rootDirectory, "test-cli", "profiles.json");
+  const before = await readFile(file, "utf8");
+  const fresh = new ProfileStore(options);
+  for (const [i, url] of urls.entries()) assert.equal((await fresh.get("profile-" + i)).values.url, url);
+  assert.equal(await readFile(file, "utf8"), before);
+});

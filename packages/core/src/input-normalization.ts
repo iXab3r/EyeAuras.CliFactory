@@ -1,5 +1,5 @@
 /** Parse a base server address without guessing away credentials, query or page fragments. */
-export function parseServerUrl(value: unknown, message: string): URL {
+export function parseServerUrl(value: unknown, message: string): Readonly<{ href: string; pathname: string }> {
   if (typeof value !== "string") throw new Error(message);
   const text = value.trim();
   if (!/^https?:\/\/[^/]/i.test(text) || /[\\\u0000-\u0020\u007f]/.test(text) || /[?#]/.test(text)) {
@@ -16,7 +16,13 @@ export function parseServerUrl(value: unknown, message: string): URL {
     throw new Error(message);
   }
   url.pathname = url.pathname.replace(/\/+$/, "") + "/";
-  return url;
+  // WHATWG serialization erases default ports; retain explicit configuration separately.
+  const authority = text.slice(text.indexOf("://") + 3).split("/", 1)[0]!;
+  const port = authority.match(/:(\d+)$/)?.[1];
+  return {
+    href: `${url.protocol}//${url.hostname}${port === undefined ? "" : `:${port}`}${url.pathname}`,
+    pathname: url.pathname,
+  };
 }
 
 export const tokenInputHelp = "Copy only the token value from your service account's token settings (fictional example: FICTIONAL_TOKEN_VALUE), without Bearer, Authorization: or surrounding quotes. Outer whitespace is trimmed.";
