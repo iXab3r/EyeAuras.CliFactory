@@ -79,8 +79,9 @@ error printers. A failure is short by default and complete on request:
   the top-level `name` and every `stack` field are present only with `--verbose`.
 - `execute` rejects with the complete `CliError` object; nothing is rendered.
 
-A plain `Error` thrown by a handler becomes an untyped `CliError` that keeps the original message,
-frames and cause; it is never nested under itself, so no headline prints twice. A wrapper that
+A plain `Error` thrown by a handler becomes an untyped `CliError` that keeps the original type
+name, message, frames and cause; it is never nested under itself, so no headline prints twice.
+An aggregate is nested as the cause so its related failures survive. A wrapper that
 states its reason in the sentence (`Token validation failed: <reason>`) renders as one line, because
 a cause whose text the message already contains is not repeated. Keep native cause codes distinct
 from the wrapper's stable CLI code. Serialize errors explicitly; plain `JSON.stringify(Error)` does
