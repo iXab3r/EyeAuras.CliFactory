@@ -116,14 +116,13 @@ No root build-command edit or application hash list is needed.
 An independently shipped product may own its repository. It should consume the core package,
 not copy its sources.
 
-Once `@eyeauras/cli-factory` is published, install a pinned compatible npm version:
+Install a compatible npm version of `@eyeauras/cli-factory` and pin it for the consumer:
 
 ```text
 npm install @eyeauras/cli-factory
 ```
 
-The first npm release is being prepared; package preparation does not imply registry availability.
-See [npm release and installation](npm-release.md). Until the required version is published,
+See [npm release and installation](npm-release.md). When developing an unpublished version,
 use one of these explicit development arrangements:
 
 1. For same-machine development, add a local file dependency:

@@ -16,14 +16,12 @@ export const youTrackUrlHelp = "YouTrack base URL including any context path, wi
 
 export function youTrackUrl(value: unknown): string {
   const message =
-    "YouTrack URL must be an HTTPS server URL with an optional context path, " +
-    "without credentials, query, fragment, /api or a page URL (HTTP is allowed only on localhost). " +
+    "YouTrack URL must be an HTTP or HTTPS server URL with an optional context path, " +
+    "without credentials, query, fragment, /api or a page URL. " +
     youTrackUrlHelp;
   const url = parseServerUrl(value, message);
-  const localhost = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   const pathname = decodeURIComponent(url.pathname);
-  if ((url.protocol === "http:" && !localhost) ||
-      /\/(?:api|issues|issue|articles|agiles|dashboard|dashboards|admin)(?:\/|$)/i.test(pathname)) {
+  if (/\/(?:api|issues|issue|articles|agiles|dashboard|dashboards|admin)(?:\/|$)/i.test(pathname)) {
     throw new Error(message);
   }
   return url.href;

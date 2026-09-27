@@ -45,6 +45,26 @@ test("native redirects strip cross-origin credentials permanently and obey POST-
   ]);
 });
 
+test("non-default port upgrades keep credentials, while downgrades and other port changes remove them", async () => {
+  for (const [from, to, keep] of [
+    ["http://service.test:8111/api", "https://service.test/api", true],
+    ["http://service.test:8111/api", "https://service.test:8443/api", true],
+    ["https://service.test/api", "http://service.test/api", false],
+    ["https://service.test/api", "https://service.test:8443/api", false],
+  ] as const) {
+    let calls = 0;
+    const fetch: typeof globalThis.fetch = async (_input, init) => {
+      if (++calls === 1) return new Response(null, { status: 308, headers: { Location: to } });
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get("authorization"), keep ? "Bearer synthetic-token" : null);
+      assert.equal(headers.get("x-api-key"), keep ? "synthetic-key" : null);
+      return new Response(null);
+    };
+    await fetchWithRedirects(fetch, from, { headers: { Authorization: "Bearer synthetic-token", "X-API-Key": "synthetic-key" } });
+    assert.equal(calls, 2);
+  }
+});
+
 test("307/308 preserve replayable bodies; 303 changes methods; streams and loops fail without retries", async () => {
   for (const status of [307, 308, 303]) {
     let count = 0;

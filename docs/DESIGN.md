@@ -37,7 +37,9 @@ to discover and re-enter a different URL. Follow standard HTTP redirect semantic
 locations, status-dependent methods/bodies and redirect limits. Redirects are not application
 retries: do not replay an uncertain mutation as a new attempt. Preserve credential scoping across
 origins; enabling redirects does not mean forwarding authorization to an unrelated destination.
-Cover the same-host HTTP-to-HTTPS authentication flow explicitly so it still authenticates.
+Cover the same-host HTTP-to-HTTPS authentication flow explicitly so it still authenticates,
+including upgrades from a non-default port. Other origin changes and HTTPS-to-HTTP downgrades
+remove credential headers, including on subsequent redirects back to the original host.
 Any endpoint-specific restriction needs a concrete service requirement, documented rationale and
 tests; it must not silently become the default for future tools. A redirect failure reports its
 actual reason, such as a loop or limit, rather than being collapsed into a generic network error.
@@ -257,7 +259,7 @@ remains a storage API: callers using it directly own their field normalization/v
 rejects credentials, query/fragment, backslashes, embedded whitespace/controls and invalid path
 encoding, and returns a URL with one trailing slash. Integration rules then reject known API/page
 paths without guessing the intended base. TeamCity allows HTTP(S) and stores no trailing slash;
-YouTrack allows HTTPS (HTTP only on loopback) and stores one trailing slash for relative resolution.
+YouTrack allows HTTP(S) and stores one trailing slash for relative resolution.
 Both preserve a context path and a non-default port. URL diagnostics use synthetic examples.
 Existing profile files are not migrated or deleted; re-enter an invalid URL with `profile set` or
 `profile configure` to correct it.
@@ -615,6 +617,12 @@ The built-in token flow resolves a candidate in this order during `profile confi
 1. stdin when `--token-stdin` is present;
 2. the integration-specific environment variable;
 3. a masked interactive terminal prompt when a real TTY is available.
+
+The terminal prompt writes only a `*` mask to stderr. Typing, pasting and Backspace update
+the mask; long input uses a single-row clipped mask marked with `+`, while retaining the full
+candidate. Enter submits nonempty input; Ctrl+C, cancellation and input closure restore raw mode
+and end the prompt without exposing the candidate. A delayed LF from the preceding text prompt
+cannot submit an empty token.
 
 All new bearer token candidates pass through `normalizeBearerToken` before validation and secret
 storage: stdin, the declared environment variable, and interactive input. It trims only outer

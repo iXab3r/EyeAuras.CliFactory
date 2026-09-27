@@ -41,14 +41,25 @@ test("identity uses the context path, bearer token and minimal projection", asyn
 });
 
 test("server URL validation rejects unsafe or API URLs without echoing input", () => {
-  for (const value of ["", "http://youtrack.example.com", "ftp://localhost", "https://u:p@example.com",
+  for (const value of ["", "ftp://localhost", "https://u:p@example.com",
     "https://example.com?token=synthetic", "https://example.com/#private", "https://example.com/api/",
     "https://example.com/track/%61pi", "https://example.com/track\\api", "https://example.com/\napi"]) {
     assert.throws(() => youTrackUrl(value), /^Error: YouTrack URL must /);
   }
-  for (const value of ["http://localhost:8080/track", "http://127.0.0.1:8080", "http://[::1]:8080"])
+  for (const value of ["http://youtrack.example.com", "http://localhost:8080/track", "http://127.0.0.1:8080", "http://[::1]:8080"])
     assert.ok(youTrackUrl(value).startsWith("http://"));
   assert.equal(youTrackUrl(" https://example.com/track/// "), "https://example.com/track/");
+});
+
+test("identity follows same-host HTTP-to-HTTPS upgrades from configured context paths and ports", async () => {
+  server.use(
+    http.get("http://youtrack.example.com:8080/track/api/users/me", () => HttpResponse.redirect("https://youtrack.example.com/track/api/users/me?fields=id,login", 308)),
+    http.get("https://youtrack.example.com/track/api/users/me", ({ request }) => {
+      assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
+      return HttpResponse.json({ id: "1-1", login: "fixture-user" });
+    }),
+  );
+  assert.deepEqual(await currentUser({ ...options, baseUrl: "http://youtrack.example.com:8080/track" }), { id: "1-1", login: "fixture-user" });
 });
 
 test("HTTP failures expose status only, never upstream diagnostics or URLs", async () => {

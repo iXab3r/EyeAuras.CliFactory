@@ -28,6 +28,20 @@ test("syntax diagnostics retain source frames while excluding reflected input an
   assert.doesNotMatch(safe.stack ?? "", /synthetic-secret|private line/);
 });
 
+test("raw native codes survive generic envelopes and cookie and signed-path diagnostics are redacted", () => {
+  const original = Object.assign(new Error(
+    "Cookie: session=synthetic-first; refresh=synthetic-second\n" +
+    "Set-Cookie: session=synthetic-third; HttpOnly\n" +
+    "Download https://service.test/files/1/sign=synthetic-signature and https://service.test/files/1/sign%3Dsynthetic-encoded",
+  ), { code: "ECONNRESET" });
+  const result = machineError(original);
+  assert.equal(result.code, "error");
+  assert.equal(result.cause?.code, "ECONNRESET");
+  assert.match(result.cause?.stack ?? "", /diagnostics.test/);
+  assert.doesNotMatch(JSON.stringify(result), /synthetic-(?:first|second|third|signature|encoded)/);
+  assert.equal(machineError(new DOMException("Cancelled", "AbortError")).cause?.code, 20);
+});
+
 test("concurrent diagnostic scopes isolate profile secrets and redact secure record values", async () => {
   let ready!: () => void;
   const barrier = new Promise<void>(resolve => { ready = resolve; });

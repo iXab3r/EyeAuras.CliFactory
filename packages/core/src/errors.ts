@@ -27,7 +27,9 @@ export function rememberSecret(value: string | undefined): void {
 function redact(text: string, secrets: readonly string[] = []): string {
   const values = [...(diagnosticSecrets.getStore() ?? []), ...secrets].filter(Boolean);
   for (const value of values.sort((a, b) => b.length - a.length)) {
-    for (const spelling of new Set([value, value.trim(), encodeURIComponent(value), JSON.stringify(value).slice(1, -1)])) {
+    let encoded = value;
+    try { encoded = encodeURIComponent(value); } catch { /* Ill-formed Unicode is still redacted literally. */ }
+    for (const spelling of new Set([value, value.trim(), encoded, JSON.stringify(value).slice(1, -1)])) {
       if (spelling) text = text.replaceAll(spelling, "[redacted]");
     }
   }
@@ -36,11 +38,17 @@ function redact(text: string, secrets: readonly string[] = []): string {
       try {
         const url = new URL(raw);
         if (url.username || url.password) { url.username = "redacted"; url.password = ""; }
+        url.pathname = url.pathname.split("/").map(segment => {
+          const decoded = decodeURIComponent(segment);
+          return /^(?:sign|signature|token|secret|api[-_]?key)=/i.test(decoded)
+            ? decoded.slice(0, decoded.indexOf("=") + 1) + "redacted" : segment;
+        }).join("/");
         for (const key of new Set(url.searchParams.keys())) url.searchParams.set(key, "redacted");
         if (url.hash) url.hash = "redacted";
         return url.toString();
       } catch { return "[redacted URL]"; }
     })
+    .replace(/\b((?:set-)?cookie\s*[:=]\s*)[^\r\n]*/gi, "$1[redacted]")
     .replace(/\b(Bearer|Basic)\s+[^\s,;"']+/gi, "$1 [redacted]")
     .replace(/((?:password|passwd|token|secret|api[-_]?key|authorization|cookie|signature)\s*[=:]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/gi, "$1[redacted]");
 }
@@ -62,7 +70,7 @@ export function diagnosticCause(value: unknown, secrets: readonly string[] = [],
       : source.stack?.split("\n").filter(line => /^\s+at /.test(line)).join("\n");
     result.stack = `${result.name}: ${result.message}${frames ? (frames.startsWith("\n") ? "" : "\n") + redact(frames, secrets) : ""}`;
     const code = (source as NodeJS.ErrnoException).code;
-    if (typeof code === "string") Object.assign(result, { code: redact(code, secrets) });
+    if (typeof code === "string" || typeof code === "number") Object.assign(result, { code: typeof code === "string" ? redact(code, secrets) : code });
     if (source.cause !== undefined) result.cause = copy(source.cause);
     if (source instanceof AggregateError) (result as AggregateError).errors = source.errors.map(error => copy(error));
     return result;
@@ -126,7 +134,7 @@ export interface MachineError {
 export interface ErrorDiagnostic {
   name: string;
   message: string;
-  code?: string;
+  code?: string | number;
   stack?: string;
   cause?: ErrorDiagnostic;
   errors?: ErrorDiagnostic[];
@@ -166,7 +174,9 @@ export function machineError(error: unknown): MachineError {
     ...(details.errors ? { errors: details.errors } : {}),
   } : {};
   if (!(error instanceof CliError)) {
-    return { code: "error", message: details.message, exitCode: 1, ...evidence };
+    return { code: "error", message: details.message, exitCode: 1, ...evidence,
+      ...(details.code === undefined ? {} : { cause: details }),
+    };
   }
   const profile = error.profile;
   return {

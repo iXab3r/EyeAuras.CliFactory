@@ -56,7 +56,7 @@ export async function fetchWithRedirects(
       throw new CliError("The server returned an unsupported redirect URL.", { code: "http.redirectInvalid" });
     }
     const upgrade = url.protocol === "http:" && next.protocol === "https:" &&
-      url.hostname === next.hostname && !url.port && !next.port;
+      url.hostname === next.hostname;
     if (url.origin !== next.origin && !upgrade) {
       for (const name of [...headers.keys()]) if (sensitiveHeader.test(name)) headers.delete(name);
     }

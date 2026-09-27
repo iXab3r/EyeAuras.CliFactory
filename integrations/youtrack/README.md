@@ -74,7 +74,7 @@ automatically. Runtime memory and service limits still apply.
 
 ## URL and token input
 
-Copy the service base address, for example `https://youtrack.example.test/youtrack/`. Include any context path and port; omit `/api`, issue pages and query strings. HTTPS is required except for HTTP on localhost.
+Copy the service base address, for example `https://youtrack.example.test/youtrack/`. Include any context path and port; omit `/api`, issue pages and query strings. HTTP and HTTPS are supported.
 Create/copy a permanent token in your YouTrack profile with the **YouTrack** service scope.
 See the [permanent-token guide](https://www.jetbrains.com/help/youtrack/devportal/Manage-Permanent-Token.html). Paste only its value: `FICTIONAL_TOKEN_VALUE` is a fictional example.
 Do not include `Bearer `, `Authorization:`, or surrounding quotes. The same guidance appears in
@@ -106,10 +106,10 @@ If login reports a missing profile, run `profile configure` first in that same t
 profile visibility is identical across terminal environments.
 
 Enter the YouTrack server URL when configuring a new profile, then enter your permanent token at the
-factory's hidden token prompt. Never put a token in chat or command-line arguments.
+factory's masked token prompt. Never put a token in chat or command-line arguments.
 Use the server origin and any context path (for example `https://youtrack.example.com/track`),
-without `/api`, credentials, query or fragment. HTTPS is required; HTTP is accepted only
-for explicit `localhost`, `127.0.0.1` or `[::1]` development addresses. Redirects are refused.
+without `/api`, credentials, query or fragment. Normal redirects are followed, including
+same-host HTTP-to-HTTPS upgrades with authentication. Other origin changes remove credentials.
 
 Create a token in your YouTrack profile with the YouTrack service scope and only the
 account permissions you need. See JetBrains' [permanent token documentation](https://www.jetbrains.com/help/youtrack/devportal/authentication-with-permanent-token.html).
@@ -127,7 +127,7 @@ npm run youtrack -- auth login --profile youtrack-dev --token-stdin
 ```
 
 The factory selects a new candidate from explicit `--token-stdin`, then `YOUTRACK_TOKEN`,
-then the hidden prompt in an ordinary interactive CLI with all three standard streams
+then the masked prompt in an ordinary interactive CLI with all three standard streams
 attached to TTYs. JSON, JSON-RPC, programmatic calls and redirected streams never prompt.
 `--token-stdin` is unavailable in JSON-RPC/programmatic execution because stdin belongs to
 the transport; provide the configured environment candidate instead.
