@@ -25,7 +25,6 @@ import {
   rememberSecret,
   withDiagnostics,
 } from "./errors.js";
-import { ProfileFileError } from "./profile-file.js";
 import type {
   CliApplication,
   CliInvocation,
@@ -74,16 +73,15 @@ function declaredOption(specification: OptionDefinition): Option {
 }
 
 /**
- * After an interrupt every failure exits 130; a typed one keeps its code, message and data. A
- * download error keeps its static message: it says whether private data was left behind.
+ * After an interrupt every failure exits 130; a typed one keeps its code, message and data, so a
+ * download error still says whether private data was left behind.
  */
 function afterInterrupt(error: unknown, interrupt: AbortSignal | undefined): unknown {
   if (interrupt?.aborted !== true || (error instanceof CliError && error.exitCode === 130)) {
     return error;
   }
   if (!(error instanceof CliError)) {
-    const message = error instanceof ProfileFileError ? error.message : "Interrupted.";
-    return new CliError(message, { code: "interrupted", exitCode: 130, cause: error });
+    return new CliError("Interrupted.", { code: "interrupted", exitCode: 130, cause: error });
   }
   return new CliError(error.message, {
     code: error.code, exitCode: 130, next: error.next, cause: error.cause,
@@ -241,7 +239,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       .showSuggestionAfterError()
       .helpCommand(true)
       .option("--json", "Emit machine-readable JSON")
-      .option("--verbose", "Show the full cause chain and stack traces of a failure")
+      .option("--verbose", "Show full diagnostics for a failure")
       .option(
         "--json-rpc",
         "Start a persistent newline-delimited JSON-RPC session",
@@ -556,7 +554,8 @@ export function createCli(definition: CliDefinition): CliApplication {
       return failure.exitCode;
     }
     const lines = [failure.message];
-    const cause = verbose || failure.code === "usage" || failure.code === "interrupted" ? undefined : conciseCause(failure);
+    // Usage and interrupted failures (any code at exit 130) stay at their one line.
+    const cause = verbose || failure.code === "usage" || failure.exitCode === 130 ? undefined : conciseCause(failure);
     if (cause) lines.push(cause);
     // A rendered result carries its own suggestions; stderr adds them only without one.
     if (error instanceof CliError && error.result === undefined && error.profile !== undefined) {

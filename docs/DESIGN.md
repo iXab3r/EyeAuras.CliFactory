@@ -71,8 +71,9 @@ error printers. A failure is short by default and complete on request:
   diagnostic.` No stack frame and no `Caused by:` chain appear without `--verbose`. Usage and
   interrupted failures never print a cause line.
 - `--verbose` is a global option, accepted like `--json` on the CLI, in `execute` argv and in
-  JSON-RPC argv. It adds the failure's name, its frames and the recursive `Caused by:` /
-  `Related error:` chain with frames, still redacted. It never changes results, exit codes or stdout.
+  JSON-RPC argv. On stderr it adds the failure's frames and the recursive `Caused by:` /
+  `Related error:` chain with frames; in the machine form it adds the `name` and `stack` fields.
+  Everything stays redacted. It never changes results, exit codes or stdout.
 - JSON and JSON-RPC always carry `code`, `message`, `exitCode`, `profile`, `next`, `result` and
   the recursive `cause` chain (`name`, native `code`, `message`, `cause`, `errors` for aggregates);
   the top-level `name` and every `stack` field are present only with `--verbose`.

@@ -51,13 +51,20 @@ test("the concise cause names the nearest new text and the deepest detail once",
   assert.equal(conciseCause(machineError(new CliError("Typed.", { code: "typed" }))), undefined);
 });
 
-test("an untyped failure keeps its own frames and cause instead of nesting itself", () => {
+test("an untyped failure keeps its type, frames and cause instead of nesting itself", () => {
   const wrapped = CliError.from(new RangeError("Out of range.", { cause: new Error("root") }));
   assert.equal(wrapped.code, "error");
+  assert.equal(wrapped.name, "RangeError");
   assert.equal(wrapped.message, "Out of range.");
   assert.equal((wrapped.cause as Error).message, "root");
-  assert.match(wrapped.stack ?? "", /^CliError: Out of range\.\n\s+at /);
+  assert.match(wrapped.stack ?? "", /^RangeError: Out of range\.\n\s+at /);
   assert.match(wrapped.stack ?? "", /diagnostics.test/);
+  assert.equal(machineError(wrapped, { verbose: true }).name, "RangeError");
+  // An aggregate is nested, so every independent failure stays visible.
+  const aggregate = CliError.from(new AggregateError([new Error("first"), new Error("second")], "Both failed."));
+  assert.equal(aggregate.message, "Both failed.");
+  assert.equal(conciseCause(machineError(aggregate)), "Cause: first");
+  assert.match(diagnosticText(machineError(aggregate, { verbose: true })), /Related error: Error: second/);
 });
 
 test("HttpError maps statuses to stable codes and suggests login for 401", () => {

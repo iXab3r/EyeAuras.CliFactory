@@ -120,12 +120,17 @@ export class CliError extends Error {
     this.defaultProfile = undefined;
   }
 
-  /** An untyped failure: keeps the original frames and cause instead of nesting the error under itself. */
+  /**
+   * An untyped failure: keeps the original type name, frames and cause instead of nesting the
+   * error under itself. An aggregate is nested so its independent failures survive.
+   */
   public static from(error: Error): CliError {
+    if (error instanceof AggregateError) return new CliError(error.message, { code: "error", cause: error });
     const wrapped = new CliError(error.message, {
       code: "error",
       ...(error.cause === undefined ? {} : { cause: error.cause }),
     });
+    if (error.name) wrapped.name = error.name;
     const frames = error.stack?.split("\n").filter((line) => /^\s+at /.test(line)) ?? [];
     if (frames.length) wrapped.stack = `${wrapped.name}: ${wrapped.message}\n${frames.join("\n")}`;
     return wrapped;
@@ -133,7 +138,7 @@ export class CliError extends Error {
 }
 
 /** The stable code for an HTTP error status; `http.rejected` covers the other 4xx answers. */
-export function httpErrorCode(status: number): string {
+function httpErrorCode(status: number): string {
   if (status === 401) return "http.unauthorized";
   if (status === 403) return "http.forbidden";
   if (status === 404) return "http.notFound";

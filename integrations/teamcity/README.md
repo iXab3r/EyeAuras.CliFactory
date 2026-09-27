@@ -737,13 +737,15 @@ failed outcome:
 ```
 
 JSON-RPC returns the same fields, apart from `message`, in `error.data`, and adds `result` for a
-failed outcome. Every `next` argv can be sent back to `cli.execute` unchanged. TeamCity adds these
-codes to Core's `usage`, `usage.jsonRpc`, `permission.denied`, `profile.notFound`,
-`profile.notConfigured`, `interrupted` and `error`:
+failed outcome. Every `next` argv can be sent back to `cli.execute` unchanged. Core's codes
+(`usage`, `permission.denied`, `profile.*`, `auth.*`, `secrets.unavailable`, `download.failed`,
+`interrupted`, `error`, the `http.*` statuses of its shared `HttpError` and the `request.*`
+transport reasons) are listed in the [design](../../docs/DESIGN.md#machine-output-is-a-first-class-contract).
+TeamCity adds these:
 
 | Code | Meaning |
 |---|---|
-| `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.serverError` | TeamCity answered with that HTTP status, also for a refused download; the response body is never read or shown |
+| `http.unauthorized`, `http.forbidden`, `http.notFound`, `http.conflict`, `http.rejected`, `http.rateLimited`, `http.serverError` | Core's `HttpError`: TeamCity answered with that HTTP status, also for a refused download; the response body is never read or shown, and `401` suggests `auth login` |
 | `request.failed` | A read was lost in transit; nothing was changed, so it can be retried. A lost download reports Core's download error instead |
 | `request.unknownOutcome` | A write was lost in transit; it may or may not have been applied, and is never repeated |
 | `run.unknownOutcome` | The queue request's outcome is unknown; check `builds list --job <id> --state any` |

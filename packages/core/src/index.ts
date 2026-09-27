@@ -23,7 +23,7 @@ export type {
   TargetCommands,
 } from "./target-commands.js";
 export { durationParser, integerParser, jsonParser } from "./option-parsers.js";
-export { CliError, HttpError, diagnosticCause, httpErrorCode } from "./errors.js";
+export { CliError, HttpError, diagnosticCause } from "./errors.js";
 export type { CliErrorOptions } from "./errors.js";
 export { formatHuman, writeResult } from "./output.js";
 export { recordView, tableView } from "./view.js";

@@ -73,9 +73,10 @@ async function fixture(t: test.TestContext) {
       }),
       command("save", "Fail a download after an interrupt", async (_input, context) => {
         await abortedRequest(context.signal).catch(() => undefined);
+        // Its cause stays out of the one-line interrupted report.
         throw new ProfileFileError(
           "Download was not published, and private staging cleanup failed; inspect the profile temp directory.",
-          false, true,
+          false, true, { cause: new Error("Cancelled after validation.") },
         );
       }),
     ],
