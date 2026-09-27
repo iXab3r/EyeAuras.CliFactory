@@ -72,6 +72,21 @@ Compressed wire length is syntax-checked but not compared with decoded size. HTT
 Retry-After, empty/null mutation and UTF-8 BOM behavior are unchanged. No request is retried
 automatically. Runtime memory and service limits still apply.
 
+## URL and token input
+
+Copy the service base address, for example `https://youtrack.example.test/youtrack/`. Include any context path and port; omit `/api`, issue pages and query strings. HTTPS is required except for HTTP on localhost.
+Create/copy a permanent token in your YouTrack profile with the **YouTrack** service scope.
+See the [permanent-token guide](https://www.jetbrains.com/help/youtrack/devportal/Manage-Permanent-Token.html). Paste only its value: `FICTIONAL_TOKEN_VALUE` is a fictional example.
+Do not include `Bearer `, `Authorization:`, or surrounding quotes. The same guidance appears in
+`profile configure --help`, `auth login --help`, and before interactive input.
+
+New URL/token input trims outer whitespace, including pasted CRLF. URL trailing slashes are
+normalized without losing the context path; internal token symbols remain unchanged. Empty input,
+headers/quoted tokens and obvious API/page URLs fail with a safe hint before authentication or
+persistence. This applies to onboarding, profile URL writes, login, environment/stdin candidates,
+`execute` and JSON-RPC (which never prompts). Existing data is retained; use `profile set` or
+`profile configure` to correct an old URL. Failed configure input preserves working credentials.
+
 ## Sign in locally
 
 Build from the repository root with `npm run build`, then use your current terminal and

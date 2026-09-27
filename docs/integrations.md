@@ -226,6 +226,14 @@ acme-cli resources list --profile uat --json
 acme-cli resources list --profile production --json
 ```
 
+A field may supply an idempotent `normalize(value)` callback for new input. Core uses it for both
+prompted values and profile create/set/configure flags, including execute/RPC. Use static errors;
+do not interpolate the rejected value. `parseServerUrl(value, safeMessage)` handles basic base-URL
+parsing and trailing slashes; keep service-specific schemes and forbidden API/page paths in the
+integration. The field description supplies prompt/help examples. For bearer authentication,
+`tokenAuth({ tokenSource: "Account settings > Access Tokens", ... })` adds the token source to
+Core's shared raw-token guidance and normalization. Arbitrary secrets do not use this helper.
+
 `profile configure [name]` derives its options from the same profile-field declaration and reuses
 the integration's auth validation before secure storage. `--token-stdin` is preferred for scripts.
 JSON, JSON-RPC, non-TTY, and programmatic calls never ask questions: an incomplete service command

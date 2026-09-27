@@ -190,6 +190,21 @@ authentication storage. Service leaves still check configuration/readiness befor
 `profile show [name]` uses the selected `--profile` (or default) when the positional name is absent;
 an explicit name chooses the profile to display without changing the default.
 
+Profile fields may declare `normalize(value)` for newly supplied values. Core applies it to
+`profile create/set/configure` options and prompted input before profile validation, authentication
+or storage, identically in CLI, `execute` and JSON-RPC. Omitted/stored fields are not rewritten.
+Normalizers must be idempotent and throw static, non-secret diagnostics. The generic ProfileStore
+remains a storage API: callers using it directly own their field normalization/validation.
+
+`parseServerUrl(value, message)` trims outer whitespace, parses an absolute HTTP(S) base address,
+rejects credentials, query/fragment, backslashes, embedded whitespace/controls and invalid path
+encoding, and returns a URL with one trailing slash. Integration rules then reject known API/page
+paths without guessing the intended base. TeamCity allows HTTP(S) and stores no trailing slash;
+YouTrack allows HTTPS (HTTP only on loopback) and stores one trailing slash for relative resolution.
+Both preserve a context path and a non-default port. URL diagnostics use synthetic examples.
+Existing profile files are not migrated or deleted; re-enter an invalid URL with `profile set` or
+`profile configure` to correct it.
+
 The standard lifecycle is explicit: `profile create <name>` creates, `profile set <name>` updates
 an existing profile, `profile set-default <name>` chooses the default, and `profile delete <name>`
 removes a non-default profile. The default profile cannot be deleted until another profile is made
@@ -539,6 +554,15 @@ The built-in token flow resolves a candidate in this order during `profile confi
 1. stdin when `--token-stdin` is present;
 2. the integration-specific environment variable;
 3. a masked interactive terminal prompt when a real TTY is available.
+
+All new bearer token candidates pass through `normalizeBearerToken` before validation and secret
+storage: stdin, the declared environment variable, and interactive input. It trims only outer
+whitespace, rejects empty values, copied Bearer/Authorization headers, enclosing quotes and internal
+control characters, and preserves internal symbols. Explicit empty input fails without falling back
+to another source. The same helper protects directly callable TeamCity/YouTrack HTTP clients.
+This is a bearer-input contract, not a transformation of arbitrary secrets or existing keyring data.
+`tokenAuth.tokenSource` supplies the integration's token-settings location; help and the pre-input
+prompt explain the raw-value format with a fictional example. Errors never echo the candidate.
 
 Stored credentials are not configure/login candidates. Prompting requires ordinary rendered
 execution without `--json`, with stdin, stdout and stderr all attached to a TTY. JSON-RPC and

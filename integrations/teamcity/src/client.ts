@@ -1,3 +1,4 @@
+import { teamCityUrl } from "./server-url.js";
 import * as triage from "./triage-models.js";
 import * as admin from "./admin-models.js";
 import * as infrastructure from "./infrastructure-models.js";
@@ -10,6 +11,7 @@ import {
 } from "./credential-inputs.js";
 import {
   CliError,
+  normalizeBearerToken,
   readResponseBody,
   type ScopedSecrets,
   type IAppArguments,
@@ -326,11 +328,8 @@ export class TeamCityClient {
   readonly #signal: AbortSignal | undefined;
 
   public constructor(options: TeamCityClientOptions) {
-    const baseUrl = options.baseUrl.trim().replace(/\/+$/, "");
-    if (!baseUrl) {
-      throw new Error("TeamCity base URL cannot be empty.");
-    }
-    const token = options.token?.trim();
+    const baseUrl = teamCityUrl(options.baseUrl);
+    const token = options.token === undefined ? undefined : normalizeBearerToken(options.token);
     if (options.guest === true && token) {
       throw new Error("TeamCity guest access and token authentication are mutually exclusive.");
     }
