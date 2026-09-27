@@ -55,7 +55,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
   return createCli({
     name: "youtrack-cli",
     description: "AI-friendly access to YouTrack",
-    version: "0.4.0",
+    version: "0.4.1",
     applicationId: "youtrack-cli",
     permissions: {},
     profile: {
