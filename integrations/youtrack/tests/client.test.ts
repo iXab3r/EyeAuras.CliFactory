@@ -89,7 +89,7 @@ test("empty or multiline tokens fail without any request; cancellation reaches f
     return Response.json({ id: "1-1", login: "fixture" });
   };
   for (const token of ["", " ", "synthetic\nvalue"])
-    await assert.rejects(currentUser({ ...options, token, fetch }), /non-empty single-line token/);
+    await assert.rejects(currentUser({ ...options, token, fetch }), /Token must not be empty|Invalid token format/);
   assert.equal(calls, 0);
   await currentUser({ ...options, fetch, signal: controller.signal });
   assert.equal(calls, 1);

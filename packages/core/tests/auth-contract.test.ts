@@ -135,7 +135,7 @@ test("explicit empty stdin and transport stdin refusal never fall through to env
   for (const command of [["profile", "configure", "default"], ["auth", "login"]]) {
     const h = await harness(t, { input: " \n", tty: true });
     assert.equal(await h.cli.run([...command, "--token-stdin", "--json"]), 1);
-    assert.match(h.stderr(), /profile configure default --token-stdin/);
+    assert.match(h.stderr(), /Token must not be empty or whitespace-only/);
     await assert.rejects(h.cli.execute([...command, "--token-stdin"]), /stdin belongs to the transport/);
     assert.equal(h.validated.length, 0);
     assert.equal(await h.secrets.get(service, "default:token"), "synthetic-existing");
@@ -298,4 +298,41 @@ test("long profile names configure independently without a local length ceiling"
   await h.cli.execute(["profile", "configure", name, "--url", newUrl]);
   assert.equal((await h.profiles.get(name)).values.url, newUrl);
   assert.equal((await h.profiles.get("default")).values.url, oldUrl);
+});
+
+
+test("all token sources normalize before validation/storage and preserve internal symbols", async (t) => {
+  const token = "synthetic.A+b/c=d-_";
+  for (const command of [["profile", "configure", "default"], ["auth", "login"]]) {
+    for (const source of ["stdin", "env", "prompt", "execute", "rpc"]) {
+      environment(t, source === "env" || source === "execute" || source === "rpc" ? ` \t${token} \r\n` : undefined);
+      const argv = [...command, ...(source === "stdin" ? ["--token-stdin"] : [])];
+      const frames = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv } }) + "\n";
+      const h = await harness(t, { tty: true, input: source === "rpc" ? frames : `  ${token}  \r\n` });
+      if (source === "execute") await h.cli.execute(argv);
+      else assert.equal(await h.cli.run(source === "rpc" ? ["--json-rpc"] : argv), 0, h.stderr());
+      assert.equal(h.validated.length, 1);
+      assert.equal(h.validated[0]!.token, token);
+      assert.equal(await h.secrets.get(service, "default:token"), token);
+      assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic\.A/);
+      if (source === "prompt") assert.match(h.stderr(), /without Bearer, Authorization: or surrounding quotes/);
+      await assertOtherProfileUnchanged(h);
+    }
+  }
+});
+
+test("invalid token input fails before network validation and preserves both profiles", async (t) => {
+  for (const value of [" \r\n", "Bearer synthetic-private", "Authorization: Bearer synthetic-private", '"synthetic-private"', "'synthetic-private'", "synthetic-private\nsecond-line"]) {
+    for (const source of ["env", "stdin"]) {
+      environment(t, value);
+      const h = await harness(t, { input: value });
+      const before = await h.profiles.list();
+      assert.equal(await h.cli.run(["profile", "configure", "default", "--url", newUrl, ...(source === "stdin" ? ["--token-stdin"] : []), "--json"]), 1);
+      assert.equal(h.validated.length, 0);
+      assert.deepEqual(await h.profiles.list(), before);
+      assert.equal(await h.secrets.get(service, "default:token"), "synthetic-existing");
+      assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic-private|second-line/);
+      await assertOtherProfileUnchanged(h);
+    }
+  }
 });

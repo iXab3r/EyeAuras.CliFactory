@@ -17,6 +17,7 @@ import {
   listProjects,
   readUser,
   youTrackUrl,
+  youTrackUrlHelp,
 } from "./client.js";
 import {
   bodyUpdate,
@@ -62,7 +63,8 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
         {
           name: "url",
           flags: "--url <url>",
-          description: "YouTrack server URL including any context path, without /api",
+          description: youTrackUrlHelp,
+          normalize: youTrackUrl,
           required: true,
         },
       ],
@@ -74,6 +76,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
     },
     auth: tokenAuth({
       env: "YOUTRACK_TOKEN",
+      tokenSource: "Create/copy a permanent token in your YouTrack profile with the YouTrack service scope.",
       validate: ({ profile, token, fetch, signal }) => currentUser({
         baseUrl: youTrackUrl(profile.values.url),
         token,
