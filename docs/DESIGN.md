@@ -257,12 +257,28 @@ remains a storage API: callers using it directly own their field normalization/v
 
 `parseServerUrl(value, message)` trims outer whitespace, parses an absolute HTTP(S) base address,
 rejects credentials, query/fragment, backslashes, embedded whitespace/controls and invalid path
-encoding, and returns a URL with one trailing slash. Integration rules then reject known API/page
-paths without guessing the intended base. TeamCity allows HTTP(S) and stores no trailing slash;
+encoding, and returns a readonly `{ href, pathname }` configuration record with one trailing slash.
+Its `href` preserves an explicitly written port; it is not a WHATWG `URL` instance. Integration rules
+then reject known API/page paths without guessing the intended base. TeamCity allows HTTP(S) and stores no trailing slash;
 YouTrack allows HTTP(S) and stores one trailing slash for relative resolution.
-Both preserve a context path and a non-default port. URL diagnostics use synthetic examples.
-Existing profile files are not migrated or deleted; re-enter an invalid URL with `profile set` or
-`profile configure` to correct it.
+
+**Every CLI preserves the supported user-selected scheme, host, context path and explicit port
+presence/value in stored and displayed profile URLs**, including HTTP :80 and HTTPS :443.
+Approved outer-whitespace and trailing-slash normalization remains allowed. Do not persist
+a native URL serializer's output when it erases explicit default ports. Use the shared parser
+for HTTP(S) base-address normalization; service-specific scheme/path restrictions remain local.
+RANDOM REST and Playwright retain their HTTPS-origin-only policy and literal stored URLs.
+
+The initial HTTP request or browser base URL must use the configured effective endpoint. Native
+transport serialization may omit a default port on the wire; literal Host-header spelling is not
+required. Redirects may change the request destination under the shared redirect policy, but must
+never rewrite saved profile configuration. Loss of explicit default-port spelling is configuration
+information loss, not a change of effective port or evidence of an HTTPS downgrade.
+
+URL diagnostics use synthetic examples. Existing profile files are not migrated or deleted.
+Previously erased explicit-port information cannot be inferred: re-enter the desired URL with
+`profile set` or `profile configure` after upgrading. External parser consumers use the record's
+`href` for configuration and construct a native `URL` only for transport operations.
 
 The standard lifecycle is explicit: `profile create <name>` creates, `profile set <name>` updates
 an existing profile, `profile set-default <name>` chooses the default, and `profile delete <name>`

@@ -72,6 +72,10 @@ The [role index](docs/roles/README.md) explains how domain and function roles co
    Normal HTTP redirects work by default. Wrap failures with useful context while preserving
    causes and stacks; redact secrets at output boundaries instead of erasing diagnostic evidence.
    Core owns common error presentation. New tools inherit these rules without separate approval.
+16. **Preserve configured URLs.** Every CLI preserves supported scheme, host, context path and
+   explicit port presence/value in saved/displayed profiles, including default ports. Follow
+   [the profile URL contract](docs/DESIGN.md#profiles-own-non-secret-configuration); native transport
+   canonicalization and redirect destinations must not rewrite saved configuration.
 
 ## Function role: Reconciliation Lead
 

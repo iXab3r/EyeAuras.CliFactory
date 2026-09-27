@@ -12,6 +12,11 @@ Use `new CliError(message, { code, cause })` to add context; `diagnosticCause` s
 Error subclasses and explicit secret values at lower-level boundaries. Do not copy redirect
 loops, error printers or redaction glue into new integrations.
 
+Profile URL normalization follows the [shared preservation contract](DESIGN.md#profiles-own-non-secret-configuration).
+Use `parseServerUrl(value, message).href` for normalized HTTP(S) configuration; it retains explicit
+default ports. Keep service scheme/path restrictions local. Never save a redirect destination or
+a native URL serialization that loses the user's explicit port.
+
 ## Start with one definition and a standalone entry point
 
 A normal CLI only needs Core. Define commands once; Core supplies help, profiles, human/JSON

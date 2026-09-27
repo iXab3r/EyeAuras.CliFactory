@@ -15,3 +15,22 @@ test("normalizers are idempotent and never reinterpret token symbols as URLs", (
     assert.throws(() => parseServerUrl(value, "Invalid URL"), { message: "Invalid URL" });
   }
 });
+
+
+test("configured URLs retain explicit ports independently of native transport serialization", () => {
+  for (const host of ["example.test", "[2001:db8::1]"]) {
+    for (const scheme of ["http", "https"]) {
+      for (const port of ["", ":80", ":443", ":8111", ":8443", ":00443", ":0", ":65535"]) {
+        const configured = scheme + "://" + host + port + "/context/";
+        const parsed = parseServerUrl(" \t" + configured + "// \r\n", "Invalid URL");
+        assert.equal(parsed.href, configured);
+        assert.equal(parsed.pathname, "/context/");
+        assert.deepEqual(parseServerUrl(parsed.href, "Invalid URL"), parsed);
+        assert.equal(new URL(parsed.href).href, new URL(configured).href);
+      }
+    }
+  }
+  for (const value of ["https://example.test:65536", "http://example.test:-1", "https://example.test:abc"]) {
+    assert.throws(() => parseServerUrl(value, "Invalid URL"), { message: "Invalid URL" });
+  }
+});
