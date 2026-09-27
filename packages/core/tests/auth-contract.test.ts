@@ -122,6 +122,9 @@ test("configure and login use stdin, then environment, then masked terminal inpu
       assert.equal(await h.secrets.get(service, "default:token"), expected);
       assert.deepEqual(h.rawModes, source === "prompt" ? [true, false] : []);
       assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic-/);
+      assert.doesNotMatch(h.stdout(), /Token:|\u001b/);
+      if (source === "prompt") assert.match(h.stderr(), /Token: \*{15}/);
+      else assert.doesNotMatch(h.stderr(), /Token:|\u001b/);
       await assertOtherProfileUnchanged(h);
     }
   }

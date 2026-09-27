@@ -106,7 +106,7 @@ If login reports a missing profile, run `profile configure` first in that same t
 profile visibility is identical across terminal environments.
 
 Enter the YouTrack server URL when configuring a new profile, then enter your permanent token at the
-factory's hidden token prompt. Never put a token in chat or command-line arguments.
+factory's masked token prompt. Never put a token in chat or command-line arguments.
 Use the server origin and any context path (for example `https://youtrack.example.com/track`),
 without `/api`, credentials, query or fragment. HTTPS is required; HTTP is accepted only
 for explicit `localhost`, `127.0.0.1` or `[::1]` development addresses. Redirects are refused.
@@ -127,7 +127,7 @@ npm run youtrack -- auth login --profile youtrack-dev --token-stdin
 ```
 
 The factory selects a new candidate from explicit `--token-stdin`, then `YOUTRACK_TOKEN`,
-then the hidden prompt in an ordinary interactive CLI with all three standard streams
+then the masked prompt in an ordinary interactive CLI with all three standard streams
 attached to TTYs. JSON, JSON-RPC, programmatic calls and redirected streams never prompt.
 `--token-stdin` is unavailable in JSON-RPC/programmatic execution because stdin belongs to
 the transport; provide the configured environment candidate instead.
