@@ -1,4 +1,5 @@
 import {
+  CliError,
   command,
   Permission,
   type CommandContext,
@@ -8,6 +9,38 @@ import {
 import type { TeamCityClient } from "./client.js";
 import { clientLeaf, option, text, repeatOption, jsonOption } from "./command-support.js";
 import { booleanText } from "./advanced-authoring-models.js";
+
+/** A batch that partly failed keeps every item's result and exits non-zero. */
+async function partial<T extends { count: number; errorCount: number }>(result: Promise<T>): Promise<T> {
+  const value = await result;
+  if (value.errorCount > 0) {
+    throw new CliError(`${value.errorCount} of ${value.count} builds failed; see items.`, {
+      code: "batch.partial", result: value,
+    });
+  }
+  return value;
+}
+
+async function statusPartial<T extends { errorCount: number }>(result: Promise<T>): Promise<T> {
+  const value = await result;
+  if (value.errorCount > 0) {
+    throw new CliError("The status changed with errors; see errorCount.", {
+      code: "build.statusPartial", result: value,
+    });
+  }
+  return value;
+}
+
+/** HTTP success can still contain failed labels. */
+async function labelsPartial<T extends { status?: unknown }>(result: Promise<T[]>): Promise<T[]> {
+  const labels = await result;
+  if (labels.some((label) => label.status === "FAILED")) {
+    throw new CliError("Some VCS labels failed; see their status.", {
+      code: "labels.partial", result: labels,
+    });
+  }
+  return labels;
+}
 
 export function createTriageCommands(
   clientFor: (context: CommandContext) => Promise<TeamCityClient>,
@@ -47,14 +80,14 @@ export function createTriageCommands(
         "cancel",
         "Cancel selected builds, never requeue",
         Permission.Update,
-        (c, { options }) => c.cancelBuildBatch(ids(options), text(options, "comment")),
+        (c, { options }) => partial(c.cancelBuildBatch(ids(options), text(options, "comment"))),
         [batchIds, comment],
       ),
       leaf(
         "delete",
         "Delete selected builds/history/artifacts",
         Permission.Update,
-        (c, { options }) => c.deleteBuildBatch(ids(options)),
+        (c, { options }) => partial(c.deleteBuildBatch(ids(options))),
         [batchIds],
       ),
       command("comment", "Change selected build comments", [
@@ -62,14 +95,14 @@ export function createTriageCommands(
           "set",
           "Set comments",
           Permission.Update,
-          (c, { options }) => c.setBuildBatchComment(ids(options), text(options, "text")),
+          (c, { options }) => partial(c.setBuildBatchComment(ids(options), text(options, "text"))),
           [batchIds, message],
         ),
         leaf(
           "clear",
           "Remove comments",
           Permission.Update,
-          (c, { options }) => c.clearBuildBatchComment(ids(options)),
+          (c, { options }) => partial(c.clearBuildBatchComment(ids(options))),
           [batchIds],
         ),
       ]),
@@ -78,7 +111,7 @@ export function createTriageCommands(
         "Pin/unpin selected builds",
         Permission.Update,
         (c, { options }) =>
-          c.pinBuildBatch(ids(options), booleanText(text(options, "status")) === "true"),
+          partial(c.pinBuildBatch(ids(options), booleanText(text(options, "status")) === "true")),
         [batchIds, option("--status <boolean>", "true or false", true)],
       ),
       command(
@@ -90,7 +123,7 @@ export function createTriageCommands(
             "Change explicit public tags",
             Permission.Update,
             (c, { options }) =>
-              c.tagBuildBatch(ids(options), options.tag as string[], action === "remove"),
+              partial(c.tagBuildBatch(ids(options), options.tag as string[], action === "remove")),
             [batchIds, repeatOption("--tag <name>", "Repeat public tags", true)],
           ),
         ),
@@ -162,7 +195,7 @@ export function createTriageCommands(
       "Set SUCCESS/FAILURE and report failure count",
       Permission.Update,
       (c, { args, options }) =>
-        c.setBuildStatus(num(args, "id"), args.status, text(options, "comment")),
+        statusPartial(c.setBuildStatus(num(args, "id"), args.status, text(options, "comment"))),
       [comment],
     ),
     leaf(
@@ -183,11 +216,11 @@ export function createTriageCommands(
         "Create external VCS label; HTTP success can contain failed labels",
         Permission.Update,
         (c, { args, options }) =>
-          c.addBuildVcsLabel(
+          labelsPartial(c.addBuildVcsLabel(
             num(args, "id"),
             text(options, "label"),
             text(options, "rootInstance"),
-          ),
+          )),
         [
           option("--label <text>", "Label", true),
           option("--root-instance <id>", "One VCS root instance", true),

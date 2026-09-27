@@ -67,11 +67,16 @@ async function verifyFormat(file: StagedProfileFile, format: DownloadFormat) {
   }
 }
 
+/**
+ * Save one TeamCity file under the profile. When TeamCity refuses it, `refused` turns the status
+ * into the client's HTTP error, unless Core's staging cleanup warning must be reported instead.
+ */
 export async function saveDownload(
   app: IAppArguments,
   options: DownloadOptions,
   format: DownloadFormat,
   openResponse: () => Promise<Response>,
+  refused: (status: number) => Error,
   signal?: AbortSignal,
 ) {
   const name = options.output;
@@ -86,25 +91,34 @@ export async function saveDownload(
     ? undefined
     : integer(options.maxBytes, 1, Number.MAX_SAFE_INTEGER);
   let media = "application/octet-stream";
-  const saved = await publishProfileFile({
-    appDataDirectory: app.AppDataDirectory,
-    name,
-    maxBytes,
-    signal,
-    openResponse,
-    inspectResponse(response) {
-      // These are whole-file requests: no Range, resume or partial-response reassembly.
-      if (!response.ok) {
-        throw new ProfileFileError(`TeamCity request failed with HTTP ${response.status}.`);
-      }
-      if (response.status === 206) {
-        throw new ProfileFileError(
-          "Download failed, was partial, or was cancelled; no destination was published.",
-        );
-      }
-      media = mediaType(response, format);
-    },
-    validateFile: (file) => verifyFormat(file, format),
-  });
-  return { ...saved, mediaType: media };
+  let status: number | undefined;
+  try {
+    const saved = await publishProfileFile({
+      appDataDirectory: app.AppDataDirectory,
+      name,
+      maxBytes,
+      signal,
+      openResponse,
+      inspectResponse(response) {
+        // These are whole-file requests: no Range, resume or partial-response reassembly.
+        if (!response.ok) {
+          status = response.status;
+          throw new ProfileFileError(`TeamCity request failed with HTTP ${response.status}.`);
+        }
+        if (response.status === 206) {
+          throw new ProfileFileError(
+            "Download failed, was partial, or was cancelled; no destination was published.",
+          );
+        }
+        media = mediaType(response, format);
+      },
+      validateFile: (file) => verifyFormat(file, format),
+    });
+    return { ...saved, mediaType: media };
+  } catch (error) {
+    if (status !== undefined && error instanceof ProfileFileError && !error.cleanupFailed) {
+      throw refused(status);
+    }
+    throw error;
+  }
 }

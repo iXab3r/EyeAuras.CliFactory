@@ -92,11 +92,11 @@ test("lists a bounded page of active child projects", async () => {
       const url = assertReadRequest(request);
       assert.equal(
         url.searchParams.get("locator"),
-        "project:(id:Parent),archived:false,start:3,count:2",
+        "project:(id:Parent),archived:false,start:3,count:3",
       );
       assert.equal(
         url.searchParams.get("fields"),
-        "project(id,name,parentProjectId,archived,description,webUrl)",
+        "nextHref,project(id,name,parentProjectId,archived,description,webUrl)",
       );
       return HttpResponse.json({
         project: [
@@ -113,14 +113,12 @@ test("lists a bounded page of active child projects", async () => {
 
   assert.deepEqual(
     await client().listProjects({ parent: "Parent", limit: 2, start: 3 }),
-    [
-      {
-        id: "Child",
-        name: "Child project",
-        parentProjectId: "Parent",
-        archived: false,
-      },
-    ],
+    {
+      count: 1,
+      items: [{ id: "Child", name: "Child project", parentProjectId: "Parent", archived: false }],
+      hasMore: false,
+      nextStart: null,
+    },
   );
 });
 
@@ -149,11 +147,11 @@ test("lists non-template jobs with direct-project pagination", async () => {
       const url = assertReadRequest(request);
       assert.equal(
         url.searchParams.get("locator"),
-        "templateFlag:false,project:(id:Example),start:4,count:5",
+        "templateFlag:false,project:(id:Example),start:4,count:6",
       );
       assert.equal(
         url.searchParams.get("fields"),
-        "buildType(id,name,projectId,projectName,paused,description,webUrl)",
+        "nextHref,buildType(id,name,projectId,projectName,paused,description,webUrl)",
       );
       return HttpResponse.json({
         buildType: [
@@ -170,7 +168,7 @@ test("lists non-template jobs with direct-project pagination", async () => {
   );
 
   assert.equal(
-    (await client().listJobs({ project: "Example", limit: 5, start: 4 }))[0]?.id,
+    (await client().listJobs({ project: "Example", limit: 5, start: 4 })).items[0]?.id,
     "Example_Build",
   );
 });

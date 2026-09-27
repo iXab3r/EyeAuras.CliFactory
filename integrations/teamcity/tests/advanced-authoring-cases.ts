@@ -1,4 +1,4 @@
-import type { AuthoringCase } from "./authoring-cases.js";
+import { onePage, type AuthoringCase } from "./authoring-cases.js";
 
 const job = "/buildTypes/id:Example_Build";
 const project = "/projects/id:Example";
@@ -326,9 +326,9 @@ advancedAuthoringCases.push(
     argv: ["jobs", "branches", "Example_Build"],
     method: "GET",
     path: `${job}/branches`,
-    query: { locator: "start:0,count:100", fields: "branch(name,default,active)" },
+    query: { locator: "start:0,count:101", fields: "nextHref,branch(name,default,active)" },
     response: { branch: [{ name: "main", default: true, active: true }] },
-    expected: [{ name: "main", default: true, active: true }],
+    expected: onePage([{ name: "main", default: true, active: true }]),
   },
   {
     argv: ["jobs", "tags", "Example_Build"],

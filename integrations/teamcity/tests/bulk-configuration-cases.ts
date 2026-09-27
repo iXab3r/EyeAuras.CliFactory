@@ -1,4 +1,4 @@
-import type { AuthoringCase } from "./authoring-cases.js";
+import { onePage, type AuthoringCase } from "./authoring-cases.js";
 
 // Independent synthetic contracts derived from the official 2026.1 reference.
 export const bulkConfigurationCases: AuthoringCase[] = [];
@@ -217,9 +217,9 @@ cases.push(
     argv: ["projects", "branches", "Example"],
     method: "GET",
     path: "/projects/id:Example/branches",
-    query: { locator: "start:0,count:100", fields: "branch(name,default)" },
+    query: { locator: "start:0,count:101", fields: "nextHref,branch(name,default)" },
     response: { branch: [{ name: "main", default: true }] },
-    expected: [{ name: "main", default: true }],
+    expected: onePage([{ name: "main", default: true }]),
   },
   {
     argv: ["projects", "jobs", "create", "Example", "Build", "--name", "Build"],

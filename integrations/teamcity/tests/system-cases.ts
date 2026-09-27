@@ -1,4 +1,4 @@
-import type { AuthoringCase } from "./authoring-cases.js";
+import { onePage, type AuthoringCase } from "./authoring-cases.js";
 export interface SystemCase extends AuthoringCase {
   accept?: string;
   responseMedia?: string;
@@ -72,7 +72,7 @@ export const systemCases: readonly SystemCase[] = [
     method: "GET",
     path: "/audit",
     argv: ["audit", "list"],
-    query: { locator: "start:0,count:100", fields: `count,auditEvent(${af})` },
+    query: { locator: "start:0,count:101", fields: `nextHref,auditEvent(${af})` },
     response: {
       count: 1,
       auditEvent: [
@@ -84,12 +84,9 @@ export const systemCases: readonly SystemCase[] = [
         },
       ],
     },
-    expected: {
-      count: 1,
-      items: [
-        { id: 4, timestamp: "20260830T120000+0000", action: { id: "CREATE", name: "Create" } },
-      ],
-    },
+    expected: onePage([
+      { id: 4, timestamp: "20260830T120000+0000", action: { id: "CREATE", name: "Create" } },
+    ]),
   },
   {
     method: "GET",
@@ -140,9 +137,9 @@ export const systemCases: readonly SystemCase[] = [
     method: "GET",
     path: "/deploymentDashboards",
     argv: ["deployments", "list"],
-    query: { locator: "start:0,count:100", fields: `count,deploymentDashboard(${df})` },
+    query: { locator: "start:0,count:101", fields: `nextHref,deploymentDashboard(${df})` },
     response: { count: 1, deploymentDashboard: [dashboard] },
-    expected: { count: 1, items: [dashboard] },
+    expected: onePage([dashboard]),
   },
   {
     method: "POST",
@@ -171,9 +168,9 @@ export const systemCases: readonly SystemCase[] = [
     method: "GET",
     path: "/deploymentDashboards/id:Release/instances",
     argv: ["deployments", "instances", "list", "Release"],
-    query: { locator: "start:0,count:100", fields: `count,deploymentInstance(${inf})` },
+    query: { locator: "start:0,count:101", fields: `nextHref,deploymentInstance(${inf})` },
     response: { count: 1, deploymentInstance: [instance] },
-    expected: { count: 1, items: [instance] },
+    expected: onePage([instance]),
   },
   {
     method: "POST",
@@ -235,9 +232,9 @@ export const systemCases: readonly SystemCase[] = [
     method: "GET",
     path: "/health",
     argv: ["health", "list", "--global"],
-    query: { locator: "global:true,start:0,count:100", fields: `count,healthItem(${hf})` },
+    query: { locator: "global:true,start:0,count:101", fields: `nextHref,healthItem(${hf})` },
     response: { count: 1, healthItem: [health] },
-    expected: { count: 1, items: [health] },
+    expected: onePage([health]),
   },
   {
     method: "GET",

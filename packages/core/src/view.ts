@@ -27,6 +27,8 @@ export interface TableViewSpec<Row, Value> {
   columns: readonly ViewColumn<Row>[];
   /** Printed instead of an empty table. */
   empty?: string;
+  /** One summary line after the rows, such as whether more results exist. */
+  footer?: (value: Value) => string | undefined;
 }
 
 /** A titled list after a record's fields: one line per item; `undefined` omits the section. */
@@ -143,19 +145,23 @@ function renderTable(
   const rows: unknown = view.rows ? view.rows(value) : value;
   // A shape mismatch must never read as "no results"; the caller falls back to generic output.
   if (!Array.isArray(rows)) return undefined;
-  if (rows.length === 0) return view.empty ?? "No results.";
-  const cells = rows.map((row) =>
-    view.columns.map((column) => formatViewValue(column.value(row), column.format, context.now)));
-  const widths = fitWidths(
-    view.columns.map((column, index) =>
-      Math.max(column.header.length, ...cells.map((row) => row[index]?.length ?? 0))),
-    view.columns,
-    context.width,
-  );
-  const line = (row: readonly string[]) =>
-    row.map((cell, index) => truncate(cell, widths[index] ?? 0).padEnd(widths[index] ?? 0))
-      .join("  ").trimEnd();
-  return [line(view.columns.map((column) => column.header)), ...cells.map(line)].join("\n");
+  const footer = view.footer?.(value);
+  const lines = [view.empty ?? "No results."];
+  if (rows.length > 0) {
+    const cells = rows.map((row) =>
+      view.columns.map((column) => formatViewValue(column.value(row), column.format, context.now)));
+    const widths = fitWidths(
+      view.columns.map((column, index) =>
+        Math.max(column.header.length, ...cells.map((row) => row[index]?.length ?? 0))),
+      view.columns,
+      context.width,
+    );
+    const line = (row: readonly string[]) =>
+      row.map((cell, index) => truncate(cell, widths[index] ?? 0).padEnd(widths[index] ?? 0))
+        .join("  ").trimEnd();
+    lines.splice(0, 1, line(view.columns.map((column) => column.header)), ...cells.map(line));
+  }
+  return [...lines, ...(footer ? ["", footer] : [])].join("\n");
 }
 
 function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: ViewContext): string {

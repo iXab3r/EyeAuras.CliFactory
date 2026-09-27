@@ -1,4 +1,4 @@
-import type { AuthoringCase } from "./authoring-cases.js";
+import { onePage, type AuthoringCase } from "./authoring-cases.js";
 const U = "id,username,name";
 const G = "key,name,description";
 const N = "id,role,state,current";
@@ -115,9 +115,9 @@ export const adminCases: AuthoringCase[] = [
     argv: ["users", "list"],
     method: "GET",
     path: "/users",
-    query: { locator: "start:0,count:100", fields: `count,user(${U})` },
+    query: { locator: "start:0,count:101", fields: `nextHref,user(${U})` },
     response: { user: [user] },
-    expected: [user],
+    expected: onePage([user]),
   },
   {
     argv: ["users", "create", "example", "--name", "Example"],

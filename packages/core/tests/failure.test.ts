@@ -95,7 +95,12 @@ test("a failed outcome keeps its data on stdout and reports the reason and exit 
   const json = await f.run(app, ["fail", "7", "--json"]);
   assert.equal(json.exitCode, 1);
   assert.deepEqual(JSON.parse(json.stdout), { id: 7, outcome: "failed" });
-  assert.equal(json.stderr, "Item 7 failed.\n", "JSON mode never prints progress.");
+  assert.deepEqual(JSON.parse(json.stderr), {
+    error: {
+      code: "item.failed", message: "Item 7 failed.", exitCode: 1, profile: "default",
+      next: [["inspect", "7", "--profile", "default"]],
+    },
+  }, "JSON mode reports one machine error and never progress.");
 
   const late = await f.run(app, ["late", "8", "--profile", "uat"]);
   assert.equal(late.exitCode, 124);
@@ -107,6 +112,62 @@ test("a failed outcome keeps its data on stdout and reports the reason and exit 
 
   const plain = await f.run(app, ["plain"]);
   assert.deepEqual([plain.exitCode, plain.stdout, plain.stderr], [1, "", "Ordinary failure.\n"]);
+  const plainJson = await f.run(app, ["plain", "--json"]);
+  assert.equal(plainJson.stdout, "");
+  // An untyped failure still names the profile that ran it.
+  assert.deepEqual(JSON.parse(plainJson.stderr), {
+    error: { code: "error", message: "Ordinary failure.", exitCode: 1, profile: "default" },
+  });
+});
+
+test("Core's own failures have stable codes in every transport", async (t) => {
+  const f = await createCliFixture(t, { applicationId: "codes-cli", profiles: [{ name: "default" }] });
+  const app = f.createApplication((runtime) => createCli({
+    name: "codes-cli",
+    description: "Codes fixture",
+    permissions: {},
+    commands: [command("write", "Change something", () => ({ changed: true }), {
+      permission: "Update",
+      options: [{
+        flags: "--count <number>", description: "Count",
+        parse: durationParser({ min: 1_000, max: 2_000, errorMessage: "Bad count." }),
+      }],
+    })],
+    runtime,
+  }));
+  const expectations: Array<[readonly string[], Record<string, unknown>]> = [
+    [["write"], {
+      code: "permission.denied", message: "Permission 'Update' is disabled for profile 'default'.",
+      exitCode: 1, profile: "default", next: [["permissions", "grant", "Update", "--profile", "default"]],
+    }],
+    [["write", "--profile", "missing"], {
+      code: "profile.notFound", message: "Profile 'missing' does not exist.", exitCode: 1,
+    }],
+    [["write", "--count", "5"], { code: "usage", message: "Bad count.", exitCode: 1 }],
+    [["wirte"], {
+      code: "usage", exitCode: 1,
+      message: "error: unknown command 'wirte'\n(Did you mean write?)\n" +
+        "Usage: codes-cli [options] [command]\nRun 'codes-cli --help' for details.",
+    }],
+  ];
+  for (const [argv, expected] of expectations) {
+    const result = await f.run(app, [...argv, "--json"]);
+    assert.equal(result.stdout, "", argv.join(" "));
+    assert.deepEqual(JSON.parse(result.stderr), { error: expected }, argv.join(" "));
+    const [reply] = await f.rpc(app, [argv]) as Array<{ error: { message: string; data: unknown } }>;
+    const { message, ...data } = expected;
+    assert.equal(reply?.error.message, message);
+    assert.deepEqual(reply?.error.data, data);
+  }
+  const human = await f.run(app, ["write"]);
+  assert.equal(
+    human.stderr,
+    "Permission 'Update' is disabled for profile 'default'.\n" +
+      "Next:\n  codes-cli permissions grant Update --profile default\n",
+  );
+  const misuse = await f.run(app, ["write", "--json-rpc", "--json"]);
+  assert.equal(misuse.exitCode, 2);
+  assert.equal(JSON.parse(misuse.stderr).error.code, "usage.jsonRpc");
 });
 
 test("execute rejects with the result and JSON-RPC returns it in the error data", async (t) => {
@@ -143,7 +204,14 @@ test("execute rejects with the result and JSON-RPC returns it in the error data"
         data: { code: "item.timeout", exitCode: 124, profile: "default", next: [["late", "8", "--profile", "default"]] },
       },
     },
-    { jsonrpc: "2.0", id: 2, error: { code: -32000, message: "Ordinary failure." } },
+    {
+      jsonrpc: "2.0", id: 2,
+      error: {
+        code: -32000,
+        message: "Ordinary failure.",
+        data: { code: "error", exitCode: 1, profile: "default" },
+      },
+    },
   ]);
 });
 

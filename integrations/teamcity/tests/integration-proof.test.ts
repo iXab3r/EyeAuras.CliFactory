@@ -38,6 +38,11 @@ function json(value: unknown): string {
   return JSON.stringify(value);
 }
 
+/** A paged list that TeamCity reported complete. */
+function page(items: unknown[]): string {
+  return json({ count: items.length, items, hasMore: false, nextStart: null });
+}
+
 test("profile proof uses a fixed bounded read-only inventory and safe summaries", async () => {
   const invocations: ProofInvocation[] = [];
   const privateValues = {
@@ -52,7 +57,7 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     if (invocation.argv[0] === "--json-rpc") {
       return (
           '{"jsonrpc":"2.0","id":1,"result":{"version":"private"}}\n' +
-          '{"jsonrpc":"2.0","id":2,"result":[]}\n'
+          `{"jsonrpc":"2.0","id":2,"result":${page([])}}\n`
       );
     }
     const command = invocation.argv.slice(0, -3).join(" ");
@@ -64,20 +69,20 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
     }
     if (command === "auth status") return json({ authenticated: true, identity: { token: "secret" } });
     if (command === "server status") return json({ version: "private-version" });
-    if (command === "projects list --limit 3") return json([{ id: privateValues.project }]);
-    if (command === "jobs list --limit 3") return json([{ id: privateValues.job }]);
+    if (command === "projects list --limit 3") return page([{ id: privateValues.project }]);
+    if (command === "jobs list --limit 3") return page([{ id: privateValues.job }]);
     if (command === "builds list --limit 3") {
-      return json([{ id: privateValues.build, state: "finished", buildTypeId: privateValues.job }]);
+      return page([{ id: privateValues.build, state: "finished", buildTypeId: privateValues.job }]);
     }
     if (command === `builds show --job ${privateValues.job} --latest`) {
       return json({ id: privateValues.build, state: "finished" });
     }
-    if (command === "queue list --limit 3") return json([]);
-    if (command === "agents list --limit 3") return json([{ id: privateValues.agent }]);
-    if (command === "vcs roots list --limit 3") return json([{ id: privateValues.root }]);
-    if (command.startsWith("builds tests")) return json([]);
-    if (command.startsWith("builds problems")) return json([]);
-    if (command.startsWith("builds changes")) return json([]);
+    if (command === "queue list --limit 3") return page([]);
+    if (command === "agents list --limit 3") return page([{ id: privateValues.agent }]);
+    if (command === "vcs roots list --limit 3") return page([{ id: privateValues.root }]);
+    if (command.startsWith("builds tests")) return page([]);
+    if (command.startsWith("builds problems")) return page([]);
+    if (command.startsWith("builds changes")) return page([]);
     return json({ ok: true, url: "https://private.example.test" });
   };
 
@@ -136,13 +141,14 @@ test("profile proof uses a fixed bounded read-only inventory and safe summaries"
 test("profile proof treats empty pages as safe dependent skips", async () => {
   const invoke: ProofInvoker = async (invocation) => {
     if (invocation.argv[0] === "--json-rpc") {
-      return '{"jsonrpc":"2.0","id":1,"result":{"version":"version"}}\n{"jsonrpc":"2.0","id":2,"result":[]}\n';
+      return '{"jsonrpc":"2.0","id":1,"result":{"version":"version"}}\n' +
+        `{"jsonrpc":"2.0","id":2,"result":${page([])}}\n`;
     }
     const command = invocation.argv.slice(0, -3).join(" ");
     if (command === "permissions list") return json([{ name: "ReadOnly", enabled: true }]);
     if (command === "auth status") return json({ authenticated: true });
     if (command === "server status") return json({ version: "version" });
-    return json([]);
+    return page([]);
   };
 
   const report = await runProfileProof(

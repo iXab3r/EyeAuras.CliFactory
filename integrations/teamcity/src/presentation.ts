@@ -5,8 +5,14 @@ import {
   type HumanView,
   type ViewField,
 } from "@eyeauras/cli-factory";
-import type { TeamCityBuild, TeamCityBuildSummary } from "./models.js";
+import type {
+  TeamCityBuild,
+  TeamCityBuildSummary,
+  TeamCityProblemOccurrence,
+  TeamCityTestOccurrence,
+} from "./models.js";
 import { buildOutcome } from "./outcome.js";
+import type { TeamCityPage } from "./paging.js";
 import type { Diagnosis, DiagnosisSection, FollowedBuild } from "./build-flow.js";
 
 const timestamp = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})([+-]\d{2})(\d{2})$/;
@@ -78,7 +84,16 @@ function nextFor(build: TeamCityBuild): string[][] {
   ];
 }
 
-export const buildTable = tableView<TeamCityBuild>({
+/** Whether a selection is complete, and how to continue it. */
+function completeness(page: TeamCityPage<unknown>): string {
+  const more = page.hasMore === true ? "yes" : page.hasMore === false ? "no" : "unknown";
+  const next = page.nextStart === null ? "" : `; continue with --start ${page.nextStart}`;
+  return `Shown: ${page.count}. More results: ${more}${next}.`;
+}
+
+export const buildTable = tableView<TeamCityBuild, TeamCityPage<TeamCityBuild>>({
+  rows: (page) => page.items,
+  footer: completeness,
   columns: [
     { header: "BUILD", value: (build) => build.id },
     { header: "JOB", value: (build) => build.buildTypeId },
@@ -119,8 +134,9 @@ const reasons = { denied: "access denied", "not-found": "not found", failed: "re
 function sectionTitle<T>(name: string, section: DiagnosisSection<T>, total?: number): string {
   if (section.status === "unavailable") return name;
   const shown = section.items.length;
-  if (section.status === "complete") return `${name} (${shown})`;
-  return `${name} (first ${shown}${total === undefined ? "; more exist" : ` of ${total}`})`;
+  // "all" says outright that nothing was left out, not only that no cap was hit.
+  if (section.status === "complete") return `${name} (${shown > 0 ? "all " : ""}${shown})`;
+  return `${name} (first ${shown}${total === undefined ? "; more may exist" : ` of ${total}`})`;
 }
 
 function sectionLines<T>(section: DiagnosisSection<T>, line: (item: T) => string): string[] {
@@ -177,6 +193,52 @@ export const diagnosisRecord = recordView<Diagnosis>({
         : [["builds", "tests", id, "--status", "failure"]]),
     ];
   },
+});
+
+/** What sets a test or problem occurrence apart: new, muted, ignored or under investigation. */
+function flags(item: {
+  newFailure?: boolean; muted?: boolean; currentlyMuted?: boolean; ignored?: boolean;
+  currentlyInvestigated?: boolean;
+}): string {
+  return [
+    item.newFailure === true ? "new" : undefined,
+    item.muted === true || item.currentlyMuted === true ? "muted" : undefined,
+    item.ignored === true ? "ignored" : undefined,
+    item.currentlyInvestigated === true ? "investigated" : undefined,
+  ].filter((flag) => flag !== undefined).join(",");
+}
+
+/** `builds tests`: one line per test, without details; `--json` keeps every field. */
+export const testTable = tableView<TeamCityTestOccurrence, TeamCityPage<TeamCityTestOccurrence>>({
+  rows: (page) => page.items,
+  footer: completeness,
+  columns: [
+    { header: "STATUS", value: (test) => test.status },
+    { header: "FLAGS", value: flags },
+    { header: "DURATION", value: (test) => test.duration, format: "duration" },
+    { header: "TEST", value: (test) => test.name },
+  ],
+  empty: "No tests found.",
+});
+
+/** `builds problems`: one line per problem, described as `diagnose` does. */
+export const problemTable = tableView<
+  TeamCityProblemOccurrence,
+  TeamCityPage<TeamCityProblemOccurrence>
+>({
+  rows: (page) => page.items,
+  footer: completeness,
+  columns: [
+    { header: "TYPE", value: (problem) => problem.type },
+    { header: "FLAGS", value: flags },
+    {
+      header: "DESCRIPTION",
+      value: (problem) =>
+        (problem.problem?.description ?? problem.details ?? problem.identity).split(/\r?\n/, 1)[0],
+      shrink: true,
+    },
+  ],
+  empty: "No problems found.",
 });
 
 interface RemoteFile {

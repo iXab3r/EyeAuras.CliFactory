@@ -49,6 +49,16 @@ export function formatHuman(value: unknown): string {
     }
     return table(value);
   }
+  // A selection object: its items as a table, then its other fields on one line. `null` is
+  // spelled out: an unknown value is information, unlike an empty cell.
+  if (isRecord(value) && Array.isArray(value.items) && value.items.every(isRecord)) {
+    const { items, ...details } = value;
+    const summary = Object.entries(details)
+      .filter(([, entry]) => entry !== undefined)
+      .map(([key, entry]) => `${key}: ${entry === null ? "null" : displayCell(entry)}`)
+      .join("  ");
+    return [formatHuman(items), ...(summary ? ["", summary] : [])].join("\n");
+  }
   if (isRecord(value)) {
     return Object.entries(value)
       .map(([key, entry]) => `${key}: ${displayCell(entry)}`)

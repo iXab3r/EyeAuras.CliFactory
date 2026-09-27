@@ -44,8 +44,22 @@ function itemId(value: unknown): string | undefined {
   return typeof id === "string" || typeof id === "number" ? String(id) : undefined;
 }
 
+/** A paged list: its items plus a count and completeness that must agree with them. */
+function pageItems(value: unknown, description: string): unknown[] {
+  const page = objectValue(value, description);
+  const items = arrayValue(page.items, description);
+  if (
+    page.count !== items.length ||
+    !(page.hasMore === null || typeof page.hasMore === "boolean") ||
+    !(page.nextStart === null || Number.isSafeInteger(page.nextStart))
+  ) {
+    throw new Error(`${description} was not a valid page.`);
+  }
+  return items;
+}
+
 function pageSummary(value: unknown, requireId = false): string {
-  const items = arrayValue(value, "Collection response");
+  const items = pageItems(value, "Collection response");
   if (items.length > Number(pageLimit)) {
     throw new Error("Collection response exceeded its requested limit.");
   }
@@ -112,7 +126,7 @@ export async function runProfileProof(
     ["projects", "list", "--limit", pageLimit],
     (value) => pageSummary(value, true),
   );
-  const projectItems = projects === undefined ? undefined : arrayValue(projects, "Projects response");
+  const projectItems = projects === undefined ? undefined : pageItems(projects, "Projects response");
   const projectId = projectItems?.[0] === undefined ? undefined : itemId(projectItems[0]);
   if (projectId) {
     await executeJson("projects show", ["projects", "show", projectId], (value) => {
@@ -128,7 +142,7 @@ export async function runProfileProof(
     ["jobs", "list", "--limit", pageLimit],
     (value) => pageSummary(value, true),
   );
-  const jobItems = jobs === undefined ? undefined : arrayValue(jobs, "Jobs response");
+  const jobItems = jobs === undefined ? undefined : pageItems(jobs, "Jobs response");
   const jobId = jobItems?.[0] === undefined ? undefined : itemId(jobItems[0]);
   if (jobId) {
     await executeJson("jobs show", ["jobs", "show", jobId], (value) => {
@@ -144,7 +158,7 @@ export async function runProfileProof(
     ["builds", "list", "--limit", pageLimit],
     (value) => pageSummary(value, true),
   );
-  const buildItems = builds === undefined ? undefined : arrayValue(builds, "Builds response");
+  const buildItems = builds === undefined ? undefined : pageItems(builds, "Builds response");
   const buildId = buildItems?.[0] === undefined ? undefined : itemId(buildItems[0]);
   if (buildId) {
     await executeJson("builds show", ["builds", "show", buildId], (value) => {
@@ -198,7 +212,7 @@ export async function runProfileProof(
     ["agents", "list", "--limit", pageLimit],
     (value) => pageSummary(value, true),
   );
-  const agentItems = agents === undefined ? undefined : arrayValue(agents, "Agents response");
+  const agentItems = agents === undefined ? undefined : pageItems(agents, "Agents response");
   const agentId = agentItems?.[0] === undefined ? undefined : itemId(agentItems[0]);
   if (agentId) {
     await executeJson("agents show", ["agents", "show", agentId], (value) => {
@@ -213,7 +227,7 @@ export async function runProfileProof(
     "vcs roots list", ["vcs", "roots", "list", "--limit", pageLimit],
     (value) => pageSummary(value, true),
   );
-  const rootItems = roots === undefined ? undefined : arrayValue(roots, "VCS roots response");
+  const rootItems = roots === undefined ? undefined : pageItems(roots, "VCS roots response");
   const rootId = rootItems?.[0] === undefined ? undefined : itemId(rootItems[0]);
   if (rootId) {
     await executeJson("vcs roots show", ["vcs", "roots", "show", rootId], (value) => {
@@ -260,7 +274,7 @@ export async function runProfileProof(
     }
     if (
       typeof objectValue(frames[0]!.result, "JSON-RPC server response").version !== "string" ||
-      arrayValue(frames[1]!.result, "JSON-RPC queue response").length > 1
+      pageItems(frames[1]!.result, "JSON-RPC queue response").length > 1
     ) {
       throw new Error("Unexpected JSON-RPC result shape.");
     }

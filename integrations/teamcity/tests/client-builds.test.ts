@@ -39,9 +39,9 @@ test("lists operational builds across all branches with bounded filters", async 
       assert.equal(
         url.searchParams.get("locator"),
         "defaultFilter:false,branch:default:any,buildType:(id:Example_Build)," +
-          "affectedProject:(id:Example),state:running,status:FAILURE,start:10,count:5",
+          "affectedProject:(id:Example),state:running,status:FAILURE,start:10,count:6",
       );
-      assert.equal(url.searchParams.get("fields"), `build(${buildFields})`);
+      assert.equal(url.searchParams.get("fields"), `nextHref,build(${buildFields})`);
       return HttpResponse.json({
         build: [
           {
@@ -69,7 +69,7 @@ test("lists operational builds across all branches with bounded filters", async 
         limit: 5,
         start: 10,
       })
-    )[0]?.id,
+    ).items[0]?.id,
     101,
   );
 });
@@ -96,11 +96,11 @@ test("lists build tests with a TeamCity test-status filter", async () => {
       const url = assertReadRequest(request);
       assert.equal(
         url.searchParams.get("locator"),
-        "build:(id:101),status:failure,start:2,count:3",
+        "build:(id:101),status:failure,start:2,count:4",
       );
       assert.equal(
         url.searchParams.get("fields"),
-        "testOccurrence(id,name,status,duration,ignored,newFailure,muted," +
+        "nextHref,testOccurrence(id,name,status,duration,ignored,newFailure,muted," +
           "currentlyMuted,currentlyInvestigated,details)",
       );
       return HttpResponse.json({
@@ -120,7 +120,7 @@ test("lists build tests with a TeamCity test-status filter", async () => {
   );
 
   assert.equal(
-    (await client().listBuildTests(101, { status: "failure", limit: 3, start: 2 }))[0]
+    (await client().listBuildTests(101, { status: "failure", limit: 3, start: 2 })).items[0]
       ?.name,
     "Fixture test",
   );
@@ -130,10 +130,10 @@ test("lists build problems with nested problem summaries", async () => {
   server.use(
     http.get(`${baseUrl}/app/rest/problemOccurrences`, ({ request }) => {
       const url = assertReadRequest(request);
-      assert.equal(url.searchParams.get("locator"), "build:(id:101),start:0,count:4");
+      assert.equal(url.searchParams.get("locator"), "build:(id:101),start:0,count:5");
       assert.equal(
         url.searchParams.get("fields"),
-        "problemOccurrence(id,type,identity,newFailure,currentlyMuted," +
+        "nextHref,problemOccurrence(id,type,identity,newFailure,currentlyMuted," +
           "currentlyInvestigated,logAnchor,details,problem(id,type,identity,description))",
       );
       return HttpResponse.json({
@@ -156,7 +156,7 @@ test("lists build problems with nested problem summaries", async () => {
   );
 
   assert.equal(
-    (await client().listBuildProblems(101, { limit: 4 }))[0]?.problem?.description,
+    (await client().listBuildProblems(101, { limit: 4 })).items[0]?.problem?.description,
     "Fixture process exited with code 1",
   );
 });
@@ -165,10 +165,10 @@ test("lists build changes and normalizes TeamCity's commiter spelling", async ()
   server.use(
     http.get(`${baseUrl}/app/rest/changes`, ({ request }) => {
       const url = assertReadRequest(request);
-      assert.equal(url.searchParams.get("locator"), "build:(id:101),start:1,count:2");
+      assert.equal(url.searchParams.get("locator"), "build:(id:101),start:1,count:3");
       assert.equal(
         url.searchParams.get("fields"),
-        "change(id,version,internalVersion,date,commitDate,comment,webUrl," +
+        "nextHref,change(id,version,internalVersion,date,commitDate,comment,webUrl," +
           "commiter(vcsUsername))",
       );
       return HttpResponse.json({
@@ -185,22 +185,25 @@ test("lists build changes and normalizes TeamCity's commiter spelling", async ()
     }),
   );
 
-  assert.deepEqual(await client().listBuildChanges(101, { limit: 2, start: 1 }), [
-    {
+  assert.deepEqual(await client().listBuildChanges(101, { limit: 2, start: 1 }), {
+    count: 1,
+    items: [{
       id: 55,
       version: "fixture-revision",
       date: "20260829T110000+0200",
       comment: "Fixture change",
       committer: "fixture-author",
-    },
-  ]);
+    }],
+    hasMore: false,
+    nextStart: null,
+  });
 });
 
-test("returns empty arrays and validates pagination before fetch", async () => {
+test("returns empty pages and validates pagination before fetch", async () => {
   server.use(
     http.get(`${baseUrl}/app/rest/builds`, () => HttpResponse.json({})),
   );
-  assert.deepEqual(await client().listBuilds(), []);
+  assert.deepEqual(await client().listBuilds(), { count: 0, items: [], hasMore: false, nextStart: null });
 
   let fetchCalls = 0;
   const countingFetch: typeof fetch = async () => {

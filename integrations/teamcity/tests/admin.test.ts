@@ -335,7 +335,10 @@ test("S7 network failures cannot echo secret bodies or nested causes", async (te
   });
   await assert.rejects(client.getApiVersion(), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.equal(error.message, "TeamCity network request failed; remote outcome is unknown.");
+    assert.equal(
+      error.message,
+      "TeamCity could not be reached; nothing was changed, and the read can be retried.",
+    );
     assert.equal(error.cause, undefined);
     return true;
   });
@@ -397,7 +400,7 @@ test("S7 failed response streams cannot expose secret values in ordinary or disc
       assert.ok(error instanceof Error);
       assert.match(
         error.message,
-        /^TeamCity response stream failed(?: or exceeded2MiB)?; remote outcome is unknown\.$/,
+        /^TeamCity's response was cut off; nothing was changed, and the read can be retried\.$/,
       );
       assert.equal(error.cause, undefined);
       return true;

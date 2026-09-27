@@ -3,6 +3,7 @@ export type { AccountKind, RoleInput, TokenCreationOptions } from "./admin-model
 export type { CloudKind, CloudImageId, CloudInstanceId } from "./infrastructure-models.js";
 export type { FileTree } from "./file-models.js";
 export type { DownloadOptions } from "./downloads.js";
+export type { TeamCityPage } from "./paging.js";
 export type {
   SettingsCollection,
   ParameterPart,

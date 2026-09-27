@@ -37,9 +37,9 @@ test("lists a bounded queue page with job and direct-project filters", async () 
       assert.equal(request.method, "GET");
       assert.equal(
         url.searchParams.get("locator"),
-        "buildType:(id:Example_Build),project:(id:Example),start:6,count:7",
+        "buildType:(id:Example_Build),project:(id:Example),start:6,count:8",
       );
-      assert.equal(url.searchParams.get("fields"), `build(${buildFields})`);
+      assert.equal(url.searchParams.get("fields"), `nextHref,build(${buildFields})`);
       return HttpResponse.json({
         build: [{ id: 201, buildTypeId: "Example_Build", state: "queued", queuePosition: 1 }],
       });
@@ -54,7 +54,7 @@ test("lists a bounded queue page with job and direct-project filters", async () 
         limit: 7,
         start: 6,
       })
-    )[0]?.queuePosition,
+    ).items[0]?.queuePosition,
     1,
   );
 });
@@ -65,9 +65,9 @@ test("lists all known agents with explicit state filters", async () => {
       const url = assertAuthorization(request);
       assert.equal(
         url.searchParams.get("locator"),
-        "connected:true,enabled:any,authorized:false,start:0,count:10",
+        "connected:true,enabled:any,authorized:false,start:0,count:11",
       );
-      assert.equal(url.searchParams.get("fields"), `agent(${agentFields})`);
+      assert.equal(url.searchParams.get("fields"), `nextHref,agent(${agentFields})`);
       return HttpResponse.json({
         agent: [
           {
@@ -90,7 +90,7 @@ test("lists all known agents with explicit state filters", async () => {
         authorized: "false",
         limit: 10,
       })
-    )[0]?.authorized,
+    ).items[0]?.authorized,
     false,
   );
 });

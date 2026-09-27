@@ -303,7 +303,7 @@ test("a persistent JSON-RPC session can interleave profiles and commands", async
     "alpha-version",
   );
   assert.equal(
-    (frames[1]?.result as Array<{ id: string }>)[0]?.id,
+    (frames[1]?.result as { items: Array<{ id: string }> }).items[0]?.id,
     "Beta_Build",
   );
   assert.equal(testRuntime.stderr(), "");

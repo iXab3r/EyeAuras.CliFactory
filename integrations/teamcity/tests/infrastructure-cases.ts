@@ -1,4 +1,4 @@
-import type { AuthoringCase } from "./authoring-cases.js";
+import { onePage, type AuthoringCase } from "./authoring-cases.js";
 const CP = "id,name,cloudProviderId,project(id)";
 const CI = "id,name,profile(id),agentPoolId,operatingSystemName";
 const CN = "id,name,state,startDate,image(id),agent(id)";
@@ -65,9 +65,9 @@ export const infrastructureCases: AuthoringCase[] = [
     ["cloud", "images", "list"],
     "GET",
     "/cloud/images",
-    { locator: "start:0,count:100", fields: `count,nextHref,cloudImage(${CI})` },
+    { locator: "start:0,count:101", fields: `nextHref,cloudImage(${CI})` },
     { cloudImage: [cloudImage] },
-    [cloudImage],
+    onePage([cloudImage]),
   ),
   scoped(
     ["cloud", "images", "show", ...imageArgs],
@@ -81,9 +81,9 @@ export const infrastructureCases: AuthoringCase[] = [
     ["cloud", "instances", "list"],
     "GET",
     "/cloud/instances",
-    { locator: "start:0,count:100", fields: `count,nextHref,cloudInstance(${CN})` },
+    { locator: "start:0,count:101", fields: `nextHref,cloudInstance(${CN})` },
     { cloudInstance: [instance] },
-    [instance],
+    onePage([instance]),
   ),
   scoped(
     ["cloud", "instances", "start", ...imageArgs],
@@ -130,9 +130,9 @@ export const infrastructureCases: AuthoringCase[] = [
     ["cloud", "profiles", "list"],
     "GET",
     "/cloud/profiles",
-    { locator: "start:0,count:100", fields: `count,nextHref,cloudProfile(${CP})` },
+    { locator: "start:0,count:101", fields: `nextHref,cloudProfile(${CP})` },
     { cloudProfile: [profile] },
-    [profile],
+    onePage([profile]),
   ),
   scoped(
     ["cloud", "profiles", "show", "Cloud"],
@@ -271,9 +271,9 @@ export const infrastructureCases: AuthoringCase[] = [
     ["vcs", "instances", "list"],
     "GET",
     "/vcs-root-instances",
-    { locator: "start:0,count:100", fields: `count,nextHref,vcs-root-instance(${VI})` },
+    { locator: "start:0,count:101", fields: `nextHref,vcs-root-instance(${VI})` },
     { "vcs-root-instance": [vcsInstance] },
-    [vcsInstance],
+    onePage([vcsInstance]),
   ),
   scoped(
     ["vcs", "instances", "check-changes", "8"],

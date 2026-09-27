@@ -132,7 +132,11 @@ test("builds list reads at 120 and 80 columns without cutting IDs while JSON kee
   assert.match(redirected.stdout, /feature\/a-deliberately-long-synthetic-branch-name/);
 
   builds = [typical, running];
-  assert.deepEqual(await runtime.json(cli, ["builds", "list"]), [typical, running]);
+  assert.deepEqual(
+    await runtime.json(cli, ["builds", "list"]),
+    { count: 2, items: [typical, running], hasMore: false, nextStart: null },
+  );
+  assert.match(redirected.stdout, /\n\nShown: 1\. More results: no\.\n$/);
 });
 
 test("builds show summarizes one build and suggests safe profile-bound next commands", async (t) => {
@@ -219,4 +223,48 @@ test("artifact listings and saved files read clearly without changing their JSON
   runtime.resetOutput();
   assert.equal(await cli.run(["builds", "artifacts", "download", "--help"]), 0);
   assert.match(runtime.stdout(), /New file name \(not a path\) in the selected profile's\s+downloads directory/);
+});
+
+test("build tests and problems read as tables with flags and completeness; JSON is unchanged", async (t) => {
+  const tests = [
+    { id: "t1", name: "Demo.Suite.charges_card", status: "FAILURE", duration: 1_500, newFailure: true,
+      details: "synthetic stack trace" },
+    { id: "t2", name: "Demo.Suite.refunds", status: "FAILURE", duration: 65_000, currentlyMuted: true },
+    { id: "t3", name: "Demo.Suite.voids", status: "FAILURE" },
+  ];
+  const problem = {
+    id: "p1", type: "TC_EXIT_CODE", identity: "exit", newFailure: true,
+    details: "Process exited with code 1 (Step: Run tests)",
+    problem: { id: "2", type: "TC_EXIT_CODE", identity: "exit", description: "Process exited with code 1" },
+  };
+  server.use(
+    http.get("https://teamcity.test/app/rest/testOccurrences", () =>
+      HttpResponse.json({ count: 3, testOccurrence: tests })),
+    http.get("https://teamcity.test/app/rest/problemOccurrences", () =>
+      HttpResponse.json({ count: 1, problemOccurrence: [problem] })),
+  );
+  const runtime = await createTestRuntime(t);
+  const cli = runtime.createCli();
+
+  const listed = await runtime.run(cli, ["builds", "tests", "101", "--status", "failure", "--limit", "2"]);
+  assert.equal(listed.exitCode, 0, listed.stderr);
+  assert.equal(
+    listed.stdout,
+    "STATUS   FLAGS  DURATION  TEST\n" +
+      "FAILURE  new    1s        Demo.Suite.charges_card\n" +
+      "FAILURE  muted  1m 05s    Demo.Suite.refunds\n\n" +
+      "Shown: 2. More results: yes; continue with --start 2.\n",
+  );
+  assert.deepEqual(
+    await runtime.json(cli, ["builds", "tests", "101", "--status", "failure", "--limit", "2"]),
+    { count: 2, items: tests.slice(0, 2), hasMore: true, nextStart: 2 },
+  );
+
+  const problems = await runtime.run(cli, ["builds", "problems", "101"]);
+  assert.equal(problems.exitCode, 0, problems.stderr);
+  assert.equal(
+    problems.stdout,
+    "TYPE          FLAGS  DESCRIPTION\nTC_EXIT_CODE  new    Process exited with code 1\n\n" +
+      "Shown: 1. More results: no.\n",
+  );
 });
