@@ -193,8 +193,9 @@ export function createProfileCommands(
           field.description,
           context.signal,
         );
-        if (hasProfileValue(value)) {
-          values[field.name] = value;
+        const normalized = field.normalize ? field.normalize(value) : value;
+        if (hasProfileValue(normalized)) {
+          values[field.name] = normalized;
         }
       }
       candidate = { name: profileName, values };
@@ -265,7 +266,10 @@ export function createProfileCommands(
   const profileValues = (options: Record<string, unknown>) =>
     Object.fromEntries(
       fields
-        .map((field) => [field.name, options[optionKey(field.flags)]])
+        .map((field) => {
+          const value = options[optionKey(field.flags)];
+          return [field.name, value !== undefined && field.normalize ? field.normalize(value) : value];
+        })
         .filter((entry) => entry[1] !== undefined),
     );
   const profileCommands = command("profile", "Manage service profiles", [

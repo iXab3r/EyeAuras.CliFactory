@@ -67,7 +67,7 @@ test("YouTrack create and configure reject case collisions before authentication
   assert.equal(await f.secrets.get(service, "Fixture:token"), "synthetic-original");
   const retained = await f.cli.execute(["profile", "show", "Fixture"]) as { name: string; values: { url: string } };
   assert.equal(retained.name, "Fixture");
-  assert.equal(retained.values.url, url);
+  assert.equal(retained.values.url, url + "/");
   await assert.rejects(f.cli.execute(["profile", "show", "fixture"]), /does not exist/);
   await f.cli.execute(["profile", "delete", "Other"]);
   assert.equal(await f.secrets.get(service, "Other:token"), undefined);

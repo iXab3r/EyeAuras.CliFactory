@@ -12,6 +12,21 @@ without exposing body/error details. UTF-8 decoding preserves an initial BOM. Sp
 probes stop reading unwanted bytes after 64 KiB; this does not reject an operation or truncate
 returned content. No automatic retry or command replay is added.
 
+## URL and token input
+
+Copy the service base address, for example `https://teamcity.example.test/` or `https://example.test/teamcity/`. Include any context path and port; omit `/app/rest`, build/project pages and query strings. HTTP and HTTPS are supported.
+Create/copy an access token in **My Settings & Tools > Access Tokens** (the user profile).
+See the [TeamCity user-profile guide](https://www.jetbrains.com/help/teamcity/configuring-your-user-profile.html). Paste only its value: `FICTIONAL_TOKEN_VALUE` is a fictional example.
+Do not include `Bearer `, `Authorization:`, or surrounding quotes. The same guidance appears in
+`profile configure --help`, `auth login --help`, and before interactive input.
+
+New URL/token input trims outer whitespace, including pasted CRLF. URL trailing slashes are
+normalized without losing the context path; internal token symbols remain unchanged. Empty input,
+headers/quoted tokens and obvious API/page URLs fail with a safe hint before authentication or
+persistence. This applies to onboarding, profile URL writes, login, environment/stdin candidates,
+`execute` and JSON-RPC (which never prompts). Existing data is retained; use `profile set` or
+`profile configure` to correct an old URL. Failed configure input preserves working credentials.
+
 ## Installation
 
 The first npm release is prepared locally; after publication, install the scoped package

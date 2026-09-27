@@ -11,6 +11,7 @@ import {
   type OptionDefinition,
   type Profile,
 } from "@eyeauras/cli-factory";
+import { teamCityUrl, teamCityUrlHelp } from "./server-url.js";
 import { TeamCityClient } from "./client.js";
 import { createAuthoringCommands } from "./authoring-commands.js";
 import { createOperatorCommands } from "./operator-commands.js";
@@ -147,7 +148,8 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         {
           name: "url",
           flags: "--url <url>",
-          description: "TeamCity server URL",
+          description: teamCityUrlHelp,
+          normalize: teamCityUrl,
           required: true,
         },
         {
@@ -163,9 +165,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       ],
       validate(values) {
         const url = values.url;
-        if (url !== undefined && (typeof url !== "string" || !/^https?:\/\//.test(url))) {
-          throw new Error("A TeamCity profile URL must start with http:// or https://.");
-        }
+        if (url !== undefined) teamCityUrl(url);
         if (values.guest !== undefined && typeof values.guest !== "boolean") {
           throw new Error("TeamCity guest mode must be a boolean.");
         }
@@ -173,6 +173,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
     },
     auth: tokenAuth({
       env: "TEAMCITY_TOKEN",
+      tokenSource: "Create/copy an access token in TeamCity My Settings & Tools > Access Tokens.",
       required: (profile) => profile.values.guest !== true,
       async validate({ profile, token, fetch, signal }) {
         return new TeamCityClient({
