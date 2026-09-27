@@ -11,6 +11,19 @@ test.before(() => server.listen({ onUnhandledRequest: "error" }));
 test.afterEach(() => server.resetHandlers());
 test.after(() => server.close());
 
+test("quota and value requests follow redirects through the shared policy", async () => {
+  server.use(
+    http.get(`${endpoint}/quota/`, () => new HttpResponse(null, { status: 308, headers: { Location: "/quota-current" } })),
+    http.get(`${endpoint}/quota-current`, () => HttpResponse.text("1000")),
+    http.get(`${endpoint}/integers/`, () => HttpResponse.redirect("https://other.test/values", 302)),
+    http.get("https://other.test/values", ({ request }) => {
+      assert.equal(request.headers.get("authorization"), null);
+      return HttpResponse.text("2\n3");
+    }),
+  );
+  assert.deepEqual(await client().integers({ count: 2, min: 1, max: 4 }), { values: [2, 3] });
+});
+
 test("integers checks quota then uses the plain-text HTTP contract; duplicates are valid", async () => {
   const calls: string[] = [];
   server.use(

@@ -14,7 +14,7 @@ const failure = "YouTrack response stream failed or was cancelled.";
 function safeFailure(error: unknown): boolean {
   assert.ok(error instanceof Error);
   assert.equal(error.message, failure);
-  assert.equal(error.cause, undefined);
+  assert.ok(error.cause instanceof Error);
   return true;
 }
 function body(bytes: Uint8Array): ReadableStream<Uint8Array> {

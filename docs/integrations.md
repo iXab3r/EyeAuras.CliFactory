@@ -3,6 +3,15 @@
 This is the practical path from an API to an AI-friendly CLI. The canonical runtime contract
 remains [`DESIGN.md`](DESIGN.md); fixture and real-service rules remain [`testing.md`](testing.md).
 
+Every integration inherits the [cross-tool redirect and diagnostic policy](DESIGN.md#cross-tool-redirect-and-diagnostic-policy).
+English is the standard tool language. Normal redirects work by default, and contextual error
+wrappers retain causes and stacks for Core's shared presentation. HTTP clients use Core's
+`fetchWithRedirects(fetch, url, init)` with the injected fetch. It owns redirect traversal and
+credential scoping, without selecting service endpoints, bodies, decoding or retry policy.
+Use `new CliError(message, { code, cause })` to add context; `diagnosticCause` supports other
+Error subclasses and explicit secret values at lower-level boundaries. Do not copy redirect
+loops, error printers or redaction glue into new integrations.
+
 ## Start with one definition and a standalone entry point
 
 A normal CLI only needs Core. Define commands once; Core supplies help, profiles, human/JSON
@@ -419,7 +428,8 @@ throw new CliError("Release 42 failed.", {
 
 Core writes the `result` to stdout with the command's view and the message to stderr, and exits
 with `exitCode` (default 1). JSON-RPC returns the result in `error.data`, and `execute` rejects
-with the error. Keep messages static and safe. A plain read of a failed object is not a failure.
+with the error. Use safe English context and preserve an underlying failure through `cause`;
+the shared diagnostic policy defines rendering and redaction. A plain read of a failed object is not a failure.
 Use `context.progress(message)` for occasional human-only status lines during long work.
 
 The same `CliError`, or a subclass, gives any other failure a stable machine code. An example is

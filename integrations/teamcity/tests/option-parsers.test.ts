@@ -62,13 +62,13 @@ test("TeamCity invalid paging and JSON reject before TTY onboarding, credentials
       f.resetOutput();
       assert.equal(await cli.run([...argv, ...suffix]), 1);
       assert.equal(f.stdout(), "");
-      assert.deepEqual(
+      assert.partialDeepStrictEqual(
         suffix.length ? JSON.parse(f.stderr()) : f.stderr().trim(),
         suffix.length ? { error: { code: "usage", message, exitCode: 1 } } : message,
       );
     }
   }
-  assert.deepEqual(await f.rpc(cli, cases.map(row => row.argv)), cases.map(({ message }, id) => ({
+  assert.partialDeepStrictEqual(await f.rpc(cli, cases.map(row => row.argv)), cases.map(({ message }, id) => ({
     jsonrpc: "2.0", id, error: { code: -32000, message, data: { code: "usage", exitCode: 1 } },
   })));
   assert.equal(calls, 0);

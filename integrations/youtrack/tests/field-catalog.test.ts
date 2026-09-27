@@ -27,7 +27,7 @@ for (const row of catalogCases) test(`catalog GET ${row.path} sends its finite p
     assert.equal(url.pathname, row.path);
     assert.equal(request.method, "GET");
     assert.equal(await request.text(), "");
-    assert.equal(request.redirect, "error");
+    assert.equal(request.redirect, "manual");
     assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
     assert.equal(request.headers.get("accept"), "application/json");
     assert.deepEqual(Object.fromEntries(url.searchParams), {

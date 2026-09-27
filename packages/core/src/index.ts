@@ -1,4 +1,5 @@
 export { readResponseBody } from "./response-body.js";
+export { fetchWithRedirects } from "./http.js";
 export { tokenAuth } from "./auth.js";
 export { validateArgv } from "./argv.js";
 export { visitResources } from "./resources.js";
@@ -21,7 +22,7 @@ export type {
   TargetCommands,
 } from "./target-commands.js";
 export { durationParser, integerParser, jsonParser } from "./option-parsers.js";
-export { CliError } from "./errors.js";
+export { CliError, diagnosticCause } from "./errors.js";
 export type { CliErrorOptions } from "./errors.js";
 export { formatHuman, writeResult } from "./output.js";
 export { recordView, tableView } from "./view.js";

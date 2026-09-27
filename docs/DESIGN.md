@@ -21,6 +21,60 @@ source of evidence for extracting reusable features.
 
 ## Core invariants
 
+### Cross-tool redirect and diagnostic policy
+
+This policy is binding for Core and every integration, including new tools. Core owns
+`fetchWithRedirects` and causal diagnostic rendering; integrations supply service context.
+Blanket redirect rejection and cause-dropping catch blocks are not patterns to copy.
+
+**English is the standard tool language.** Tool-authored help, prompts, errors, progress,
+presentation labels and examples use English. Preserve service/user content in its original
+language. Multilingual output is future work; no localization framework is required now.
+
+**Normal HTTP redirects work by default.** This applies to authentication checks, ordinary API
+calls and downloads across integrations. A valid HTTP-to-HTTPS redirect must not require the user
+to discover and re-enter a different URL. Follow standard HTTP redirect semantics for relative
+locations, status-dependent methods/bodies and redirect limits. Redirects are not application
+retries: do not replay an uncertain mutation as a new attempt. Preserve credential scoping across
+origins; enabling redirects does not mean forwarding authorization to an unrelated destination.
+Cover the same-host HTTP-to-HTTPS authentication flow explicitly so it still authenticates.
+Any endpoint-specific restriction needs a concrete service requirement, documented rationale and
+tests; it must not silently become the default for future tools. A redirect failure reports its
+actual reason, such as a loop or limit, rather than being collapsed into a generic network error.
+
+**Wrap errors with context and preserve the evidence.** Use standard JavaScript `Error.cause`
+when translating a failure; `CliError` must support it. Keep the original error type, message,
+native code, stack and nested causes. Each wrapper adds meaningful operation context rather than
+another generic "request failed". Explain what failed, what is known about local/remote state,
+and a supported next step when one is known. Distinguish connection, DNS, TLS, timeout, redirect,
+HTTP authentication/authorization and decoding failures where the evidence permits. Do not invent
+a diagnosis or recovery command. Reserve "unknown outcome" for side effects that may actually
+have happened; an authentication GET is not an uncertain write.
+
+**One diagnostic model serves people and agents.** Core owns wrapping support, redaction and
+rendering/serialization. Integrations supply service context and stable codes, not their own
+error printers. Human output starts with the English explanation and actionable context, followed
+by the cause chain and available stack traces for unexpected/runtime failures, without requiring
+a rerun with a debug flag. Expected usage, permission and domain outcomes may remain concise.
+JSON and JSON-RPC carry the same evidence as structured `name`, `code`, `message`, `stack` and
+recursive `cause` fields (`errors` for aggregate failures) alongside the existing outcome/profile/next fields. Keep native cause
+codes distinct from the wrapper's stable CLI code. `execute` preserves the error chain too.
+Serialize errors explicitly; plain `JSON.stringify(Error)` does not carry this contract. Handle
+non-Error throws (type-only diagnostics), aggregate errors and cyclic causes without losing independent failures or
+breaking the output protocol. CLI diagnostics remain on stderr; RPC uses its error envelope.
+
+**Redact sensitive content, not the entire cause.** Credentials, cookies, authorization values
+and secret-bearing URL components must never appear in messages, stacks or nested diagnostics.
+Do not dump arbitrary request/response objects, bodies or environment variables. Preserve useful
+types, codes and stack locations when redacting sensitive text. Apply the same rules to every
+output surface; retaining diagnostics does not authorize publishing private data in GitHub or
+fixtures. Unexpected errors must not be hidden wholesale under a static privacy message.
+
+These policies do not require a universal HTTP client or a new framework. Reuse the smallest
+proven common mechanisms; new integration authors must not rediscover these decisions or copy
+diagnostic rendering/redaction glue. Verification obligations are in
+[testing](testing.md#cross-tool-redirect-and-diagnostic-contract).
+
 ### Commands are a tree
 
 A CLI is a recursive command declaration. Every node has a name and description; branch nodes
@@ -51,7 +105,8 @@ Integer parsing accepts decimal digits (including leading zeros), with an option
 when `signed` is true. Whitespace, plus signs, fractions, exponents and nondecimal notation reject.
 The result must be a safe integer within the inclusive caller-supplied bounds; invalid bounds
 reject when the parser is created. JSON parsing returns `unknown`, not a body schema. Callers
-supply static, non-secret error messages; rejected input and native error causes are never included.
+supply non-secret English error messages; rejected input is not echoed. Preserve useful parser
+causes under the shared diagnostic policy, redacting input embedded in native messages or stacks.
 Defaults remain in the option declaration and are not passed through the parser. Independently
 callable service methods keep their own domain validation.
 
@@ -138,6 +193,7 @@ Core's `CliError` with the `result` it would otherwise have returned. The error 
 - `message`: safe text without response bodies or credentials;
 - `exitCode`: 1 unless another documented status is given;
 - optional `result`;
+- optional `cause`, with stack/cause diagnostics governed by the cross-tool policy above;
 - optional `next`: argv suggestions of the same CLI, without the CLI name or `--profile`.
 
 Core records the selected `profile`. Each caller receives the same failure in its own form:
@@ -146,8 +202,8 @@ Core records the selected `profile`. Each caller receives the same failure in it
   `next` is printed on stderr, with the CLI name and profile, only when there is no result; a
   result's view shows its own suggestions.
 - **JSON-RPC:** the response is the error `{ code: -32000, message, data: { code, exitCode,
-  profile, next?, result? } }`. Each `next` argv already ends with `--profile <selected>` and can be
-  sent back to `cli.execute`.
+  profile, next?, result?, name?, stack?, cause? } }`. Each `next` argv already ends with
+  `--profile <selected>` and can be sent back to `cli.execute`.
 - **`execute`:** the returned promise rejects with the `CliError`, `result` included.
 
 A result is never printed as success next to a contradicting error, and it is never discarded.
@@ -163,9 +219,10 @@ predates this rule: it exits 0 and reports `status: incomplete`. Exit codes are:
 
 An interrupt is an abort of the caller's own signal, such as the first Ctrl+C of a packaged
 executable. Any failure after it exits 130 on every transport, even one before the handler runs.
-A `CliError` keeps its code, message, `next` and `result`. Any other error becomes `interrupted`
-with the message `Interrupted.`, except a download error, which keeps its static message about
-the saved data. Core does not map closing the application to 130.
+A `CliError` keeps its code, message, `next`, `result` and cause chain. Any other error becomes
+`interrupted` with the message `Interrupted.`, except a download error, which keeps its static
+message about the saved data. Wrapping preserves the original failure as a cause. Core does not
+map closing the application to 130.
 
 Every other failure has the same machine form; see
 [machine output](#machine-output-is-a-first-class-contract).
@@ -250,7 +307,8 @@ consumer needs them.
 Every leaf command supports `--json`. JSON values use stable service/domain field names and do not
 contain ANSI decoration.
 
-Every failure has one machine form: `{ code, message, exitCode, profile?, next? }`.
+Every failure has one machine form: `{ code, message, exitCode, profile?, next?, name?, stack?, cause? }`.
+The additional diagnostics follow the cross-tool policy above.
 - `message` is the same safe text a person sees.
 - `profile` is present once one was selected, whether or not the error was typed.
 - Each `next` argv ends with `--profile <selected>`.
@@ -264,7 +322,8 @@ The form reaches each caller as follows:
 - **`execute`:** rejects with a `CliError` that has these fields, `result` included, once the
   command runs. A failure before that, such as invalid argv or a closing application, is the
   original error.
-- **Human mode:** only the message is printed, followed by `Next:` lines when no result was shown.
+- **Human mode:** the explanation is printed first, followed by `Next:` lines when no result was
+  shown and by cause/stack diagnostics according to the cross-tool policy.
 
 Core owns these codes:
 - `usage` — parser errors, including option values that a parser rejects;
@@ -319,7 +378,8 @@ ceiling. An explicit caller budget must be a positive safe integer and bounds ac
 (normally decoded) bytes. Content-Length must be a nonnegative safe integer; identity bodies must
 match the completed length. Encoded wire length is not compared with decoded size. The reader
 owns copied chunks, observes cancellation and releases its lock without awaiting unread tee siblings.
-Errors contain no response bytes or underlying causes. No retries occur.
+Errors contain no response bytes; underlying causes follow the shared diagnostic policy.
+No retries occur.
 
 TeamCity text/JSON/XML and YouTrack JSON have no fixed response-size caps. TeamCity's specialized
 64 KiB discard loop only optimizes disposal of unwanted content and never rejects or truncates
@@ -340,9 +400,10 @@ The result is `{ path, bytes, sha256 }` only after verified publication and stag
 `ProfileFileError.published` records whether the link completed; `cleanupFailed` records incomplete
 owned-stage cleanup. Core computes those flags. Only static errors explicitly thrown by
 `inspectResponse` or `validateFile` as `ProfileFileError` retain their message after clean
-unpublished cleanup. Fetch, stream, filesystem and abort errors are replaced with static diagnostics
-without causes. A cleanup error takes precedence and distinguishes unpublished from already-published
-data. Cleanup verifies the private temp chain and staged-file identity before unlinking; it never
+unpublished cleanup. Fetch, stream, filesystem and abort errors are wrapped with contextual diagnostics
+and preserved, redacted causes. A cleanup error takes precedence while retaining the original failure
+and distinguishes unpublished from already-published data. Cleanup verifies the private temp
+chain and staged-file identity before unlinking; it never
 follows a replacement or deletes an unknown destination.
 
 Endpoints, authentication, status/media checks, whole-file 206 rejection, compressed wire
@@ -553,7 +614,8 @@ credential. A removal failure leaves configuration unchanged. A later storage fa
 an unauthenticated profile; the error directs the user to `profile configure <name> --token-stdin`.
 This fails closed across two stores; it is not an atomic transaction, and it never rolls back an
 old credential onto a new endpoint. `auth login` validates against the current profile and changes
-only the credential. Configure/login storage failures expose no backend error details or causes.
+only the credential. Configure/login storage failures explain the failed storage operation and
+preserve backend causes under the shared diagnostic/redaction policy.
 Ordinary `profile set` remains a non-auth configuration operation.
 
 For app-owned auth, configure supplies candidate profile values and defers `context.secrets`
@@ -643,7 +705,8 @@ and optional stdin, refusing known CI variables case-insensitively before every 
 declared credential environment overrides. Each child defaults to 30 seconds and 64 KiB separately
 for stdout and stderr, counted as bytes before decoding. Positive integer limits may be declared
 in proof source, never supplied as user arguments. Failures terminate the child, close its pipes
-and await process closure; errors contain static diagnostics, never captured output or causes.
+and await process closure; errors contain contextual diagnostics and redacted causes, never raw
+captured service output.
 Only successful stdout is returned for in-memory validation. These helpers do not discover
 commands, manage service state, or turn raw responses into safe reports. Integrations own fixed
 inventories, response validation, dependency skips and compact reporting; a failed prerequisite,

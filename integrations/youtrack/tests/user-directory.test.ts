@@ -86,7 +86,7 @@ for (const row of rows) {
       assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
       assert.equal(request.headers.get("content-type"), null);
       assert.equal(await request.text(), "");
-      assert.equal(request.redirect, "error");
+      assert.equal(request.redirect, "manual");
       assert.deepEqual(Object.fromEntries(url.searchParams), {
         fields: explicit ? "id" : row.fields,
         ...(row.collection ? { $top: explicit ? "3" : "50", $skip: explicit ? "7" : "0" } : {}),

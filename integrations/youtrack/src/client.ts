@@ -1,4 +1,4 @@
-import { readResponseBody } from "@eyeauras/cli-factory";
+import { CliError, diagnosticCause, fetchWithRedirects, readResponseBody } from "@eyeauras/cli-factory";
 
 export interface YouTrackUser {
   id: string;
@@ -183,7 +183,7 @@ async function request(
   const multipart = body instanceof FormData;
   let response: Response;
   try {
-    response = await (connection.fetch ?? globalThis.fetch)(url, {
+    response = await fetchWithRedirects(connection.fetch ?? globalThis.fetch, url, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
@@ -191,11 +191,12 @@ async function request(
       },
       method: options.method ?? "GET",
       ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
-      redirect: "error",
       ...(connection.signal === undefined ? {} : { signal: connection.signal }),
     });
-  } catch {
-    throw new Error("YouTrack request failed; check connectivity, TLS and the configured URL.");
+  } catch (cause) {
+    throw new CliError("YouTrack request failed; check connectivity, TLS and the configured URL.", {
+      code: "request.failed", cause: diagnosticCause(cause, [token]),
+    });
   }
   if (!response.ok) {
     void response.body?.cancel().catch(() => undefined);
@@ -225,10 +226,11 @@ async function request(
     if (options.budget) options.budget.remaining -= bytes.length;
     // Match Response.text(): UTF-8 replacement decoding with an initial BOM removed.
     text = new TextDecoder().decode(bytes);
-  } catch {
+  } catch (cause) {
     throw new Error(options.budget === undefined
       ? "YouTrack response stream failed or was cancelled."
-      : "YouTrack response stream failed, exceeded --max-bytes, or was cancelled.");
+      : "YouTrack response stream failed, exceeded --max-bytes, or was cancelled.",
+    { cause: diagnosticCause(cause, [token]) });
   }
   let value: YouTrackValue;
   try {
@@ -236,8 +238,10 @@ async function request(
       return null;
     }
     value = JSON.parse(text) as YouTrackValue;
-  } catch {
-    throw new Error(`YouTrack returned an invalid ${responseName} response.`);
+  } catch (cause) {
+    throw new Error(`YouTrack returned an invalid ${responseName} response.`, {
+      cause: diagnosticCause(cause, [token], "Invalid JSON syntax."),
+    });
   }
   if (options.allowEmpty && value === null) {
     throw new Error("YouTrack returned an invalid mutation response.");

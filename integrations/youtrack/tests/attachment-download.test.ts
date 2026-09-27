@@ -47,7 +47,7 @@ function serve(
     assert.equal(request.headers.get("authorization"), null);
     assert.equal(request.headers.get("cookie"), null);
     assert.equal(request.credentials, "omit");
-    assert.equal(request.redirect, "error");
+    assert.equal(request.redirect, "manual");
     return response();
   }));
   return calls;
@@ -132,8 +132,8 @@ test("download rejects missing or mismatched metadata without binary IO or raw r
   }
 });
 
-test("download rejects HTTP 206, never follows redirects, and never returns binary error payloads", async (t) => {
-  for (const status of [206, 301, 302, 307, 308, 401, 403, 404, 429, 500]) {
+test("download rejects partial and failed responses without returning binary error payloads", async (t) => {
+  for (const status of [206, 401, 403, 404, 429, 500]) {
     const directory = await temporary(t);
     const calls = serve(() => new HttpResponse("synthetic-signature synthetic-download-token", {
       status, headers: { location: "https://foreign.example.com/?sign=synthetic-signature" },
@@ -146,6 +146,21 @@ test("download rejects HTTP 206, never follows redirects, and never returns bina
     assert.deepEqual(await readdir(join(directory, "downloads")), []);
     assert.deepEqual(await readdir(join(directory, "temp")), []);
   }
+});
+
+test("download follows a signed redirect without sending bearer credentials", async t => {
+  const directory = await temporary(t);
+  serve(() => new HttpResponse(null, { status: 307, headers: { location: "https://foreign.example.com/file?sign=synthetic-signature" } }));
+  let fetched = 0;
+  server.use(http.get("https://foreign.example.com/file", ({ request }) => {
+    assert.equal(request.headers.get("authorization"), null);
+    fetched++;
+    return new HttpResponse(bytes);
+  }));
+  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
+  assert.equal(fetched, 1);
+  assert.deepEqual(await readFile(result.path), Buffer.from(bytes));
+  assert.doesNotMatch(JSON.stringify(result), /synthetic-signature/);
 });
 
 test("download honors explicit filename, ignores Content-Disposition, and handles empty files", async (t) => {

@@ -8,6 +8,9 @@ Read the root `AGENTS.md` and `docs/DESIGN.md` first.
 - Preserve the recursive command model and automatic output formatting. A handler returns domain
   data; it must not branch on `--json`.
 - Treat stdout as a protocol surface. In JSON-RPC mode only JSON-RPC frames may reach stdout.
+- Own the shared error wrapping/presentation contract in
+  [DESIGN](../../docs/DESIGN.md#cross-tool-redirect-and-diagnostic-policy): English context,
+  preserved causes and stacks, and equivalent redacted human/JSON/RPC diagnostics.
 - Keep profile files non-secret and versioned. Make writes atomic.
 - Preserve the PoeShared-style `AppArguments` storage API and PascalCase public names. All
   profile-owned paths derive from `AppDataDirectory`; portable and executable-relative storage are

@@ -1,4 +1,4 @@
-import { ProfileFileError, publishProfileFile } from "@eyeauras/cli-factory";
+import { diagnosticCause, fetchWithRedirects, ProfileFileError, publishProfileFile } from "@eyeauras/cli-factory";
 import {
   encodedID,
   getAttachmentDownloadMetadata,
@@ -133,12 +133,14 @@ async function downloadAttachment(
 ): Promise<AttachmentDownloadResult> {
   const requestedName = options.name === undefined ? undefined : downloadName(options.name);
   const maxBytes = options.maxBytes === undefined ? undefined : downloadLimit(options.maxBytes);
+  const diagnosticSecrets = [connection.token];
   try {
     const metadata = await getAttachmentDownloadMetadata(connection, attachmentPath);
     if (metadata.id !== attachmentID) {
       throw new DownloadError("YouTrack returned a different attachment identity for the download.");
     }
     const { url, secrets } = attachmentUrl(connection, metadata.url);
+    diagnosticSecrets.push(...secrets);
     const id = filenamePart(redact(metadata.id, secrets), "attachment");
     const name = requestedName ??
       downloadName(`${id}-${filenamePart(redact(metadata.name, secrets), "attachment")}`);
@@ -153,11 +155,10 @@ async function downloadAttachment(
       name,
       maxBytes,
       signal: connection.signal,
-      openResponse: () => (connection.fetch ?? globalThis.fetch)(url, {
+      openResponse: () => fetchWithRedirects(connection.fetch ?? globalThis.fetch, url, {
         method: "GET",
         headers: { Accept: "application/octet-stream", "Accept-Encoding": "identity" },
         credentials: "omit",
-        redirect: "error",
         ...(connection.signal === undefined ? {} : { signal: connection.signal }),
       }),
       inspectResponse(response) {
@@ -177,8 +178,10 @@ async function downloadAttachment(
     });
     return { id, name, path: saved.path, bytes: saved.bytes, contentType: type };
   } catch (error) {
+    if (error instanceof ProfileFileError && error.cause !== undefined) error.cause = diagnosticCause(error.cause, diagnosticSecrets);
     throw error instanceof ProfileFileError ? error : new DownloadError(
       "YouTrack attachment download failed; check cancellation, connectivity and profile filesystem access.",
+      false, false, { cause: diagnosticCause(error, diagnosticSecrets) },
     );
   }
 }

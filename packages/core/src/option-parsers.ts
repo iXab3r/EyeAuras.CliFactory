@@ -1,3 +1,5 @@
+import { diagnosticCause } from "./errors.js";
+
 /** Decimal integer syntax and bounds only; callers supply a static, non-secret error message. */
 export function integerParser({ min, max, signed, errorMessage }: {
   min: number;
@@ -41,13 +43,13 @@ export function durationParser({ min, max, errorMessage }: {
   };
 }
 
-/** Parse JSON to unknown, without exposing the input or the native parser's error/cause. */
+/** Parse JSON to unknown, retaining syntax diagnostics without echoing the input. */
 export function jsonParser(errorMessage: string): (value: string) => unknown {
   return value => {
     try {
       return JSON.parse(value) as unknown;
-    } catch {
-      throw new Error(errorMessage);
+    } catch (cause) {
+      throw new Error(errorMessage, { cause: diagnosticCause(cause, [], "Invalid JSON syntax.") });
     }
   };
 }

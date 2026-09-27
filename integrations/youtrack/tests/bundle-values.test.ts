@@ -22,7 +22,7 @@ for (const row of bundleCases) test(`bundle GET ${row.path} binds finite default
     assert.equal(url.pathname, row.path);
     assert.equal(request.method, "GET");
     assert.equal(await request.text(), "");
-    assert.equal(request.redirect, "error");
+    assert.equal(request.redirect, "manual");
     assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
     assert.equal(request.headers.get("accept"), "application/json");
     assert.deepEqual(Object.fromEntries(url.searchParams), {

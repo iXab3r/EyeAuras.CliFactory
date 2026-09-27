@@ -58,19 +58,27 @@ test("HTTP failures expose status only, never upstream diagnostics or URLs", asy
   }
 });
 
-test("redirects never reach another endpoint and errors redact network details", async () => {
+test("redirects reach another endpoint without credentials and transport errors keep redacted causes", async () => {
   let redirected = 0;
   server.use(
     http.get("https://youtrack.example.com/track/api/users/me", () => HttpResponse.redirect("https://other.example.com/capture")),
-    http.get("https://other.example.com/capture", () => { redirected++; return HttpResponse.json({}); }),
+    http.get("https://other.example.com/capture", ({ request }) => {
+      assert.equal(request.headers.get("authorization"), null);
+      redirected++; return HttpResponse.json({ id: "1-1", login: "fixture" });
+    }),
   );
-  await assert.rejects(currentUser(options), /YouTrack request failed/);
-  assert.equal(redirected, 0);
+  assert.deepEqual(await currentUser(options), { id: "1-1", login: "fixture" });
+  assert.equal(redirected, 1);
   const fetch: typeof globalThis.fetch = async (_url, init) => {
-    assert.equal(init?.redirect, "error");
+    assert.equal(init?.redirect, "manual");
     throw new Error("synthetic-token https://private.example.com");
   };
-  await assert.rejects(currentUser({ ...options, fetch }), /^Error: YouTrack request failed; check connectivity, TLS and the configured URL\.$/);
+  await assert.rejects(currentUser({ ...options, fetch }), (error: Error) => {
+    assert.match(error.message, /YouTrack request failed/);
+    assert.ok(error.cause instanceof Error);
+    assert.doesNotMatch(JSON.stringify(error), /synthetic-token/);
+    return true;
+  });
 });
 
 test("malformed JSON and incomplete identity cannot validate credentials", async () => {

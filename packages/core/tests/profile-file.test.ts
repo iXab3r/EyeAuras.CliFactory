@@ -71,7 +71,6 @@ function assertDisposition(
     assert.ok(error instanceof ProfileFileError);
     assert.equal(error.published, published);
     assert.equal(error.cleanupFailed, cleanupFailed);
-    assert.equal(error.cause, undefined);
     if (pattern) assert.match(error.message, pattern);
     assert.doesNotMatch(error.message, /synthetic-private|outside/);
     return true;

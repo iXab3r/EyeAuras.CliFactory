@@ -339,7 +339,7 @@ test("S9 secure module inputs and license paths never leak on rejected requests"
       set: async () => {},
       delete: async () => {},
     }),
-    (e) => e instanceof Error && !e.message.includes("synthetic-secret") && e.cause === undefined,
+    (e) => e instanceof Error && !e.message.includes("synthetic-secret") && e.cause instanceof Error,
   );
 });
 test("S9 bulk unmute reconstructs exact full preflight model and never retries failure", async (testContext) => {

@@ -200,7 +200,7 @@ test("S4 handles empty collections, optional JSON/204, malformed JSON and safe d
     await assert.rejects(cli.execute(example.argv), (error: unknown) => {
       assert.ok(error instanceof Error);
       assert.equal(error.message, "TeamCity response was not valid JSON.");
-      assert.equal(error.cause, undefined);
+      assert.ok(error.cause instanceof Error);
       return true;
     });
   }

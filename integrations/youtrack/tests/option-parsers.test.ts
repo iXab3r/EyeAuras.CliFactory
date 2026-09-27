@@ -53,13 +53,13 @@ test("YouTrack invalid paging fails before TTY onboarding and auth on CLI, execu
       assert.equal(await f.cli.run([...argv, ...suffix]), 1);
       assert.equal(f.stdout(), "");
       // JSON mode reports Core's machine error; a rejected option value is invalid usage.
-      assert.deepEqual(
+      assert.partialDeepStrictEqual(
         suffix.length ? JSON.parse(f.stderr()) : f.stderr().trim(),
         suffix.length ? { error: { code: "usage", message, exitCode: 1 } } : message,
       );
     }
   }
-  assert.deepEqual(await f.rpc(f.cli, cases.map(row => row.argv)), cases.map(({ message }, id) => ({
+  assert.partialDeepStrictEqual(await f.rpc(f.cli, cases.map(row => row.argv)), cases.map(({ message }, id) => ({
     jsonrpc: "2.0", id, error: { code: -32000, message, data: { code: "usage", exitCode: 1 } },
   })));
   assert.equal(calls, 0);

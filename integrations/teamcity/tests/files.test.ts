@@ -437,7 +437,7 @@ test("S10 cancellation during a response discards owned staging and suppresses a
       (e) =>
         e instanceof Error &&
         !e.message.includes("synthetic-private-abort") &&
-        e.cause === undefined,
+        e.cause instanceof Error,
     );
     assert.ok(pulls >= 2);
     assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
@@ -446,7 +446,7 @@ test("S10 cancellation during a response discards owned staging and suppresses a
     await t.cleanup();
   }
 });
-test("S10 redirects are refused without forwarding auth or following a signed URL", async (testContext) => {
+test("S10 artifact redirects succeed without forwarding auth to another origin", async (testContext) => {
   const t = await fileRuntime(testContext);
   let foreign = 0;
   try {
@@ -459,17 +459,16 @@ test("S10 redirects are refused without forwarding auth or following a signed UR
             headers: { Location: "https://foreign.test/private?signature=synthetic-secret" },
           }),
       ),
-      http.get("https://foreign.test/*", () => {
+      http.get("https://foreign.test/*", ({ request }) => {
+        assert.equal(request.headers.get("authorization"), null);
         foreign++;
         return new HttpResponse(sourceBytes as never);
       }),
     );
-    await assert.rejects(
-      t.cli.execute(download),
-      (e) => e instanceof Error && !e.message.includes("synthetic-secret"),
-    );
-    assert.equal(foreign, 0);
-    assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
+    const result = await t.cli.execute(download) as { path: string };
+    assert.deepEqual(await readFile(result.path), Buffer.from(sourceBytes));
+    assert.equal(foreign, 1);
+    assert.doesNotMatch(JSON.stringify(result), /synthetic-secret/);
   } finally {
     await t.cleanup();
   }

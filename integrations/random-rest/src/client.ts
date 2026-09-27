@@ -1,3 +1,4 @@
+import { diagnosticCause, fetchWithRedirects } from "@eyeauras/cli-factory";
 import type {
   IntegerRequest,
   RandomClient,
@@ -111,10 +112,9 @@ export class RandomHttpClient implements RandomClient {
     url.search = new URLSearchParams(parameters).toString();
     try {
       signal?.throwIfAborted();
-      const response = await this.#fetch(url, {
+      const response = await fetchWithRedirects(this.#fetch, url, {
         headers: { Accept: "text/plain", "User-Agent": this.#userAgent },
         ...(signal ? { signal } : {}),
-        redirect: "error",
       });
       if (!response.ok) {
         // Do not wait for cancellation of a tee'd stream's other consumer (e.g. instrumentation).
@@ -147,12 +147,14 @@ export class RandomHttpClient implements RandomClient {
       if (signal?.aborted) {
         throw new Error(
           "RANDOM.ORG request cancelled.",
+          { cause: diagnosticCause(error) },
         );
       }
       if (error instanceof Error && error.message.startsWith("RANDOM.ORG "))
         throw error;
       throw new Error(
         "RANDOM.ORG request failed. Check connectivity; no automatic retry was made.",
+        { cause: diagnosticCause(error) },
       );
     }
   }

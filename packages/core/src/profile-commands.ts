@@ -238,13 +238,14 @@ export function createProfileCommands(
     loginContext.signal.throwIfAborted();
     try {
       await deferred.commit(saveProfile);
-    } catch {
+    } catch (cause) {
       const flags = (definition.auth.loginOptions ?? [])
         .map(configureSyntax)
         .join(" ");
       throw new Error(
         "Could not save profile configuration or authentication. Check the OS credential store. Authentication may be incomplete. " +
           `Run '${definition.name} profile configure ${profileName}${flags ? ` ${flags}` : ""}' again.`,
+        { cause },
       );
     }
     return {
