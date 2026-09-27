@@ -1,4 +1,5 @@
 import type { Readable, Writable } from "node:stream";
+import { StringDecoder } from "node:string_decoder";
 import { createInterface } from "node:readline/promises";
 import type { AuthDefinition, TokenValidationContext } from "./types.js";
 
@@ -136,6 +137,7 @@ interface TtyReadable extends Readable {
 
 interface TtyWritable extends Writable {
   isTTY?: boolean;
+  columns?: number;
 }
 
 export function canPrompt(input: Readable, output: Writable): boolean {
@@ -176,12 +178,27 @@ export async function promptSecret(
 
   if (signal?.aborted) throw new Error("Authentication cancelled.");
   const wasRaw = ttyInput.isRaw === true;
-  output.write("Token: ");
+  const characters: string[] = [];
+  const decoder = new StringDecoder("utf8");
+  const render = (): void => {
+    // Keep the mask on one row, leaving the final column unused to avoid wrapping.
+    // The complete candidate stays in memory even when its mask is clipped.
+    const columns = (output as TtyWritable).columns || 80;
+    const width = Math.max(1, columns - 1);
+    const label = "Token: ".slice(0, Math.max(0, width - 1));
+    const capacity = Math.min(60, width - label.length);
+    const mask = characters.length > capacity
+      ? "+" + "*".repeat(capacity - 1)
+      : "*".repeat(characters.length);
+    output.write("\r\u001b[2K" + label + mask);
+  };
+  render();
   ttyInput.setRawMode(true);
-  let value = "";
 
   return new Promise<string>((resolve, reject) => {
+    let settled = false;
     const restore = (): void => {
+      settled = true;
       ttyInput.off("data", onData);
       ttyInput.off("end", cancel).off("close", cancel).off("error", cancel);
       signal?.removeEventListener("abort", cancel);
@@ -191,36 +208,44 @@ export async function promptSecret(
     };
 
     const cancel = () => {
+      if (settled) return;
+      render();
       restore();
       reject(new Error("Authentication cancelled."));
     };
     const onData = (chunk: Buffer | string): void => {
-      const text = chunk.toString();
+      if (settled) return;
+      const text = typeof chunk === "string" ? chunk : decoder.write(chunk);
       for (const character of text) {
         if (character === "\r" || character === "\n") {
           // A delayed LF from the previous text prompt must not submit an empty secret.
-          if (!value) {
+          if (!characters.length) {
             continue;
           }
+          render();
           restore();
-          resolve(value);
+          resolve(characters.join(""));
           return;
         }
         if (character === "\u0003") {
-          restore();
-          reject(new Error("Authentication cancelled."));
+          cancel();
           return;
         }
         if (character === "\u007f" || character === "\b") {
-          value = value.slice(0, -1);
+          characters.pop();
           continue;
         }
         if (character >= " ") {
-          value += character;
+          characters.push(character);
         }
       }
+      render();
     };
 
+    if (input.destroyed || input.readableEnded) {
+      cancel();
+      return;
+    }
     ttyInput
       .on("data", onData)
       .once("end", cancel)

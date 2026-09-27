@@ -540,6 +540,12 @@ The built-in token flow resolves a candidate in this order during `profile confi
 2. the integration-specific environment variable;
 3. a masked interactive terminal prompt when a real TTY is available.
 
+The terminal prompt writes only a `*` mask to stderr. Typing, pasting and Backspace update
+the mask; long input uses a single-row clipped mask marked with `+`, while retaining the full
+candidate. Enter submits nonempty input; Ctrl+C, cancellation and input closure restore raw mode
+and end the prompt without exposing the candidate. A delayed LF from the preceding text prompt
+cannot submit an empty token.
+
 Stored credentials are not configure/login candidates. Prompting requires ordinary rendered
 execution without `--json`, with stdin, stdout and stderr all attached to a TTY. JSON-RPC and
 programmatic execution never prompt or consume `--token-stdin`; an explicit rendered CLI stdin
