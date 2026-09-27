@@ -347,6 +347,10 @@ test("a 5xx or unreadable queue response is unknown too, and a refusal stays a p
         "  teamcity-cli builds list --job Demo_Tests --state any --profile default\n",
     ));
     assert.match(result.stderr, /Caused by:/);
+    if (posts === 3) {
+      assert.match(result.stderr, /SyntaxError: Invalid JSON syntax/);
+      assert.doesNotMatch(result.stderr, /<html>proxy/);
+    }
   }
   assert.equal(posts, responses.length);
   // A branch that a person's view cannot print safely still leaves the job-wide check.

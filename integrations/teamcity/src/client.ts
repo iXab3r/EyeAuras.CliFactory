@@ -240,8 +240,11 @@ function queuedBuild(contents: string): TeamCityBuild | undefined {
   let value: unknown;
   try {
     value = JSON.parse(contents);
-  } catch {
-    return undefined;
+  } catch (cause) {
+    throw new TeamCityUnknownOutcomeError(
+      "TeamCity returned invalid JSON after the queue request; the build may still have been queued.",
+      diagnosticCause(cause, [], "Invalid JSON syntax."),
+    );
   }
   const id = (value as { id?: unknown } | null)?.id;
   return typeof id === "number" && Number.isSafeInteger(id) && id > 0
