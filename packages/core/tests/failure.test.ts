@@ -95,7 +95,7 @@ test("a failed outcome keeps its data on stdout and reports the reason and exit 
   const json = await f.run(app, ["fail", "7", "--json"]);
   assert.equal(json.exitCode, 1);
   assert.deepEqual(JSON.parse(json.stdout), { id: 7, outcome: "failed" });
-  assert.deepEqual(JSON.parse(json.stderr), {
+  assert.partialDeepStrictEqual(JSON.parse(json.stderr), {
     error: {
       code: "item.failed", message: "Item 7 failed.", exitCode: 1, profile: "default",
       next: [["inspect", "7", "--profile", "default"]],
@@ -111,11 +111,14 @@ test("a failed outcome keeps its data on stdout and reports the reason and exit 
   );
 
   const plain = await f.run(app, ["plain"]);
-  assert.deepEqual([plain.exitCode, plain.stdout, plain.stderr], [1, "", "Ordinary failure.\n"]);
+  assert.deepEqual([plain.exitCode, plain.stdout], [1, ""]);
+  assert.ok(plain.stderr.startsWith("Ordinary failure.\n"));
+  assert.match(plain.stderr, /Caused by: Error: Ordinary failure/);
+  assert.match(plain.stderr, /failure.test/);
   const plainJson = await f.run(app, ["plain", "--json"]);
   assert.equal(plainJson.stdout, "");
   // An untyped failure still names the profile that ran it.
-  assert.deepEqual(JSON.parse(plainJson.stderr), {
+  assert.partialDeepStrictEqual(JSON.parse(plainJson.stderr), {
     error: { code: "error", message: "Ordinary failure.", exitCode: 1, profile: "default" },
   });
 });
@@ -153,7 +156,7 @@ test("Core's own failures have stable codes in every transport", async (t) => {
   for (const [argv, expected] of expectations) {
     const result = await f.run(app, [...argv, "--json"]);
     assert.equal(result.stdout, "", argv.join(" "));
-    assert.deepEqual(JSON.parse(result.stderr), { error: expected }, argv.join(" "));
+    assert.partialDeepStrictEqual(JSON.parse(result.stderr), { error: expected }, argv.join(" "));
     const [reply] = await f.rpc(app, [argv]) as Array<{ error: { message: string; data: unknown } }>;
     const { message, ...data } = expected;
     assert.equal(reply?.error.message, message);
@@ -183,7 +186,7 @@ test("execute rejects with the result and JSON-RPC returns it in the error data"
   });
 
   const replies = await f.rpc(app, [["fail", "7", "--profile", "uat"], ["late", "8"], ["plain"]]);
-  assert.deepEqual(replies, [
+  assert.partialDeepStrictEqual(replies, [
     {
       jsonrpc: "2.0", id: 0,
       error: {

@@ -115,7 +115,7 @@ test("all four article writes send exact JSON, preserve multiline narrative and 
       assert.equal(url.searchParams.get("fields"), item.fields);
       assert.equal(request.headers.get("content-type"), "application/json");
       assert.equal(request.headers.get("authorization"), "Bearer " + connection.token);
-      assert.equal(request.redirect, "error");
+      assert.equal(request.redirect, "manual");
       assert.deepEqual(await request.json(), item.body);
       return HttpResponse.json({ id: "result-fixture" }, { status: 201 });
     }));

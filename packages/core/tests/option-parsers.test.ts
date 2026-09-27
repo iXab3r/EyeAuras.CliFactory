@@ -37,7 +37,7 @@ test("integer parser retains decimal spelling, signed zero and inclusive safe bo
   }
 });
 
-test("JSON parser returns any JSON value and never exposes malformed input or native causes", () => {
+test("JSON parser returns any JSON value and retains native syntax causes without exposing malformed input", () => {
   const parse = jsonParser("Invalid body.");
   for (const value of [null, true, 3, "text", [1, null], { id: "fixture" }]) {
     assert.deepEqual(parse(JSON.stringify(value)), value);
@@ -47,7 +47,9 @@ test("JSON parser returns any JSON value and never exposes malformed input or na
     assert.throws(() => parse(value), error => {
       assert.ok(error instanceof Error);
       assert.equal(error.message, "Invalid body.");
-      assert.equal(error.cause, undefined);
+      assert.ok(error.cause instanceof Error);
+      assert.equal(error.cause.name, "SyntaxError");
+      assert.doesNotMatch(error.cause.stack ?? "", /synthetic-secret/);
       return true;
     });
   }
@@ -74,7 +76,7 @@ test("parser callbacks retain required options and defaults across execute, CLI 
   const missing = await f.run(cli, ["read"]);
   assert.equal(missing.exitCode, 1);
   assert.match(missing.stderr, /required option/);
-  assert.deepEqual(await f.rpc(cli, [["read", "--body", "{"], ["read", "--body", "{}"]]), [
+  assert.partialDeepStrictEqual(await f.rpc(cli, [["read", "--body", "{"], ["read", "--body", "{}"]]), [
     { jsonrpc: "2.0", id: 0, error: { code: -32000, message: "Invalid body.", data: { code: "usage", exitCode: 1 } } },
     { jsonrpc: "2.0", id: 1, result: { count: 2, body: {} } },
   ]);

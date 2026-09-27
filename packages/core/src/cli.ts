@@ -16,7 +16,7 @@ import { validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import { nextCommands, type HumanView } from "./view.js";
-import { CliError, machineError } from "./errors.js";
+import { CliError, diagnosticCause, diagnosticText, machineError, rememberSecret, withDiagnostics } from "./errors.js";
 import { ProfileFileError } from "./profile-file.js";
 import type {
   CliApplication,
@@ -80,10 +80,10 @@ function afterInterrupt(error: unknown, interrupt: AbortSignal | undefined): unk
   }
   if (!(error instanceof CliError)) {
     const message = error instanceof ProfileFileError ? error.message : "Interrupted.";
-    return new CliError(message, { code: "interrupted", exitCode: 130 });
+    return new CliError(message, { code: "interrupted", exitCode: 130, cause: error });
   }
   return new CliError(error.message, {
-    code: error.code, exitCode: 130, next: error.next,
+    code: error.code, exitCode: 130, next: error.next, cause: error.cause,
     ...(error.result === undefined ? {} : { result: error.result }),
   });
 }
@@ -219,7 +219,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     // Plain lines only: JSON, JSON-RPC and execute callers never see progress.
     progress: human ? (message) => void execution.io.error.write(`${message}\n`) : () => undefined,
   });
-  const execute = async (
+  const executeInternal = async (
     argv: readonly string[],
     execution: ExecutionOptions,
   ): Promise<unknown> => {
@@ -366,7 +366,7 @@ export function createCli(definition: CliDefinition): CliApplication {
           const interrupted = afterInterrupt(caught, execution.interrupt);
           // Every failure once a profile is selected carries it; control values pass untouched.
           const failure = interrupted instanceof Error && !(interrupted instanceof CliError)
-            ? new CliError(interrupted.message, { code: "error" })
+            ? new CliError(interrupted.message, { code: "error", cause: interrupted })
             : interrupted;
           if (failure instanceof CliError) failure.profile = profile.name;
           throw failure;
@@ -510,12 +510,29 @@ export function createCli(definition: CliDefinition): CliApplication {
       }
       // An option parser rejected its value before any handler ran: that is invalid usage too.
       if (!parsed && error_ instanceof Error && !(error_ instanceof CliError))
-        throw new CliError(error_.message, { code: "usage" });
+        throw new CliError(error_.message, { code: "usage", cause: error_.cause });
       throw error_;
     }
 
     return result;
   };
+
+  const execute = (argv: readonly string[], execution: ExecutionOptions): Promise<unknown> =>
+    withDiagnostics(async () => {
+      for (const name of definition.auth?.environmentKeys ?? []) rememberSecret(execution.environment[name]);
+      try { return await executeInternal(argv, execution); }
+      catch (error) {
+        if (!(error instanceof Error)) throw diagnosticCause(error);
+        if (error instanceof Error) {
+          const safe = diagnosticCause(error);
+          error.message = safe.message;
+          if (safe.stack !== undefined) error.stack = safe.stack;
+          if (safe.cause !== undefined) error.cause = safe.cause;
+          if (error instanceof AggregateError && safe instanceof AggregateError) error.errors = safe.errors;
+        }
+        throw error;
+      }
+    });
 
   /** The one place a CLI failure is reported: a JSON envelope, or text with follow-ups. */
   const report = (error: unknown, argv: readonly string[], stream: CliIo["error"]): number => {
@@ -529,6 +546,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       ? nextCommands(error.next, definition.name, error.profile)
       : [];
     stream.write(`${failure.message}\n${next.length ? `Next:\n${next.map((line) => `  ${line}\n`).join("")}` : ""}`);
+    if (failure.code !== "usage" && failure.code !== "interrupted") stream.write(diagnosticText(failure));
     return failure.exitCode;
   };
 

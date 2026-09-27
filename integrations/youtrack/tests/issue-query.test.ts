@@ -51,7 +51,7 @@ function respond(row: typeof rows[number], count: { calls: number }) {
     assert.equal(url.pathname, `/context/api/${row.path}`);
     assert.equal(url.searchParams.get("fields"), row.fields);
     assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
-    assert.equal(request.redirect, "error");
+    assert.equal(request.redirect, "manual");
     if (row.body !== undefined) {
       assert.equal(request.headers.get("content-type"), "application/json");
       assert.deepEqual(await request.json(), row.body);

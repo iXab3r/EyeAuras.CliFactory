@@ -1,3 +1,5 @@
+import { diagnosticCause } from "./errors.js";
+
 interface ConsumeOptions {
   maxBytes?: number | undefined;
   signal?: AbortSignal | undefined;
@@ -14,31 +16,32 @@ async function consumeResponseBody(
   try {
     reader = response.body?.getReader();
     signal?.addEventListener("abort", cancel, { once: true });
-    if (signal?.aborted || (options.maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1))) throw new Error();
+    signal?.throwIfAborted();
+    if (options.maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1)) throw new Error("The response byte bound must be a positive safe integer.");
     const header = response.headers.get("content-length");
     const declared = header === null ? undefined : Number(header);
     const encoding = response.headers.get("content-encoding")?.trim().toLowerCase();
     const identity = !encoding || encoding === "identity";
     if (header !== null && (!/^\d+$/.test(header) || !Number.isSafeInteger(declared) ||
         (identity && declared! > maxBytes))) {
-      throw new Error();
+      throw new Error("The response Content-Length is invalid or exceeds the requested byte bound.");
     }
     let bytes = 0;
     while (reader) {
-      if (signal?.aborted) throw new Error();
+      signal?.throwIfAborted();
       const chunk = await reader.read();
-      if (signal?.aborted) throw new Error();
+      signal?.throwIfAborted();
       if (chunk.done) break;
       if (!chunk.value.byteLength) continue;
       const next = bytes + chunk.value.byteLength;
-      if (next > maxBytes) throw new Error();
+      if (next > maxBytes) throw new Error("The response exceeded the requested byte bound.");
       await consume(chunk.value);
       bytes = next;
     }
-    if (declared !== undefined && identity && bytes !== declared) throw new Error();
+    if (declared !== undefined && identity && bytes !== declared) throw new Error("The response length does not match Content-Length.");
     return bytes;
-  } catch {
-    throw new Error("Response body failed, exceeded its byte bound, or was cancelled.");
+  } catch (cause) {
+    throw new Error("Could not read the complete response body.", { cause: diagnosticCause(cause) });
   } finally {
     signal?.removeEventListener("abort", cancel);
     cancel();

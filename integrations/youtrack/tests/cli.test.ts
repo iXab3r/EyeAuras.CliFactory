@@ -46,7 +46,7 @@ test("invalid configuration is rejected before reading or writing keyring", asyn
   const f = await fixture(t, "synthetic-candidate\n");
   f.secrets.get = async () => { assert.fail("Invalid URL reached keyring"); };
   f.secrets.set = async () => { assert.fail("Invalid URL reached keyring"); };
-  assert.equal(await f.cli.run(["profile", "configure", "dev", "--url", "http://youtrack.example.com", "--token-stdin"]), 1);
+  assert.equal(await f.cli.run(["profile", "configure", "dev", "--url", "ftp://youtrack.example.com", "--token-stdin"]), 1);
   assert.match(f.stderr(), /YouTrack URL must/);
 });
 

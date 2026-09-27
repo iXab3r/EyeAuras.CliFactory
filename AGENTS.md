@@ -65,6 +65,13 @@ The [role index](docs/roles/README.md) explains how domain and function roles co
    total Core + integration code, and conceptual complexity—not just endpoint coverage or shorter
    handlers. Close the checkpoint before the next batch. Follow
    [integration authoring reviews](docs/practices/integration-authoring-reviews.md).
+14. **English is the standard tool language.** Authored help, prompts, errors, progress, labels
+   and examples use English. Multilingual output is future work; service/user data keeps its language.
+15. **One cross-tool behavior policy.** Every integration follows
+   [redirect and diagnostic policy](docs/DESIGN.md#cross-tool-redirect-and-diagnostic-policy).
+   Normal HTTP redirects work by default. Wrap failures with useful context while preserving
+   causes and stacks; redact secrets at output boundaries instead of erasing diagnostic evidence.
+   Core owns common error presentation. New tools inherit these rules without separate approval.
 
 ## Function role: Reconciliation Lead
 

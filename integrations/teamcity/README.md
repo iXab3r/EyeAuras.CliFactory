@@ -7,8 +7,8 @@ output, and JSON-RPC behavior stays in `packages/core`.
 
 Ordinary text, JSON and XML responses have no tool-imposed byte ceiling. Invalid Content-Length
 and incomplete or mismatched unencoded/identity transfers still fail. Compressed wire length is
-syntax-checked without comparing it with decoded size. Stream errors use static diagnostics
-without exposing body/error details. UTF-8 decoding preserves an initial BOM. Specialized discard
+syntax-checked without comparing it with decoded size. Stream errors explain the failure and
+preserve redacted native causes and stack traces without dumping response bodies. UTF-8 decoding preserves an initial BOM. Specialized discard
 probes stop reading unwanted bytes after 64 KiB; this does not reject an operation or truncate
 returned content. No automatic retry or command replay is added.
 
@@ -29,8 +29,7 @@ persistence. This applies to onboarding, profile URL writes, login, environment/
 
 ## Installation
 
-The first npm release is prepared locally; after publication, install the scoped package
-to get the `teamcity-cli` command:
+Install the scoped npm package to get the `teamcity-cli` command:
 
 ```sh
 npm install --global @eyeauras/teamcity-cli

@@ -4,11 +4,11 @@ import test from "node:test";
 import { gzipSync } from "node:zlib";
 import { readResponseBody } from "../src/response-body.js";
 
-const failure = "Response body failed, exceeded its byte bound, or was cancelled.";
+const failure = "Could not read the complete response body.";
 function safeFailure(error: unknown): boolean {
   assert.ok(error instanceof Error);
   assert.equal(error.message, failure);
-  assert.equal(error.cause, undefined);
+  assert.ok(error.cause instanceof Error);
   return true;
 }
 function response(chunks: Uint8Array[], headers: Record<string, string> = {}): Response {

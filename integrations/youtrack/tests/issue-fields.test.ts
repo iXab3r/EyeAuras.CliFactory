@@ -40,7 +40,7 @@ for (const row of reads) test(`field context GET ${row.path} preserves paths, pr
     const url = new URL(request.url);
     assert.equal(url.pathname, row.path);
     assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
-    assert.equal(request.redirect, "error");
+    assert.equal(request.redirect, "manual");
     assert.deepEqual(Object.fromEntries(url.searchParams), {
       fields: explicit ? "id" : row.fields,
       ...(row.collection ? { $top: explicit ? "3" : "50", $skip: explicit ? "7" : "0" } : {}),

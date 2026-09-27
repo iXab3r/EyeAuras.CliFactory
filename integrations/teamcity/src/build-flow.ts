@@ -170,11 +170,11 @@ async function observe(
     if (last === undefined) throw error;
     if (error instanceof TeamCityHttpError && error.status === 404) {
       throw new CliError(`Build ${id} is no longer available on the server.`, {
-        code: "build.missing", result: shape(last, "missing"),
+        code: "build.missing", result: shape(last, "missing"), cause: error,
       });
     }
     throw new CliError(`Reading build ${id} failed; it may still be running.`, {
-      code: "wait.failed", next: resume, result: shape(last),
+      code: "wait.failed", next: resume, result: shape(last), cause: error,
     });
   };
   for (;;) {
@@ -217,7 +217,7 @@ async function section<T, R>(
     return { status: page.hasMore === false ? "complete" : "truncated", items: page.items.map(project) };
   } catch (error) {
     // A stop is reported as such, never with a section's partial page as the result.
-    if (context.signal.aborted) throw new Error("The diagnosis was stopped.");
+    if (context.signal.aborted) throw new Error("The diagnosis was stopped.", { cause: error });
     const status = error instanceof TeamCityHttpError ? error.status : undefined;
     return {
       status: "unavailable",
@@ -355,6 +355,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
           "The queue request's outcome is unknown; check for a new build before running it again.",
           {
             code: "run.unknownOutcome",
+            cause: error,
             next: [
               ...(branch === undefined ? [] : [[...check, "--branch", branch, "--state", "any"]]),
               [...check, "--state", "any"],

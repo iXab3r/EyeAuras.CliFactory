@@ -17,14 +17,16 @@ import { command } from "./command.js";
 import { tableView } from "./view.js";
 import { privateDirectory } from "./private-storage.js";
 import { consumeResponseBody } from "./response-body.js";
+import { diagnosticCause } from "./errors.js";
 
 export class ProfileFileError extends Error {
   public constructor(
     message: string,
     public readonly published = false,
     public readonly cleanupFailed = false,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options?.cause === undefined ? undefined : { cause: diagnosticCause(options.cause) });
   }
 }
 
@@ -169,6 +171,7 @@ export async function publishProfileFile(
   let response: Response | undefined;
   let published = false;
   let cleanupFailed = false;
+  const failures: unknown[] = [];
   let failureMessage =
     "Download failed, exceeded its byte limit, was cancelled, or had an incomplete transfer; " +
     "no destination was published.";
@@ -297,8 +300,8 @@ export async function publishProfileFile(
       throw new Error();
     }
     result = { path: destination, bytes, sha256 };
-  } catch {
-    // The selected static message is the only information exposed from this operation.
+  } catch (cause) {
+    failures.push(cause);
   } finally {
     void response?.body?.cancel().catch(() => undefined);
     let cleanupAllowed = true;
@@ -311,7 +314,8 @@ export async function publishProfileFile(
           await file.stat({ bigint: true }),
         );
         await verifyFileSnapshot(cleanupIdentity);
-      } catch {
+      } catch (cause) {
+        failures.push(cause);
         cleanupFailed = true;
         cleanupAllowed = false;
       }
@@ -319,7 +323,8 @@ export async function publishProfileFile(
     try {
       await file?.close();
       file = undefined;
-    } catch {
+    } catch (cause) {
+      failures.push(cause);
       cleanupFailed = true;
       cleanupAllowed = false;
     }
@@ -342,12 +347,14 @@ export async function publishProfileFile(
         await verifyDirectories(stagingDirectories);
         await verifyIdentity(stagingDirectoryIdentity, "directory");
         await rmdir(stagingDirectory);
-      } catch {
+      } catch (cause) {
+        failures.push(cause);
         cleanupFailed = true;
       }
     }
   }
 
+  const cause = failures.length > 1 ? new AggregateError(failures, "Download and cleanup failures.") : failures[0];
   if (cleanupFailed) {
     throw new ProfileFileError(
       published
@@ -355,9 +362,10 @@ export async function publishProfileFile(
         : "Download was not published, and private staging cleanup failed; inspect the profile temp directory.",
       published,
       true,
+      { cause },
     );
   }
-  if (!result) throw new ProfileFileError(failureMessage, published, false);
+  if (!result) throw new ProfileFileError(failureMessage, published, false, { cause });
   return result;
 }
 
@@ -384,8 +392,8 @@ async function savedFiles(appDataDirectory: string) {
       if (stat.isFile()) files.push({ name, path, bytes: stat.size, modified: stat.mtime.toISOString() });
     }
     return { directories, files };
-  } catch {
-    throw new ProfileFileError("Profile downloads could not be read; symlinks, junctions and replacement are unsupported.");
+  } catch (cause) {
+    throw new ProfileFileError("Profile downloads could not be read; symlinks, junctions and replacement are unsupported.", false, false, { cause });
   }
 }
 
@@ -403,8 +411,8 @@ async function deleteSavedFiles(appDataDirectory: string, name?: string): Promis
       await unlink(file.path);
       deleted.push(file.name);
     }
-  } catch {
-    throw new ProfileFileError(`Deleted ${deleted.length} saved files, then deletion failed; inspect downloads list.`);
+  } catch (cause) {
+    throw new ProfileFileError(`Deleted ${deleted.length} saved files, then deletion failed; inspect downloads list.`, false, false, { cause });
   }
   return { deleted };
 }

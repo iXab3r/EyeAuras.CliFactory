@@ -106,7 +106,7 @@ test("one selected attachment uploads exact bytes and basename in native multipa
     assert.equal(new URL(request.url).searchParams.get("fields"), "id,name,size,mimeType");
     assert.equal(new URL(request.url).searchParams.has("muteUpdateNotifications"), false);
     assert.equal(request.headers.get("authorization"), "Bearer " + connection.token);
-    assert.equal(request.redirect, "error");
+    assert.equal(request.redirect, "manual");
     assert.match(request.headers.get("content-type")!, /^multipart\/form-data; boundary=.+/);
     const form = await request.formData();
     assert.deepEqual([...form.keys()], ["upload1"]);
@@ -231,12 +231,15 @@ test("upload missing/invalid file syntax rejects before fresh-profile authentica
   assert.equal(keyringReads, 0);
 });
 
-test("upload transport/redirect failures do not retry or follow another origin", async (t) => {
+test("upload redirects follow standard method semantics without credentials or application retries", async (t) => {
   const f = await temporary(t);
   let calls = 0;
   let followed = 0;
   server.use(
-    http.get("https://redirect.example.com/*", () => { followed++; return HttpResponse.json([]); }),
+    http.get("https://redirect.example.com/*", ({ request }) => {
+      assert.equal(request.headers.get("authorization"), null);
+      followed++; return HttpResponse.json([]);
+    }),
     http.post("*", () => {
       calls++;
       return new HttpResponse(null, { status: 302, headers: {
@@ -244,14 +247,11 @@ test("upload transport/redirect failures do not retry or follow another origin",
       } });
     }),
   );
-  await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", f.file), (error: Error) => {
-    assert.doesNotMatch(error.message, /synthetic-|redirect.example|fixture.bin/);
-    return true;
-  });
+  assert.deepEqual(await uploadIssueAttachment(connection, "fixture-issue", f.file), []);
   server.use(http.post("*", () => { calls++; return HttpResponse.error(); }));
   await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", f.file), /YouTrack request failed; check connectivity/);
   assert.equal(calls, 2);
-  assert.equal(followed, 0);
+  assert.equal(followed, 1);
 });
 
 test("upload file-opening errors suppress private local diagnostics before HTTP", async (t) => {

@@ -11,6 +11,8 @@ import {
 } from "./credential-inputs.js";
 import {
   CliError,
+  diagnosticCause,
+  fetchWithRedirects,
   normalizeBearerToken,
   readResponseBody,
   type ScopedSecrets,
@@ -226,8 +228,10 @@ interface ResponseOptions {
 function decodeJson<T>(contents: string): T {
   try {
     return JSON.parse(contents) as T;
-  } catch {
-    throw new Error("TeamCity response was not valid JSON.");
+  } catch (cause) {
+    throw new Error("TeamCity response was not valid JSON.", {
+      cause: diagnosticCause(cause, [], "Invalid JSON syntax."),
+    });
   }
 }
 
@@ -236,8 +240,11 @@ function queuedBuild(contents: string): TeamCityBuild | undefined {
   let value: unknown;
   try {
     value = JSON.parse(contents);
-  } catch {
-    return undefined;
+  } catch (cause) {
+    throw new TeamCityUnknownOutcomeError(
+      "TeamCity returned invalid JSON after the queue request; the build may still have been queued.",
+      diagnosticCause(cause, [], "Invalid JSON syntax."),
+    );
   }
   const id = (value as { id?: unknown } | null)?.id;
   return typeof id === "number" && Number.isSafeInteger(id) && id > 0
@@ -295,8 +302,8 @@ function buildPath(id: number, owner: "builds" | "queue" = "builds"): string {
 
 /** The request may or may not have reached TeamCity; mutations must not be repeated blindly. */
 export class TeamCityUnknownOutcomeError extends CliError {
-  public constructor(message: string) {
-    super(message, { code: "request.unknownOutcome" });
+  public constructor(message: string, cause?: unknown) {
+    super(message, { code: "request.unknownOutcome", cause });
     this.name = "TeamCityUnknownOutcomeError";
   }
 }
@@ -603,6 +610,7 @@ export class TeamCityClient {
       if (!(error instanceof TeamCityHttpError) || error.status < 500) throw error;
       throw new TeamCityUnknownOutcomeError(
         `TeamCity failed with HTTP ${error.status}; the build may still have been queued.`,
+        error,
       );
     }
     const build = queuedBuild(contents);
@@ -2616,9 +2624,10 @@ export class TeamCityClient {
     const metadata = admin.safeToken(raw);
     try {
       await secrets.set(key, JSON.stringify({ name: body.name, value: raw.value }));
-    } catch {
+    } catch (cause) {
       throw new Error(
         "Remote token was created but secure persistence failed; revoke the named remote token. No retry was made.",
+        { cause: diagnosticCause(cause, [raw.value]) },
       );
     }
     return { ...metadata, alias: input.alias, stored: true };
@@ -2637,9 +2646,10 @@ export class TeamCityClient {
     if (alias !== undefined) {
       try {
         await secrets.delete(admin.issuedTokenKey(alias));
-      } catch {
+      } catch (cause) {
         throw new Error(
           "Remote token was revoked but local secure-record cleanup failed; forget the alias explicitly.",
+          { cause: diagnosticCause(cause) },
         );
       }
     }
@@ -3900,8 +3910,8 @@ export class TeamCityClient {
     let reference: string;
     try {
       reference = await secrets.require(referenceKey);
-    } catch {
-      throw new Error("Required secure reference is unavailable.");
+    } catch (cause) {
+      throw new Error("Required secure reference is unavailable.", { cause: diagnosticCause(cause) });
     }
     const value = await this.#requestText("GET", path + files.sensitiveSegment(reference));
     await persistSecretKeys(secrets, [key], [value]);
@@ -3969,7 +3979,7 @@ export class TeamCityClient {
     }
     let response: Response;
     try {
-      response = await this.#fetch(url, {
+      response = await fetchWithRedirects(this.#fetch, url, {
         method,
         headers,
         ...(body === undefined
@@ -3982,11 +3992,10 @@ export class TeamCityClient {
                     ? String(body)
                     : JSON.stringify(body),
             }),
-        redirect: "error",
         ...(this.#signal === undefined ? {} : { signal: this.#signal }),
       });
-    } catch {
-      throw this.#lost(method, "request");
+    } catch (cause) {
+      throw this.#lost(method, "request", cause);
     }
     return response;
   }
@@ -3994,17 +4003,18 @@ export class TeamCityClient {
    * A request or response lost in transit. A write may have been applied, so its outcome is
    * unknown; a read changed nothing and can be retried, unless its own signal stopped it.
    */
-  #lost(method: HttpMethod, stage: "request" | "response"): Error {
+  #lost(method: HttpMethod, stage: "request" | "response", cause?: unknown): Error {
+    const safeCause = cause === undefined ? undefined : diagnosticCause(cause, this.#token ? [this.#token] : []);
     if (method !== "GET") {
       return new TeamCityUnknownOutcomeError(stage === "request"
         ? "TeamCity network request failed; remote outcome is unknown."
-        : "TeamCity response stream failed; remote outcome is unknown.");
+        : "TeamCity response stream failed; remote outcome is unknown.", safeCause);
     }
-    if (this.#signal?.aborted === true) return new Error("The TeamCity request was stopped.");
+    if (this.#signal?.aborted === true) return new Error("The TeamCity request was stopped.", { cause: safeCause });
     return new CliError(stage === "request"
       ? "TeamCity could not be reached; nothing was changed, and the read can be retried."
       : "TeamCity's response was cut off; nothing was changed, and the read can be retried.",
-    { code: "request.failed" });
+    { code: "request.failed", cause: safeCause });
   }
   async #requestText(
     method: HttpMethod,
@@ -4059,8 +4069,8 @@ export class TeamCityClient {
             if (chunk.done) break;
             bytes += chunk.value.byteLength;
           }
-        } catch {
-          throw this.#lost(method, "response");
+        } catch (cause) {
+          throw this.#lost(method, "response", cause);
         } finally {
           void reader.cancel().catch(() => undefined);
           reader.releaseLock();
@@ -4080,8 +4090,8 @@ export class TeamCityClient {
         signal: this.#signal,
       });
       return Buffer.from(bytes).toString("utf8");
-    } catch {
-      throw this.#lost(method, "response");
+    } catch (cause) {
+      throw this.#lost(method, "response", cause);
     }
   }
 }

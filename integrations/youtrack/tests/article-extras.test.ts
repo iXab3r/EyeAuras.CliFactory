@@ -149,7 +149,7 @@ test("article upload sends one native multipart file with exact bytes, basename,
     assert.equal(url.searchParams.get("fields"), "id,url,mimeType");
     assert.equal(request.headers.get("authorization"), "Bearer " + connection.token);
     assert.match(request.headers.get("content-type")!, /^multipart\/form-data; boundary=.+/);
-    assert.equal(request.redirect, "error");
+    assert.equal(request.redirect, "manual");
     const form = await request.formData();
     assert.deepEqual([...form.keys()], ["upload1"]);
     const file = form.get("upload1");
@@ -186,7 +186,10 @@ test("article upload errors are safe, never retried and never follow another ori
   const f = await localFile(t);
   let calls = 0;
   let followed = 0;
-  server.use(http.get("https://files.example.com/*", () => { followed++; return HttpResponse.json([]); }));
+  server.use(http.get("https://files.example.com/*", ({ request }) => {
+    assert.equal(request.headers.get("authorization"), null);
+    followed++; return HttpResponse.json([]);
+  }));
   for (const status of [403, 413, 429, 500]) {
     server.use(http.post("*", () => {
       calls++;
@@ -202,11 +205,11 @@ test("article upload errors are safe, never retried and never follow another ori
     calls++;
     return new HttpResponse(null, { status: 302, headers: { Location: "https://files.example.com/file?token=synthetic-redirect" } });
   }));
-  await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), /YouTrack request failed/);
+  assert.deepEqual(await uploadArticleAttachment(connection, "fixture-article", f.file), []);
   server.use(http.post("*", () => { calls++; return HttpResponse.error(); }));
   await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), /YouTrack request failed; check connectivity/);
   assert.equal(calls, 6);
-  assert.equal(followed, 0);
+  assert.equal(followed, 1);
 });
 
 test("article upload local-file errors and invalid inputs expose no path and precede HTTP", async (t) => {

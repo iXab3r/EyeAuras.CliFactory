@@ -305,12 +305,12 @@ test("a lost queue response is reported as unknown and never retried", async (t)
   const result = await runtime.run(cli, ["jobs", "run", "Demo_Tests", "--wait"]);
   assert.equal(result.exitCode, 1);
   assert.equal(result.stdout, "");
-  assert.equal(
-    result.stderr,
+  assert.ok(result.stderr.startsWith(
     "The queue request's outcome is unknown; check for a new build before running it again.\n" +
       "Next:\n  teamcity-cli builds list --job Demo_Tests --state any --profile default\n",
-  );
-  assert.doesNotMatch(result.stderr, /synthetic connection reset/);
+  ));
+  assert.match(result.stderr, /synthetic connection reset/);
+  assert.match(result.stderr, /Caused by:/);
   assert.equal(posts, 1);
   await assert.rejects(cli.execute(["jobs", "run", "Demo_Tests"]), (error: unknown) =>
     error instanceof CliError && error.code === "run.unknownOutcome" && error.result === undefined);
@@ -340,22 +340,25 @@ test("a 5xx or unreadable queue response is unknown too, and a refusal stays a p
     ]);
     assert.equal(result.exitCode, 1);
     assert.equal(result.stdout, "");
-    assert.equal(
-      result.stderr,
+    assert.ok(result.stderr.startsWith(
       unknown +
         "  teamcity-cli builds list --job Demo_Tests --branch release/1.0 --state any " +
         "--profile default\n" +
         "  teamcity-cli builds list --job Demo_Tests --state any --profile default\n",
-    );
+    ));
+    assert.match(result.stderr, /Caused by:/);
+    if (posts === 3) {
+      assert.match(result.stderr, /SyntaxError: Invalid JSON syntax/);
+      assert.doesNotMatch(result.stderr, /<html>proxy/);
+    }
   }
   assert.equal(posts, responses.length);
   // A branch that a person's view cannot print safely still leaves the job-wide check.
   const spaced = await runtime.run(cli, ["jobs", "run", "Demo_Tests", "--branch", "feature/a b"]);
   assert.equal(spaced.exitCode, 1);
-  assert.equal(
-    spaced.stderr,
+  assert.ok(spaced.stderr.startsWith(
     unknown + "  teamcity-cli builds list --job Demo_Tests --state any --profile default\n",
-  );
+  ));
   // TeamCity refused the request, so nothing was queued.
   const refused = await runtime.run(cli, ["jobs", "run", "Demo_Tests"]);
   assert.equal(refused.exitCode, 1);

@@ -17,7 +17,7 @@ const failure =
 function safeFailure(error: unknown, message = failure): boolean {
   assert.ok(error instanceof Error);
   assert.equal(error.message, message);
-  assert.equal(error.cause, undefined);
+  assert.ok(error.cause instanceof Error);
   return true;
 }
 function body(bytes: Uint8Array): ReadableStream<Uint8Array> {

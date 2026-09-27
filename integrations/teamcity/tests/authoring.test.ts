@@ -512,7 +512,7 @@ test("empty scoped lists, missing deletes and malformed JSON have explicit safe 
   await assert.rejects(cli.execute(["vcs", "roots", "show", "Root"]), (error: unknown) => {
     assert.ok(error instanceof Error);
     assert.equal(error.message, "TeamCity response was not valid JSON.");
-    assert.equal(error.cause, undefined);
+    assert.ok(error.cause instanceof Error);
     return true;
   });
 });

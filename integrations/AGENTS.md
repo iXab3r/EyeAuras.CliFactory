@@ -14,6 +14,9 @@ Read the root `AGENTS.md`, `docs/DESIGN.md`, `docs/integrations.md`, and `docs/t
   with context routing/local fixtures in default tests. Do not add an HTTP wrapper until a real repeated
   need survives two integrations.
 - Authentication validation may identify the current user but must never return or log the token.
+- Follow the shared [redirect and diagnostic policy](../docs/DESIGN.md#cross-tool-redirect-and-diagnostic-policy).
+  Normal redirects work by default; add service context to errors without discarding causes.
+  Use Core's common diagnostic presentation and English tool-authored text, not per-tool policies.
 - Keep real-service proof outside default tests and CI. It must invoke the packaged CLI through a
   real current-user profile/keyring and a fixed bounded `ReadOnly` inventory; never forward
   arbitrary argv or accept test-only URL/token injection.

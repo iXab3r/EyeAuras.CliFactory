@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { assertProfileName } from "./profile-store.js";
+import { diagnosticCause } from "./errors.js";
 
 const ciNames = new Set([
   "CI", "GITHUB_ACTIONS", "TF_BUILD", "BUILD_BUILDID", "TEAMCITY_VERSION", "JENKINS_URL", "BUILDKITE",
@@ -70,25 +71,25 @@ export function createProofInvoker(options: ProofInvokerOptions): ProofInvoker {
         child = spawn(process.execPath, [executable, ...argv], {
           stdio: ["pipe", "pipe", "pipe"], windowsHide: true, env,
         });
-      } catch {
-        reject(new Error("Proof CLI process could not start."));
+      } catch (cause) {
+        reject(new Error("Proof CLI process could not start.", { cause: diagnosticCause(cause) }));
         return;
       }
       const stdout: Buffer[] = [];
       let stdoutBytes = 0, stderrBytes = 0;
       let failure: Error | undefined;
-      const fail = (message: string): void => {
-        failure ??= new Error(message);
+      const fail = (message: string, cause?: unknown): void => {
+        failure ??= new Error(message, cause === undefined ? undefined : { cause: diagnosticCause(cause) });
         child.kill("SIGKILL");
         child.stdin!.destroy();
         child.stdout!.destroy();
         child.stderr!.destroy();
       };
       const timer = setTimeout(() => fail("Proof CLI process timed out."), timeoutMs);
-      child.once("error", () => fail("Proof CLI process could not start."));
-      child.stdin!.once("error", () => fail("Proof CLI input failed."));
-      child.stdout!.once("error", () => fail("Proof CLI output failed."));
-      child.stderr!.once("error", () => fail("Proof CLI output failed."));
+      child.once("error", cause => fail("Proof CLI process could not start.", cause));
+      child.stdin!.once("error", cause => fail("Proof CLI input failed.", cause));
+      child.stdout!.once("error", cause => fail("Proof CLI output failed.", cause));
+      child.stderr!.once("error", cause => fail("Proof CLI output failed.", cause));
       child.stdout!.on("data", (chunk: Buffer) => {
         stdoutBytes += chunk.length;
         if (stdoutBytes > maxOutputBytes) fail("Proof CLI stdout exceeded its byte limit.");

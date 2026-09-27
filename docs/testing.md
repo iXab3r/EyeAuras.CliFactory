@@ -166,6 +166,35 @@ proof never runs in CI. Process tests stop their own hosts before deleting synth
 Transport tests run on real local named pipes/Unix sockets, not TCP substitutes. See the
 [platform qualification limits](runtime-modules.md#development-evidence).
 
+## Cross-tool redirect and diagnostic contract
+
+The [shared policy](DESIGN.md#cross-tool-redirect-and-diagnostic-policy) is exercised offline.
+Preserve evidence for these behaviors; tests must not endorse blanket redirect refusal or
+destroyed causes:
+
+- Redirect success for ordinary reads, auth validation and downloads; relative Location values,
+  same-host HTTP-to-HTTPS with successful authentication, and supported method/body semantics.
+  Exercise cross-origin transitions without leaking credentials, loops/redirect limits, and
+  non-replayable request bodies. No implicit application retry of an uncertain mutation.
+- At least TeamCity, YouTrack and RANDOM.ORG exercise the common behavior through their actual
+  HTTP boundary. Use native fetch against synthetic local servers when mocks cannot establish
+  real redirect/header semantics; external network access is not required.
+- Contextual English errors retain native type/code, stack and nested causes for DNS, TLS,
+  connection, timeout, HTTP, decoding and storage failures. An authentication GET never claims
+  an unknown write outcome. Inject synthetic failures to keep these cases deterministic.
+- Human stderr contains the explanation first and useful runtime diagnostics without a debug
+  rerun. JSON, JSON-RPC and execute preserve equivalent evidence and existing result/exit/profile
+  contracts. Expected usage/domain failures may remain concise.
+- Redaction covers messages, stack headers, nested/aggregate causes and credential-bearing URLs.
+  Assert both absence of synthetic secrets and presence of useful cause codes and stack locations;
+  an empty or generic diagnostic is not a passing privacy test. Non-Error throws and cycles do
+  not crash serialization. Do not snapshot engine-specific full stacks or tool-authored prose.
+- English is the standard language of tool-authored output; service/user content is preserved.
+  Review authored help, prompts, examples and diagnostics without adding localization machinery.
+
+Core owns shared diagnostic tests; integrations prove service context and actual client behavior.
+Use the existing focused suites and run `npm test` before completing runtime implementation.
+
 ## Response consumption regressions
 
 The shared response-reader tests cover absent/empty bodies, declared-length syntax and identity
@@ -190,8 +219,9 @@ emitted-byte overflow. Default requests and downloads have no local byte ceiling
 ## Required evidence
 
 Shared option-parser regressions cover signed/unsigned decimal spelling, leading zeros, safe bounds,
-invalid JSON and non-echoing errors without causes. Core exercises required options and declared
-defaults through CLI, execute and persistent RPC. TeamCity and YouTrack exercise real native-fetch
+invalid JSON and non-echoing errors. The diagnostic contract above requires redacted causes
+to remain useful. Core exercises required options and declared defaults through CLI, execute and
+persistent RPC. TeamCity and YouTrack exercise real native-fetch
 paging plus invalid input in unconfigured TTY, JSON, execute and RPC calls before credentials or HTTP.
 TeamCity also retains repeated JSON order and strict numeric-ID validation. YouTrack range/overflow
 rejection now occurs before onboarding; direct-client domain validation stays covered separately.

@@ -1,4 +1,5 @@
 import { Entry } from "@napi-rs/keyring";
+import { diagnosticCause, rememberSecret } from "./errors.js";
 import type { ScopedSecrets, SecretStore } from "./types.js";
 
 export class KeyringSecretStore implements SecretStore {
@@ -14,7 +15,7 @@ export class KeyringSecretStore implements SecretStore {
     try {
       new Entry(service, account).setPassword(value);
     } catch (error) {
-      throw keyringError("write", error);
+      throw keyringError("write", error, [value]);
     }
   }
 
@@ -30,11 +31,10 @@ export class KeyringSecretStore implements SecretStore {
   }
 }
 
-function keyringError(operation: string, error: unknown): Error {
-  const message = error instanceof Error ? error.message : String(error);
+function keyringError(operation: string, error: unknown, secrets: readonly string[] = []): Error {
   return new Error(
-    `Could not ${operation} the OS credential store: ${message}. No plaintext fallback is used.`,
-    { cause: error },
+    `Could not ${operation} the OS credential store. No plaintext fallback is used.`,
+    { cause: diagnosticCause(error, secrets) },
   );
 }
 
@@ -65,8 +65,10 @@ export class ProfileSecrets implements ScopedSecrets {
     this.#profileName = profileName;
   }
 
-  public get(name: string): Promise<string | undefined> {
-    return this.#store.get(this.#service, `${this.#profileName}:${name}`);
+  public async get(name: string): Promise<string | undefined> {
+    const value = await this.#store.get(this.#service, `${this.#profileName}:${name}`);
+    rememberSecret(value);
+    return value;
   }
 
   public async require(name: string): Promise<string> {
@@ -80,10 +82,12 @@ export class ProfileSecrets implements ScopedSecrets {
   }
 
   public set(name: string, value: string): Promise<void> {
+    rememberSecret(value);
     return this.#store.set(this.#service, `${this.#profileName}:${name}`, value);
   }
 
-  public delete(name: string): Promise<void> {
-    return this.#store.delete(this.#service, `${this.#profileName}:${name}`);
+  public async delete(name: string): Promise<void> {
+    await this.get(name);
+    await this.#store.delete(this.#service, `${this.#profileName}:${name}`);
   }
 }

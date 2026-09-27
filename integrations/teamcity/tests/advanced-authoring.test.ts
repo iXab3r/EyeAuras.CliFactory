@@ -256,7 +256,7 @@ test("S3 handles empty lists, full property clearing and safe malformed/delete e
     await assert.rejects(cli.execute(example.argv), (error: unknown) => {
       assert.ok(error instanceof Error);
       assert.equal(error.message, "TeamCity response was not valid JSON.");
-      assert.equal(error.cause, undefined);
+      assert.ok(error.cause instanceof Error);
       return true;
     });
   }

@@ -2,6 +2,7 @@ import { normalizeBearerToken, tokenInputHelp } from "./input-normalization.js";
 import type { Readable, Writable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import { createInterface } from "node:readline/promises";
+import { CliError, diagnosticCause, rememberSecret } from "./errors.js";
 import type { AuthDefinition, TokenValidationContext } from "./types.js";
 
 export interface TokenAuthOptions {
@@ -58,14 +59,24 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
           `Profile '${context.profile.name}': authentication is missing. No token was provided. ` +
             `Run 'profile configure ${context.profile.name} --token-stdin' or use the documented environment variable.`,
         );
+      rememberSecret(token);
       token = normalizeBearerToken(token);
-      const identity = await validate(context, token);
+      rememberSecret(token);
+      let identity: unknown;
+      try { identity = await validate(context, token); }
+      catch (cause) {
+        const detail = diagnosticCause(cause, [token]);
+        throw new CliError(`Could not validate authentication. ${detail.message} Profile configuration and credentials were not saved.`, {
+          code: "auth.validationFailed", cause: detail,
+        });
+      }
       context.signal.throwIfAborted();
       try {
         await context.secrets.set(name, token);
-      } catch {
+      } catch (cause) {
         throw new Error(
           "Could not write the OS credential store. No plaintext fallback is used. Retry 'auth login --token-stdin'.",
+          { cause: diagnosticCause(cause, [token]) },
         );
       }
       return { authenticated: true, identity: identity ?? null };

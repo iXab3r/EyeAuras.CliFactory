@@ -1,4 +1,4 @@
-import { readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
+import { CliError, diagnosticCause, fetchWithRedirects, readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
 
 export interface YouTrackUser {
   id: string;
@@ -16,14 +16,12 @@ export const youTrackUrlHelp = "YouTrack base URL including any context path, wi
 
 export function youTrackUrl(value: unknown): string {
   const message =
-    "YouTrack URL must be an HTTPS server URL with an optional context path, " +
-    "without credentials, query, fragment, /api or a page URL (HTTP is allowed only on localhost). " +
+    "YouTrack URL must be an HTTP or HTTPS server URL with an optional context path, " +
+    "without credentials, query, fragment, /api or a page URL. " +
     youTrackUrlHelp;
   const url = parseServerUrl(value, message);
-  const localhost = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   const pathname = decodeURIComponent(url.pathname);
-  if ((url.protocol === "http:" && !localhost) ||
-      /\/(?:api|issues|issue|articles|agiles|dashboard|dashboards|admin)(?:\/|$)/i.test(pathname)) {
+  if (/\/(?:api|issues|issue|articles|agiles|dashboard|dashboards|admin)(?:\/|$)/i.test(pathname)) {
     throw new Error(message);
   }
   return url.href;
@@ -166,7 +164,7 @@ async function request(
   const multipart = body instanceof FormData;
   let response: Response;
   try {
-    response = await (connection.fetch ?? globalThis.fetch)(url, {
+    response = await fetchWithRedirects(connection.fetch ?? globalThis.fetch, url, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
@@ -174,11 +172,12 @@ async function request(
       },
       method: options.method ?? "GET",
       ...(body === undefined ? {} : { body: multipart ? body : JSON.stringify(body) }),
-      redirect: "error",
       ...(connection.signal === undefined ? {} : { signal: connection.signal }),
     });
-  } catch {
-    throw new Error("YouTrack request failed; check connectivity, TLS and the configured URL.");
+  } catch (cause) {
+    throw new CliError("YouTrack request failed; check connectivity, TLS and the configured URL.", {
+      code: "request.failed", cause: diagnosticCause(cause, [token]),
+    });
   }
   if (!response.ok) {
     void response.body?.cancel().catch(() => undefined);
@@ -208,10 +207,11 @@ async function request(
     if (options.budget) options.budget.remaining -= bytes.length;
     // Match Response.text(): UTF-8 replacement decoding with an initial BOM removed.
     text = new TextDecoder().decode(bytes);
-  } catch {
+  } catch (cause) {
     throw new Error(options.budget === undefined
       ? "YouTrack response stream failed or was cancelled."
-      : "YouTrack response stream failed, exceeded --max-bytes, or was cancelled.");
+      : "YouTrack response stream failed, exceeded --max-bytes, or was cancelled.",
+    { cause: diagnosticCause(cause, [token]) });
   }
   let value: YouTrackValue;
   try {
@@ -219,8 +219,10 @@ async function request(
       return null;
     }
     value = JSON.parse(text) as YouTrackValue;
-  } catch {
-    throw new Error(`YouTrack returned an invalid ${responseName} response.`);
+  } catch (cause) {
+    throw new Error(`YouTrack returned an invalid ${responseName} response.`, {
+      cause: diagnosticCause(cause, [token], "Invalid JSON syntax."),
+    });
   }
   if (options.allowEmpty && value === null) {
     throw new Error("YouTrack returned an invalid mutation response.");

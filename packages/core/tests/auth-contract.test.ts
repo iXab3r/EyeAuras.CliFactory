@@ -237,7 +237,7 @@ test("configure storage failures cannot leave an old credential bound to a new e
       assert.match(error.message, /profile configure default --token-stdin/);
       assert.match(error.message, /Authentication may be incomplete/);
       assert.doesNotMatch(inspect(error) + JSON.stringify(error) + error.stack, /synthetic-/);
-      assert.equal(error.cause, undefined);
+      assert.ok(error.cause instanceof Error);
       return true;
     });
     assert.equal(h.validated.length, 1);
@@ -248,7 +248,7 @@ test("configure storage failures cannot leave an old credential bound to a new e
 });
 
 
-test("backend credential details never escape configure or login failures through CLI, RPC or errors", async (t) => {
+test("backend credentials are redacted while causes survive configure and login failures", async (t) => {
   environment(t, "synthetic-candidate");
   for (const command of [["profile", "configure", "default"], ["auth", "login"]]) {
     for (const mode of ["execute", "json", "rpc"]) {
@@ -258,15 +258,15 @@ test("backend credential details never escape configure or login failures throug
       const h = await harness(t, { ...(mode === "rpc" ? { input: frames } : {}) });
       const configure = command[0] === "profile";
       if (configure) {
-        h.secrets.delete = async () => { throw new Error("synthetic-existing private-backend-data"); };
+        h.secrets.delete = async () => { throw new Error("synthetic-existing EACCES"); };
       } else {
-        h.secrets.set = async () => { throw new Error("synthetic-candidate private-backend-data"); };
+        h.secrets.set = async () => { throw new Error("synthetic-candidate EACCES"); };
       }
       if (mode === "execute") {
         await assert.rejects(h.cli.execute(command), (error: Error) => {
           assert.match(error.message, /OS credential store/);
-          assert.doesNotMatch(inspect(error) + JSON.stringify(error) + error.stack, /synthetic-|private-backend/);
-          assert.equal(error.cause, undefined);
+          assert.doesNotMatch(inspect(error) + JSON.stringify(error) + error.stack, /synthetic-/);
+          assert.ok(error.cause instanceof Error);
           return true;
         });
       } else if (mode === "rpc") {
@@ -281,7 +281,7 @@ test("backend credential details never escape configure or login failures throug
         assert.equal(h.stdout(), "");
         assert.match(h.stderr(), /OS credential store/);
       }
-      assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic-|private-backend/);
+      assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic-/);
       assert.equal(h.validated.length, 1);
       assert.equal((await h.profiles.get()).values.url, oldUrl);
       assert.equal(await h.secrets.get(service, "default:token"), "synthetic-existing");
