@@ -36,7 +36,7 @@ test("YouTrack configure replaces stored credentials only after validating the e
     // Configure owns exclusive admission; inspect persistence without re-entering the CLI.
     const stored = JSON.parse(await readFile(join(f.appArguments.RoamingAppDataDirectory, "profiles.json"), "utf8"));
     assert.equal(stored.profiles.dev.url,
-      "https://old.youtrack.test/track");
+      "https://old.youtrack.test/track/");
     assert.equal(await f.secrets.get(service, "dev:token"), "synthetic-old");
     return HttpResponse.json({ id: "1-1", login: "fixture-user" });
   }));
@@ -66,7 +66,7 @@ test("YouTrack denied replacement preserves the endpoint and does not create a n
     });
   }
   assert.equal((await f.cli.execute(["profile", "show", "dev"]) as { values: { url: string } }).values.url,
-    "https://old.youtrack.test");
+    "https://old.youtrack.test/");
   await assert.rejects(f.cli.execute(["profile", "show", "new-profile"]), /does not exist/);
   assert.equal(await f.secrets.get(service, "dev:token"), "synthetic-old");
   assert.equal(await f.secrets.get(service, "new-profile:token"), undefined);

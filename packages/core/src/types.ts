@@ -15,6 +15,8 @@ export interface ProfileField {
   description: string;
   /** A service command cannot run until this field has a non-empty value. */
   required?: boolean;
+  /** Normalize and validate newly supplied values before profile validation/storage. */
+  normalize?: (value: unknown) => unknown;
 }
 
 export interface ProfileDefinition {

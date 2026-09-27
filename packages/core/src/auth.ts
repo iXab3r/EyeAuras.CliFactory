@@ -1,9 +1,12 @@
+import { normalizeBearerToken, tokenInputHelp } from "./input-normalization.js";
 import type { Readable, Writable } from "node:stream";
 import { createInterface } from "node:readline/promises";
 import type { AuthDefinition, TokenValidationContext } from "./types.js";
 
 export interface TokenAuthOptions {
   secretName?: string;
+  /** Service-specific location where users create/copy a token. */
+  tokenSource?: string;
   env?: string;
   required?: AuthDefinition["required"];
   validate?: (context: TokenValidationContext) => unknown | Promise<unknown>;
@@ -11,6 +14,7 @@ export interface TokenAuthOptions {
 
 export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
   const name = options.secretName ?? "token";
+  const guidance = [options.tokenSource, tokenInputHelp].filter(Boolean).join(" ");
   const validate = async (
     context: Parameters<AuthDefinition["login"]>[0],
     token: string,
@@ -27,7 +31,7 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
     ...(options.env ? { environmentKeys: [options.env] } : {}),
     isReady: async (context) => !!(await context.secrets.get(name)),
     loginOptions: [
-      { flags: "--token-stdin", description: "Read the token from stdin" },
+      { flags: "--token-stdin", description: "Read the token from stdin. " + guidance },
     ],
     async login(context, input) {
       if (input.tokenStdin && !context.stdinAvailable) {
@@ -40,17 +44,20 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
         : options.env
           ? context.environment[options.env]
           : undefined;
-      if (!input.tokenStdin && !token && context.interactive)
+      if (!input.tokenStdin && token === undefined && context.interactive) {
+        context.io.error.write(guidance + "\n");
         token = await promptSecret(
           context.io.input,
           context.io.error,
           context.signal,
         );
-      if (!token)
+      }
+      if (token === undefined)
         throw new Error(
           `Profile '${context.profile.name}': authentication is missing. No token was provided. ` +
             `Run 'profile configure ${context.profile.name} --token-stdin' or use the documented environment variable.`,
         );
+      token = normalizeBearerToken(token);
       const identity = await validate(context, token);
       context.signal.throwIfAborted();
       try {

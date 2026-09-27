@@ -1,4 +1,4 @@
-import { readResponseBody } from "@eyeauras/cli-factory";
+import { readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
 
 export interface YouTrackUser {
   id: string;
@@ -12,34 +12,20 @@ export interface Connection {
   signal?: AbortSignal;
 }
 
+export const youTrackUrlHelp = "YouTrack base URL including any context path, without /api or a page URL; e.g. https://youtrack.example.test/youtrack/. Outer whitespace and trailing slashes are normalized";
+
 export function youTrackUrl(value: unknown): string {
   const message =
     "YouTrack URL must be an HTTPS server URL with an optional context path, " +
-    "without credentials, query, fragment or appended /api (HTTP is allowed only on localhost).";
-  if (typeof value !== "string" || /[\\\u0000-\u0020\u007f]/.test(value.trim())) {
-    throw new Error(message);
-  }
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    throw new Error(message);
-  }
+    "without credentials, query, fragment, /api or a page URL (HTTP is allowed only on localhost). " +
+    youTrackUrlHelp;
+  const url = parseServerUrl(value, message);
   const localhost = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  let pathname: string;
-  try {
-    pathname = decodeURIComponent(url.pathname).replace(/\/+$/, "");
-  } catch {
+  const pathname = decodeURIComponent(url.pathname);
+  if ((url.protocol === "http:" && !localhost) ||
+      /\/(?:api|issues|issue|articles|agiles|dashboard|dashboards|admin)(?:\/|$)/i.test(pathname)) {
     throw new Error(message);
   }
-  if (
-    (url.protocol !== "https:" && !(url.protocol === "http:" && localhost)) ||
-    url.username || url.password || url.search || url.hash || /\/api$/i.test(pathname) ||
-    value.includes("?") || value.includes("#")
-  ) {
-    throw new Error(message);
-  }
-  url.pathname = url.pathname.replace(/\/+$/, "") + "/";
   return url.href;
 }
 
@@ -175,10 +161,7 @@ async function request(
 ): Promise<YouTrackValue> {
   const url = new URL(path, youTrackUrl(connection.baseUrl));
   url.search = new URLSearchParams(query).toString();
-  const token = connection.token.trim();
-  if (!token || /[\r\n]/.test(token)) {
-    throw new Error("YouTrack authentication requires a non-empty single-line token.");
-  }
+  const token = normalizeBearerToken(connection.token);
   const body = options.body;
   const multipart = body instanceof FormData;
   let response: Response;

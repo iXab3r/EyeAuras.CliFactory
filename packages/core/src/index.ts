@@ -1,4 +1,5 @@
 export { readResponseBody } from "./response-body.js";
+export { parseServerUrl, normalizeBearerToken } from "./input-normalization.js";
 export { tokenAuth } from "./auth.js";
 export { validateArgv } from "./argv.js";
 export { visitResources } from "./resources.js";
