@@ -3,7 +3,8 @@ import { assertHttpRequest, trackRequests, assertPermissionDenied } from "@eyeau
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { TeamCityClient, TeamCityHttpError } from "../src/client.js";
+import { HttpError } from "@eyeauras/cli-factory";
+import { TeamCityClient } from "../src/client.js";
 import { createTestRuntime } from "./support.js";
 import { authoringCases, onePage } from "./authoring-cases.js";
 import { configurationCases } from "./configuration-cases.js";
@@ -184,7 +185,7 @@ test("all authoring leaves reject unknown options before HTTP and surface remote
     await assert.rejects(cli.execute([...example.argv, "--unknown-flag"]), /unknown option/);
     assert.equal(requests, 0);
     await assert.rejects(cli.execute(example.argv), (error: unknown) => {
-      assert.ok(error instanceof TeamCityHttpError);
+      assert.ok(error instanceof HttpError);
       assert.equal(error.status, 403);
       assert.equal(error.message, "TeamCity request failed with HTTP 403.");
       assert.equal(error.cause, undefined);

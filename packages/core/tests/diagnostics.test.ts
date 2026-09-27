@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { CliError, diagnosticCause, diagnosticText, machineError, rememberSecret, withDiagnostics } from "../src/errors.js";
+import {
+  CliError,
+  conciseCause,
+  diagnosticCause,
+  diagnosticText,
+  HttpError,
+  machineError,
+  rememberSecret,
+  withDiagnostics,
+} from "../src/errors.js";
 import { command, createCli, tokenAuth } from "../src/index.js";
 import { createCliFixture } from "../src/testing.js";
 
@@ -9,7 +18,7 @@ test("causal diagnostics retain codes and frames, redact credentials, and handle
   leaf.cause = leaf;
   const cause = new AggregateError([leaf, new TypeError("second failure"), { token: "synthetic-object-secret" }], "Both connections failed");
   const error = new CliError("Could not query the service.", { code: "request.failed", cause });
-  const machine = machineError(error);
+  const machine = machineError(error, { verbose: true });
   assert.equal(machine.cause?.errors?.[0]?.code, "ECONNREFUSED");
   assert.equal(machine.cause?.errors?.[1]?.name, "TypeError");
   assert.match(machine.cause?.errors?.[0]?.stack ?? "", /diagnostics.test/);
@@ -17,7 +26,51 @@ test("causal diagnostics retain codes and frames, redact credentials, and handle
   assert.doesNotMatch(JSON.stringify(machine), /synthetic-token|synthetic-signature|user:pass|synthetic-object-secret/);
   assert.match(diagnosticText(machine), /Caused by: AggregateError/);
   assert.match(diagnosticText(machine), /Related error: Error \[ECONNREFUSED\]/);
+  // The default form keeps the chain's names, codes and messages, never frames.
+  const concise = machineError(error);
+  assert.equal(concise.cause?.errors?.[0]?.code, "ECONNREFUSED");
+  assert.doesNotMatch(JSON.stringify(concise), /"stack"|"name":"CliError"/);
   assert.equal(machineError("arbitrary secret").message, "A non-Error value was thrown (string).");
+});
+
+test("the concise cause names the nearest new text and the deepest detail once", () => {
+  const native = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:59999"), { code: "ECONNREFUSED" });
+  const classified = new CliError("The server refused the connection; check the address and port.", {
+    code: "request.connection", cause: new TypeError("fetch failed", { cause: native }),
+  });
+  const lost = new CliError("The service could not be reached; nothing was changed.", { code: "request.failed", cause: classified });
+  assert.equal(
+    conciseCause(machineError(lost)),
+    "Cause: The server refused the connection; check the address and port. (connect ECONNREFUSED 127.0.0.1:59999)",
+  );
+  // A cause that repeats the headline, or says nothing, adds no line.
+  const repeated = new CliError("Response was not valid JSON.", { code: "response.invalid", cause: new Error("Response was not valid JSON.") });
+  assert.equal(conciseCause(machineError(repeated)), undefined);
+  const empty = new CliError("Download failed.", { code: "download.failed", cause: new Error() });
+  assert.equal(conciseCause(machineError(empty)), undefined);
+  assert.equal(conciseCause(machineError(new CliError("Typed.", { code: "typed" }))), undefined);
+});
+
+test("an untyped failure keeps its own frames and cause instead of nesting itself", () => {
+  const wrapped = CliError.from(new RangeError("Out of range.", { cause: new Error("root") }));
+  assert.equal(wrapped.code, "error");
+  assert.equal(wrapped.message, "Out of range.");
+  assert.equal((wrapped.cause as Error).message, "root");
+  assert.match(wrapped.stack ?? "", /^CliError: Out of range\.\n\s+at /);
+  assert.match(wrapped.stack ?? "", /diagnostics.test/);
+});
+
+test("HttpError maps statuses to stable codes and suggests login for 401", () => {
+  const unauthorized = new HttpError(401, "Service request failed with HTTP 401.");
+  assert.equal(unauthorized.code, "http.unauthorized");
+  assert.equal(unauthorized.status, 401);
+  assert.deepEqual(unauthorized.next, [["auth", "login"]]);
+  assert.equal(new HttpError(404, "x").code, "http.notFound");
+  assert.equal(new HttpError(429, "x").code, "http.rateLimited");
+  assert.equal(new HttpError(503, "x").code, "http.serverError");
+  assert.equal(new HttpError(418, "x", { next: [["retry"]] }).code, "http.rejected");
+  assert.deepEqual(new HttpError(418, "x", { next: [["retry"]] }).next, [["retry"]]);
+  assert.deepEqual(new HttpError(401, "x", { next: [] }).next, []);
 });
 
 test("syntax diagnostics retain source frames while excluding reflected input and multiline headers", () => {
@@ -34,7 +87,7 @@ test("raw native codes survive generic envelopes and cookie and signed-path diag
     "Set-Cookie: session=synthetic-third; HttpOnly\n" +
     "Download https://service.test/files/1/sign=synthetic-signature and https://service.test/files/1/sign%3Dsynthetic-encoded",
   ), { code: "ECONNRESET" });
-  const result = machineError(original);
+  const result = machineError(original, { verbose: true });
   assert.equal(result.code, "error");
   assert.equal(result.cause?.code, "ECONNRESET");
   assert.match(result.cause?.stack ?? "", /diagnostics.test/);
@@ -56,7 +109,7 @@ test("concurrent diagnostic scopes isolate profile secrets and redact secure rec
     return new CliError("Second failed", { code: "request.failed", cause: new Error("synthetic-beta-credential") });
   });
   const errors = await Promise.all([first, second]);
-  assert.doesNotMatch(JSON.stringify(errors.map(machineError)), /synthetic-alpha-credential|synthetic-beta-credential/);
+  assert.doesNotMatch(JSON.stringify(errors.map((error) => machineError(error, { verbose: true }))), /synthetic-alpha-credential|synthetic-beta-credential/);
   assert.equal(diagnosticCause(new Error("synthetic-alpha-credential")).message, "synthetic-alpha-credential");
 });
 
@@ -76,20 +129,30 @@ test("human, JSON, RPC and execute retain equivalent diagnostics without exposin
   const human = await fixture.run(app, ["read"]);
   assert.equal(human.exitCode, 1);
   assert.equal(human.stdout, "");
-  assert.ok(human.stderr.startsWith("Could not read service status.\n"));
-  assert.match(human.stderr, /Caused by: Error \[ECONNRESET\]/);
-  assert.match(human.stderr, /diagnostics.test/);
+  // The explanation, then the technical reason on one line; frames need --verbose.
+  assert.equal(human.stderr, "Could not read service status.\nCause: Connection failed with [redacted]\n");
+  const verbose = await fixture.run(app, ["read", "--verbose"]);
+  assert.ok(verbose.stderr.startsWith("Could not read service status.\n"));
+  assert.match(verbose.stderr, /Caused by: Error \[ECONNRESET\]/);
+  assert.match(verbose.stderr, /diagnostics.test/);
   const json = await fixture.run(app, ["read", "--json"]);
   const failure = JSON.parse(json.stderr).error;
   assert.equal(failure.cause.code, "ECONNRESET");
-  const replies = await fixture.rpc(app, [["read"]]) as { error: { data: { cause: { code: string } } } }[];
+  assert.equal(failure.stack, undefined);
+  assert.equal(failure.cause.stack, undefined);
+  const jsonVerbose = JSON.parse((await fixture.run(app, ["read", "--json", "--verbose"])).stderr).error;
+  assert.match(jsonVerbose.stack, /diagnostics.test/);
+  assert.match(jsonVerbose.cause.stack, /diagnostics.test/);
+  const replies = await fixture.rpc(app, [["read"], ["read", "--verbose"]]) as { error: { data: { stack?: string; cause: { code: string; stack?: string } } } }[];
   assert.equal(replies[0]?.error.data.cause.code, "ECONNRESET");
+  assert.equal(replies[0]?.error.data.stack, undefined);
+  assert.match(replies[1]?.error.data.stack ?? "", /diagnostics.test/);
   await assert.rejects(app.execute(["read"]), error => {
     assert.ok(error instanceof Error && error.cause instanceof Error);
     assert.doesNotMatch(error.cause.message, /synthetic-profile-token/);
     return true;
   });
-  assert.doesNotMatch(human.stderr + json.stderr + JSON.stringify(replies), /synthetic-profile-token/);
+  assert.doesNotMatch(human.stderr + verbose.stderr + json.stderr + JSON.stringify(replies), /synthetic-profile-token/);
 });
 
 test("candidate token validation failure keeps cause and leaves profile unconfigured", async t => {

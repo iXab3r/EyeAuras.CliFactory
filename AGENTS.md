@@ -15,6 +15,7 @@ public API. If code and design disagree, stop and reconcile them explicitly.
 | tests or fixtures | [`docs/testing.md`](docs/testing.md) | Mock-first evidence and sanitization |
 | GitHub Issues or issue templates | [`docs/roles/gh-issue-dev.md`](docs/roles/gh-issue-dev.md) + [`docs/practices/github-issues.md`](docs/practices/github-issues.md) | Issue delivery, status, review, merge, and verified closure |
 | `scripts/**`, `build/**`, `.github/**`, docs | This file + relevant design section ([`docs/npm-release.md`](docs/npm-release.md) for releases) | Repository tooling and public contract |
+| Text a person reads at the terminal, in any of the above | [`docs/roles/cli-writer.md`](docs/roles/cli-writer.md) | Help, errors, hints, progress, prompts and views |
 
 More specific `AGENTS.md` files override this router only inside their directory.
 The [role index](docs/roles/README.md) explains how domain and function roles compose.
@@ -70,12 +71,16 @@ The [role index](docs/roles/README.md) explains how domain and function roles co
 15. **One cross-tool behavior policy.** Every integration follows
    [redirect and diagnostic policy](docs/DESIGN.md#cross-tool-redirect-and-diagnostic-policy).
    Normal HTTP redirects work by default. Wrap failures with useful context while preserving
-   causes and stacks; redact secrets at output boundaries instead of erasing diagnostic evidence.
-   Core owns common error presentation. New tools inherit these rules without separate approval.
+   causes and stacks for `--verbose`; by default a person sees one explanation and one cause line.
+   Redact secrets at output boundaries instead of erasing diagnostic evidence. Core owns common
+   error presentation. New tools inherit these rules without separate approval.
 16. **Preserve configured URLs.** Every CLI preserves supported scheme, host, context path and
    explicit port presence/value in saved/displayed profiles, including default ports. Follow
    [the profile URL contract](docs/DESIGN.md#profiles-own-non-secret-configuration); native transport
    canonicalization and redirect destinations must not rewrite saved configuration.
+17. **Write for the terminal.** Every tool-authored text — help, errors, hints, progress, prompts,
+   views — follows the [CLI writer](docs/roles/cli-writer.md) role: one idea per line, the next
+   step as a `next` command, nothing said twice, diagnostics only under `--verbose`.
 
 ## Function role: Reconciliation Lead
 
@@ -101,6 +106,13 @@ New branches default to `bugfix/`; honor explicitly requested names or prefixes.
 Use the read-only [Reviewer](docs/roles/reviewer.md) for independent review of a completed change.
 Supply exact base/head, acceptance criteria and verification evidence in a clean context. Review
 checks the owning domain's invariants; it does not authorize merge or replace required approvals.
+
+## Function role: CLI writer
+
+Adopt [CLI writer](docs/roles/cli-writer.md) whenever a change adds or edits text a person reads
+at the terminal: command and option descriptions, error messages, `next` suggestions, progress,
+prompts, view labels and examples. It composes with the owning domain role and is applied again
+at review. Core owns rendering; the role owns the words.
 
 ## Repository shape
 

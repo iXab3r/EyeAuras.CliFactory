@@ -1,9 +1,9 @@
 import { parseServerUrl } from "@eyeauras/cli-factory";
 
-export const teamCityUrlHelp = "TeamCity base URL including any context path, without /app/rest or a page URL; e.g. https://teamcity.example.test/ or https://example.test/teamcity/. Outer whitespace and trailing slashes are normalized";
+export const teamCityUrlHelp = "TeamCity server URL, such as https://teamcity.example.test or https://example.test/teamcity";
 
 export function teamCityUrl(value: unknown): string {
-  const message = "TeamCity URL must be an HTTP or HTTPS base server URL without credentials, query or fragment. " + teamCityUrlHelp;
+  const message = "TeamCity URL must be http(s)://host[:port][/context], without /app/rest, a page path, credentials or a query.";
   const url = parseServerUrl(value, message);
   const path = decodeURIComponent(url.pathname);
   if (/\/(?:app\/(?:rest|rest-latest|rest-[^/]+)|guestAuth\/app\/rest|httpAuth\/app\/rest)(?:\/|$)/i.test(path) ||

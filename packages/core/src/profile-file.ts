@@ -17,16 +17,18 @@ import { command } from "./command.js";
 import { tableView } from "./view.js";
 import { privateDirectory } from "./private-storage.js";
 import { consumeResponseBody } from "./response-body.js";
-import { diagnosticCause } from "./errors.js";
+import { CliError, type CliErrorOptions } from "./errors.js";
 
-export class ProfileFileError extends Error {
+/** A download or saved-file failure; `published` and `cleanupFailed` say what was left behind. */
+export class ProfileFileError extends CliError {
   public constructor(
     message: string,
     public readonly published = false,
     public readonly cleanupFailed = false,
-    options?: ErrorOptions,
+    options: Pick<CliErrorOptions, "cause" | "next"> = {},
   ) {
-    super(message, options?.cause === undefined ? undefined : { cause: diagnosticCause(options.cause) });
+    super(message, { code: "download.failed", ...options });
+    this.name = "ProfileFileError";
   }
 }
 
@@ -65,7 +67,7 @@ interface FileIdentity extends PathIdentity {
 }
 
 function fileIdentityFromStat(path: string, stat: BigIntStats): FileIdentity {
-  if (!stat.isFile()) throw new Error();
+  if (!stat.isFile()) throw new Error("Not a regular file.");
   return {
     path,
     dev: stat.dev,
@@ -78,18 +80,18 @@ function fileIdentityFromStat(path: string, stat: BigIntStats): FileIdentity {
 
 function inside(parent: string, child: string): void {
   const part = relative(parent, child);
-  if (part === ".." || part.startsWith(".." + sep) || isAbsolute(part)) throw new Error();
+  if (part === ".." || part.startsWith(".." + sep) || isAbsolute(part)) throw new Error("The path escapes its parent directory.");
 }
 
 async function directoryIdentity(path: string): Promise<PathIdentity> {
   const stat = await lstat(path, { bigint: true });
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error();
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("Not a directory, or a symbolic link.");
   return { path, dev: stat.dev, ino: stat.ino };
 }
 
 async function fileIdentity(path: string): Promise<FileIdentity> {
   const stat = await lstat(path, { bigint: true });
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error();
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Not a regular file, or a symbolic link.");
   return fileIdentityFromStat(path, stat);
 }
 
@@ -110,7 +112,7 @@ async function prepareDirectories(path: string): Promise<PathIdentity[]> {
   const equal = process.platform === "win32"
     ? actual.toLowerCase() === absolute.toLowerCase()
     : actual === absolute;
-  if (!equal) throw new Error();
+  if (!equal) throw new Error("The resolved path differs from the requested path.");
   return result;
 }
 
@@ -118,7 +120,7 @@ async function verifyIdentity(expected: PathIdentity, kind: "directory" | "file"
   const actual = kind === "directory"
     ? await directoryIdentity(expected.path)
     : await fileIdentity(expected.path);
-  if (actual.dev !== expected.dev || actual.ino !== expected.ino) throw new Error();
+  if (actual.dev !== expected.dev || actual.ino !== expected.ino) throw new Error(`The ${kind} identity changed.`);
 }
 
 async function verifyDirectories(directories: readonly PathIdentity[]): Promise<void> {
@@ -130,7 +132,7 @@ async function verifyFileSnapshot(expected: FileIdentity): Promise<void> {
   if (actual.dev !== expected.dev || actual.ino !== expected.ino ||
       actual.size !== expected.size || actual.mtimeNs !== expected.mtimeNs ||
       actual.ctimeNs !== expected.ctimeNs) {
-    throw new Error();
+    throw new Error("The staged file changed.");
   }
 }
 
@@ -181,7 +183,7 @@ export async function publishProfileFile(
   let prefixBytes = 0;
 
   try {
-    if (signal?.aborted) throw new Error();
+    if (signal?.aborted) throw new Error("Cancelled before the download started.");
     failureMessage =
       "Download directories could not be verified; symlinks, junctions and replacement are " +
       "unsupported; no destination was published.";
@@ -192,7 +194,7 @@ export async function publishProfileFile(
       void existing;
       failureMessage =
         "Download destination already exists; no overwrite; no destination was published.";
-      throw new Error();
+      throw new Error("The destination already exists.");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
@@ -204,15 +206,15 @@ export async function publishProfileFile(
     stagingPath = join(stagingDirectory, "content");
     file = await open(stagingPath, "wx", 0o600);
     const opened = await file.stat({ bigint: true });
-    if (!opened.isFile()) throw new Error();
+    if (!opened.isFile()) throw new Error("The staged file is not a regular file.");
     stagingIdentity = fileIdentityFromStat(stagingPath, opened);
 
     failureMessage =
       "Download failed, exceeded its byte limit, was cancelled, or had an incomplete transfer; " +
       "no destination was published.";
-    if (signal?.aborted) throw new Error();
+    if (signal?.aborted) throw new Error("Cancelled before the request.");
     response = await options.openResponse();
-    if (signal?.aborted) throw new Error();
+    if (signal?.aborted) throw new Error("Cancelled after the response arrived.");
     try {
       await options.inspectResponse(response);
     } catch (error) {
@@ -230,11 +232,11 @@ export async function publishProfileFile(
       let offset = 0;
       while (offset < owned.byteLength) {
         const written = await file!.write(owned, offset, owned.byteLength - offset);
-        if (!written.bytesWritten) throw new Error();
+        if (!written.bytesWritten) throw new Error("A write returned no bytes.");
         offset += written.bytesWritten;
       }
     });
-    if (signal?.aborted) throw new Error();
+    if (signal?.aborted) throw new Error("Cancelled after the transfer.");
     await file.sync();
     failureMessage =
       "Download directories or private staging changed during the transfer; " +
@@ -244,7 +246,7 @@ export async function publishProfileFile(
     const completedIdentity = await fileIdentity(stagingIdentity.path);
     if (completedIdentity.dev !== stagingIdentity.dev ||
         completedIdentity.ino !== stagingIdentity.ino || completedIdentity.size !== BigInt(bytes)) {
-      throw new Error();
+      throw new Error("The staged file identity or size changed.");
     }
     stagingIdentity = completedIdentity;
     failureMessage =
@@ -263,7 +265,7 @@ export async function publishProfileFile(
     }
     if (signal?.aborted) {
       failureMessage = "Download was cancelled; no destination was published.";
-      throw new Error();
+      throw new Error("Cancelled after validation.");
     }
     failureMessage =
       "Download directories or private staging changed during validation; " +
@@ -273,7 +275,7 @@ export async function publishProfileFile(
     await verifyFileSnapshot(stagingIdentity);
     if (signal?.aborted) {
       failureMessage = "Download was cancelled; no destination was published.";
-      throw new Error();
+      throw new Error("Cancelled before publication.");
     }
     const sha256 = hash.digest("hex");
     try {
@@ -297,7 +299,7 @@ export async function publishProfileFile(
     await verifyIdentity(stagingIdentity, "file");
     const publishedIdentity = await fileIdentity(destination);
     if (publishedIdentity.dev !== stagingIdentity.dev || publishedIdentity.ino !== stagingIdentity.ino) {
-      throw new Error();
+      throw new Error("The published file identity differs from the staged file.");
     }
     result = { path: destination, bytes, sha256 };
   } catch (cause) {
@@ -308,7 +310,7 @@ export async function publishProfileFile(
     let cleanupIdentity: FileIdentity | undefined;
     if (file) {
       try {
-        if (!stagingPath) throw new Error();
+        if (!stagingPath) throw new Error("No staged path.");
         cleanupIdentity = fileIdentityFromStat(
           stagingPath,
           await file.stat({ bigint: true }),
@@ -330,19 +332,19 @@ export async function publishProfileFile(
     }
     if (stagingDirectory && cleanupAllowed) {
       try {
-        if (!stagingDirectoryIdentity) throw new Error();
+        if (!stagingDirectoryIdentity) throw new Error("No staging directory identity.");
         await verifyDirectories(stagingDirectories);
         await verifyIdentity(stagingDirectoryIdentity, "directory");
         if (stagingPath && stagingIdentity) {
           try {
-            if (!cleanupIdentity) throw new Error();
+            if (!cleanupIdentity) throw new Error("No cleanup identity.");
             await verifyFileSnapshot(cleanupIdentity);
             await unlink(stagingPath);
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
           }
         } else if (stagingPath) {
-          throw new Error();
+          throw new Error("The staged file identity is unknown.");
         }
         await verifyDirectories(stagingDirectories);
         await verifyIdentity(stagingDirectoryIdentity, "directory");
@@ -382,7 +384,7 @@ export function saveProfileFile(options: {
 
 async function savedFiles(appDataDirectory: string) {
   try {
-    if (!isAbsolute(appDataDirectory)) throw new Error();
+    if (!isAbsolute(appDataDirectory)) throw new Error("The profile AppData directory is not absolute.");
     const directory = join(resolve(appDataDirectory), "downloads");
     const directories = await prepareDirectories(directory);
     const files: { name: string; path: string; bytes: number; modified: string }[] = [];
@@ -402,7 +404,7 @@ async function deleteSavedFiles(appDataDirectory: string, name?: string): Promis
   const { directories, files } = await savedFiles(appDataDirectory);
   const selected = files.filter((file) => name === undefined || file.name === name);
   if (name !== undefined && !selected.length) {
-    throw new ProfileFileError("Saved file was not found; choose a name from downloads list.");
+    throw new ProfileFileError("No saved file has that name.", false, false, { next: [["downloads", "list"]] });
   }
   const deleted: string[] = [];
   try {
@@ -412,7 +414,9 @@ async function deleteSavedFiles(appDataDirectory: string, name?: string): Promis
       deleted.push(file.name);
     }
   } catch (cause) {
-    throw new ProfileFileError(`Deleted ${deleted.length} saved files, then deletion failed; inspect downloads list.`, false, false, { cause });
+    throw new ProfileFileError(`Deleted ${deleted.length} saved files, then deletion failed.`, false, false, {
+      cause, next: [["downloads", "list"]],
+    });
   }
   return { deleted };
 }

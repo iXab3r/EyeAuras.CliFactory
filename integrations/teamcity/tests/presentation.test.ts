@@ -144,6 +144,7 @@ test("builds show summarizes one build and suggests safe profile-bound next comm
     http.get("https://teamcity.test/app/rest/builds/id:101", () => HttpResponse.json(failed)),
     http.get("https://teamcity.test/app/rest/builds/id:1234567890", () => HttpResponse.json(running)),
   );
+  // "uat" is the only, and therefore the default, profile: printed follow-ups omit --profile.
   const runtime = await createTestRuntime(t, {
     profiles: [{ name: "uat", url: "https://teamcity.test" }],
     tokens: { uat: "fixture-token" },
@@ -164,14 +165,14 @@ test("builds show summarizes one build and suggests safe profile-bound next comm
       "Web:       https://teamcity.test/build/101\n" +
       "\n" +
       "Next:\n" +
-      "  teamcity-cli builds diagnose 101 --profile uat\n" +
-      "  teamcity-cli builds artifacts list 101 --profile uat\n",
+      "  teamcity-cli builds diagnose 101\n" +
+      "  teamcity-cli builds artifacts list 101\n",
   );
 
   const live = await runtime.run(cli, ["builds", "show", "1234567890", "--profile", "uat"]);
   assert.match(live.stdout, /^State: {5}running \(40%\)$/m);
   assert.doesNotMatch(live.stdout, /Result:/, "A running build has no result yet.");
-  assert.match(live.stdout, /Next:\n {2}teamcity-cli builds wait 1234567890 --profile uat\n$/);
+  assert.match(live.stdout, /Next:\n {2}teamcity-cli builds wait 1234567890\n$/);
 
   assert.deepEqual(await runtime.json(cli, ["builds", "show", "101", "--profile", "uat"]), failed);
 });

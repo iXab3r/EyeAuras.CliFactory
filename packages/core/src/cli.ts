@@ -12,11 +12,19 @@ import {
 import { ProfileStore } from "./profile-store.js";
 import { createProfileCommands } from "./profile-commands.js";
 import { CommandGate } from "./command-gate.js";
-import { validateArgv } from "./argv.js";
+import { globalFlagRequested, validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
 import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
 import { nextCommands, type HumanView } from "./view.js";
-import { CliError, diagnosticCause, diagnosticText, machineError, rememberSecret, withDiagnostics } from "./errors.js";
+import {
+  CliError,
+  conciseCause,
+  diagnosticCause,
+  diagnosticText,
+  machineError,
+  rememberSecret,
+  withDiagnostics,
+} from "./errors.js";
 import { ProfileFileError } from "./profile-file.js";
 import type {
   CliApplication,
@@ -45,6 +53,7 @@ interface ExecutionOptions {
 
 interface GlobalOptions {
   json?: boolean;
+  verbose?: boolean;
   profile?: string;
 }
 
@@ -62,12 +71,6 @@ function declaredOption(specification: OptionDefinition): Option {
     option.default(specification.defaultValue);
   if (specification.parse) option.argParser(specification.parse);
   return option;
-}
-
-/** `--json` given as a global option, before any `--` that turns the rest into data. */
-function jsonRequested(argv: readonly string[]): boolean {
-  const end = argv.indexOf("--");
-  return (end < 0 ? argv : argv.slice(0, end)).includes("--json");
 }
 
 /**
@@ -238,6 +241,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       .showSuggestionAfterError()
       .helpCommand(true)
       .option("--json", "Emit machine-readable JSON")
+      .option("--verbose", "Show the full cause chain and stack traces of a failure")
       .option(
         "--json-rpc",
         "Start a persistent newline-delimited JSON-RPC session",
@@ -335,6 +339,9 @@ export function createCli(definition: CliDefinition): CliApplication {
       const invoke = async (ownsExclusive: boolean) => {
         const globals = command.optsWithGlobals() as GlobalOptions;
         let profile = await resolveProfile(globals.profile);
+        // Follow-ups name the profile only when the selected one is not the default.
+        const defaultProfile =
+          globals.profile === undefined ? profile.name : (await profileStore.list()).active;
         try {
           if (requiredPermission) {
             const enabled = await enabledPermissions(profile.name);
@@ -349,7 +356,7 @@ export function createCli(definition: CliDefinition): CliApplication {
             profile = await ensureConfigured(profile, globals, ownsExclusive);
           const context = contextFor(profile, execution, execution.render && globals.json !== true);
           context.signal.throwIfAborted();
-          const presentation = view && { view, cliName: definition.name, profile: profile.name };
+          const presentation = view && { view, cliName: definition.name, profile: profile.name, defaultProfile };
           try {
             result = await handler(commandInput, context);
           } catch (caught) {
@@ -366,9 +373,12 @@ export function createCli(definition: CliDefinition): CliApplication {
           const interrupted = afterInterrupt(caught, execution.interrupt);
           // Every failure once a profile is selected carries it; control values pass untouched.
           const failure = interrupted instanceof Error && !(interrupted instanceof CliError)
-            ? new CliError(interrupted.message, { code: "error", cause: interrupted })
+            ? CliError.from(interrupted)
             : interrupted;
-          if (failure instanceof CliError) failure.profile = profile.name;
+          if (failure instanceof CliError) {
+            failure.profile = profile.name;
+            failure.defaultProfile = defaultProfile;
+          }
           throw failure;
         }
       };
@@ -534,19 +544,27 @@ export function createCli(definition: CliDefinition): CliApplication {
       }
     });
 
-  /** The one place a CLI failure is reported: a JSON envelope, or text with follow-ups. */
+  /**
+   * The one place a CLI failure is reported: a JSON envelope, or the explanation with one line of
+   * technical cause and follow-ups. `--verbose` adds the complete chain with frames.
+   */
   const report = (error: unknown, argv: readonly string[], stream: CliIo["error"]): number => {
-    const failure = machineError(error);
-    if (jsonRequested(argv)) {
+    const verbose = globalFlagRequested(argv, "--verbose");
+    const failure = machineError(error, { verbose });
+    if (globalFlagRequested(argv, "--json")) {
       stream.write(`${JSON.stringify({ error: failure })}\n`);
       return failure.exitCode;
     }
+    const lines = [failure.message];
+    const cause = verbose || failure.code === "usage" || failure.code === "interrupted" ? undefined : conciseCause(failure);
+    if (cause) lines.push(cause);
     // A rendered result carries its own suggestions; stderr adds them only without one.
-    const next = error instanceof CliError && error.result === undefined && error.profile !== undefined
-      ? nextCommands(error.next, definition.name, error.profile)
-      : [];
-    stream.write(`${failure.message}\n${next.length ? `Next:\n${next.map((line) => `  ${line}\n`).join("")}` : ""}`);
-    if (failure.code !== "usage" && failure.code !== "interrupted") stream.write(diagnosticText(failure));
+    if (error instanceof CliError && error.result === undefined && error.profile !== undefined) {
+      const next = nextCommands(error.next, definition.name, error.profile, error.defaultProfile);
+      if (next.length) lines.push("Next:", ...next.map((line) => `  ${line}`));
+    }
+    if (!verbose && failure.code === "error") lines.push("Re-run with --verbose for the full diagnostic.");
+    stream.write(`${lines.join("\n")}\n${verbose && failure.code !== "usage" ? diagnosticText(failure) : ""}`);
     return failure.exitCode;
   };
 

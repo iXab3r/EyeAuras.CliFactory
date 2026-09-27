@@ -196,7 +196,7 @@ test("download transport failures keep HTTP status semantics and remove private 
       await assert.rejects(t.cli.execute(download), (error: unknown) => {
         assert.ok(error instanceof CliError);
         // A refused file keeps TeamCity's HTTP code; a broken transfer is Core's download error.
-        assert.equal(error.code, kind === "status" ? "http.serverError" : "error");
+        assert.equal(error.code, kind === "status" ? "http.serverError" : "download.failed");
         assert.match(
           error.message,
           kind === "status" ? /TeamCity request failed with HTTP 503/ : /Download failed/,

@@ -1,5 +1,5 @@
 import { Entry } from "@napi-rs/keyring";
-import { diagnosticCause, rememberSecret } from "./errors.js";
+import { CliError, diagnosticCause, rememberSecret } from "./errors.js";
 import type { ScopedSecrets, SecretStore } from "./types.js";
 
 export class KeyringSecretStore implements SecretStore {
@@ -32,9 +32,9 @@ export class KeyringSecretStore implements SecretStore {
 }
 
 function keyringError(operation: string, error: unknown, secrets: readonly string[] = []): Error {
-  return new Error(
-    `Could not ${operation} the OS credential store. No plaintext fallback is used.`,
-    { cause: diagnosticCause(error, secrets) },
+  return new CliError(
+    `Could not ${operation} the OS credential store; there is no plaintext fallback.`,
+    { code: "secrets.unavailable", cause: diagnosticCause(error, secrets) },
   );
 }
 
@@ -74,9 +74,9 @@ export class ProfileSecrets implements ScopedSecrets {
   public async require(name: string): Promise<string> {
     const value = await this.get(name);
     if (!value) {
-      throw new Error(
-        `No credential is stored for profile '${this.#profileName}'. Run 'auth login' first.`,
-      );
+      throw new CliError(`No credential is stored for profile '${this.#profileName}'.`, {
+        code: "auth.missing", next: [["auth", "login"]],
+      });
     }
     return value;
   }

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { TeamCityClient, TeamCityHttpError } from "../src/client.js";
+import { HttpError } from "@eyeauras/cli-factory";
+import { TeamCityClient } from "../src/client.js";
 
 const server = setupServer();
 const baseUrl = "https://teamcity.test";
@@ -175,7 +176,7 @@ test("surfaces a remote mutation rejection without the token", async () => {
   await assert.rejects(
     client().cancelBuild(101),
     (error: unknown) =>
-      error instanceof TeamCityHttpError &&
+      error instanceof HttpError &&
       error.status === 409 &&
       error.message === "TeamCity request failed with HTTP 409." &&
       !error.message.includes("fixture-token"),

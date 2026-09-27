@@ -8,7 +8,7 @@ output, and JSON-RPC behavior stays in `packages/core`.
 Ordinary text, JSON and XML responses have no tool-imposed byte ceiling. Invalid Content-Length
 and incomplete or mismatched unencoded/identity transfers still fail. Compressed wire length is
 syntax-checked without comparing it with decoded size. Stream errors explain the failure and
-preserve redacted native causes and stack traces without dumping response bodies. UTF-8 decoding preserves an initial BOM. Specialized discard
+keep redacted native causes; stack traces appear with `--verbose`, response bodies never. UTF-8 decoding preserves an initial BOM. Specialized discard
 probes stop reading unwanted bytes after 64 KiB; this does not reject an operation or truncate
 returned content. No automatic retry or command replay is added.
 

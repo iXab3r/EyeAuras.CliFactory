@@ -156,17 +156,18 @@ test("JSON, programmatic, RPC and redirected streams never prompt or reuse store
       if (mode === "output") h.output.isTTY = false;
       if (mode === "error") h.error.isTTY = false;
       if (mode === "execute") {
-        await assert.rejects(h.cli.execute(command), /profile configure default --token-stdin/);
+        await assert.rejects(h.cli.execute(command), /No token was provided/);
       } else if (mode === "rpc") {
         assert.equal(await h.cli.run(["--json-rpc"]), 0);
         const replies = h.stdout().trim().split("\n").map((line) => JSON.parse(line));
         assert.equal(replies.length, 2);
-        assert.match(replies[0].error.message, /profile configure default --token-stdin/);
+        assert.match(replies[0].error.message, /No token was provided/);
+        assert.deepEqual(replies[0].error.data.next, [["profile", "configure", "default", "--token-stdin", "--profile", "default"]]);
         assert.equal(replies[1].result.values.url, oldUrl);
         assert.equal(h.stderr(), "");
       } else {
         assert.equal(await h.cli.run([...command, ...(mode === "json" ? ["--json"] : [])]), 1);
-        assert.match(h.stderr(), /profile configure default --token-stdin/);
+        assert.match(h.stderr(), /No token was provided/);
         assert.equal(h.stdout(), "");
       }
       assert.equal(h.validated.length, 0);
@@ -197,7 +198,7 @@ test("missing or rejected configure candidates preserve existing profiles and do
       else process.env[variable] = "synthetic-candidate";
       const h = await harness(t, { validate: () => { throw new Error("Candidate rejected."); } });
       const before = await h.profiles.list();
-      const message = failure === "missing" ? /authentication is missing/
+      const message = failure === "missing" ? /No token was provided/
         : failure === "rejected" ? /Candidate rejected/ : /must use HTTPS/;
       await assert.rejects(h.cli.execute([
         "profile", "configure", name, "--url", failure === "invalid-url" ? "http://invalid.test" : newUrl,
@@ -234,8 +235,8 @@ test("configure storage failures cannot leave an old credential bound to a new e
     if (failure === "profile") h.profiles.set = async () => { throw new Error("Synthetic profile failure."); };
     if (failure === "secret") h.secrets.set = async () => { throw new Error("Cannot store synthetic-candidate."); };
     await assert.rejects(h.cli.execute(["profile", "configure", "default", "--url", newUrl]), (error: Error) => {
-      assert.match(error.message, /profile configure default --token-stdin/);
-      assert.match(error.message, /Authentication may be incomplete/);
+      assert.match(error.message, /Could not save the profile or its credential; authentication may be incomplete/);
+      assert.deepEqual((error as { next?: unknown }).next, [["profile", "configure", "default", "--token-stdin"]]);
       assert.doesNotMatch(inspect(error) + JSON.stringify(error) + error.stack, /synthetic-/);
       assert.ok(error.cause instanceof Error);
       return true;
@@ -264,7 +265,7 @@ test("backend credentials are redacted while causes survive configure and login 
       }
       if (mode === "execute") {
         await assert.rejects(h.cli.execute(command), (error: Error) => {
-          assert.match(error.message, /OS credential store/);
+          assert.match(error.message, /Could not (save the profile or its credential|write the OS credential store)/);
           assert.doesNotMatch(inspect(error) + JSON.stringify(error) + error.stack, /synthetic-/);
           assert.ok(error.cause instanceof Error);
           return true;
@@ -273,13 +274,13 @@ test("backend credentials are redacted while causes survive configure and login 
         assert.equal(await h.cli.run(["--json-rpc"]), 0);
         const replies = h.stdout().trim().split("\n").map((line) => JSON.parse(line));
         assert.equal(replies.length, 2);
-        assert.match(replies[0].error.message, /OS credential store/);
+        assert.match(replies[0].error.message, /Could not (save the profile or its credential|write the OS credential store)/);
         assert.equal(replies[1].result.values.url, oldUrl);
         assert.equal(h.stderr(), "");
       } else {
         assert.equal(await h.cli.run([...command, "--json"]), 1);
         assert.equal(h.stdout(), "");
-        assert.match(h.stderr(), /OS credential store/);
+        assert.match(h.stderr(), /Could not (save the profile or its credential|write the OS credential store)/);
       }
       assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic-/);
       assert.equal(h.validated.length, 1);
@@ -315,7 +316,7 @@ test("all token sources normalize before validation/storage and preserve interna
       assert.equal(h.validated[0]!.token, token);
       assert.equal(await h.secrets.get(service, "default:token"), token);
       assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic\.A/);
-      if (source === "prompt") assert.match(h.stderr(), /without Bearer, Authorization: or surrounding quotes/);
+      if (source === "prompt") assert.match(h.stderr(), /Paste only the token value, without Bearer or quotes/);
       await assertOtherProfileUnchanged(h);
     }
   }

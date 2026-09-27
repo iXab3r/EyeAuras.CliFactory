@@ -85,7 +85,11 @@ test("YouTrack failed credential persistence leaves changed endpoint unauthentic
   f.secrets.set = async () => { throw new Error("OS credential store unavailable."); };
   await assert.rejects(f.cli.execute([
     "profile", "configure", "dev", "--url", "https://new.youtrack.test",
-  ]), /profile configure dev --token-stdin/);
+  ]), (error: unknown) => {
+    assert.match((error as Error).message, /Could not save the profile or its credential/);
+    assert.deepEqual((error as { next?: unknown }).next, [["profile", "configure", "dev", "--token-stdin"]]);
+    return true;
+  });
   assert.equal(await f.secrets.get(service, "dev:token"), undefined);
   await assert.rejects(f.cli.execute(["user", "me", "--profile", "dev"]), /authentication is missing/);
   assert.equal(calls, 1);

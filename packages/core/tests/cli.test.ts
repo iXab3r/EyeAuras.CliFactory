@@ -164,7 +164,7 @@ test("profile commands create, update, select, and safely delete profiles", asyn
 
   await assert.rejects(
     cli.execute(["profile", "delete", "default"]),
-    /set-default/,
+    /make another profile the default/,
   );
   await cli.execute(["profile", "set-default", "uat"]);
   await cli.execute(["profile", "set", "uat", "--url", "https://new-uat.test"]);
