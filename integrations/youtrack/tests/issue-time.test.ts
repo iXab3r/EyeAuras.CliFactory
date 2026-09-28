@@ -70,7 +70,7 @@ test("work-item pages are one request, support empty pages and reject over-sized
     }));
     assert.deepEqual(await row.run({ top: 1, skip: 3 }), []);
     server.use(http.get("*", () => HttpResponse.json([{ id: "one" }, { id: "two" }])));
-    await assert.rejects(row.run({ top: 1 }), /more items than the requested top limit/);
+    await assert.rejects(row.run({ top: 1 }), /More items than the requested page size/);
   }
 });
 
@@ -78,7 +78,7 @@ test("all work-time reads reject malformed responses and return safe HTTP status
   for (const row of reads) {
     for (const payload of ["null", "42", "synthetic-private-malformed", row.list ? "{}" : "[]"]) {
       server.use(http.get("*", () => new HttpResponse(payload)));
-      await assert.rejects(row.run(), /invalid .*response/);
+      await assert.rejects(row.run(), /Invalid .*response/);
     }
     for (const status of [400, 401, 403, 404, 429, 500]) {
       let calls = 0;
@@ -95,14 +95,14 @@ test("all work-time reads reject malformed responses and return safe HTTP status
 test("invalid work-time IDs and paging fail before networking", async () => {
   const local = { ...connection, fetch: (async () => { assert.fail("Invalid input reached fetch"); }) as typeof globalThis.fetch };
   for (const id of ["", ".", "..", "bad\nvalue", "\ud800"]) {
-    await assert.rejects(getTimeTracking(local, id), /YouTrack/);
-    await assert.rejects(listIssueWorkItems(local, id), /YouTrack/);
-    await assert.rejects(getIssueWorkItem(local, "DEMO-1", id), /YouTrack/);
-    await assert.rejects(getWorkItem(local, id), /YouTrack/);
+    await assert.rejects(getTimeTracking(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listIssueWorkItems(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getIssueWorkItem(local, "DEMO-1", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getWorkItem(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
-    await assert.rejects(listIssueWorkItems(local, "DEMO-1", options), /YouTrack/);
-    await assert.rejects(listWorkItems(local, options), /YouTrack/);
+    await assert.rejects(listIssueWorkItems(local, "DEMO-1", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listWorkItems(local, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
 });
 
@@ -117,7 +117,7 @@ test("global work-item query is encoded once and remains absent from issue-local
   }));
   assert.deepEqual(await listWorkItems(connection, { query, top: 2 }), []);
   const local = { ...connection, fetch: (async () => { assert.fail("Invalid query reached fetch"); }) as typeof globalThis.fetch };
-  for (const query of ["", " ", "value\nvalue"]) await assert.rejects(listWorkItems(local, { query }), /YouTrack query/);
+  for (const query of ["", " ", "value\nvalue"]) await assert.rejects(listWorkItems(local, { query }), /search query|query must be/);
 });
 
 const writes = [
@@ -175,7 +175,7 @@ test("work-time mutations support sparse fields, empty success and safe redacted
     }
     for (const payload of ["null", "[]", "42", "synthetic-private-malformed"]) {
       server.use(http.post("*", () => new HttpResponse(payload)));
-      await assert.rejects(row.run(body), /invalid .*response/);
+      await assert.rejects(row.run(body), /Invalid .*response/);
     }
     server.use(http.post("*", ({ request }) => {
       assert.equal(new URL(request.url).searchParams.get("fields"), "text,issue(url)");
@@ -203,8 +203,8 @@ test("work-time mutation validation rejects malformed values and unsupported fie
     { duration: { minutes: 60 }, text: undefined }, { duration: undefined },
   ];
   for (const body of invalid) {
-    await assert.rejects(addWorkItem(local, "DEMO-1", body), /YouTrack/);
-    await assert.rejects(updateWorkItem(local, "DEMO-1", "fixture-work", body), /YouTrack/);
+    await assert.rejects(addWorkItem(local, "DEMO-1", body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(updateWorkItem(local, "DEMO-1", "fixture-work", body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   await assert.rejects(addWorkItem(local, "DEMO-1", { text: "No duration" }), /requires duration/);
   await assert.rejects(addWorkItem(local, "..", { duration: { minutes: 60 } }), /dot path/);
@@ -220,7 +220,7 @@ test("neither work-time mutation retries remote failures or returns private diag
         return new HttpResponse("synthetic-token private-validation", { status });
       }));
       await assert.rejects(row.run({ duration: { minutes: 60 } }),
-        new RegExp(`^Error: YouTrack request failed \\(HTTP ${status}\\)\\.$`));
+        new RegExp(`^HttpError: YouTrack answered HTTP ${status}\\.$`));
       assert.equal(calls, 1);
     }
   }

@@ -31,7 +31,7 @@ test("object reads use GET or explicit JSON POST and neither accepts an empty or
   assert.equal(calls, 2);
   for (const body of ["", "null", "[]", "private malformed response"]) {
     server.use(http.post("*/api/search/assist", () => new HttpResponse(body)));
-    await assert.rejects(readObject(connection, "api/search/assist", {}, { query: "fixture" }), /YouTrack returned an invalid/);
+    await assert.rejects(readObject(connection, "api/search/assist", {}, { query: "fixture" }), /Invalid .*from YouTrack/);
   }
 });
 
@@ -50,14 +50,14 @@ test("DELETE has no request body, accepts empty success, and never retries or ec
   assert.deepEqual(await deleteObject(connection, "api/issues/1-1/tags/2-1"), { value: "[redacted]" });
   for (const body of ["null", "[]", "private malformed response"]) {
     server.use(http.delete("*/api/issues/1-1/tags/2-1", () => new HttpResponse(body)));
-    await assert.rejects(deleteObject(connection, "api/issues/1-1/tags/2-1"), /YouTrack returned an invalid/);
+    await assert.rejects(deleteObject(connection, "api/issues/1-1/tags/2-1"), /Invalid .*from YouTrack/);
   }
   calls = 0;
   server.use(http.delete("*/api/issues/1-1/tags/2-1", () => {
     calls += 1;
     return new HttpResponse("synthetic-token private server details", { status: 403 });
   }));
-  await assert.rejects(deleteObject(connection, "api/issues/1-1/tags/2-1"), { message: "YouTrack request failed (HTTP 403)." });
+  await assert.rejects(deleteObject(connection, "api/issues/1-1/tags/2-1"), { message: "YouTrack answered HTTP 403." });
   assert.equal(calls, 1);
 });
 
@@ -86,6 +86,6 @@ test("multipart uses the native boundary and keeps upload arrays scrubbed with e
   assert.deepEqual(await uploadObjectCollection(connection, "api/issues/1-1/attachments", form, "id"), []);
   for (const body of ["null", "{}", "[null]", "private malformed response"]) {
     server.use(http.post("*/api/issues/1-1/attachments", () => new HttpResponse(body)));
-    await assert.rejects(uploadObjectCollection(connection, "api/issues/1-1/attachments", form, "id"), /YouTrack returned an invalid/);
+    await assert.rejects(uploadObjectCollection(connection, "api/issues/1-1/attachments", form, "id"), /Invalid .*from YouTrack/);
   }
 });

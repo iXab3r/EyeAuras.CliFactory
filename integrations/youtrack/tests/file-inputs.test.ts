@@ -53,7 +53,7 @@ test("file conflicts, encoding and unreadable paths fail before requests; denied
   ] as const) await assert.rejects(f.cli.execute([...update, path, "--profile", "dev"]), error);
   await writeFile(join(f.root, "ok.md"), text);
   await assert.rejects(f.cli.execute(["issues", "update", "DEMO-1", "--body", "{\"description\":null}",
-    "--description-file", join(f.root, "ok.md"), "--profile", "dev"]), /either --body or --description-file/);
+    "--description-file", join(f.root, "ok.md"), "--profile", "dev"]), /in --body or in --description-file/);
   await assert.rejects(f.cli.execute(["issues", "update", "DEMO-1", "--body", "[]",
     "--description-file", join(f.root, "ok.md"), "--profile", "dev"]), /body must be a JSON object/);
 });

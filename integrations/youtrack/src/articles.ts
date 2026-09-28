@@ -38,7 +38,7 @@ export async function exportArticle(
   const article = await getArticle(connection, articleID, { fields: "id,idReadable,content" });
   const id = typeof article.idReadable === "string" ? article.idReadable : article.id;
   if (typeof id !== "string" || !id || (article.content !== null && typeof article.content !== "string")) {
-    throw new Error("YouTrack returned an invalid article for export.");
+    throw new Error("Invalid article for export from YouTrack.");
   }
   const saved = await saveProfileFile({
     appDataDirectory,
@@ -76,7 +76,7 @@ export async function updateArticle(
 ): Promise<YouTrackObject | null> {
   const body = mutationBody(input, ["summary", "content"]);
   if (Object.keys(body).length === 0) {
-    throw new Error("YouTrack article update requires summary or content.");
+    throw new Error("An article update requires summary or content.");
   }
   return mutate(
     connection,

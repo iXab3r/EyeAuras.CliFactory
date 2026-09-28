@@ -11,12 +11,13 @@ import {
   parseIssueSelection,
   type AssistOptions,
 } from "./issue-query.js";
+import { commandApplied, countRecord, savedQueryTable, withView } from "./presentation.js";
 
 const queryOptions: readonly OptionDefinition[] = [
   ...projectionOptions,
   {
     flags: "--query <query>",
-    description: "Required YouTrack query text",
+    description: "YouTrack query text",
     required: true,
     parse: (value) => requiredText(value, "query"),
   },
@@ -24,7 +25,7 @@ const queryOptions: readonly OptionDefinition[] = [
 
 const issueOption: OptionDefinition = {
   flags: "--issues <ids>",
-  description: "Comma-separated explicit issue IDs, never a search query",
+  description: "Comma-separated issue IDs",
   parse: parseIssueSelection,
 };
 
@@ -32,10 +33,10 @@ const assistOptions: readonly OptionDefinition[] = [
   ...queryOptions,
   {
     flags: "--caret <position>",
-    description: "Caret position from zero through the query length",
+    description: "Caret position within the query",
     parse: (value) => {
       if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
-        throw new Error("YouTrack caret must be a nonnegative safe integer.");
+        throw new Error("--caret must be a nonnegative integer.");
       }
       return Number(value);
     },
@@ -51,10 +52,10 @@ function assistInput(options: Record<string, unknown>): AssistOptions {
 }
 
 export const queryRootCommands = [
-  command("commands", "Apply issue commands or inspect command suggestions", [
-    updateCommand(
+  command("commands", "Apply issue commands or get suggestions", [
+    withView(commandApplied, updateCommand(
       "apply",
-      "Apply a command to explicitly selected issues",
+      "Apply a command to the selected issues",
       async (connection, { options }, context) => applyCommands(
         connection,
         String(options.query),
@@ -62,10 +63,10 @@ export const queryRootCommands = [
         readOptions(options),
       ),
       [...queryOptions, { ...issueOption, required: true }],
-    ),
+    )),
     readCommand(
       "assist",
-      "Get command suggestions; this does not execute or guarantee a later command",
+      "Suggest command completions",
       async (connection, { options }, context) => assistCommands(connection, {
         ...assistInput(options),
         ...(options.issues === undefined ? {} : { issues: options.issues as string[] }),
@@ -73,29 +74,29 @@ export const queryRootCommands = [
       [...assistOptions, issueOption],
     ),
   ]),
-  command("search", "Inspect YouTrack search suggestions", [
+  command("search", "Inspect search suggestions", [
     readCommand(
       "assist",
-      "Get completions for a search query",
+      "Suggest search completions",
       async (connection, { options }, context) => assistSearch(connection, assistInput(options)),
       assistOptions,
     ),
   ]),
-  command("saved-queries", "Read saved YouTrack searches", [
-    pagedRead("list", "List one page of visible saved searches", listSavedQueries),
-    projectedRead("get <queryID>", "Read a saved search by database ID", getSavedQuery),
+  command("saved-queries", "Read saved searches", [
+    pagedRead("list", "List saved searches", listSavedQueries, savedQueryTable),
+    projectedRead("get <queryID>", "Show a saved search", getSavedQuery),
   ]),
 ];
 
 export const queryIssueChildren = [
-  readCommand(
+  withView(countRecord, readCommand(
     "count",
-    "Count a search once; -1 means counting is pending",
+    "Count the issues a query matches",
     async (connection, { options }, context) => countIssues(
       connection,
       String(options.query),
       readOptions(options),
     ),
     queryOptions,
-  ),
+  )),
 ];

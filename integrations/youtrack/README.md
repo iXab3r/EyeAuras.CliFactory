@@ -36,8 +36,8 @@ Offset collections use `--top 50 --skip 0` by default; top is a positive safe in
 Paging accepts unsigned decimal digits, including leading zeros; signs (including `-0`), whitespace,
 fractions, exponents and unsafe integers reject. Invalid syntax, range and overflow now fail before
 onboarding or credential access on CLI, execute and RPC. The static errors are
-`YouTrack top must be a positive safe decimal integer.` and
-`YouTrack skip must be a nonnegative safe decimal integer.`; they never include the supplied input.
+`--top must be a positive integer.` and `--skip must be a nonnegative integer.`; they never include
+the supplied input.
 Directly callable service methods retain their own range validation.
 Each collection command makes one request, and rejects an oversized server page. Multi-page reads
 happen only for the explicit `issues list --all` described below and for field `name` selectors in
@@ -61,13 +61,27 @@ npm run youtrack -- issues comments list DEMO-1 --top 3 --profile youtrack-dev
 Handlers return domain values for human, `--json` and persistent `--json-rpc` output.
 Empty collections are `[]`. Signed/credential-bearing URLs and the active bearer token are
 scrubbed recursively, including explicitly projected nested fields. Unsigned URLs remain
-unchanged. Failures expose HTTP status and safe Retry-After information, never raw server
-errors or authentication material. Remote mutations require the Update gate, described below.
-The ReadOnly download and export commands write only their explicitly requested local file beneath
-profile AppData.
+unchanged. An HTTP error status fails with Core's `HttpError` (`YouTrack answered HTTP 404.`,
+codes `http.notFound`, `http.unauthorized` with an `auth login` follow-up, `http.rateLimited` with
+safe Retry-After text, and so on), never with raw server errors or authentication material.
+Remote mutations require the Update gate, described below. The ReadOnly download and export
+commands write only their explicitly requested local file beneath profile AppData.
+
+### Reading output
+
+Human mode is for people; `--json` is the machine view. Every everyday command has a view built
+from Core's formats: lists such as `issues list`, `project list`, `article list` and `issues
+comments list` are tables (`ISSUE  SUMMARY  PROJECT  STATE  UPDATED`), `issues get` and
+`article get` are records with a description section and a `Next:` command, tags and link groups
+are one line each, and a mutation names the object it changed (`Created DEMO-99 · New issue`,
+`Removed tag 6-1 from DEMO-7.`). A table ends with `More results: --skip <n>` only when the page
+came back full. Long work prints one progress line per page (`issues list --all`), per failed
+batch row and per download start on stderr, never under `--json`. A projection that leaves a
+view's fields out falls back to the generic `key: value` shape. Root help groups the commands into
+Everyday, Reference and Configuration, with examples.
 
 JSON responses have no CLI byte ceiling. Invalid/truncated identity transfer lengths, stream failure
-or cancellation fail with `YouTrack response stream failed or was cancelled.` without response content.
+or cancellation fail with `The response stream failed or was cancelled.` without response content.
 Compressed wire length is syntax-checked but not compared with decoded size. HTTP status,
 Retry-After, empty/null mutation and UTF-8 BOM behavior are unchanged. No request is retried
 automatically. Runtime memory and service limits still apply.
@@ -75,10 +89,10 @@ automatically. Runtime memory and service limits still apply.
 ## URL and token input
 
 Copy the service base address, for example `https://youtrack.example.test/youtrack/`. Include any context path and port; omit `/api`, issue pages and query strings. HTTP and HTTPS are supported.
-Create/copy a permanent token in your YouTrack profile with the **YouTrack** service scope.
-See the [permanent-token guide](https://www.jetbrains.com/help/youtrack/devportal/Manage-Permanent-Token.html). Paste only its value: `FICTIONAL_TOKEN_VALUE` is a fictional example.
-Do not include `Bearer `, `Authorization:`, or surrounding quotes. The same guidance appears in
-`profile configure --help`, `auth login --help`, and before interactive input.
+Create a permanent token in your YouTrack profile with the **YouTrack** service scope.
+See the [permanent-token guide](https://www.jetbrains.com/help/youtrack/devportal/Manage-Permanent-Token.html). Paste only its value,
+without `Bearer `, `Authorization:` or surrounding quotes. The `--token-stdin` help names the
+token location; the interactive prompt repeats the one-sentence paste rule.
 
 New URL/token input trims outer whitespace, including pasted CRLF. URL trailing slashes are
 normalized without losing the context path; internal token symbols remain unchanged. Empty input,

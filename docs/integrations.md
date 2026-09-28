@@ -423,9 +423,12 @@ command("releases", "Work with releases", [
 
 Mark only descriptive text `shrink`, never an ID or a name that a command takes as an argument.
 Use `recordView` for one object and its
-`next` suggestions, which Core prints with the CLI name and selected profile. Service date formats
-stay in the integration: convert them to `Date` in the accessor. See
-[DESIGN.md](DESIGN.md#handlers-return-domain-data) for width and formatting rules.
+`next` suggestions, which Core prints with the CLI name and selected profile, and `listView` for
+names and identifiers one per line. A view's title, footer and `next` callbacks receive the
+context with the command's `input`, so a `null` result can still say `Removed tag 7 from DEMO-12`
+and a full page can end with `offsetFooter("--skip", rows.length, top, skip)`. Service date formats
+stay in the integration: convert them to `Date` in the accessor. Group a branch's children for
+help with `helpLayout`. See [DESIGN.md](DESIGN.md#human-output-formats) for the formats.
 
 ### Report failed outcomes without losing data
 

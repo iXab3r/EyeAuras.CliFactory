@@ -7,23 +7,16 @@ import {
   listIssueAttachments,
   uploadIssueAttachment,
 } from "./issue-attachments.js";
+import { attachmentRecord, attachmentTable, uploadedAttachments, withView } from "./presentation.js";
 
 export const attachmentsIssueChildren = [
-  command("attachments", "Inspect, upload or download one selected attachment", [
+  command("attachments", "Inspect, upload or download attachments", [
     attachmentDownloadCommand,
-    pagedRead(
-      "list <issueID>",
-      "List one page of attachment metadata without downloading files",
-      listIssueAttachments,
-    ),
-    projectedRead(
-      "get <issueID> <attachmentID>",
-      "Read attachment metadata without downloading its contents",
-      getIssueAttachment,
-    ),
-    updateCommand(
+    pagedRead("list <issueID>", "List attachments", listIssueAttachments, attachmentTable),
+    projectedRead("get <issueID> <attachmentID>", "Show an attachment", getIssueAttachment, attachmentRecord),
+    withView(uploadedAttachments, updateCommand(
       "upload <issueID>",
-      "Upload one selected regular file to an existing issue",
+      "Upload a file to the issue",
       async (connection, { args, options }, context) =>
         uploadIssueAttachment(
           connection,
@@ -33,11 +26,11 @@ export const attachmentsIssueChildren = [
       [
           {
             flags: "--file <path>",
-            description: "Required explicit local input file; no copies or recursion",
+            description: "Local file to upload",
             required: true,
             parse: (value) => requiredText(value, "file path"),
           },
         ],
-    ),
+    )),
   ]),
 ];

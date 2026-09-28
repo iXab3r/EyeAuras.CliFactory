@@ -108,9 +108,9 @@ test("both work-item-type collections support empty pages and reject oversized o
     }));
     assert.deepEqual(await row.run(connection, { top: 1, skip: 7 }), []);
     server.use(http.get("*", () => HttpResponse.json([itemType, itemType])));
-    await assert.rejects(row.run(connection, { top: 1 }), /more items than the requested top limit/);
+    await assert.rejects(row.run(connection, { top: 1 }), /More items than the requested page size/);
     server.use(http.get("*", () => HttpResponse.json([null])));
-    await assert.rejects(row.run(connection), /invalid object response/);
+    await assert.rejects(row.run(connection), /Invalid object response/);
   }
 });
 
@@ -118,7 +118,7 @@ test("all time metadata methods reject wrong envelopes and hide remote diagnosti
   for (const row of rows) {
     for (const payload of ["null", "42", "synthetic-private-malformed", row.list ? "{}" : "[]"]) {
       server.use(http.get("*", () => new HttpResponse(payload)));
-      await assert.rejects(row.run(connection), /invalid .*response/);
+      await assert.rejects(row.run(connection), /Invalid .*response/);
     }
     for (const status of [400, 401, 403, 404, 429, 500]) {
       let calls = 0;
@@ -127,7 +127,7 @@ test("all time metadata methods reject wrong envelopes and hide remote diagnosti
         return new HttpResponse("synthetic-token synthetic-private-diagnostic", { status });
       }));
       await assert.rejects(row.run(connection),
-        new RegExp(`^Error: YouTrack request failed \\(HTTP ${status}\\)\\.$`));
+        new RegExp(`^HttpError: YouTrack answered HTTP ${status}\\.$`));
       assert.equal(calls, 1);
     }
   }
@@ -136,16 +136,16 @@ test("all time metadata methods reject wrong envelopes and hide remote diagnosti
 test("time metadata IDs, blank fields and invalid paging fail before fetch", async () => {
   const local = { ...connection, fetch: (async () => { assert.fail("Invalid time metadata input reached fetch"); }) as typeof globalThis.fetch };
   for (const id of ["", ".", "..", "bad\nvalue", "\ud800"]) {
-    await assert.rejects(getProjectTimeSettings(local, id), /YouTrack/);
-    await assert.rejects(listProjectWorkItemTypes(local, id), /YouTrack/);
-    await assert.rejects(getProjectWorkItemType(local, id, "fixture-type"), /YouTrack/);
-    await assert.rejects(getProjectWorkItemType(local, "fixture-project", id), /YouTrack/);
-    await assert.rejects(getWorkItemType(local, id), /YouTrack/);
+    await assert.rejects(getProjectTimeSettings(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listProjectWorkItemTypes(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getProjectWorkItemType(local, id, "fixture-type"), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getProjectWorkItemType(local, "fixture-project", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getWorkItemType(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
-  for (const row of rows) await assert.rejects(row.run(local, { fields: " " }), /YouTrack fields/);
+  for (const row of rows) await assert.rejects(row.run(local, { fields: " " }), /fields must be/);
   for (const row of rows.filter((row) => row.list)) {
     for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
-      await assert.rejects(row.run(local, options), /YouTrack/);
+      await assert.rejects(row.run(local, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     }
   }
 });

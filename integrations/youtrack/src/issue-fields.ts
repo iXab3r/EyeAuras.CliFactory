@@ -47,7 +47,7 @@ export const getIssueField = readObjectAt(fieldPath, issueFieldFields);
 function reference(value: unknown, user: boolean): YouTrackObject {
   const body = mutationBody(value, user ? ["id", "name", "login"] : ["id", "name"]);
   if (Object.keys(body).length === 0) {
-    throw new Error("YouTrack field reference requires an identity selector.");
+    throw new Error("A field reference requires an identity selector.");
   }
   return Object.fromEntries(Object.entries(body).map(([key, item]) => [
     key, narrative(item, `value.${key}`),
@@ -58,7 +58,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
   const entity = /^(Single|Multi)(Enum|Build|Version|Owned|Group|User)IssueCustomField$/.exec(type);
   if (entity?.[1] === "Multi") {
     if (!Array.isArray(value)) {
-      throw new Error("YouTrack multi-value field requires an array; use [] to clear it.");
+      throw new Error("A multi-value field requires an array; use [] to clear it.");
     }
     return value.map((item) => reference(item, entity[2] === "User"));
   }
@@ -68,7 +68,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
   if (![
     "SimpleIssueCustomField", "DateIssueCustomField", "PeriodIssueCustomField", "TextIssueCustomField",
   ].includes(type)) {
-    throw new Error("YouTrack field $type is not a supported concrete issue custom-field type.");
+    throw new Error("The field $type is not a supported issue custom-field type.");
   }
   if (value === null) {
     return null;
@@ -78,16 +78,16 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
       if (typeof value === "string" || (typeof value === "number" && Number.isFinite(value))) {
         return value;
       }
-      throw new Error("YouTrack simple field requires text, a finite number or null.");
+      throw new Error("A simple field requires text, a finite number or null.");
     case "DateIssueCustomField":
       if (typeof value === "number" && Number.isSafeInteger(value)) {
         return value;
       }
-      throw new Error("YouTrack date field requires a safe integer timestamp in milliseconds or null.");
+      throw new Error("A date field requires a timestamp in milliseconds or null.");
     case "PeriodIssueCustomField": {
       const body = mutationBody(value, ["minutes", "presentation"]);
       if (Object.keys(body).length === 0) {
-        throw new Error("YouTrack period value requires minutes or presentation.");
+        throw new Error("A period value requires minutes or presentation.");
       }
       const result: YouTrackObject = {};
       if (Object.hasOwn(body, "minutes")) {
@@ -95,7 +95,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
           typeof body.minutes !== "number" || !Number.isSafeInteger(body.minutes) ||
           body.minutes < 0 || body.minutes > 2_147_483_647
         ) {
-          throw new Error("YouTrack period minutes must be an integer between 0 and 2147483647.");
+          throw new Error("Period minutes must be an integer between 0 and 2147483647.");
         }
         result.minutes = body.minutes;
       }
@@ -107,7 +107,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
     default: {
       const body = mutationBody(value, ["text"]);
       if (body.text !== null && typeof body.text !== "string") {
-        throw new Error("YouTrack text field requires text or null.");
+        throw new Error("A text field requires text or null.");
       }
       return { text: body.text };
     }
@@ -125,13 +125,13 @@ export async function setIssueField(
   let update: YouTrackObject;
   if (type === "StateMachineIssueCustomField") {
     if (Object.hasOwn(body, "value")) {
-      throw new Error("YouTrack state-machine fields require event instead of value.");
+      throw new Error("State-machine fields require event instead of value.");
     }
     const event = mutationBody(body.event, ["id"]);
     update = { $type: type, event: { id: narrative(event.id, "event.id") } };
   } else {
     if (Object.hasOwn(body, "event")) {
-      throw new Error("YouTrack event is only supported for state-machine fields.");
+      throw new Error("event is only supported for state-machine fields.");
     }
     update = { $type: type, value: fieldValue(type, body.value) };
   }
@@ -150,7 +150,7 @@ export interface IssueWrite {
 function oneOf(body: Record<string, unknown>, keys: readonly string[], label: string): YouTrackObject {
   const present = keys.filter((key) => Object.hasOwn(body, key));
   if (present.length !== 1) {
-    throw new Error(`YouTrack ${label} must use exactly one of ${keys.join(" or ")}.`);
+    throw new Error(`The ${label} must use exactly one of ${keys.join(" or ")}.`);
   }
   const key = present[0]!;
   return { [key]: narrative(body[key], `${label} ${key}`) };
@@ -160,7 +160,7 @@ function oneOf(body: Record<string, unknown>, keys: readonly string[], label: st
 export function issueWrite(input: unknown, create: boolean): IssueWrite {
   const body = mutationBody(input, [...(create ? ["project"] : []), "summary", "description", "customFields"]);
   if (!create && !Object.keys(body).length) {
-    throw new Error("YouTrack issue update requires summary, description or customFields.");
+    throw new Error("An issue update requires summary, description or customFields.");
   }
   const write: IssueWrite = { body: {} };
   if (create) {
@@ -171,20 +171,20 @@ export function issueWrite(input: unknown, create: boolean): IssueWrite {
   if (Object.hasOwn(body, "description")) write.body.description = nullableText(body.description, "description");
   if (Object.hasOwn(body, "customFields")) {
     if (!Array.isArray(body.customFields) || !body.customFields.length) {
-      throw new Error("YouTrack customFields must be a nonempty array.");
+      throw new Error("customFields must be a nonempty array.");
     }
     const customFields: YouTrackObject[] = body.customFields.map((item: unknown) => {
       const entry = mutationBody(item, ["$type", "id", "name", "value"]);
       const type = narrative(entry.$type, "field $type");
       if (type === "StateMachineIssueCustomField") {
-        throw new Error("YouTrack state-machine fields change only through issues fields set events or commands apply.");
+        throw new Error("State-machine fields change only through issues fields set events or commands apply.");
       }
-      if (!Object.hasOwn(entry, "value")) throw new Error("YouTrack custom field requires value.");
+      if (!Object.hasOwn(entry, "value")) throw new Error("A custom field requires value.");
       return { $type: type, ...oneOf(entry, ["id", "name"], "custom field"), value: fieldValue(type, entry.value) };
     });
     // Identical selectors fail locally; an id and a name for one field fail after resolution.
     if (new Set(customFields.map(({ id, name }) => JSON.stringify([id, name]))).size !== customFields.length) {
-      throw new Error("YouTrack customFields must not repeat a field.");
+      throw new Error("customFields must not repeat a field.");
     }
     write.customFields = customFields;
   }
@@ -205,11 +205,11 @@ export async function issueRequest(
     if (typeof shortName === "string") {
       const project = await readObject(connection, projectPath(shortName), { fields: "id,shortName" });
       if (typeof project.shortName !== "string" || project.shortName.toLowerCase() !== shortName.toLowerCase()) {
-        throw new Error("YouTrack project shortName did not resolve to that project.");
+        throw new Error("The project shortName did not resolve to that project.");
       }
       id = project.id;
     }
-    if (typeof id !== "string" || !id) throw new Error("YouTrack returned an invalid project identity.");
+    if (typeof id !== "string" || !id) throw new Error("Invalid project identity from YouTrack.");
     body.project = { id };
     fieldsPath = `${projectPath(id)}/customFields`;
   }
@@ -224,11 +224,11 @@ export async function issueRequest(
       const matches = catalog.filter((item) =>
         (typeof item.name === "string" ? item.name : (item.field as YouTrackObject | null | undefined)?.name) === name);
       const id = matches.length === 1 ? matches[0]!.id : undefined;
-      if (typeof id !== "string") throw new Error("YouTrack custom field name must match exactly one field.");
+      if (typeof id !== "string") throw new Error("The custom field name must match exactly one field.");
       return { ...field, id };
     });
     if (new Set(customFields.map((field) => field.id)).size !== customFields.length) {
-      throw new Error("YouTrack customFields must not repeat a field.");
+      throw new Error("customFields must not repeat a field.");
     }
     body.customFields = customFields;
   }

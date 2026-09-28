@@ -92,10 +92,10 @@ test("attachment read validation rejects invalid IDs/pages and malformed shapes"
   await assert.rejects(listIssueAttachments(connection, "fixture-issue", { skip: -1 }), /skip/);
   await assert.rejects(getIssueAttachment(connection, "fixture-issue", "fixture-attachment", { fields: "" }), /fields/);
   assert.equal(calls, 0);
-  await assert.rejects(listIssueAttachments(connection, "fixture-issue"), /invalid collection/);
+  await assert.rejects(listIssueAttachments(connection, "fixture-issue"), /Invalid collection/);
   server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { top: 1 }), /top limit/);
-  await assert.rejects(getIssueAttachment(connection, "fixture-issue", "fixture-attachment"), /invalid object/);
+  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { top: 1 }), /page size/);
+  await assert.rejects(getIssueAttachment(connection, "fixture-issue", "fixture-attachment"), /Invalid object/);
 });
 
 test("one selected attachment uploads exact bytes and basename in native multipart upload1", async (t) => {
@@ -137,7 +137,7 @@ test("upload rejects malformed JSON and non-array/non-object result shapes", asy
   const f = await temporary(t);
   for (const body of ["{", "null", "{}", "[null]", "[1]"]) {
     server.use(http.post("*", () => new HttpResponse(body)));
-    await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", f.file), /invalid .*response/);
+    await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", f.file), /Invalid .*response/);
   }
 });
 
@@ -167,7 +167,7 @@ test("invalid local files reject before fetch without exposing filesystem diagno
   server.use(http.post("*", () => { calls++; return HttpResponse.json([]); }));
   for (const file of [f.directory, join(f.directory, "not-present.bin")]) {
     await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", file), (error: Error) => {
-      assert.equal(error.message, "YouTrack upload requires a readable regular file.");
+      assert.equal(error.message, "The upload requires a readable regular file.");
       assert.ok(!error.message.includes(f.directory));
       return true;
     });
@@ -249,7 +249,7 @@ test("upload redirects follow standard method semantics without credentials or a
   );
   assert.deepEqual(await uploadIssueAttachment(connection, "fixture-issue", f.file), []);
   server.use(http.post("*", () => { calls++; return HttpResponse.error(); }));
-  await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", f.file), /YouTrack request failed; check connectivity/);
+  await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", f.file), /Could not reach YouTrack/);
   assert.equal(calls, 2);
   assert.equal(followed, 1);
 });
@@ -260,7 +260,7 @@ test("upload file-opening errors suppress private local diagnostics before HTTP"
   server.use(http.post("*", () => { calls++; return HttpResponse.json([]); }));
   t.mock.method(fs, "openAsBlob", async () => { throw new Error("synthetic-private-path-and-diagnostic"); });
   await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", f.file), {
-    message: "YouTrack upload requires a readable regular file.",
+    message: "The upload requires a readable regular file.",
   });
   assert.equal(calls, 0);
 });

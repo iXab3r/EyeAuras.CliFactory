@@ -6,6 +6,7 @@ import {
   type CommandContext,
   type CommandDefinition,
   type GatedTargetCommand,
+  type HumanView,
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
 import { requiredText, youTrackUrl, type Connection, type IssueSearchOptions } from "./client.js";
@@ -13,9 +14,9 @@ import { requiredText, youTrackUrl, type Connection, type IssueSearchOptions } f
 export const bodyOptions: readonly OptionDefinition[] = [
   {
     flags: "--body <json>",
-    description: "Required JSON object containing this command's supported fields",
+    description: "JSON object with this command's fields",
     required: true,
-    parse: jsonParser("YouTrack body must be valid JSON."),
+    parse: jsonParser("The body must be valid JSON."),
   },
 ];
 
@@ -30,12 +31,12 @@ export async function readTextFile(path: string): Promise<string> {
     if (!(await stat(path)).isFile()) throw new Error();
     bytes = await readFile(path);
   } catch {
-    throw new Error("YouTrack input file must be a readable regular file.");
+    throw new Error("The input file must be a readable regular file.");
   }
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
-    throw new Error("YouTrack input file must be valid UTF-8.");
+    throw new Error("The input file must be valid UTF-8.");
   }
 }
 
@@ -43,7 +44,7 @@ export async function readTextFile(path: string): Promise<string> {
 function bodyInputOptions(textField?: string): readonly OptionDefinition[] {
   return textField === undefined ? bodyOptions : [
     ...bodyOptions,
-    fileOption(`--${textField}-file <path>`, `UTF-8 file supplying ${textField}; use --body '{}' when it is the only field`),
+    fileOption(`--${textField}-file <path>`, `UTF-8 file with the ${textField}; pair it with --body '{}'`),
   ];
 }
 
@@ -51,30 +52,30 @@ async function bodyInput(options: Record<string, unknown>, textField?: string): 
   const file = textField === undefined ? undefined : options[`${textField}File`];
   const body = options.body;
   if (typeof file !== "string") return body;
-  if (body === null || typeof body !== "object" || Array.isArray(body)) throw new Error("YouTrack body must be a JSON object.");
+  if (body === null || typeof body !== "object" || Array.isArray(body)) throw new Error("The body must be a JSON object.");
   if (Object.hasOwn(body, textField!)) {
-    throw new Error(`YouTrack ${textField} must come from either --body or --${textField}-file.`);
+    throw new Error(`Give ${textField} in --body or in --${textField}-file, not both.`);
   }
   return { ...body, [textField!]: await readTextFile(file) };
 }
 
 export const projectionOptions: readonly OptionDefinition[] = [
-  { flags: "--fields <projection>", description: "Explicit YouTrack fields projection" },
+  { flags: "--fields <projection>", description: "YouTrack fields projection" },
 ];
 export const pageOptions: readonly OptionDefinition[] = [
   ...projectionOptions,
   {
-    flags: "--top <count>", description: "Maximum results (positive safe integer)", defaultValue: 50,
+    flags: "--top <count>", description: "Page size", defaultValue: 50,
     parse: integerParser({
       min: 1, max: Number.MAX_SAFE_INTEGER, signed: false,
-      errorMessage: "YouTrack top must be a positive safe decimal integer.",
+      errorMessage: "--top must be a positive integer.",
     }),
   },
   {
-    flags: "--skip <offset>", description: "Nonnegative result offset", defaultValue: 0,
+    flags: "--skip <offset>", description: "Results to skip", defaultValue: 0,
     parse: integerParser({
       min: 0, max: Number.MAX_SAFE_INTEGER, signed: false,
-      errorMessage: "YouTrack skip must be a nonnegative safe decimal integer.",
+      errorMessage: "--skip must be a nonnegative integer.",
     }),
   },
 ];
@@ -120,7 +121,7 @@ function positionalNames(syntax: string): string[] {
   const tokens = syntax.split(" ").slice(1);
   const names = tokens.map((token) => /^<([A-Za-z][A-Za-z0-9_-]*)>$/.exec(token)?.[1]);
   if (names.some((name) => name === undefined)) {
-    throw new Error("YouTrack operation helpers require only named positional arguments.");
+    throw new Error("Operation helpers require named positional arguments only.");
   }
   return names as string[];
 }
@@ -140,9 +141,10 @@ function operationCommand<const Syntax extends string>(
   operation: Operation,
   options: readonly OptionDefinition[],
   operationOptions: OperationOptions,
+  view?: HumanView,
 ): CommandDefinition {
   const names = positionalNames(syntax);
-  return leaf(
+  const definition = leaf(
     syntax,
     description,
     async (connection, input) => Reflect.apply(operation, undefined, [
@@ -152,16 +154,19 @@ function operationCommand<const Syntax extends string>(
     ]),
     options,
   );
+  return view === undefined ? definition : { ...definition, view };
 }
 
 export function pagedRead<const Syntax extends string>(
   syntax: Syntax,
   description: string,
   operation: ReadOperation<Syntax>,
+  view?: HumanView,
 ): CommandDefinition {
   return operationCommand(
     readCommand, syntax, description, operation, pageOptions,
     (options) => [readOptions(options)],
+    view,
   );
 }
 
@@ -169,10 +174,12 @@ export function projectedRead<const Syntax extends string>(
   syntax: Syntax,
   description: string,
   operation: ReadOperation<Syntax>,
+  view?: HumanView,
 ): CommandDefinition {
   return operationCommand(
     readCommand, syntax, description, operation, projectionOptions,
     (options) => [readOptions(options)],
+    view,
   );
 }
 
@@ -181,10 +188,12 @@ export function bodyUpdate<const Syntax extends string>(
   description: string,
   operation: BodyOperation<Syntax>,
   textField?: string,
+  view?: HumanView,
 ): CommandDefinition {
   return operationCommand(
     updateCommand, syntax, description, operation, bodyInputOptions(textField),
     async (options) => [await bodyInput(options, textField)],
+    view,
   );
 }
 
@@ -193,11 +202,13 @@ export function projectedBodyUpdate<const Syntax extends string>(
   description: string,
   operation: ProjectedBodyOperation<Syntax>,
   textField?: string,
+  view?: HumanView,
 ): CommandDefinition {
   return operationCommand(
     updateCommand, syntax, description, operation,
     [...bodyInputOptions(textField), ...projectionOptions],
     async (options) => [await bodyInput(options, textField), readOptions(options)],
+    view,
   );
 }
 

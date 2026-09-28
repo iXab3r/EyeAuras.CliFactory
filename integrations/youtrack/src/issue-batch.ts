@@ -26,7 +26,7 @@ function csvRows(text: string): Record<string, unknown>[] {
       },
     }) as Record<string, string>[];
   } catch {
-    throw new Error("YouTrack manifest must be valid CSV with one header of distinct supported columns.");
+    throw new Error("The manifest must be valid CSV with one header of distinct supported columns.");
   }
   return records.map((record) => {
     const row: Record<string, unknown> = {};
@@ -51,7 +51,7 @@ function csvRows(text: string): Record<string, unknown>[] {
 /** Parse a .json array or header-row .csv manifest and validate every row locally. */
 export function manifestRows(text: string, path: string): BatchRow[] {
   const csv = /\.csv$/i.test(path);
-  if (!csv && !/\.json$/i.test(path)) throw new Error("YouTrack manifest must be a .json or .csv file.");
+  if (!csv && !/\.json$/i.test(path)) throw new Error("The manifest must be a .json or .csv file.");
   let rows: unknown;
   if (csv) {
     rows = csvRows(text);
@@ -59,10 +59,10 @@ export function manifestRows(text: string, path: string): BatchRow[] {
     try {
       rows = JSON.parse(text);
     } catch {
-      throw new Error("YouTrack manifest must be valid JSON.");
+      throw new Error("The manifest must be valid JSON.");
     }
   }
-  if (!Array.isArray(rows) || !rows.length) throw new Error("YouTrack manifest must be a nonempty array of rows.");
+  if (!Array.isArray(rows) || !rows.length) throw new Error("The manifest must be a nonempty array of rows.");
   return rows.map((value: unknown, index) => {
     try {
       const source = mutationBody(value, ["action", "issue", "project", "summary", "description", "customFields"]);
@@ -72,9 +72,9 @@ export function manifestRows(text: string, path: string): BatchRow[] {
         encodedID(issue, "issue ID");
         return { row: index + 1, source, issue, write: issueWrite(body, false) };
       }
-      throw new Error("YouTrack manifest action must be create, or update with an issue ID.");
+      throw new Error("The action must be create, or update with an issue ID.");
     } catch (error) {
-      throw new Error(`YouTrack manifest row ${index + 1}: ${(error as Error).message.replace(/^YouTrack /, "")}`);
+      throw new Error(`Manifest row ${index + 1}: ${(error as Error).message}`);
     }
   });
 }
@@ -86,14 +86,20 @@ export function manifestRows(text: string, path: string): BatchRow[] {
 export async function applyIssueBatch(
   connection: Connection,
   rows: readonly BatchRow[],
-  options: { appDataDirectory: string; continueOnError?: boolean; failedRows?: string },
+  options: {
+    appDataDirectory: string;
+    continueOnError?: boolean;
+    failedRows?: string;
+    /** One human-only line per failed row and every ten rows. */
+    progress?: (message: string) => void;
+  },
 ) {
   if (options.failedRows !== undefined && !/\.json$/i.test(options.failedRows)) {
-    throw new Error("YouTrack failed-rows name must end with .json.");
+    throw new Error("--failed-rows must end with .json.");
   }
   const results: YouTrackObject[] = [];
   let stop = false;
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     if (stop || connection.signal?.aborted) {
       results.push({ row: row.row, status: "unattempted" });
       continue;
@@ -106,9 +112,12 @@ export async function applyIssueBatch(
     } catch (error) {
       const status = (error as { status?: unknown }).status;
       const rejected = !sent || (typeof status === "number" && status >= 400 && status < 500);
-      results.push({ row: row.row, status: rejected ? "failed" : "uncertain", error: (error as Error).message });
+      const message = (error as Error).message;
+      results.push({ row: row.row, status: rejected ? "failed" : "uncertain", error: message });
+      options.progress?.(`Row ${row.row}: ${rejected ? "failed" : "uncertain"} (${message})`);
       stop = !options.continueOnError;
     }
+    if ((index + 1) % 10 === 0 && index + 1 < rows.length) options.progress?.(`Applied ${index + 1} of ${rows.length} rows.`);
   }
   const count = (status: string) => results.filter((result) => result.status === status).length;
   const resubmit = rows.filter((_row, index) => ["failed", "unattempted"].includes(String(results[index]?.status)));

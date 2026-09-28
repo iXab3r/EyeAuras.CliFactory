@@ -42,14 +42,14 @@ test("JSON and CSV manifests validate to identical writes; malformed rows name t
     ["action,summary,summary\ncreate,a,b", "rows.csv", /distinct supported columns/],
     ["action,project.id,summary,customFields\ncreate,0-1,S,not-json", "rows.csv", /row 1: customFields must be a nonempty array/],
     ["action,summary\ncreate,\"unterminated", "rows.csv", /valid CSV/],
-    [JSON.stringify([{ action: "update", issue: "..", summary: "S" }]), "rows.json", /row 1: issue ID must not be a dot/],
-    [JSON.stringify([{ ...rows[0], project: { shortName: "." } }]), "rows.json", /row 1: project selector/],
+    [JSON.stringify([{ action: "update", issue: "..", summary: "S" }]), "rows.json", /row 1: The issue ID must not be a dot/],
+    [JSON.stringify([{ ...rows[0], project: { shortName: "." } }]), "rows.json", /row 1: The project selector/],
     [JSON.stringify([{ ...rows[1], customFields: [...priority, ...priority] }]), "rows.json", /row 1: customFields must not repeat/],
-    [JSON.stringify([rows[0], { action: "delete", issue: "DEMO-1" }]), "rows.json", /^Error: YouTrack manifest row 2: manifest action/],
+    [JSON.stringify([rows[0], { action: "delete", issue: "DEMO-1" }]), "rows.json", /^Error: Manifest row 2: The action/],
     [JSON.stringify([rows[0], { action: "update", summary: "No issue" }]), "rows.json", /row 2/],
     [JSON.stringify([{ ...rows[2], issue: "DEMO-1" }]), "rows.json", /row 1/],
     [JSON.stringify([rows[1], { action: "update", issue: "DEMO-2", project: { id: "0-1" } }]), "rows.json", /row 2/],
-    [JSON.stringify([{ ...rows[2], summary: " " }]), "rows.json", /^Error: YouTrack manifest row 1: summary must be nonempty text\.$/],
+    [JSON.stringify([{ ...rows[2], summary: " " }]), "rows.json", /^Error: Manifest row 1: The summary must be nonempty text\.$/],
   ] as const) assert.throws(() => manifestRows(text, path), error);
 });
 
@@ -90,7 +90,7 @@ test("apply stops at the first unsuccessful row by default and never retries", a
     status: "incomplete", completed: 1, failed: 1, uncertain: 0, unattempted: 1,
     rows: [
       { row: 1, status: "completed", result: { id: "2-1" } },
-      { row: 2, status: "failed", error: "YouTrack request failed (HTTP 400)." },
+      { row: 2, status: "failed", error: "YouTrack answered HTTP 400." },
       { row: 3, status: "unattempted" },
     ],
   });

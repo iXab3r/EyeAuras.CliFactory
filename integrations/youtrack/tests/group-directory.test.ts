@@ -102,7 +102,7 @@ for (const row of rows) {
       server.use(http.get("*", () => HttpResponse.json([])));
       assert.deepEqual(await row.run({}), []);
       server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-      await assert.rejects(row.run({ top: 1 }), /top limit/);
+      await assert.rejects(row.run({ top: 1 }), /page size/);
     }
   });
 }
@@ -113,19 +113,19 @@ test("directory selectors and collection bounds fail locally before fetch", asyn
     fetch: (async () => { assert.fail("Invalid directory input reached fetch"); }) as typeof fetch,
   };
   for (const invalid of ["", ".", "..", "fixture\n", "\ud800"]) {
-    await assert.rejects(getGroup(local, invalid), /YouTrack/);
-    await assert.rejects(listGroupMembers(local, invalid), /YouTrack/);
-    await assert.rejects(listSubgroups(local, invalid), /YouTrack/);
-    await assert.rejects(getProjectTeam(local, invalid), /YouTrack/);
-    await assert.rejects(listProjectTeamGroups(local, invalid), /YouTrack/);
-    await assert.rejects(listProjectTeamUsers(local, invalid, { direct: true }), /YouTrack/);
+    await assert.rejects(getGroup(local, invalid), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listGroupMembers(local, invalid), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listSubgroups(local, invalid), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getProjectTeam(local, invalid), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listProjectTeamGroups(local, invalid), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listProjectTeamUsers(local, invalid, { direct: true }), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
-    await assert.rejects(listGroups(local, options), /YouTrack/);
-    await assert.rejects(listGroupMembers(local, "fixture", options), /YouTrack/);
-    await assert.rejects(listSubgroups(local, "fixture", options), /YouTrack/);
-    await assert.rejects(listProjectTeamGroups(local, "fixture", options), /YouTrack/);
-    await assert.rejects(listProjectTeamUsers(local, "fixture", options), /YouTrack/);
+    await assert.rejects(listGroups(local, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listGroupMembers(local, "fixture", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listSubgroups(local, "fixture", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listProjectTeamGroups(local, "fixture", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(listProjectTeamUsers(local, "fixture", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
 });
 
@@ -138,11 +138,11 @@ test("directory permission/version failures stay errors without retries or Hub f
         assert.equal(new URL(request.url).pathname, row.path);
         return new HttpResponse("synthetic-token private-diagnostic", { status });
       }));
-      await assert.rejects(row.run({}), new RegExp(`^Error: YouTrack request failed \\(HTTP ${status}\\)\\.$`));
+      await assert.rejects(row.run({}), new RegExp(`^HttpError: YouTrack answered HTTP ${status}\\.$`));
       assert.equal(calls, 1);
     }
     server.use(http.get("*", () => HttpResponse.json(row.list ? {} : [])));
-    await assert.rejects(row.run({}), /invalid .*response/);
+    await assert.rejects(row.run({}), /Invalid .*response/);
   }
 });
 

@@ -2,6 +2,7 @@ import {
   command,
   createCli,
   downloadCommands,
+  helpLayout,
   integerParser,
   Permission,
   tokenAuth,
@@ -23,7 +24,7 @@ import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
 import { clientLeaf, positiveInteger } from "./command-support.js";
-import { buildTable, helpLayout, problemTable, testTable, withView } from "./presentation.js";
+import { buildTable, problemTable, testTable, withView } from "./presentation.js";
 import { createBuildFlowCommands } from "./build-flow.js";
 import type {
   TeamCityBuildState,

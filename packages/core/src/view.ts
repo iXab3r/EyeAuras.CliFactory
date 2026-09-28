@@ -1,3 +1,5 @@
+import type { CommandInput } from "./types.js";
+
 /** A value Core can format for a human view. Dates must be valid `Date` instances. */
 export type ViewValue = string | number | boolean | Date | null | undefined;
 
@@ -27,8 +29,18 @@ export interface TableViewSpec<Row, Value> {
   columns: readonly ViewColumn<Row>[];
   /** Printed instead of an empty table. */
   empty?: string;
-  /** One summary line after the rows, such as whether more results exist. */
-  footer?: (value: Value) => string | undefined;
+  /** One line after the rows, only when there is something to say, such as how to continue. */
+  footer?: (value: Value, context: ViewContext) => string | undefined;
+}
+
+/** One line per item, never cut: names, identifiers and short phrases. */
+export interface ListViewSpec<Item, Value> {
+  /** Selects the items; an array result is used directly when omitted. */
+  items?: (value: Value) => readonly Item[];
+  line: (item: Item) => string;
+  /** Printed instead of an empty list. */
+  empty?: string;
+  footer?: (value: Value, context: ViewContext) => string | undefined;
 }
 
 /** A titled list after a record's fields: one line per item; `undefined` omits the section. */
@@ -38,19 +50,21 @@ export interface ViewSection<Value> {
 }
 
 export interface RecordViewSpec<Value> {
-  title?: (value: Value) => string | undefined;
+  /** The first line; it may name the object and what happened to it, using the command's input. */
+  title?: (value: Value, context: ViewContext) => string | undefined;
   fields: readonly ViewField<Value>[];
   sections?: readonly ViewSection<Value>[];
   /**
    * Follow-up commands of this CLI as argv without the CLI name. Core adds the CLI name and the
    * selected profile, and omits an action containing anything other than plain safe tokens.
    */
-  next?: (value: Value) => readonly (readonly string[])[];
+  next?: (value: Value, context: ViewContext) => readonly (readonly string[])[];
 }
 
 /** Declarative human presentation of a command result. JSON and JSON-RPC never use it. */
 export type HumanView =
   | ({ kind: "table" } & TableViewSpec<unknown, unknown>)
+  | ({ kind: "list" } & ListViewSpec<unknown, unknown>)
   | ({ kind: "record" } & RecordViewSpec<unknown>);
 
 export interface ViewContext {
@@ -62,14 +76,35 @@ export interface ViewContext {
   profile: string;
   /** The default profile; follow-ups name `profile` only when it differs. */
   defaultProfile?: string;
+  /** The command's parsed arguments and options, for titles and continuation footers. */
+  input?: CommandInput;
 }
 
 export function tableView<Row, Value = readonly Row[]>(spec: TableViewSpec<Row, Value>): HumanView {
   return { kind: "table", ...(spec as TableViewSpec<unknown, unknown>) };
 }
 
+export function listView<Item, Value = readonly Item[]>(spec: ListViewSpec<Item, Value>): HumanView {
+  return { kind: "list", ...(spec as ListViewSpec<unknown, unknown>) };
+}
+
 export function recordView<Value>(spec: RecordViewSpec<Value>): HumanView {
   return { kind: "record", ...(spec as RecordViewSpec<unknown>) };
+}
+
+/** The one footer for a page that may continue: the option and value that read the next page. */
+export function moreResults(option: string, next: number | string): string {
+  return `More results: ${option} ${next}`;
+}
+
+/** An offset page is full when it holds as many items as were asked for; a shorter page is the end. */
+export function offsetFooter(
+  option: string,
+  shown: number,
+  pageSize: number | undefined,
+  skip = 0,
+): string | undefined {
+  return pageSize !== undefined && shown >= pageSize ? moreResults(option, skip + shown) : undefined;
 }
 
 const ellipsis = "…";
@@ -147,7 +182,7 @@ function renderTable(
   const rows: unknown = view.rows ? view.rows(value) : value;
   // A shape mismatch must never read as "no results"; the caller falls back to generic output.
   if (!Array.isArray(rows)) return undefined;
-  const footer = view.footer?.(value);
+  const footer = view.footer?.(value, context);
   const lines = [view.empty ?? "No results."];
   if (rows.length > 0) {
     const cells = rows.map((row) =>
@@ -166,9 +201,18 @@ function renderTable(
   return [...lines, ...(footer ? ["", footer] : [])].join("\n");
 }
 
-function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: ViewContext): string {
+function renderList(view: ListViewSpec<unknown, unknown>, value: unknown, context: ViewContext): string | undefined {
+  const items: unknown = view.items ? view.items(value) : value;
+  if (!Array.isArray(items)) return undefined;
+  const footer = view.footer?.(value, context);
+  const lines = items.length > 0 ? items.map((item) => view.line(item)) : [view.empty ?? "No results."];
+  return [...lines, ...(footer ? ["", footer] : [])].join("\n");
+}
+
+/** The record's text, or undefined when the value has nothing the view knows how to show. */
+function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: ViewContext): string | undefined {
   const lines: string[] = [];
-  const title = view.title?.(value);
+  const title = view.title?.(value, context);
   if (title) lines.push(title);
   const fields = view.fields
     .map((field) => [field.label, formatViewValue(field.value(value), field.format, context.now)] as const)
@@ -182,9 +226,10 @@ function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: Vi
     lines.push("", `${section.title(value)}:`,
       ...(items.length === 0 ? ["none"] : items).map((item) => `  ${item}`));
   }
-  const commands = nextCommands(view.next?.(value) ?? [], context.cliName, context.profile, context.defaultProfile);
+  const commands = nextCommands(view.next?.(value, context) ?? [], context.cliName, context.profile, context.defaultProfile);
   if (commands.length > 0) lines.push("", "Next:", ...commands.map((line) => `  ${line}`));
-  return lines.join("\n");
+  // A projection that left every known field out falls back to the generic shape, not to silence.
+  return lines.length > 0 ? lines.join("\n") : undefined;
 }
 
 /**
@@ -204,7 +249,9 @@ export function nextCommands(
     .map((argv) => [cliName, ...argv].join(" "));
 }
 
-/** The view's text, or undefined when a table's rows are not an array. */
+/** The view's text, or undefined when a table's rows or a list's items are not an array. */
 export function renderView(view: HumanView, value: unknown, context: ViewContext): string | undefined {
-  return view.kind === "table" ? renderTable(view, value, context) : renderRecord(view, value, context);
+  if (view.kind === "table") return renderTable(view, value, context);
+  if (view.kind === "list") return renderList(view, value, context);
+  return renderRecord(view, value, context);
 }

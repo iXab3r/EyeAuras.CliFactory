@@ -26,17 +26,21 @@ export { durationParser, integerParser, jsonParser } from "./option-parsers.js";
 export { CliError, HttpError, diagnosticCause } from "./errors.js";
 export type { CliErrorOptions } from "./errors.js";
 export { formatHuman, writeResult } from "./output.js";
-export { recordView, tableView } from "./view.js";
+export { listView, moreResults, offsetFooter, recordView, tableView } from "./view.js";
 export type {
   HumanView,
+  ListViewSpec,
   RecordViewSpec,
   TableViewSpec,
   ViewColumn,
+  ViewContext,
   ViewField,
   ViewFormat,
   ViewSection,
   ViewValue,
 } from "./view.js";
+export { helpLayout } from "./help.js";
+export type { HelpLayout } from "./help.js";
 export { Permission } from "./permissions.js";
 export { ProfileStore } from "./profile-store.js";
 export {

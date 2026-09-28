@@ -9,43 +9,31 @@ import {
   listWorkItems,
   updateWorkItem,
 } from "./issue-time.js";
+import { withView, workItemTable } from "./presentation.js";
 
 export const timeRootCommands = [
-  command("work-items", "Inspect work items across accessible issues", [
-    readCommand(
+  command("work-items", "Inspect work items across issues", [
+    withView(workItemTable, readCommand(
       "list",
-      "List one page of work items, optionally filtered by issue search",
+      "List work items",
       async (connection, { options }, context) => listWorkItems(connection, readOptions(options)),
       [
           ...pageOptions,
-          { flags: "--query <query>", description: "YouTrack issue search query" },
+          { flags: "--query <query>", description: "Issue search query" },
         ],
-    ),
-    projectedRead("get <itemID>", "Read a work item", getWorkItem),
+    )),
+    projectedRead("get <itemID>", "Show a work item", getWorkItem),
   ]),
 ];
 
 export const timeIssueChildren = [
   command("time-tracking", "Inspect issue time tracking", [
-    projectedRead(
-      "get <issueID>",
-      "Read time-tracking status without expanding work items",
-      getTimeTracking,
-    ),
+    projectedRead("get <issueID>", "Show time-tracking status", getTimeTracking),
   ]),
-  command("work-items", "Inspect and record time spent on an issue", [
-    pagedRead("list <issueID>", "List one page of issue work items", listIssueWorkItems),
-    projectedRead("get <issueID> <itemID>", "Read an issue work item", getIssueWorkItem),
-    projectedBodyUpdate(
-      "add <issueID>",
-      "Add work time; duration.minutes or duration.presentation is required",
-      addWorkItem,
-    ),
-    projectedBodyUpdate(
-      "update <issueID> <itemID>",
-      "Update supplied work-item fields; omitted fields stay unchanged",
-      updateWorkItem,
-    ),
+  command("work-items", "Inspect and record time spent", [
+    pagedRead("list <issueID>", "List the issue's work items", listIssueWorkItems, workItemTable),
+    projectedRead("get <issueID> <itemID>", "Show a work item", getIssueWorkItem),
+    projectedBodyUpdate("add <issueID>", "Add a work item", addWorkItem),
+    projectedBodyUpdate("update <issueID> <itemID>", "Update a work item", updateWorkItem),
   ]),
 ];
-

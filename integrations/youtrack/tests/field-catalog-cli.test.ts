@@ -50,8 +50,8 @@ test("catalog CLI rejects unsupported filters, detail pagination and malformed p
       await assert.rejects(f.cli.execute([...row.argv, flag, "--profile", "dev"]), /unknown option/);
     }
     if (row.collection) {
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /decimal integer/);
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "9007199254740992", "--profile", "dev"]), /positive safe decimal integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /positive integer|nonnegative integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--top", "9007199254740992", "--profile", "dev"]), /positive integer/);
     } else {
       await assert.rejects(f.cli.execute([...row.argv, "--top", "2", "--profile", "dev"]), /unknown option/);
     }
@@ -93,7 +93,7 @@ test("catalog RPC isolates profile URLs, tokens, permissions and AppData and sur
   assert.deepEqual(replies.map((reply) => reply.id), [0, 1, 2, 3]);
   assert.deepEqual(replies[0].result, []);
   assert.equal(replies[1].error.code, -32000);
-  assert.equal(replies[1].error.message, "YouTrack request failed (HTTP 403).");
+  assert.equal(replies[1].error.message, "YouTrack answered HTTP 403.");
   assert.match(replies[2].error.message, /Permission 'ReadOnly' is disabled/);
   assert.deepEqual(replies[3].result, { id: "fixture-value", description: "[redacted]", localizedName: null });
   assert.deepEqual(calls, [
@@ -115,5 +115,5 @@ test("catalog ordinary JSON errors stay on stderr with one failed request and no
   server.use(http.all("*", ({ request }) => requests.handle(request)));
   await assertSafeCliFailure(f, f.cli,
     ["field", "get", "fixture-field", "--profile", "dev", "--json"],
-    /YouTrack request failed \(HTTP 403\)/, /synthetic-|private-response/);
+    /YouTrack answered HTTP 403/, /synthetic-|private-response/);
 });

@@ -208,13 +208,13 @@ test("article reads reject invalid pages and dot IDs before HTTP", async () => {
 test("article reads reject malformed shapes and oversized pages while preserving empty arrays", async () => {
   server.use(http.get("*", () => HttpResponse.json([])));
   assert.deepEqual(await listArticles(connection), []);
-  await assert.rejects(getArticle(connection, "fixture-article"), /invalid object/);
+  await assert.rejects(getArticle(connection, "fixture-article"), /Invalid object/);
   server.use(http.get("*", () => HttpResponse.json({})));
-  await assert.rejects(listArticleComments(connection, "fixture-article"), /invalid collection/);
+  await assert.rejects(listArticleComments(connection, "fixture-article"), /Invalid collection/);
   server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-  await assert.rejects(listProjectArticles(connection, "fixture-project", { top: 1 }), /top limit/);
+  await assert.rejects(listProjectArticles(connection, "fixture-project", { top: 1 }), /page size/);
   server.use(http.get("*", () => new HttpResponse("synthetic-invalid-json")));
-  await assert.rejects(getArticleComment(connection, "fixture-article", "fixture-comment"), /invalid JSON response/);
+  await assert.rejects(getArticleComment(connection, "fixture-article", "fixture-comment"), /Invalid JSON response/);
 });
 
 test("article writes preserve empty success but reject malformed response shapes", async () => {
@@ -229,7 +229,7 @@ test("article writes preserve empty success but reject malformed response shapes
     assert.equal(await run(), null);
     for (const value of ["[]", "null", "1", "{"]) {
       server.use(http.post("*", () => new HttpResponse(value)));
-      await assert.rejects(run(), /invalid .*response/);
+      await assert.rejects(run(), /Invalid .*response/);
     }
   }
 });

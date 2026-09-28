@@ -79,10 +79,10 @@ test("command selections are explicit and have no local count ceiling, and rejec
   assert.deepEqual(parseIssueSelection(" DEMO-1,2-7,ПРОЕКТ-3,DEMO.SUB-4 "), ["DEMO-1", "2-7", "ПРОЕКТ-3", "DEMO.SUB-4"]);
   assert.equal(parseIssueSelection(Array.from({ length: 300 }, (_, index) => `DEMO-${index}`).join(",")).length, 300);
   for (const selection of ["", "DEMO-1,", ",DEMO-1", "DEMO-1,,DEMO-2", "project: DEMO", "DEMO-1,DEMO-1", "opaque-reference", "DEMO\u0000-1"]) {
-    assert.throws(() => parseIssueSelection(selection), /YouTrack/);
+    assert.throws(() => parseIssueSelection(selection), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   for (const ids of [[], [""], ["DEMO-1", "DEMO-1"]]) {
-    await assert.rejects(applyCommands(connection, "State Fixed", ids), /YouTrack/);
+    await assert.rejects(applyCommands(connection, "State Fixed", ids), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   for (const run of [
     () => applyCommands(connection, " ", ["DEMO-1"]),
@@ -93,7 +93,7 @@ test("command selections are explicit and have no local count ceiling, and rejec
     () => listSavedQueries(connection, { top: Number.MAX_SAFE_INTEGER + 1 }),
     () => listSavedQueries(connection, { skip: -1 }),
     () => getSavedQuery(connection, ".."),
-  ]) await assert.rejects(run(), /YouTrack/);
+  ]) await assert.rejects(run(), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   assert.equal(calls, 0);
 });
 
@@ -118,12 +118,12 @@ test("ReadOnly POST responses never accept empty bodies or malformed entities as
     for (const response of [new HttpResponse(null, { status: 200 }), new HttpResponse(null, { status: 204 }),
       HttpResponse.json(null), HttpResponse.json([]), HttpResponse.json("invalid"), HttpResponse.json({})]) {
       server.use(http.post("*", () => response));
-      await assert.rejects(row.run(), /invalid/);
+      await assert.rejects(row.run(), /invalid/i);
     }
   }
   for (const count of [-2, 1.5, "1", true, {}, Number.MAX_SAFE_INTEGER + 1]) {
     server.use(http.post("*", () => HttpResponse.json({ count })));
-    await assert.rejects(countIssues(connection, query), /invalid/);
+    await assert.rejects(countIssues(connection, query), /invalid/i);
   }
 });
 
@@ -205,7 +205,7 @@ test("query option errors fail before fresh-profile onboarding and never echo su
     f.secrets.get = async () => { assert.fail("Invalid query reached keyring"); };
     assert.equal(await f.cli.run(argv), 1);
     assert.equal(f.stdout(), "");
-    assert.match(f.stderr(), /required option|YouTrack/);
+    assert.match(f.stderr(), /required option|must|--issues/);
     assert.doesNotMatch(f.stderr(), /synthetic-private|Token:|YouTrack server URL including/);
   }
 });

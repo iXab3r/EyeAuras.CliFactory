@@ -70,9 +70,9 @@ test("field projections preserve polymorphic values and explicitly requested sta
 test("field reads reject remote errors and invalid shapes and redact nested credentials", async () => {
   for (const row of reads) {
     server.use(http.get("*", () => new HttpResponse("synthetic-token private-response", { status: 403 })));
-    await assert.rejects(row.run(), /^Error: YouTrack request failed \(HTTP 403\)\.$/);
+    await assert.rejects(row.run(), /^HttpError: YouTrack answered HTTP 403\.$/);
     server.use(http.get("*", () => HttpResponse.json(row.collection ? {} : [])));
-    await assert.rejects(row.run(), /invalid .*response/);
+    await assert.rejects(row.run(), /Invalid .*response/);
     server.use(http.get("*", () => HttpResponse.json(row.collection ? [] : {})));
     assert.deepEqual(await row.run(), row.collection ? [] : {});
   }
@@ -159,19 +159,19 @@ test("invalid field payloads and IDs fail locally without secret-bearing diagnos
     { $type: "StateMachineIssueCustomField", event: { id: " " } },
   ];
   for (const input of cases) await assert.rejects(setIssueField(local, "DEMO-1", "fixture-field", input), (error: Error) => {
-    assert.match(error.message, /YouTrack/);
+    assert.match(error.message, /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     assert.doesNotMatch(error.message, /synthetic-private/);
     return true;
   });
   for (const id of [".", "..", "bad\nvalue", "\ud800"]) {
-    await assert.rejects(getProject(local, id), /YouTrack/);
-    await assert.rejects(getProjectField(local, "DEMO", id), /YouTrack/);
-    await assert.rejects(getIssueField(local, "DEMO-1", id), /YouTrack/);
-    await assert.rejects(setIssueField(local, "DEMO-1", id, { $type: "SimpleIssueCustomField", value: null }), /YouTrack/);
+    await assert.rejects(getProject(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getProjectField(local, "DEMO", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getIssueField(local, "DEMO-1", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(setIssueField(local, "DEMO-1", id, { $type: "SimpleIssueCustomField", value: null }), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
-  await assert.rejects(listUsers(local, { top: Number.MAX_SAFE_INTEGER + 1 }), /YouTrack/);
-  await assert.rejects(listProjectFields(local, "DEMO", { skip: -1 }), /YouTrack/);
-  await assert.rejects(listIssueFields(local, "DEMO-1", { fields: " " }), /YouTrack/);
+  await assert.rejects(listUsers(local, { top: Number.MAX_SAFE_INTEGER + 1 }), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+  await assert.rejects(listProjectFields(local, "DEMO", { skip: -1 }), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+  await assert.rejects(listIssueFields(local, "DEMO-1", { fields: " " }), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   assert.equal(calls, 0);
 });
 
@@ -180,12 +180,12 @@ test("field updates never retry rejection and preserve common empty/error/redact
   for (const status of [400, 401, 403, 409, 429, 500]) {
     let calls = 0;
     server.use(http.post("*", () => { calls++; return new HttpResponse("synthetic-token private-response", { status }); }));
-    await assert.rejects(run(), new RegExp(`^Error: YouTrack request failed \\(HTTP ${status}\\)\\.$`));
+    await assert.rejects(run(), new RegExp(`^HttpError: YouTrack answered HTTP ${status}\\.$`));
     assert.equal(calls, 1);
   }
   for (const body of ["null", "[]", "malformed-private-response"]) {
     server.use(http.post("*", () => new HttpResponse(body)));
-    await assert.rejects(run(), /invalid .*response/);
+    await assert.rejects(run(), /Invalid .*response/);
   }
   server.use(http.post("*", () => HttpResponse.json({ value: "synthetic-token", nested: { url: "files/a#access_token=synthetic-secret" } })));
   assert.deepEqual(await run(), { value: "[redacted]", nested: { url: "[redacted]" } });

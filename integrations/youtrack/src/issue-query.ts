@@ -28,7 +28,7 @@ const savedQueryFields = "id,name,query,owner(id,login)";
 
 function selectedIssues(ids: readonly string[]): YouTrackObject[] {
   if (ids.length < 1 || new Set(ids).size !== ids.length) {
-    throw new Error("YouTrack issues must contain one or more distinct explicit issue IDs.");
+    throw new Error("--issues must contain one or more distinct issue IDs.");
   }
   return ids.map((id) => {
     requiredText(id, "issue ID");
@@ -38,7 +38,7 @@ function selectedIssues(ids: readonly string[]): YouTrackObject[] {
     if (/^[^\s,]+-\d+$/.test(id)) {
       return { idReadable: id };
     }
-    throw new Error("YouTrack issues require database IDs (2-7) or readable IDs (DEMO-1), not a search query.");
+    throw new Error("--issues takes database IDs (2-7) or readable IDs (DEMO-1), not a search query.");
   });
 }
 
@@ -58,7 +58,7 @@ function queryBody(options: AssistOptions): YouTrackObject {
       options.caret > query.length
     )
   ) {
-    throw new Error("YouTrack caret must be an integer between zero and the query length.");
+    throw new Error("--caret must be an integer between zero and the query length.");
   }
   return {
     query,
@@ -79,7 +79,7 @@ function suggestionsResult(
       )
     )
   ) {
-    throw new Error("YouTrack returned invalid suggestions.");
+    throw new Error("Invalid suggestions from YouTrack.");
   }
   return value;
 }
@@ -156,7 +156,7 @@ export async function countIssues(
       value.count < -1
     )
   ) {
-    throw new Error("YouTrack returned an invalid issue count.");
+    throw new Error("Invalid issue count from YouTrack.");
   }
   return value;
 }

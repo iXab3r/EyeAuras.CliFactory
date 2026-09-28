@@ -11,20 +11,21 @@ import {
   updateComment,
   type ActivityOptions,
 } from "./issue-context.js";
+import { commentShown, commentUpdated, sprintTable } from "./presentation.js";
 
 const activityOptions: readonly OptionDefinition[] = [
   ...projectionOptions,
   {
     flags: "--categories <categories>",
-    description: "Required comma-separated YouTrack activity category IDs",
+    description: "Comma-separated activity category IDs",
     required: true,
     parse: activityCategories,
   },
   {
     flags: "--cursor <cursor>",
-    description: "Opaque beforeCursor or afterCursor from a previous page",
+    description: "beforeCursor or afterCursor from a previous page",
   },
-  { flags: "--reverse", description: "Return newest activities first" },
+  { flags: "--reverse", description: "Newest activities first" },
 ];
 
 function activityReadOptions(options: Record<string, unknown>): ActivityOptions {
@@ -37,10 +38,10 @@ function activityReadOptions(options: Record<string, unknown>): ActivityOptions 
 }
 
 export const contextRootCommands = [
-  command("activities", "Inspect activities across accessible issues", [
+  command("activities", "Inspect activities across issues", [
     readCommand(
       "page",
-      "Read one server-defined cursor page, including cursor metadata",
+      "Read one cursor page of activities",
       async (connection, { options }, context) =>
         getActivitiesPage(connection, activityReadOptions(options)),
       activityOptions,
@@ -52,7 +53,7 @@ export const contextIssueChildren = [
   command("activity", "Inspect the issue activity stream", [
     readCommand(
       "page <issueID>",
-      "Read one server-defined cursor page, including cursor metadata",
+      "Read one cursor page of activities",
       async (connection, { args, options }, context) =>
         getIssueActivitiesPage(
           connection,
@@ -62,25 +63,26 @@ export const contextIssueChildren = [
       activityOptions,
     ),
   ]),
-  command("sprints", "Inspect sprints that contain an issue", [
-    pagedRead("list <issueID>", "List one page of the issue's sprints", listIssueSprints),
+  command("sprints", "Inspect the sprints that contain an issue", [
+    pagedRead("list <issueID>", "List the issue's sprints", listIssueSprints, sprintTable),
   ]),
   command("vcs-changes", "Inspect linked VCS changes and pull requests", [
-    pagedRead("list <issueID>", "List one page of VCS changes and pull requests", listVcsChanges),
+    pagedRead("list <issueID>", "List VCS changes and pull requests", listVcsChanges),
     projectedRead(
       "get <issueID> <changeID>",
-      "Read a linked VCS change or pull request",
+      "Show a VCS change or pull request",
       getVcsChange,
     ),
   ]),
 ];
 
 export const contextCommentChildren = [
-  projectedRead("get <issueID> <commentID>", "Read a specific issue comment", getComment),
+  projectedRead("get <issueID> <commentID>", "Show a comment", getComment, commentShown),
   bodyUpdate(
     "update <issueID> <commentID>",
-    "Replace comment text with a nonempty text field",
+    "Replace a comment's text",
     updateComment,
     "text",
+    commentUpdated("issueID", "commentID"),
   ),
 ];

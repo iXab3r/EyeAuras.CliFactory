@@ -2,6 +2,7 @@ import {
   command,
   createCli,
   downloadCommands,
+  helpLayout,
   integerParser,
   Permission,
   tokenAuth,
@@ -46,15 +47,46 @@ import { groupDirectoryRootCommands, groupDirectoryProjectChildren } from "./gro
 import { articlesRootCommands, articlesProjectChildren } from "./articles-commands.js";
 import { agileRootCommands } from "./agile-commands.js";
 import { bundleValuesChildren } from "./bundle-values-commands.js";
+import {
+  batchApplied,
+  batchValidated,
+  commentAdded,
+  commentTable,
+  createdIssue,
+  issueRecord,
+  issueTable,
+  projectTable,
+  updatedIssue,
+  userRecord,
+  withView,
+} from "./presentation.js";
 
-const manifestOption = fileOption("--file <path>", "Required .json or .csv manifest (UTF-8)", true);
+const manifestOption = fileOption("--file <path>", ".json or .csv manifest", true);
 const manifest = async (options: Record<string, unknown>) =>
   manifestRows(await readTextFile(String(options.file)), String(options.file));
+
+/** Root help: what people run daily first, then the reference data, then Core's configuration. */
+const rootLayout = [
+  ["Everyday", ["issues", "project", "user", "article", "agile", "sprint"]],
+  ["Reference", [
+    "field", "bundle", "tags", "link-types", "work-item-type", "time-tracking", "saved-queries",
+    "search", "commands", "activities", "work-items", "group",
+  ]],
+] as const;
+
+const issueExamples = [
+  'issues list --query "project: DEMO #Unresolved" --top 20',
+  "issues get DEMO-12",
+  `issues create --body '{"project":{"shortName":"DEMO"},"summary":"Login page crashes on Safari"}'`,
+  `issues update DEMO-12 --body '{"summary":"Login page crashes on Safari 18"}'`,
+  `issues comments add DEMO-12 --body '{"text":"Fixed in build 42"}'`,
+];
 
 export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
   return createCli({
     name: "youtrack-cli",
     description: "AI-friendly access to YouTrack",
+    examples: [...issueExamples.slice(0, 3), "article get KB-A-7", "project list"],
     version: "0.4.1",
     applicationId: "youtrack-cli",
     permissions: {},
@@ -76,7 +108,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
     },
     auth: tokenAuth({
       env: "YOUTRACK_TOKEN",
-      tokenSource: "Create/copy a permanent token in your YouTrack profile with the YouTrack service scope.",
+      tokenSource: "Create a permanent token in your YouTrack profile with the YouTrack service scope.",
       validate: ({ profile, token, fetch, signal }) => currentUser({
         baseUrl: youTrackUrl(profile.values.url),
         token,
@@ -85,7 +117,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
       }),
     }),
     builtins: [downloadCommands],
-    commands: [
+    commands: helpLayout(rootLayout, [
       ...contextRootCommands,
       ...timeRootCommands,
       ...relationsRootCommands,
@@ -95,119 +127,103 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
       ...groupDirectoryRootCommands,
       ...articlesRootCommands,
       ...agileRootCommands,
-      command("bundle", "Inspect available custom-field value bundles", [
+      command("bundle", "Inspect custom-field value bundles", [
         ...fieldCatalogBundleChildren,
         ...userDirectoryBundleChildren,
         ...bundleValuesChildren,
       ]),
-      command("user", "Inspect YouTrack users", [
+      command("user", "Inspect users", [
         ...fieldsUserChildren,
         ...userDirectoryUserChildren,
-        projectedRead(
-          "me",
-          "Show the authenticated user (default: ID and login)",
-          readUser,
-        ),
+        projectedRead("me", "Show the signed-in user", readUser, userRecord),
       ]),
-      command("project", "Inspect YouTrack projects", [
+      command("project", "Inspect projects", [
         ...fieldsProjectChildren,
         ...timeSettingsProjectChildren,
         ...groupDirectoryProjectChildren,
         ...articlesProjectChildren,
-        pagedRead("list", "List one page of projects", listProjects),
+        pagedRead("list", "List projects", listProjects, projectTable),
       ]),
-      command("issues", "Read and update YouTrack issues", [
+      command("issues", "Read and update issues", [
         ...contextIssueChildren,
         ...timeIssueChildren,
         ...relationsIssueChildren,
         ...fieldsIssueChildren,
         ...attachmentsIssueChildren,
         ...queryIssueChildren,
-        bodyUpdate(
-          "create",
-          "Create an issue with project id/shortName, summary, optional description and typed customFields",
-          createIssue,
-          "description",
-        ),
+        bodyUpdate("create", "Create an issue", createIssue, "description", createdIssue),
         bodyUpdate(
           "update <issueID>",
-          "Update summary, description and/or typed customFields in one request; null or [] clears",
+          "Update the summary, description or custom fields",
           updateIssue,
           "description",
+          updatedIssue,
         ),
-        readCommand(
+        withView(issueTable, readCommand(
           "list",
-          "Search issues using YouTrack query syntax; --all reads every page within --max-results",
-          (client, { options }) => {
+          "Search issues",
+          (client, { options }, context) => {
             if ((options.all === true) !== (options.maxResults !== undefined)) {
-              throw new Error("YouTrack --all and --max-results must be used together.");
+              throw new Error("--all and --max-results go together.");
             }
-            return listIssues(client, readOptions(options));
+            return listIssues(client, { ...readOptions(options), progress: context.progress });
           },
           [
             ...pageOptions,
             { flags: "--query <query>", description: "YouTrack search query" },
-            { flags: "--all", description: "Read every page (--top is the page size); requires --max-results" },
+            { flags: "--all", description: "Read every page (needs --max-results)" },
             {
-              flags: "--max-results <count>", description: "Fail instead of returning more issues than this",
+              flags: "--max-results <count>", description: "Fail above this many issues",
               parse: integerParser({
                 min: 1, max: Number.MAX_SAFE_INTEGER, signed: false,
-                errorMessage: "YouTrack max-results must be a positive safe decimal integer.",
+                errorMessage: "--max-results must be a positive integer.",
               }),
             },
             {
-              flags: "--max-bytes <n>", description: "Fail when this command's decoded responses exceed n bytes",
+              flags: "--max-bytes <n>", description: "Fail above this many response bytes",
               parse: downloadLimit,
             },
           ],
-        ),
-        projectedRead("get <issueID>", "Show an issue by database or readable ID", getIssue),
-        command("batch", "Validate or apply JSON/CSV manifests of issue creates and updates", [
-          command(
+        )),
+        projectedRead("get <issueID>", "Show an issue", getIssue, issueRecord),
+        command("batch", "Create and update issues from a manifest", [
+          withView(batchValidated, command(
             "validate",
-            "Validate a manifest locally; sends no requests and never uses the token (needs a configured profile)",
+            "Check a manifest without sending requests",
             async ({ options }) => {
               const rows = await manifest(options);
               const updates = rows.filter((row) => row.issue !== undefined).length;
               return { rows: rows.length, create: rows.length - updates, update: updates };
             },
             { permission: Permission.ReadOnly, options: [manifestOption] },
-          ),
-          updateCommand(
+          )),
+          withView(batchApplied, updateCommand(
             "apply",
-            "Apply manifest rows in order; no retries, rollback or search expansion",
+            "Apply manifest rows in order",
             async (connection, { options }, context) => applyIssueBatch(connection, await manifest(options), {
               appDataDirectory: context.appArguments.AppDataDirectory,
               continueOnError: options.continueOnError === true,
+              progress: context.progress,
               ...(typeof options.failedRows === "string" ? { failedRows: options.failedRows } : {}),
             }),
             [
               manifestOption,
-              { flags: "--continue-on-error", description: "Continue after a failed or uncertain row (default: stop)" },
+              { flags: "--continue-on-error", description: "Keep going after a failed row" },
               {
                 flags: "--failed-rows <name>",
-                description: "Save failed and unattempted rows as a .json manifest under downloads",
+                description: "Save failed and unattempted rows as a .json manifest",
                 parse: downloadName,
               },
             ],
-          ),
+          )),
         ]),
-        command("comments", "Read and add issue comments", [
+        command("comments", "Read and add comments", [
           ...contextCommentChildren,
-          bodyUpdate(
-            "add <issueID>",
-            "Add a comment with a nonempty text field",
-            addComment,
-            "text",
-          ),
-          pagedRead(
-            "list <issueID>",
-            "List one page of comments for an issue",
-            listComments,
-          ),
+          bodyUpdate("add <issueID>", "Add a comment", addComment, "text", commentAdded("issueID")),
+          pagedRead("list <issueID>", "List comments", listComments, commentTable),
         ]),
-      ]),
-    ],
+      ], { examples: issueExamples }),
+    ]),
     ...(runtime === undefined ? {} : { runtime }),
   });
 }

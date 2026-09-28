@@ -14,43 +14,41 @@ import {
   removeIssueLink,
   removeIssueTag,
 } from "./issue-relations.js";
+import {
+  done,
+  issueLinked,
+  issueTagList,
+  linkGroupList,
+  linkGroupRecord,
+  linkTypeRecord,
+  linkTypeTable,
+  linkedIssueList,
+  tagAdded,
+  tagRecord,
+  tagTable,
+  withView,
+} from "./presentation.js";
 
 export const relationsRootCommands = [
-  command("link-types", "Inspect YouTrack issue link types", [
-    pagedRead("list", "List one page of issue link types", listLinkTypes),
-    projectedRead("get <typeID>", "Read an issue link type", getLinkType),
+  command("link-types", "Inspect issue link types", [
+    pagedRead("list", "List link types", listLinkTypes, linkTypeTable),
+    projectedRead("get <typeID>", "Show a link type", getLinkType, linkTypeRecord),
   ]),
-  command("tags", "Inspect existing YouTrack tags", [
-    pagedRead("list", "List one page of visible tags", listTags),
-    projectedRead("get <tagID>", "Read a tag by database ID", getTag),
+  command("tags", "Inspect tags", [
+    pagedRead("list", "List visible tags", listTags, tagTable),
+    projectedRead("get <tagID>", "Show a tag", getTag, tagRecord),
   ]),
 ];
 
 export const relationsIssueChildren = [
-  command("links", "Inspect and change issue links; s is outward, t inward, no marker undirected", [
-    pagedRead(
-      "list <issueID>",
-      "List one page of link groups without embedded issues",
-      listIssueLinks,
-    ),
-    projectedRead(
-      "get <issueID> <linkID>",
-      "Read a link group using its full directional link ID",
-      getIssueLink,
-    ),
-    pagedRead(
-      "issues <issueID> <linkID>",
-      "List one page of issues linked through this directional link ID",
-      listLinkedIssues,
-    ),
-    bodyUpdate(
-      "add <issueID> <linkID>",
-      "Link an existing target issue with body id (database ID)",
-      addIssueLink,
-    ),
-    updateCommand(
+  command("links", "Inspect and change issue links", [
+    pagedRead("list <issueID>", "List the issue's link groups", listIssueLinks, linkGroupList),
+    projectedRead("get <issueID> <linkID>", "Show a link group", getIssueLink, linkGroupRecord),
+    pagedRead("issues <issueID> <linkID>", "List the issues in a link group", listLinkedIssues, linkedIssueList),
+    bodyUpdate("add <issueID> <linkID>", "Link an issue by database id", addIssueLink, undefined, issueLinked),
+    withView(done((context) => `Unlinked ${context.input?.args.targetIssueID} from ${context.input?.args.issueID}.`), updateCommand(
       "remove <issueID> <linkID> <targetIssueID>",
-      "Unlink the target issue; neither issue is deleted",
+      "Unlink an issue",
       async (connection, { args }, context) =>
         removeIssueLink(
           connection,
@@ -58,16 +56,16 @@ export const relationsIssueChildren = [
           args.linkID,
           args.targetIssueID,
         ),
-    ),
+    )),
   ]),
-  command("tags", "Inspect and change tags assigned to an issue", [
-    pagedRead("list <issueID>", "List one page of tags assigned to an issue", listIssueTags),
-    bodyUpdate("add <issueID>", "Assign an existing tag with body id (database ID)", addIssueTag),
-    updateCommand(
+  command("tags", "Inspect and change the issue's tags", [
+    pagedRead("list <issueID>", "List the issue's tags", listIssueTags, issueTagList),
+    bodyUpdate("add <issueID>", "Add a tag by database id", addIssueTag, undefined, tagAdded),
+    withView(done((context) => `Removed tag ${context.input?.args.tagID} from ${context.input?.args.issueID}.`), updateCommand(
       "remove <issueID> <tagID>",
-      "Remove a tag assignment; the tag is not deleted",
+      "Remove a tag from the issue",
       async (connection, { args }, context) =>
         removeIssueTag(connection, args.issueID, args.tagID),
-    ),
+    )),
   ]),
 ];

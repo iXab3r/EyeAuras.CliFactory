@@ -9,59 +9,52 @@ import {
   listProjectTeamUsers,
   listSubgroups,
 } from "./group-directory.js";
+import { groupRecord, groupTable, userTable, withView } from "./presentation.js";
 
 const memberOptions = [
   ...pageOptions,
-  { flags: "--direct", description: "Only directly added users; exclude inherited membership" },
+  { flags: "--direct", description: "Directly added users only" },
 ];
 
 export const groupDirectoryRootCommands = [
-  command("group", "Inspect user groups and membership", [
-    pagedRead("list", "List one page of visible groups without expanding members", listGroups),
-    projectedRead("get <group>", "Read a group by database ID without expanding members", getGroup),
-    command("member", "Inspect direct or inherited group members", [
-      readCommand(
+  command("group", "Inspect user groups", [
+    pagedRead("list", "List groups", listGroups, groupTable),
+    projectedRead("get <group>", "Show a group", getGroup, groupRecord),
+    command("member", "Inspect group members", [
+      withView(userTable, readCommand(
         "list <group>",
-        "List one page of members, including inherited users unless --direct is set",
+        "List members, including inherited ones",
         async (connection, { args, options }, context) =>
           listGroupMembers(connection, args.group, {
             ...readOptions(options),
             direct: options.direct === true,
           }),
         memberOptions,
-      ),
+      )),
     ]),
-    command("subgroup", "Inspect nested groups without recursive traversal", [
-      pagedRead("list <group>", "List one page of immediate subgroups", listSubgroups),
+    command("subgroup", "Inspect nested groups", [
+      pagedRead("list <group>", "List the immediate subgroups", listSubgroups, groupTable),
     ]),
   ]),
 ];
 
 export const groupDirectoryProjectChildren = [
-  command("team", "Inspect project teams (YouTrack 2026.1+)", [
-    projectedRead(
-      "get <project>",
-      "Read team identity and member count without expanding membership",
-      getProjectTeam,
-    ),
-    command("group", "Inspect groups added to the project team", [
-      pagedRead(
-        "list <project>",
-        "List one page of team groups without expanding their users",
-        listProjectTeamGroups,
-      ),
+  command("team", "Inspect the project team (YouTrack 2026.1+)", [
+    projectedRead("get <project>", "Show the team", getProjectTeam, groupRecord),
+    command("group", "Inspect the team's groups", [
+      pagedRead("list <project>", "List the team's groups", listProjectTeamGroups, groupTable),
     ]),
-    command("user", "Inspect direct or inherited project-team users", [
-      readCommand(
+    command("user", "Inspect the team's users", [
+      withView(userTable, readCommand(
         "list <project>",
-        "List one page of team users, including group members unless --direct is set",
+        "List team users, including group members",
         async (connection, { args, options }, context) =>
           listProjectTeamUsers(connection, args.project, {
             ...readOptions(options),
             direct: options.direct === true,
           }),
         memberOptions,
-      ),
+      )),
     ]),
   ]),
 ];

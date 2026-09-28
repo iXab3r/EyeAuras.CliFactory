@@ -37,15 +37,15 @@ function sprintBody(input: unknown, creating: boolean): YouTrackObject {
     ...(creating ? ["previousSprint"] : []),
   ]);
   if (creating && !Object.hasOwn(body, "name")) {
-    throw new Error("YouTrack sprint creation requires name.");
+    throw new Error("A new sprint requires name.");
   }
   if (Object.keys(body).length === 0) {
-    throw new Error("YouTrack sprint update requires at least one writable field.");
+    throw new Error("A sprint update requires at least one writable field.");
   }
   const result: YouTrackObject = {};
   if (Object.hasOwn(body, "name")) {
     if (typeof body.name !== "string") {
-      throw new Error("YouTrack sprint name must be nonempty single-line text.");
+      throw new Error("The sprint name must be nonempty single-line text.");
     }
     result.name = requiredText(body.name, "sprint name");
   }
@@ -56,7 +56,7 @@ function sprintBody(input: unknown, creating: boolean): YouTrackObject {
     if (Object.hasOwn(body, key)) {
       const value = body[key];
       if (value !== null && (typeof value !== "number" || !Number.isSafeInteger(value))) {
-        throw new Error(`YouTrack sprint ${key} must be a safe integer UTC timestamp in milliseconds or null.`);
+        throw new Error(`The sprint ${key} must be a UTC timestamp in milliseconds or null.`);
       }
       result[key] = value;
     }
@@ -64,7 +64,7 @@ function sprintBody(input: unknown, creating: boolean): YouTrackObject {
   for (const key of ["archived", "isDefault"] as const) {
     if (Object.hasOwn(body, key)) {
       if (typeof body[key] !== "boolean") {
-        throw new Error(`YouTrack sprint ${key} must be boolean.`);
+        throw new Error(`The sprint ${key} must be boolean.`);
       }
       result[key] = body[key];
     }
@@ -72,7 +72,7 @@ function sprintBody(input: unknown, creating: boolean): YouTrackObject {
   if (Object.hasOwn(body, "previousSprint")) {
     const previous = mutationBody(body.previousSprint, ["id"]);
     if (typeof previous.id !== "string") {
-      throw new Error("YouTrack previousSprint.id must be nonempty text.");
+      throw new Error("previousSprint.id must be nonempty text.");
     }
     result.previousSprint = { id: requiredText(previous.id, "previousSprint.id") };
   }

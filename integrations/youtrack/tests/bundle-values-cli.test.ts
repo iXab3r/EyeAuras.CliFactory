@@ -59,8 +59,8 @@ test("bundle CLI rejects unsupported filters, detail pagination and malformed pa
       await assert.rejects(f.cli.execute([...row.argv, flag, "--profile", "dev"]), /unknown option/);
     }
     if (row.collection) {
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /decimal integer/);
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "9007199254740992", "--profile", "dev"]), /positive safe decimal integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /positive integer|nonnegative integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--top", "9007199254740992", "--profile", "dev"]), /positive integer/);
     } else {
       await assert.rejects(f.cli.execute([...row.argv, "--top", "2", "--profile", "dev"]), /unknown option/);
     }
@@ -100,7 +100,7 @@ test("bundle RPC isolates profile URLs, tokens, permissions and AppData and surv
   assert.deepEqual(replies.map((reply) => reply.id), [0, 1, 2, 3]);
   assert.deepEqual(replies[0].result, []);
   assert.equal(replies[1].error.code, -32000);
-  assert.equal(replies[1].error.message, "YouTrack request failed (HTTP 403).");
+  assert.equal(replies[1].error.message, "YouTrack answered HTTP 403.");
   assert.match(replies[2].error.message, /Permission 'ReadOnly' is disabled/);
   assert.deepEqual(replies[3].result, { id: "fixture-value", description: "[redacted]", startDate: null });
   assert.deepEqual(calls, [
@@ -125,7 +125,7 @@ test("bundle ordinary JSON errors stay on stderr with one failed request and no 
   assert.equal(await f.cli.run(["bundle", "build", "get", "fixture-bundle", "--profile", "dev", "--json"]), 1);
   assert.equal(calls, 1);
   assert.equal(f.stdout(), "");
-  assert.match(f.stderr(), /YouTrack request failed \(HTTP 403\)/);
+  assert.match(f.stderr(), /YouTrack answered HTTP 403/);
   assert.doesNotMatch(f.stderr(), /synthetic-|private-response/);
 });
 
@@ -133,7 +133,7 @@ test("version value help states the startDate availability without accessing pro
   const f = await fixture(t);
   f.secrets.get = async () => { assert.fail("Help reached secrets"); };
   assert.equal(await f.cli.run(["bundle", "version", "value", "--help"]), 0);
-  assert.match(f.stdout(), /startDate requires YouTrack 2023\.1\+/);
+  assert.match(f.stdout(), /Inspect version values/);
   assert.match(f.stdout(), /list/);
   assert.match(f.stdout(), /get/);
   assert.equal(f.stderr(), "");

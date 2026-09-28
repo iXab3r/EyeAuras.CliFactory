@@ -76,7 +76,7 @@ test("all mutation families return null only for empty success, and redact objec
     assert.equal(await run(), null);
     for (const body of ["null", "[]", "synthetic-private-malformed"]) {
       server.use(http.post("*", () => new HttpResponse(body)));
-      await assert.rejects(run(), /invalid .*response/);
+      await assert.rejects(run(), /Invalid .*response/);
     }
     server.use(http.post("*", () => HttpResponse.json({
       text: "synthetic-token", attachment: { url: "api/files/1?sign=synthetic-signature" },
@@ -93,12 +93,12 @@ test("strict mutation bodies reject unsupported root/nested fields and missing v
     { project: { id: "fixture" }, summary: " " },
     { project: { id: "fixture" }, summary: "Summary", description: 1 },
     { project: { id: "fixture" }, summary: "Summary", customFields: [] },
-  ]) await assert.rejects(createIssue(local, body), /YouTrack/);
+  ]) await assert.rejects(createIssue(local, body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   for (const body of [null, [], {}, { summary: " " }, { summary: null }, { description: 1 },
     { summary: undefined }, { description: undefined }, { customFields: [] },
-  ]) await assert.rejects(updateIssue(local, "DEMO-1", body), /YouTrack/);
+  ]) await assert.rejects(updateIssue(local, "DEMO-1", body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   for (const body of [null, [], {}, { text: " " }, { text: null }, { text: "Comment", visibility: {} }])
-    await assert.rejects(addComment(local, "DEMO-1", body), /YouTrack/);
+    await assert.rejects(addComment(local, "DEMO-1", body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
 });
 
 test("remote rejection never retries any mutation or exposes body diagnostics", async () => {
@@ -114,7 +114,7 @@ test("remote rejection never retries any mutation or exposes body diagnostics", 
         calls++;
         return new HttpResponse("synthetic-token synthetic-private-validation", { status });
       }));
-      await assert.rejects(run(), new RegExp(`^Error: YouTrack request failed \\(HTTP ${status}\\)\\.$`));
+      await assert.rejects(run(), new RegExp(`^HttpError: YouTrack answered HTTP ${status}\\.$`));
       assert.equal(calls, 1);
     }
   }

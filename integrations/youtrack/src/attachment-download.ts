@@ -10,6 +10,8 @@ import {
 export interface DownloadOptions {
   name?: string;
   maxBytes?: number;
+  /** One human-only line when the transfer starts. */
+  progress?: (message: string) => void;
 }
 
 export interface AttachmentDownloadResult {
@@ -26,7 +28,7 @@ export function downloadName(value: string): string {
   if (!value || value === "." || value === ".." ||
       /[<>:"/\\|?*\u0000-\u001f\u007f-\u009f\p{Cf}]/u.test(value) || /[. ]$/.test(value) ||
       /^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[1-9¹²³]|lpt[1-9¹²³])(?:[ .]|$)/i.test(value)) {
-    throw new Error("YouTrack download name must be one safe basename, without reserved paths or characters.");
+    throw new Error("The file name must be one safe basename without reserved characters.");
   }
   return value;
 }
@@ -34,15 +36,14 @@ export function downloadName(value: string): string {
 export function downloadLimit(value: number | string): number {
   const number = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
   if (typeof number !== "number" || !Number.isSafeInteger(number) || number < 1) {
-    throw new Error("YouTrack max-bytes must be a positive safe integer.");
+    throw new Error("--max-bytes must be a positive integer.");
   }
   return number;
 }
 
 function attachmentUrl(connection: Connection, value: string): { url: URL; secrets: string[] } {
   const invalid = new DownloadError(
-    "YouTrack attachment URL must use the profile origin and documented attachment path; " +
-    "external/CDN downloads are unsupported.",
+    "The attachment URL must point at the profile's YouTrack origin; external downloads are not followed.",
   );
   try {
     if (/[\\\u0000-\u0020\u007f]/.test(value) || value.includes("#")) {
@@ -137,7 +138,7 @@ async function downloadAttachment(
   try {
     const metadata = await getAttachmentDownloadMetadata(connection, attachmentPath);
     if (metadata.id !== attachmentID) {
-      throw new DownloadError("YouTrack returned a different attachment identity for the download.");
+      throw new DownloadError("The download metadata names a different attachment.");
     }
     const { url, secrets } = attachmentUrl(connection, metadata.url);
     diagnosticSecrets.push(...secrets);
@@ -146,9 +147,10 @@ async function downloadAttachment(
       downloadName(`${id}-${filenamePart(redact(metadata.name, secrets), "attachment")}`);
     if (redact(name, secrets) !== name || redact(appDataDirectory, secrets) !== appDataDirectory) {
       throw new DownloadError(
-        "YouTrack download destination must not contain reflected credentials or signatures.",
+        "The download destination must not contain reflected credentials or signatures.",
       );
     }
+    options.progress?.(`Downloading ${name}…`);
     let type = "application/octet-stream";
     const saved = await publishProfileFile({
       appDataDirectory,
@@ -163,15 +165,15 @@ async function downloadAttachment(
       }),
       inspectResponse(response) {
         if (!response.ok || response.status === 206) {
-          throw new DownloadError(`YouTrack attachment download failed (HTTP ${response.status}).`);
+          throw new DownloadError(`The attachment download failed with HTTP ${response.status}.`);
         }
         const length = response.headers.get("content-length");
         const declared = length === null ? undefined : Number(length);
         if (length !== null && (!/^\d+$/.test(length) || !Number.isSafeInteger(declared))) {
-          throw new DownloadError("YouTrack attachment has an invalid Content-Length.");
+          throw new DownloadError("The attachment has an invalid Content-Length.");
         }
         if (maxBytes !== undefined && declared !== undefined && declared > maxBytes) {
-          throw new DownloadError("YouTrack attachment exceeds the configured byte limit.");
+          throw new DownloadError("The attachment exceeds --max-bytes.");
         }
         type = contentType(response.headers.get("content-type") ?? metadata.mimeType, secrets);
       },
@@ -180,7 +182,7 @@ async function downloadAttachment(
   } catch (error) {
     if (error instanceof ProfileFileError && error.cause !== undefined) error.cause = diagnosticCause(error.cause, diagnosticSecrets);
     throw error instanceof ProfileFileError ? error : new DownloadError(
-      "YouTrack attachment download failed; check cancellation, connectivity and profile filesystem access.",
+      "The attachment download failed; check connectivity and the profile's downloads directory.",
       false, false, { cause: diagnosticCause(error, diagnosticSecrets) },
     );
   }
