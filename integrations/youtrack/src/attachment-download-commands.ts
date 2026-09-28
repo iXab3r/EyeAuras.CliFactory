@@ -11,7 +11,7 @@ import { savedAttachment, withView } from "./presentation.js";
 const downloadOptions = [
   {
     flags: "--name <basename>",
-    description: "File name; an existing file is never overwritten",
+    description: "File name (existing files are kept)",
     parse: downloadName,
   },
   {

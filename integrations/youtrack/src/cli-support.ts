@@ -10,6 +10,7 @@ import {
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
 import { requiredText, youTrackUrl, type Connection, type IssueSearchOptions } from "./client.js";
+import { withView } from "./presentation.js";
 
 export const bodyOptions: readonly OptionDefinition[] = [
   {
@@ -44,7 +45,7 @@ export async function readTextFile(path: string): Promise<string> {
 function bodyInputOptions(textField?: string): readonly OptionDefinition[] {
   return textField === undefined ? bodyOptions : [
     ...bodyOptions,
-    fileOption(`--${textField}-file <path>`, `UTF-8 file with the ${textField}; pair it with --body '{}'`),
+    fileOption(`--${textField}-file <path>`, `UTF-8 file with the ${textField}`),
   ];
 }
 
@@ -154,7 +155,7 @@ function operationCommand<const Syntax extends string>(
     ]),
     options,
   );
-  return view === undefined ? definition : { ...definition, view };
+  return view === undefined ? definition : withView(view, definition);
 }
 
 export function pagedRead<const Syntax extends string>(

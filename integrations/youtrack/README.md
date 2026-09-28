@@ -72,13 +72,13 @@ commands write only their explicitly requested local file beneath profile AppDat
 Human mode is for people; `--json` is the machine view. Every everyday command has a view built
 from Core's formats: lists such as `issues list`, `project list`, `article list` and `issues
 comments list` are tables (`ISSUE  SUMMARY  PROJECT  STATE  UPDATED`), `issues get` and
-`article get` are records with a description section and a `Next:` command, tags and link groups
-are one line each, and a mutation names the object it changed (`Created DEMO-99 · New issue`,
-`Removed tag 6-1 from DEMO-7.`). A table ends with `More results: --skip <n>` only when the page
-came back full. Long work prints one progress line per page (`issues list --all`), per failed
-batch row and per download start on stderr, never under `--json`. A projection that leaves a
-view's fields out falls back to the generic `key: value` shape. Root help groups the commands into
-Everyday, Reference and Configuration, with examples.
+`article get` are records with a description or content section and a `Next:` command, tags and
+link groups are one line each, and a mutation names the object it changed (`Created DEMO-99 · New
+issue`, `Removed tag 6-1 from DEMO-7.`). A table ends with `More results: --skip <n>` only when
+the page came back full. Long work prints one progress line per page (`issues list --all`), per
+failed batch row and at the start of a download on stderr, never under `--json`. An explicit
+`--fields` projection prints the generic `key: value` shape, so you see exactly the fields you
+asked for. Root help groups the commands into Everyday, Reference and Configuration, with examples.
 
 JSON responses have no CLI byte ceiling. Invalid/truncated identity transfer lengths, stream failure
 or cancellation fail with `The response stream failed or was cancelled.` without response content.

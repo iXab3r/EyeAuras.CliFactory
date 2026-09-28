@@ -211,7 +211,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
               { flags: "--continue-on-error", description: "Keep going after a failed row" },
               {
                 flags: "--failed-rows <name>",
-                description: "Save failed and unattempted rows as a .json manifest",
+                description: "Save failed rows as a .json manifest",
                 parse: downloadName,
               },
             ],

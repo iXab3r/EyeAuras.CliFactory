@@ -210,8 +210,9 @@ runs automatically.
 
 #### Human output formats
 
-Every human-mode result is one of four Core-rendered shapes; integrations choose the shape and
-the words, never the layout. `--json` and JSON-RPC return the unchanged domain value.
+Every human-mode result is one of the Core-rendered shapes below (three today; the tree arrives
+with its first consumer); integrations choose the shape and the words, never the layout. `--json`
+and JSON-RPC return the unchanged domain value.
 
 - **Table** (`tableView`): short upper-case headers, one row per item, `shrink` only on descriptive
   text, identifiers never cut. An empty table prints its `empty` sentence.
@@ -225,12 +226,16 @@ the words, never the layout. `--json` and JSON-RPC return the unchanged domain v
 
 Every view receives the command's parsed `input` (arguments and options) in its context, so a
 title can say `Removed tag 7 from DEMO-12` for a `null` result and a footer can name the option
-that continues a page. A table or list prints one footer line only when there is more to read
-(`More results: --skip 50`, from `offsetFooter` for offset pages) and nothing when the selection
-is complete. Dates print as `age` in tables and as ISO instants in records; sizes use binary
-units; service metadata such as `$type`, epoch numbers and nested JSON never appear in a view.
-Without a view, a list of strings prints one per line and other values keep the generic shape.
-`helpLayout` orders a branch's children under named help groups, the rest under `More`.
+that continues a page. A view may decline an invocation through `when(context)`: an explicit
+field projection such as YouTrack's `--fields` then prints the generic shape, so a person sees
+exactly what they asked for. A table or list prints one footer line only when there is more to
+read (`More results: --skip 50`, from `offsetFooter` for offset pages) and nothing when the
+selection is complete. Timestamps print as `age` in tables and as ISO instants in records;
+calendar dates such as a sprint's start print as `YYYY-MM-DD`; sizes use binary units; service
+metadata such as `$type`, epoch numbers and nested JSON never appear in a view. Without a view,
+or when a record's accessors find nothing to show, a list of strings prints one per line and
+other values keep the generic shape. `helpLayout` orders a branch's children under named help
+groups, the rest under `More`.
 
 `context.progress(message)` writes one plain line to stderr, only when a person runs the command
 without `--json`. JSON, JSON-RPC and `execute` callers never receive progress. There is no cursor

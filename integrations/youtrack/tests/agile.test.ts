@@ -138,13 +138,11 @@ test("sprint bodies reject malformed or unsupported fields before fetch and neve
   assert.deepEqual(bodies, [{ name: "Fixture" }, { goal: null }]);
 });
 
-test("sprint help explains explicit carryover and automatic default membership", async (t) => {
+test("sprint create help is one short line; carryover and default membership are README rules", async (t) => {
   const f = await fixture(t);
   assert.equal(await f.cli.run(["sprint", "create", "--help"]), 0);
-  assert.match(f.stdout(), /Create a sprint/);
-  assert.match(f.stdout(), /Create a sprint/);
-  assert.match(f.stdout(), /Create a sprint/);
-  assert.match(f.stdout(), /Create a sprint/);
+  assert.match(f.stdout(), /\nCreate a sprint\n/);
+  assert.doesNotMatch(f.stdout(), /previousSprint|isDefault/);
   assert.match(f.stdout(), /--fields/);
 });
 

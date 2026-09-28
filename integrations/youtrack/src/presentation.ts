@@ -11,8 +11,9 @@ import type { YouTrackObject } from "./client.js";
 
 type Item = YouTrackObject;
 
+/** Attach a view; an explicit `--fields` projection shows the generic shape instead. */
 export function withView(view: HumanView, definition: CommandDefinition): CommandDefinition {
-  return { ...definition, view };
+  return { ...definition, view: { ...view, when: (context) => context.input?.options.fields === undefined } };
 }
 
 // Every accessor tolerates a projection that left the field out: it simply shows nothing.
@@ -34,7 +35,7 @@ const lines = (value: unknown): string[] | undefined => {
 };
 const key = (item: Item | null | undefined): string | undefined =>
   text(item?.idReadable) ?? text(item?.id);
-const arg = (context: ViewContext, name: string): string => text(context.input?.args[name]) ?? "";
+export const arg = (context: ViewContext, name: string): string => text(context.input?.args[name]) ?? "";
 const option = (context: ViewContext, name: string): string | undefined => text(context.input?.options[name]);
 const joined = (...parts: (string | undefined)[]): string | undefined => {
   const present = parts.filter((part) => part !== undefined && part !== "");
@@ -444,7 +445,9 @@ export const issueFieldTable = tableView<Item>({
   footer: pageFooter,
 });
 export const issueFieldRecord = recordView<Item | null>({
-  title: (field, context) => joined(text(field?.name) ?? arg(context, "fieldID"), fieldValue(field?.value) ?? "empty"),
+  title: (field, context) => (field
+    ? joined(text(field.name) ?? arg(context, "fieldID"), fieldValue(field.value) ?? "empty")
+    : `Set ${arg(context, "fieldID")} on ${arg(context, "issueID")}.`),
   fields: [{ label: "ID", value: (field) => text(field?.id) }],
 });
 

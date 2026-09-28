@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -50,10 +52,41 @@ test("an issue record names the object, wraps the description and suggests the n
   const shown = await human(t, ["issues", "get", "DEMO-7"]);
   assert.match(shown.stdout, /^DEMO-7 · Issue 7\nProject:  DEMO · Demo project\nState:    open\nCreated:  \d{4}-/);
   assert.match(shown.stdout, /\nDescription:\n {2}First line\.\n {2}Second line\.\n\nNext:\n {2}youtrack-cli issues comments list DEMO-7\n$/);
-  // A projection that leaves the view's fields out still shows the data, generically.
-  server.use(http.get(`${base}/issues/DEMO-8`, () => HttpResponse.json({ attachments: [{ id: "8-1", name: "trace.log" }] })));
-  const projected = await human(t, ["issues", "get", "DEMO-8", "--fields", "attachments"]);
-  assert.match(projected.stdout, /attachments: \[\{"id":"8-1","name":"trace\.log"\}\]/);
+  // An explicit projection shows exactly the requested fields, generically, even when the view could render some.
+  server.use(http.get(`${base}/issues/DEMO-8`, () =>
+    HttpResponse.json({ summary: "Issue 8", customFields: [{ name: "State", value: { name: "Open" } }] })));
+  const projected = await human(t, ["issues", "get", "DEMO-8", "--fields", "summary,customFields(name,value(name))"]);
+  assert.equal(projected.stdout, 'summary: Issue 8\ncustomFields: [{"name":"State","value":{"name":"Open"}}]\n');
+});
+
+test("a batch apply prints its summary and one line per row, and reports failures as progress", async (t) => {
+  let posts = 0;
+  server.use(
+    http.get(`${base}/admin/projects/DEMO`, () => HttpResponse.json({ id: "0-1", shortName: "DEMO" })),
+    http.post(`${base}/issues`, () => (++posts === 1
+      ? HttpResponse.json({ id: "2-1", idReadable: "DEMO-1", summary: "First", updated: now })
+      : new HttpResponse("synthetic-private-body", { status: 400 }))),
+  );
+  const f = await configuredFixture(t, { permissions: ["ReadOnly", "Update"] });
+  const manifest = join(f.root, "rows.json");
+  await writeFile(manifest, JSON.stringify([
+    { action: "create", project: { shortName: "DEMO" }, summary: "First" },
+    { action: "create", project: { shortName: "DEMO" }, summary: "Second" },
+    { action: "create", project: { shortName: "DEMO" }, summary: "Third" },
+  ]));
+  assert.equal(await f.cli.run(["issues", "batch", "apply", "--file", manifest, "--profile", "dev"]), 0);
+  assert.equal(
+    f.stdout(),
+    "Batch incomplete: 1 of 3 rows completed.\n" +
+      "Failed:       1\n" +
+      "Unattempted:  1\n" +
+      "\nRows:\n" +
+      "  1  completed  DEMO-1\n" +
+      "  2  failed  YouTrack answered HTTP 400.\n" +
+      "  3  unattempted\n",
+  );
+  assert.equal(f.stderr(), "Row 2: failed (YouTrack answered HTTP 400.)\n");
+  assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic-private-body/);
 });
 
 test("mutations name what they changed, and a 204 answer still reads as one line", async (t) => {
@@ -92,7 +125,7 @@ test("lists, counts and reference tables read as names, not JSON", async (t) => 
   assert.equal((await human(t, ["user", "me"])).stdout, "me\nID:  1-1\n");
 });
 
-test("reading every page reports progress to a person only, and the batch summary reads as lines", async (t) => {
+test("reading every page reports progress to a person only", async (t) => {
   server.use(http.get(`${base}/issues`, ({ request }) => {
     const skip = Number(new URL(request.url).searchParams.get("$skip"));
     return HttpResponse.json(skip >= 4 ? [issue(5)] : [issue(skip + 1), issue(skip + 2)]);

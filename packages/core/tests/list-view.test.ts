@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { command, createCli, helpLayout, listView, moreResults, offsetFooter, recordView, tableView } from "../src/index.js";
+import { command, createCli, helpLayout, listView, offsetFooter, recordView, tableView } from "../src/index.js";
 import { formatHuman } from "../src/output.js";
-import { renderView } from "../src/view.js";
+import { moreResults, renderView } from "../src/view.js";
 import { createCliFixture } from "../src/testing.js";
 
 const context = { now: 0, cliName: "demo-cli", profile: "default", defaultProfile: "default" };
@@ -45,6 +45,15 @@ test("views read the command's arguments and options through the context", async
   assert.equal((await fixture.run(app, ["page"])).stdout, "NAME\na\nb\n\nMore results: --skip 2\n");
   assert.equal((await fixture.run(app, ["page", "--top", "5"])).stdout, "NAME\na\nb\n");
   assert.equal((await fixture.run(app, ["remove", "7", "--json"])).stdout, "null\n");
+});
+
+test("a view can decline an invocation and yield to the generic shape", () => {
+  const view = tableView<{ name: string }>({
+    columns: [{ header: "NAME", value: (item) => item.name }],
+    when: (ctx) => ctx.input?.options.fields === undefined,
+  });
+  assert.equal(renderView(view, [{ name: "alpha" }], context), "NAME\nalpha");
+  assert.equal(renderView(view, [{ name: "alpha" }], { ...context, input: { args: {}, options: { fields: "id" } } }), undefined);
 });
 
 test("the generic renderer prints a list of names one per line", () => {

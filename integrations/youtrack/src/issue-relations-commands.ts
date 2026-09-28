@@ -15,6 +15,7 @@ import {
   removeIssueTag,
 } from "./issue-relations.js";
 import {
+  arg,
   done,
   issueLinked,
   issueTagList,
@@ -46,7 +47,7 @@ export const relationsIssueChildren = [
     projectedRead("get <issueID> <linkID>", "Show a link group", getIssueLink, linkGroupRecord),
     pagedRead("issues <issueID> <linkID>", "List the issues in a link group", listLinkedIssues, linkedIssueList),
     bodyUpdate("add <issueID> <linkID>", "Link an issue by database id", addIssueLink, undefined, issueLinked),
-    withView(done((context) => `Unlinked ${context.input?.args.targetIssueID} from ${context.input?.args.issueID}.`), updateCommand(
+    withView(done((context) => `Unlinked ${arg(context, "targetIssueID")} from ${arg(context, "issueID")}.`), updateCommand(
       "remove <issueID> <linkID> <targetIssueID>",
       "Unlink an issue",
       async (connection, { args }, context) =>
@@ -61,7 +62,7 @@ export const relationsIssueChildren = [
   command("tags", "Inspect and change the issue's tags", [
     pagedRead("list <issueID>", "List the issue's tags", listIssueTags, issueTagList),
     bodyUpdate("add <issueID>", "Add a tag by database id", addIssueTag, undefined, tagAdded),
-    withView(done((context) => `Removed tag ${context.input?.args.tagID} from ${context.input?.args.issueID}.`), updateCommand(
+    withView(done((context) => `Removed tag ${arg(context, "tagID")} from ${arg(context, "issueID")}.`), updateCommand(
       "remove <issueID> <tagID>",
       "Remove a tag from the issue",
       async (connection, { args }, context) =>

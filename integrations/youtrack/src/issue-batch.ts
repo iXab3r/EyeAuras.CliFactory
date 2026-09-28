@@ -117,7 +117,7 @@ export async function applyIssueBatch(
       options.progress?.(`Row ${row.row}: ${rejected ? "failed" : "uncertain"} (${message})`);
       stop = !options.continueOnError;
     }
-    if ((index + 1) % 10 === 0 && index + 1 < rows.length) options.progress?.(`Applied ${index + 1} of ${rows.length} rows.`);
+    if ((index + 1) % 10 === 0 && index + 1 < rows.length) options.progress?.(`Processed ${index + 1} of ${rows.length} rows.`);
   }
   const count = (status: string) => results.filter((result) => result.status === status).length;
   const resubmit = rows.filter((_row, index) => ["failed", "unattempted"].includes(String(results[index]?.status)));

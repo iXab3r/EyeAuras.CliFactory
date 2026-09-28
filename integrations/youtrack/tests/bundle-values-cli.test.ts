@@ -129,11 +129,11 @@ test("bundle ordinary JSON errors stay on stderr with one failed request and no 
   assert.doesNotMatch(f.stderr(), /synthetic-|private-response/);
 });
 
-test("version value help states the startDate availability without accessing profile credentials", async (t) => {
+test("version value help lists its commands without accessing profile credentials", async (t) => {
   const f = await fixture(t);
   f.secrets.get = async () => { assert.fail("Help reached secrets"); };
   assert.equal(await f.cli.run(["bundle", "version", "value", "--help"]), 0);
-  assert.match(f.stdout(), /Inspect version values/);
+  assert.match(f.stdout(), /\nInspect version values\n/);
   assert.match(f.stdout(), /list/);
   assert.match(f.stdout(), /get/);
   assert.equal(f.stderr(), "");

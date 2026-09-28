@@ -26,7 +26,7 @@ export { durationParser, integerParser, jsonParser } from "./option-parsers.js";
 export { CliError, HttpError, diagnosticCause } from "./errors.js";
 export type { CliErrorOptions } from "./errors.js";
 export { formatHuman, writeResult } from "./output.js";
-export { listView, moreResults, offsetFooter, recordView, tableView } from "./view.js";
+export { listView, offsetFooter, recordView, tableView } from "./view.js";
 export type {
   HumanView,
   ListViewSpec,
@@ -36,6 +36,7 @@ export type {
   ViewContext,
   ViewField,
   ViewFormat,
+  ViewGuard,
   ViewSection,
   ViewValue,
 } from "./view.js";

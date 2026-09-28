@@ -23,7 +23,13 @@ export interface ViewField<Value> {
   format?: ViewFormat;
 }
 
-export interface TableViewSpec<Row, Value> {
+/** A view may decline an invocation, for example one whose options asked for other fields. */
+export interface ViewGuard {
+  /** False yields to the generic shape for this invocation. */
+  when?: (context: ViewContext) => boolean;
+}
+
+export interface TableViewSpec<Row, Value> extends ViewGuard {
   /** Selects the rows; an array result is used directly when omitted. */
   rows?: (value: Value) => readonly Row[];
   columns: readonly ViewColumn<Row>[];
@@ -34,7 +40,7 @@ export interface TableViewSpec<Row, Value> {
 }
 
 /** One line per item, never cut: names, identifiers and short phrases. */
-export interface ListViewSpec<Item, Value> {
+export interface ListViewSpec<Item, Value> extends ViewGuard {
   /** Selects the items; an array result is used directly when omitted. */
   items?: (value: Value) => readonly Item[];
   line: (item: Item) => string;
@@ -49,7 +55,7 @@ export interface ViewSection<Value> {
   lines: (value: Value) => readonly string[] | undefined;
 }
 
-export interface RecordViewSpec<Value> {
+export interface RecordViewSpec<Value> extends ViewGuard {
   /** The first line; it may name the object and what happened to it, using the command's input. */
   title?: (value: Value, context: ViewContext) => string | undefined;
   fields: readonly ViewField<Value>[];
@@ -249,8 +255,12 @@ export function nextCommands(
     .map((argv) => [cliName, ...argv].join(" "));
 }
 
-/** The view's text, or undefined when a table's rows or a list's items are not an array. */
+/**
+ * The view's text, or undefined when the view declines the invocation or a table's rows or a
+ * list's items are not an array; the caller then prints the generic shape.
+ */
 export function renderView(view: HumanView, value: unknown, context: ViewContext): string | undefined {
+  if (view.when?.(context) === false) return undefined;
   if (view.kind === "table") return renderTable(view, value, context);
   if (view.kind === "list") return renderList(view, value, context);
   return renderRecord(view, value, context);

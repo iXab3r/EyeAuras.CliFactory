@@ -29,7 +29,7 @@ export const fieldsIssueChildren: readonly CommandDefinition[] = [
     projectedRead("get <issueID> <fieldID>", "Show a custom field", getIssueField, issueFieldRecord),
     bodyUpdate(
       "set <issueID> <fieldID>",
-      "Set a field value or fire a state event",
+      "Set a field value or state event",
       setIssueField,
       undefined,
       issueFieldRecord,
