@@ -426,9 +426,11 @@ Use `recordView` for one object and its
 `next` suggestions, which Core prints with the CLI name and selected profile, and `listView` for
 names and identifiers one per line. A view's title, footer and `next` callbacks receive the
 context with the command's `input`, so a `null` result can still say `Removed tag 7 from DEMO-12`
-and a full page can end with `offsetFooter("--skip", rows.length, top, skip)`. Service date formats
-stay in the integration: convert them to `Date` in the accessor. Group a branch's children for
-help with `helpLayout`. See [DESIGN.md](DESIGN.md#human-output-formats) for the formats.
+and a full page can end with `offsetFooter("--skip", rows.length, top, skip)`. A view's `when`
+guard declines an invocation, for example one with an explicit field projection, and Core then
+prints the generic shape. Service date formats stay in the integration: convert them to `Date`
+in the accessor. Group a branch's children for help with `helpLayout`. See
+[DESIGN.md](DESIGN.md#human-output-formats) for the formats.
 
 ### Report failed outcomes without losing data
 

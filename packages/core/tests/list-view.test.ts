@@ -54,6 +54,10 @@ test("a view can decline an invocation and yield to the generic shape", () => {
   });
   assert.equal(renderView(view, [{ name: "alpha" }], context), "NAME\nalpha");
   assert.equal(renderView(view, [{ name: "alpha" }], { ...context, input: { args: {}, options: { fields: "id" } } }), undefined);
+  // A record whose accessors find nothing also yields, so a shape mismatch never reads as silence.
+  const record = recordView<unknown>({ fields: [{ label: "Name", value: () => undefined }] });
+  assert.equal(renderView(record, { other: 1 }, context), undefined);
+  assert.equal(renderView(recordView<unknown>({ title: () => "Shown", fields: [] }), {}, context), "Shown");
 });
 
 test("the generic renderer prints a list of names one per line", () => {
