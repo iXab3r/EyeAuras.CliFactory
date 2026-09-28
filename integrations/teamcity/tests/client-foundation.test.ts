@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { TeamCityClient, TeamCityHttpError } from "../src/client.js";
+import { HttpError } from "@eyeauras/cli-factory";
+import { TeamCityClient } from "../src/client.js";
 
 const server = setupServer();
 const baseUrl = "https://teamcity.test";
@@ -240,7 +241,7 @@ test("reports HTTP and malformed-JSON failures without exposing credentials", as
   await assert.rejects(
     client().currentUser(),
     (error: unknown) =>
-      error instanceof TeamCityHttpError &&
+      error instanceof HttpError &&
       error.status === 401 &&
       !error.message.includes(token),
   );
@@ -253,7 +254,7 @@ test("reports HTTP and malformed-JSON failures without exposing credentials", as
   await assert.rejects(
     client().getProject("Missing"),
     (error: unknown) =>
-      error instanceof TeamCityHttpError &&
+      error instanceof HttpError &&
       error.status === 404 &&
       error.message === "TeamCity request failed with HTTP 404.",
   );
@@ -265,7 +266,7 @@ test("reports HTTP and malformed-JSON failures without exposing credentials", as
   );
   await assert.rejects(
     client().getJob("Forbidden"),
-    (error: unknown) => error instanceof TeamCityHttpError && error.status === 403,
+    (error: unknown) => error instanceof HttpError && error.status === 403,
   );
 
   server.use(

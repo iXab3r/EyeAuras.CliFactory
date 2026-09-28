@@ -3,12 +3,12 @@ import {
   CliError,
   command,
   durationParser,
+  HttpError,
   Permission,
   type CommandContext,
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
 import {
-  TeamCityHttpError,
   TeamCityUnknownOutcomeError,
   type TeamCityClient,
 } from "./client.js";
@@ -168,7 +168,7 @@ async function observe(
       );
     }
     if (last === undefined) throw error;
-    if (error instanceof TeamCityHttpError && error.status === 404) {
+    if (error instanceof HttpError && error.status === 404) {
       throw new CliError(`Build ${id} is no longer available on the server.`, {
         code: "build.missing", result: shape(last, "missing"), cause: error,
       });
@@ -218,7 +218,7 @@ async function section<T, R>(
   } catch (error) {
     // A stop is reported as such, never with a section's partial page as the result.
     if (context.signal.aborted) throw new Error("The diagnosis was stopped.", { cause: error });
-    const status = error instanceof TeamCityHttpError ? error.status : undefined;
+    const status = error instanceof HttpError ? error.status : undefined;
     return {
       status: "unavailable",
       reason: status === 401 || status === 403 ? "denied" : status === 404 ? "not-found" : "failed",

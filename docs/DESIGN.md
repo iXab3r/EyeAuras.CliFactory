@@ -48,22 +48,46 @@ actual reason, such as a loop or limit, rather than being collapsed into a gener
 when translating a failure; `CliError` must support it. Keep the original error type, message,
 native code, stack and nested causes. Each wrapper adds meaningful operation context rather than
 another generic "request failed". Explain what failed, what is known about local/remote state,
-and a supported next step when one is known. Distinguish connection, DNS, TLS, timeout, redirect,
+and a supported next step when one is known, given as `next` argv rather than prose so Core prints
+it with the CLI name. Distinguish connection, DNS, TLS, timeout, redirect,
 HTTP authentication/authorization and decoding failures where the evidence permits. Do not invent
 a diagnosis or recovery command. Reserve "unknown outcome" for side effects that may actually
 have happened; an authentication GET is not an uncertain write.
 
+`HttpError(status, message, { cause?, next? })` is the shared typed failure for an error status.
+It maps `401 http.unauthorized` (with `next: auth login`), `403 http.forbidden`, `404 http.notFound`,
+`409 http.conflict`, `429 http.rateLimited`, `5xx http.serverError` and other statuses to
+`http.rejected`, and exposes `status`. The integration supplies the sentence; the body is never
+read into it. Transport failures from `fetchWithRedirects` carry `request.dns`, `request.tls`,
+`request.timeout`, `request.connection` or `request.failed` with one classified sentence.
+
 **One diagnostic model serves people and agents.** Core owns wrapping support, redaction and
 rendering/serialization. Integrations supply service context and stable codes, not their own
-error printers. Human output starts with the English explanation and actionable context, followed
-by the cause chain and available stack traces for unexpected/runtime failures, without requiring
-a rerun with a debug flag. Expected usage, permission and domain outcomes may remain concise.
-JSON and JSON-RPC carry the same evidence as structured `name`, `code`, `message`, `stack` and
-recursive `cause` fields (`errors` for aggregate failures) alongside the existing outcome/profile/next fields. Keep native cause
-codes distinct from the wrapper's stable CLI code. `execute` preserves the error chain too.
-Serialize errors explicitly; plain `JSON.stringify(Error)` does not carry this contract. Handle
-non-Error throws (type-only diagnostics), aggregate errors and cyclic causes without losing independent failures or
-breaking the output protocol. CLI diagnostics remain on stderr; RPC uses its error envelope.
+error printers. A failure is short by default and complete on request:
+
+- Human mode prints the English explanation, then at most one `Cause:` line — the nearest cause
+  whose text adds information, with the deepest native detail in parentheses — then `Next:`
+  commands. An untyped failure (`code: error`) ends with `Re-run with --verbose for the full
+  diagnostic.` No stack frame and no `Caused by:` chain appear without `--verbose`. Usage and
+  interrupted failures never print a cause line.
+- `--verbose` is a global option, accepted like `--json` on the CLI, in `execute` argv and in
+  JSON-RPC argv. On stderr it adds the failure's frames and the recursive `Caused by:` /
+  `Related error:` chain with frames; in the machine form it adds the `name` and `stack` fields.
+  Everything stays redacted. It never changes results, exit codes or stdout.
+- JSON and JSON-RPC always carry `code`, `message`, `exitCode`, `profile`, `next`, `result` and
+  the recursive `cause` chain (`name`, native `code`, `message`, `cause`, `errors` for aggregates);
+  the top-level `name` and every `stack` field are present only with `--verbose`.
+- `execute` rejects with the complete `CliError` object; nothing is rendered.
+
+A plain `Error` thrown by a handler becomes an untyped `CliError` that keeps the original type
+name, message, frames and cause; it is never nested under itself, so no headline prints twice.
+An aggregate is nested as the cause so its related failures survive. A wrapper that
+states its reason in the sentence (`Token validation failed: <reason>`) renders as one line, because
+a cause whose text the message already contains is not repeated. Keep native cause codes distinct
+from the wrapper's stable CLI code. Serialize errors explicitly; plain `JSON.stringify(Error)` does
+not carry this contract. Handle non-Error throws (type-only diagnostics), aggregate errors and cyclic
+causes without losing independent failures or breaking the output protocol. CLI diagnostics remain
+on stderr; RPC uses its error envelope.
 
 **Redact sensitive content, not the entire cause.** Credentials, cookies, authorization values
 and secret-bearing URL components must never appear in messages, stacks or nested diagnostics.
@@ -179,9 +203,10 @@ filter values such as branch names may shrink; they stay complete in the object'
 in JSON. Views use no colour: text such as `FAILURE` carries the meaning.
 
 A record may suggest `next` commands of the same CLI as argv arrays. Core prefixes the CLI name
-and appends `--profile <selected>`, so copying a suggestion never switches profile. An action
-whose tokens are not all plain safe characters (letters, digits and `._:/@+=-`) is omitted
-rather than quoted. Suggestions only print; nothing runs automatically.
+and appends `--profile <selected>` when the selected profile is not the default, so copying a
+suggestion never switches profile. An action whose tokens are not all plain safe characters
+(letters, digits and `._:/@+=-`) is omitted rather than quoted. Suggestions only print; nothing
+runs automatically.
 
 `context.progress(message)` writes one plain line to stderr, only when a person runs the command
 without `--json`. JSON, JSON-RPC and `execute` callers never receive progress. There is no cursor
@@ -201,8 +226,9 @@ Core's `CliError` with the `result` it would otherwise have returned. The error 
 Core records the selected `profile`. Each caller receives the same failure in its own form:
 - **Ordinary CLI:** the result goes to stdout exactly as success would render it (view or
   `--json`), the message goes to stderr, and the process exits with `exitCode`. In human mode,
-  `next` is printed on stderr, with the CLI name and profile, only when there is no result; a
-  result's view shows its own suggestions.
+  `next` is printed on stderr with the CLI name, only when there is no result; a result's view
+  shows its own suggestions. A printed suggestion names `--profile <selected>` only when the
+  selected profile is not the default.
 - **JSON-RPC:** the response is the error `{ code: -32000, message, data: { code, exitCode,
   profile, next?, result?, name?, stack?, cause? } }`. Each `next` argv already ends with
   `--profile <selected>` and can be sent back to `cli.execute`.
@@ -340,8 +366,8 @@ consumer needs them.
 Every leaf command supports `--json`. JSON values use stable service/domain field names and do not
 contain ANSI decoration.
 
-Every failure has one machine form: `{ code, message, exitCode, profile?, next?, name?, stack?, cause? }`.
-The additional diagnostics follow the cross-tool policy above.
+Every failure has one machine form: `{ code, message, exitCode, profile?, next?, cause?, errors? }`,
+plus `name` and `stack` fields with `--verbose`. The diagnostics follow the cross-tool policy above.
 - `message` is the same safe text a person sees.
 - `profile` is present once one was selected, whether or not the error was typed.
 - Each `next` argv ends with `--profile <selected>`.
@@ -355,15 +381,23 @@ The form reaches each caller as follows:
 - **`execute`:** rejects with a `CliError` that has these fields, `result` included, once the
   command runs. A failure before that, such as invalid argv or a closing application, is the
   original error.
-- **Human mode:** the explanation is printed first, followed by `Next:` lines when no result was
-  shown and by cause/stack diagnostics according to the cross-tool policy.
+- **Human mode:** the explanation is printed first, then one `Cause:` line when it adds
+  information, `Next:` lines when no result was shown, and the `--verbose` hint for an untyped
+  failure; frames only with `--verbose`.
 
 Core owns these codes:
 - `usage` — parser errors, including option values that a parser rejects;
 - `usage.jsonRpc` — misuse of the `--json-rpc` transport, exit 2;
 - `permission.denied` — the next step is `permissions grant <category>`;
-- `profile.notFound`;
+- `profile.notFound` — the next step is `profile create <name>` where creation is possible;
 - `profile.notConfigured`;
+- `profile.protected` — the only or the default profile cannot be deleted;
+- `profile.saveFailed` — configuration or credential storage failed after validation;
+- `auth.missing` — no stored credential; the next step is `auth login`;
+- `auth.missingToken`, `auth.validationFailed`, `auth.storeFailed` — the token flow;
+- `secrets.unavailable` — the OS credential store could not be used;
+- `download.failed` — a saved-file operation, with `published`/`cleanupFailed` on the error;
+- `http.*` and `request.*` — `HttpError` statuses and transport failures;
 - `interrupted` — an untyped failure after an interrupt, exit 130;
 - `error` — any other error that has no type.
 
@@ -646,8 +680,10 @@ whitespace, rejects empty values, copied Bearer/Authorization headers, enclosing
 control characters, and preserves internal symbols. Explicit empty input fails without falling back
 to another source. The same helper protects directly callable TeamCity/YouTrack HTTP clients.
 This is a bearer-input contract, not a transformation of arbitrary secrets or existing keyring data.
-`tokenAuth.tokenSource` supplies the integration's token-settings location; help and the pre-input
-prompt explain the raw-value format with a fictional example. Errors never echo the candidate.
+`tokenAuth.tokenSource` supplies the integration's token-settings location; the `--token-stdin`
+help names it, and the interactive prompt adds one sentence about pasting the bare value. A
+missing token fails with `auth.missingToken` and the `profile configure <name> --token-stdin`
+follow-up. Errors never echo the candidate.
 
 Stored credentials are not configure/login candidates. Prompting requires ordinary rendered
 execution without `--json`, with stdin, stdout and stderr all attached to a TTY. JSON-RPC and

@@ -16,6 +16,7 @@ they compose with the domains they touch and never replace those domains' invari
 | Repository tooling/docs owner | Tooling, CI and documentation: [root router](../../AGENTS.md), the relevant design/practice and [testing](../testing.md) when applicable |
 | GH issue dev | Issue intake through verified delivery: [role](gh-issue-dev.md), [lifecycle](../practices/github-issues.md) |
 | Reviewer | Independent read-only audit of a completed diff: [role](reviewer.md) |
+| CLI writer | Text a person reads at the terminal, when authored or reviewed: [role](cli-writer.md) |
 | Reconciliation Lead | Migration, expansion or audit of a declared inventory: [role](reconciliation-lead.md), [workstreams](../practices/workstreams.md) |
 
 Select checks for the actual risk under the [verification policy](../practices/github-issues.md#verification-and-setup-limits)

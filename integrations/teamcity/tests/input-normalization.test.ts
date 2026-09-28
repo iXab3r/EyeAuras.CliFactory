@@ -25,7 +25,7 @@ for (const endpoint of ["http://example.test", "https://example.test", "http://e
     }
     for (const value of [" ", "not-a-url", "https://", "https://example.test?fictional-private", base + "/app/rest/users/current", base + "/viewLog.html", "https://fictional:private@example.test"]) {
       assert.throws(() => teamCityUrl(value), (error: Error) => {
-        assert.match(error.message, /base (?:server )?URL|base server URL/);
+        assert.match(error.message, /TeamCity URL must be http\(s\):\/\/host/);
         assert.doesNotMatch(error.message, /fictional-private|fictional:private/);
         return true;
       });
@@ -67,7 +67,7 @@ for (const endpoint of ["http://example.test", "https://example.test", "http://e
         Object.assign(h.runtime.error, { isTTY: true });
         // Root onboarding takes the URL from a TTY and the token from the invocation environment.
         assert.equal(await app.run([], { environment }), 0, h.stderr());
-        assert.match(h.stderr(), /including any context path/);
+        assert.match(h.stderr(), /TeamCity server URL, such as/);
       } else await invoke(["profile", "configure", "--url", padded]);
       assert.equal((await h.profileStore.get()).values.url, canonical);
       await invoke(["auth", "login"]);

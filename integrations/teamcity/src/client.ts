@@ -11,6 +11,7 @@ import {
 } from "./credential-inputs.js";
 import {
   CliError,
+  HttpError,
   diagnosticCause,
   fetchWithRedirects,
   normalizeBearerToken,
@@ -308,24 +309,7 @@ export class TeamCityUnknownOutcomeError extends CliError {
   }
 }
 
-function httpCode(status: number): string {
-  if (status === 401) return "http.unauthorized";
-  if (status === 403) return "http.forbidden";
-  if (status === 404) return "http.notFound";
-  if (status === 409) return "http.conflict";
-  return status >= 500 ? "http.serverError" : "http.rejected";
-}
 
-/** TeamCity answered with an error status; the body is never read or echoed. */
-export class TeamCityHttpError extends CliError {
-  public readonly status: number;
-
-  public constructor(status: number, message: string) {
-    super(message, { code: httpCode(status) });
-    this.name = "TeamCityHttpError";
-    this.status = status;
-  }
-}
 
 export class TeamCityClient {
   readonly #baseUrl: string;
@@ -607,7 +591,7 @@ export class TeamCityClient {
         },
       );
     } catch (error) {
-      if (!(error instanceof TeamCityHttpError) || error.status < 500) throw error;
+      if (!(error instanceof HttpError) || error.status < 500) throw error;
       throw new TeamCityUnknownOutcomeError(
         `TeamCity failed with HTTP ${error.status}; the build may still have been queued.`,
         error,
@@ -749,7 +733,7 @@ export class TeamCityClient {
         throw new Error("Protected or unknown parameter types cannot be changed.");
       }
     } catch (error) {
-      if (!(method === "POST" && error instanceof TeamCityHttpError && error.status === 404))
+      if (!(method === "POST" && error instanceof HttpError && error.status === 404))
         throw error;
     }
     return safeProperty(
@@ -3951,7 +3935,7 @@ export class TeamCityClient {
       options,
       format,
       () => this.#response("GET", path, query, undefined, accept),
-      (status) => new TeamCityHttpError(status, `TeamCity request failed with HTTP ${status}.`),
+      (status) => new HttpError(status, `TeamCity request failed with HTTP ${status}.`),
       this.#signal,
     );
   }
@@ -4043,7 +4027,7 @@ export class TeamCityClient {
     if (!response.ok) {
       // Server diagnostics can echo submitted properties or credentials unrelated to our token.
       void response.body?.cancel().catch(() => undefined);
-      throw new TeamCityHttpError(
+      throw new HttpError(
         response.status,
         `TeamCity request failed with HTTP ${response.status}.`,
       );

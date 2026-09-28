@@ -25,15 +25,16 @@ export function parseServerUrl(value: unknown, message: string): Readonly<{ href
   };
 }
 
-export const tokenInputHelp = "Copy only the token value from your service account's token settings (fictional example: FICTIONAL_TOKEN_VALUE), without Bearer, Authorization: or surrounding quotes. Outer whitespace is trimmed.";
+/** The one sentence about token input, shown before the interactive prompt. */
+export const tokenInputHelp = "Paste only the token value, without Bearer or quotes.";
 
 /** Bearer input only: never apply URL rules or remove characters inside a token. */
 export function normalizeBearerToken(value: string): string {
   const token = value.trim();
-  if (!token) throw new Error("Token must not be empty or whitespace-only. " + tokenInputHelp);
+  if (!token) throw new Error("Token must not be empty or whitespace-only.");
   if (/^(?:Bearer(?:\s|$)|Authorization\s*:)/i.test(token) ||
       /^["'\u201c\u2018]|["'\u201d\u2019]$/.test(token) || /[\u0000-\u001f\u007f]/.test(token)) {
-    throw new Error("Invalid token format. " + tokenInputHelp);
+    throw new Error("Invalid token format: paste only the token value, without Bearer, Authorization: or quotes.");
   }
   return token;
 }

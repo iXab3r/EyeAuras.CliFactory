@@ -1,6 +1,6 @@
 import { once } from "node:events";
 import { requestLines } from "./lines.js";
-import { validateArgv } from "./argv.js";
+import { globalFlagRequested, validateArgv } from "./argv.js";
 import { CliError, machineError } from "./errors.js";
 import type { Readable, Writable } from "node:stream";
 
@@ -79,8 +79,8 @@ function errorResponse(
 }
 
 /** Every command failure carries its machine form; a failed outcome also keeps its result. */
-function errorData(error: unknown): { message: string; data: Record<string, unknown> } {
-  const { message, ...data } = machineError(error);
+function errorData(error: unknown, argv: readonly string[]): { message: string; data: Record<string, unknown> } {
+  const { message, ...data } = machineError(error, { verbose: globalFlagRequested(argv, "--verbose") });
   return {
     message,
     data: error instanceof CliError && error.result !== undefined ? { ...data, result: error.result } : data,
@@ -161,7 +161,7 @@ export async function runJsonRpc(options: {
       result = await options.execute(params.argv);
     } catch (error) {
       if (expectsResponse) {
-        const { message, data } = errorData(error);
+        const { message, data } = errorData(error, params.argv);
         await errorResponse(options.output, request.id, -32000, message, options.signal, data);
       }
       continue;

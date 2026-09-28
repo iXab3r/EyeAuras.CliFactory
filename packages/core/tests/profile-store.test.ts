@@ -19,7 +19,7 @@ test("profiles have explicit create, update, default, and delete semantics", asy
     profiles: [{ name: "default", values: { url: "https://default.test" } }],
   });
   await assert.rejects(store.create("default"), /already exists/);
-  await assert.rejects(store.set("missing", {}), /profile create missing/);
+  await assert.rejects(store.set("missing", {}), /does not exist/);
 
   assert.deepEqual(
     await store.create("production", { url: "https://production.test" }),
@@ -38,7 +38,7 @@ test("profiles have explicit create, update, default, and delete semantics", asy
     values: { url: "https://default.test" },
   });
 
-  await assert.rejects(store.delete("default"), /Cannot delete default profile/);
+  await assert.rejects(store.delete("default"), /Cannot delete the default profile/);
   await store.setDefault("production");
   assert.deepEqual(await store.get(), {
     name: "production",

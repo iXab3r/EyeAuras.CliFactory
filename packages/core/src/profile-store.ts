@@ -130,10 +130,9 @@ export class ProfileStore implements ProfileStoreContract {
     return this.#mutate(async () => {
       const document = await this.#load();
       if (!Object.hasOwn(document.profiles, name)) {
-        throw new CliError(
-          `Profile '${name}' does not exist. Create it with 'profile create ${name}'.`,
-          { code: "profile.notFound" },
-        );
+        throw new CliError(`Profile '${name}' does not exist.`, {
+          code: "profile.notFound", next: [["profile", "create", name]],
+        });
       }
       const nextValues = {
         ...this.#defaults,
@@ -153,10 +152,9 @@ export class ProfileStore implements ProfileStoreContract {
       const document = await this.#load();
       const values = document.profiles[name];
       if (!Object.hasOwn(document.profiles, name) || !values) {
-        throw new CliError(
-          `Profile '${name}' does not exist. Create it with 'profile create ${name}'.`,
-          { code: "profile.notFound" },
-        );
+        throw new CliError(`Profile '${name}' does not exist.`, {
+          code: "profile.notFound", next: [["profile", "create", name]],
+        });
       }
 
       document.active = name;
@@ -175,13 +173,12 @@ export class ProfileStore implements ProfileStoreContract {
         throw new CliError(`Profile '${name}' does not exist.`, { code: "profile.notFound" });
       }
       if (Object.keys(document.profiles).length === 1) {
-        throw new Error(
-          "Cannot delete the only profile. At least one default profile must exist.",
-        );
+        throw new CliError("Cannot delete the only profile.", { code: "profile.protected" });
       }
       if (document.active === name) {
-        throw new Error(
-          `Cannot delete default profile '${name}'. Set another default with 'profile set-default <name>' first.`,
+        throw new CliError(
+          `Cannot delete the default profile '${name}'; make another profile the default first.`,
+          { code: "profile.protected", next: [["profile", "list"]] },
         );
       }
 

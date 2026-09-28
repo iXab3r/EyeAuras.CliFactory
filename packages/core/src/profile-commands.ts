@@ -54,7 +54,7 @@ function deferSecrets(store: ScopedSecrets) {
     async require(name) {
       const value = await secrets.get(name);
       if (!value)
-        throw new Error("No credential is available. Run 'auth login' first.");
+        throw new CliError("No credential is available.", { code: "auth.missing", next: [["auth", "login"]] });
       return value;
     },
     set: async (name, value) => {
@@ -240,13 +240,10 @@ export function createProfileCommands(
     try {
       await deferred.commit(saveProfile);
     } catch (cause) {
-      const flags = (definition.auth.loginOptions ?? [])
-        .map(configureSyntax)
-        .join(" ");
-      throw new Error(
-        "Could not save profile configuration or authentication. Check the OS credential store. Authentication may be incomplete. " +
-          `Run '${definition.name} profile configure ${profileName}${flags ? ` ${flags}` : ""}' again.`,
-        { cause },
+      const flags = (definition.auth.loginOptions ?? []).map(configureSyntax);
+      throw new CliError(
+        "Could not save the profile or its credential; authentication may be incomplete.",
+        { code: "profile.saveFailed", cause, next: [["profile", "configure", profileName, ...flags]] },
       );
     }
     return {
@@ -330,14 +327,13 @@ export function createProfileCommands(
         const name = String(args.name);
         const list = await profileStore.list();
         if (!list.profiles.some((profile) => profile.name === name))
-          throw new Error(`Profile '${name}' does not exist.`);
+          throw new CliError(`Profile '${name}' does not exist.`, { code: "profile.notFound" });
         if (list.profiles.length === 1)
-          throw new Error(
-            "Cannot delete the only profile. At least one default profile must exist.",
-          );
+          throw new CliError("Cannot delete the only profile.", { code: "profile.protected" });
         if (list.active === name)
-          throw new Error(
-            `Cannot delete default profile '${name}'. Set another default with 'profile set-default <name>' first.`,
+          throw new CliError(
+            `Cannot delete the default profile '${name}'; make another profile the default first.`,
+            { code: "profile.protected", next: [["profile", "list"]] },
           );
         const profile = await profileStore.get(name);
         const context = authContext(profile);

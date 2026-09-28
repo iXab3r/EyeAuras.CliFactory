@@ -73,9 +73,10 @@ async function fixture(t: test.TestContext) {
       }),
       command("save", "Fail a download after an interrupt", async (_input, context) => {
         await abortedRequest(context.signal).catch(() => undefined);
+        // Its cause stays out of the one-line interrupted report.
         throw new ProfileFileError(
           "Download was not published, and private staging cleanup failed; inspect the profile temp directory.",
-          false, true,
+          false, true, { cause: new Error("Cancelled after validation.") },
         );
       }),
     ],
@@ -112,9 +113,12 @@ test("a failed outcome keeps its data on stdout and reports the reason and exit 
 
   const plain = await f.run(app, ["plain"]);
   assert.deepEqual([plain.exitCode, plain.stdout], [1, ""]);
-  assert.ok(plain.stderr.startsWith("Ordinary failure.\n"));
-  assert.match(plain.stderr, /Caused by: Error: Ordinary failure/);
-  assert.match(plain.stderr, /failure.test/);
+  // An untyped failure is one line plus the hint; --verbose shows its own frames, never itself as a cause.
+  assert.equal(plain.stderr, "Ordinary failure.\nRe-run with --verbose for the full diagnostic.\n");
+  const plainVerbose = await f.run(app, ["plain", "--verbose"]);
+  assert.ok(plainVerbose.stderr.startsWith("Ordinary failure.\n    at "));
+  assert.match(plainVerbose.stderr, /failure.test/);
+  assert.doesNotMatch(plainVerbose.stderr, /Caused by|Re-run with --verbose/);
   const plainJson = await f.run(app, ["plain", "--json"]);
   assert.equal(plainJson.stdout, "");
   // An untyped failure still names the profile that ran it.
@@ -162,12 +166,15 @@ test("Core's own failures have stable codes in every transport", async (t) => {
     assert.equal(reply?.error.message, message);
     assert.deepEqual(reply?.error.data, data);
   }
+  // A printed follow-up names the profile only when it is not the default; JSON always does.
   const human = await f.run(app, ["write"]);
   assert.equal(
     human.stderr,
     "Permission 'Update' is disabled for profile 'default'.\n" +
-      "Next:\n  codes-cli permissions grant Update --profile default\n",
+      "Next:\n  codes-cli permissions grant Update\n",
   );
+  const explicit = await f.run(app, ["write", "--profile", "default"]);
+  assert.match(explicit.stderr, /Next:\n {2}codes-cli permissions grant Update\n$/);
   const misuse = await f.run(app, ["write", "--json-rpc", "--json"]);
   assert.equal(misuse.exitCode, 2);
   assert.equal(JSON.parse(misuse.stderr).error.code, "usage.jsonRpc");

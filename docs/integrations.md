@@ -441,13 +441,17 @@ throw new CliError("Release 42 failed.", {
 Core writes the `result` to stdout with the command's view and the message to stderr, and exits
 with `exitCode` (default 1). JSON-RPC returns the result in `error.data`, and `execute` rejects
 with the error. Use safe English context and preserve an underlying failure through `cause`;
-the shared diagnostic policy defines rendering and redaction. A plain read of a failed object is not a failure.
+the shared diagnostic policy defines rendering and redaction: a person sees the message, one
+`Cause:` line and the `Next:` commands, and frames only with `--verbose`. Put the next step in
+`next`, not in the sentence. A plain read of a failed object is not a failure.
 Use `context.progress(message)` for occasional human-only status lines during long work.
 
-The same `CliError`, or a subclass, gives any other failure a stable machine code. An example is
-an HTTP error class that maps statuses to codes such as `http.notFound`. Core prints every failure
-as one JSON line on stderr under `--json` and in JSON-RPC `error.data`. An untyped error still
-works: it gets the code `error`.
+The same `CliError`, or a subclass, gives any other failure a stable machine code. Throw Core's
+`HttpError(status, message)` for an error status: it maps statuses to shared codes such as
+`http.notFound` and suggests `auth login` for `401`. Core prints every failure as one JSON line on
+stderr under `--json` and in JSON-RPC `error.data`. An untyped error still works: it gets the code
+`error` and the person is told to re-run with `--verbose`. Write every sentence under the
+[CLI writer](roles/cli-writer.md) role.
 
 ## Grow by useful phases
 

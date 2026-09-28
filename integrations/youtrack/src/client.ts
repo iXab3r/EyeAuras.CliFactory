@@ -12,13 +12,10 @@ export interface Connection {
   signal?: AbortSignal;
 }
 
-export const youTrackUrlHelp = "YouTrack base URL including any context path, without /api or a page URL; e.g. https://youtrack.example.test/youtrack/. Outer whitespace and trailing slashes are normalized";
+export const youTrackUrlHelp = "YouTrack server URL, such as https://youtrack.example.test or https://example.test/youtrack";
 
 export function youTrackUrl(value: unknown): string {
-  const message =
-    "YouTrack URL must be an HTTP or HTTPS server URL with an optional context path, " +
-    "without credentials, query, fragment, /api or a page URL. " +
-    youTrackUrlHelp;
+  const message = "YouTrack URL must be http(s)://host[:port][/context], without /api, a page path, credentials or a query.";
   const url = parseServerUrl(value, message);
   const pathname = decodeURIComponent(url.pathname);
   if (/\/(?:api|issues|issue|articles|agiles|dashboard|dashboards|admin)(?:\/|$)/i.test(pathname)) {

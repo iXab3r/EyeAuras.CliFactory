@@ -99,6 +99,8 @@ export class CliError extends Error {
   public readonly next: readonly (readonly string[])[];
   /** The selected profile, recorded by Core for machine-readable follow-up commands. */
   public profile: string | undefined;
+  /** The default profile at that time, recorded by Core: printed follow-ups name a profile only when it differs. */
+  public defaultProfile: string | undefined;
 
   public constructor(message: string, options: CliErrorOptions) {
     super(redact(message), options.cause === undefined ? undefined : { cause: diagnosticCause(options.cause) });
@@ -115,6 +117,48 @@ export class CliError extends Error {
     this.result = options.result;
     this.next = options.next ?? [];
     this.profile = undefined;
+    this.defaultProfile = undefined;
+  }
+
+  /**
+   * An untyped failure: keeps the original type name, frames and cause instead of nesting the
+   * error under itself. An aggregate is nested so its independent failures survive.
+   */
+  public static from(error: Error): CliError {
+    if (error instanceof AggregateError) return new CliError(error.message, { code: "error", cause: error });
+    const wrapped = new CliError(error.message, {
+      code: "error",
+      ...(error.cause === undefined ? {} : { cause: error.cause }),
+    });
+    if (error.name) wrapped.name = error.name;
+    const frames = error.stack?.split("\n").filter((line) => /^\s+at /.test(line)) ?? [];
+    if (frames.length) wrapped.stack = `${wrapped.name}: ${wrapped.message}\n${frames.join("\n")}`;
+    return wrapped;
+  }
+}
+
+/** The stable code for an HTTP error status; `http.rejected` covers the other 4xx answers. */
+function httpErrorCode(status: number): string {
+  if (status === 401) return "http.unauthorized";
+  if (status === 403) return "http.forbidden";
+  if (status === 404) return "http.notFound";
+  if (status === 409) return "http.conflict";
+  if (status === 429) return "http.rateLimited";
+  return status >= 500 ? "http.serverError" : "http.rejected";
+}
+
+/** A service answered with an error status; the integration supplies the message, never the body. */
+export class HttpError extends CliError {
+  public readonly status: number;
+
+  public constructor(status: number, message: string, options: Pick<CliErrorOptions, "cause" | "next"> = {}) {
+    super(message, {
+      code: httpErrorCode(status),
+      ...(options.cause === undefined ? {} : { cause: options.cause }),
+      next: options.next ?? (status === 401 ? [["auth", "login"]] : []),
+    });
+    this.name = "HttpError";
+    this.status = status;
   }
 }
 
@@ -140,17 +184,18 @@ export interface ErrorDiagnostic {
   errors?: ErrorDiagnostic[];
 }
 
-function diagnostic(error: Error): ErrorDiagnostic {
+function diagnostic(error: Error, verbose: boolean): ErrorDiagnostic {
   const code = (error as NodeJS.ErrnoException).code;
   return {
     name: error.name, message: error.message,
     ...(code === undefined ? {} : { code }),
-    ...(error.stack === undefined ? {} : { stack: error.stack }),
-    ...(error.cause instanceof Error ? { cause: diagnostic(error.cause) } : {}),
-    ...(error instanceof AggregateError ? { errors: error.errors.map(diagnostic) } : {}),
+    ...(verbose && error.stack !== undefined ? { stack: error.stack } : {}),
+    ...(error.cause instanceof Error ? { cause: diagnostic(error.cause, verbose) } : {}),
+    ...(error instanceof AggregateError ? { errors: error.errors.map((child) => diagnostic(child, verbose)) } : {}),
   };
 }
 
+/** The complete chain with frames, for `--verbose`. */
 export function diagnosticText(error: MachineError): string {
   const lines: string[] = [];
   const append = (value: ErrorDiagnostic, label: string): void => {
@@ -165,16 +210,37 @@ export function diagnosticText(error: MachineError): string {
   return lines.length ? lines.join("\n") + "\n" : "";
 }
 
-export function machineError(error: unknown): MachineError {
-  const details = diagnostic(diagnosticCause(error));
-  const verbose = !(error instanceof CliError) || error.cause !== undefined;
-  const evidence = verbose ? {
-    name: details.name, stack: details.stack,
+/** One line with the technical reason: the nearest cause that adds text, plus the deepest detail. */
+export function conciseCause(error: MachineError): string | undefined {
+  const chain: ErrorDiagnostic[] = [];
+  for (let node = error.cause ?? error.errors?.[0]; node; node = node.cause ?? node.errors?.[0]) chain.push(node);
+  const adds = (text: string, known: readonly string[]): boolean =>
+    text.trim() !== "" && !known.some((item) => item.toLowerCase().includes(text.trim().toLowerCase()));
+  const nearest = chain.find((node) => adds(node.message, [error.message]));
+  if (!nearest) return undefined;
+  const deepest = chain[chain.length - 1]!;
+  const detail = deepest !== nearest && adds(deepest.message, [error.message, nearest.message])
+    ? ` (${deepest.message.trim()})`
+    : "";
+  return `Cause: ${nearest.message.trim()}${detail}`;
+}
+
+export interface MachineErrorOptions {
+  /** Include the failure's name and stack frames; the cause chain is present either way. */
+  verbose?: boolean;
+}
+
+export function machineError(error: unknown, options: MachineErrorOptions = {}): MachineError {
+  const verbose = options.verbose === true;
+  const details = diagnostic(diagnosticCause(error), verbose);
+  const evidence = {
+    ...(verbose ? { name: details.name, ...(details.stack === undefined ? {} : { stack: details.stack }) } : {}),
     ...(details.cause ? { cause: details.cause } : {}),
     ...(details.errors ? { errors: details.errors } : {}),
-  } : {};
+  };
   if (!(error instanceof CliError)) {
     return { code: "error", message: details.message, exitCode: 1, ...evidence,
+      // A native code on the failure itself stays visible through its own diagnostic.
       ...(details.code === undefined ? {} : { cause: details }),
     };
   }

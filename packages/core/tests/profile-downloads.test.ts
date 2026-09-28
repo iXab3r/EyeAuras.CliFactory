@@ -53,8 +53,8 @@ test("downloads built-ins list, delete and clean only regular files of the selec
     { name: "a.txt", path: join(downloads, "a.txt"), bytes: 5 },
     { name: "b.txt", path: join(downloads, "b.txt"), bytes: 5 },
   ]);
-  await assert.rejects(app.execute(["downloads", "delete", "missing.txt"]), /Saved file was not found/);
-  await assert.rejects(app.execute(["downloads", "delete", "../outside.txt"]), /Saved file was not found/);
+  await assert.rejects(app.execute(["downloads", "delete", "missing.txt"]), /No saved file has that name/);
+  await assert.rejects(app.execute(["downloads", "delete", "../outside.txt"]), /No saved file has that name/);
   assert.deepEqual(await app.execute(["downloads", "delete", "a.txt"]), { deleted: ["a.txt"] });
   assert.deepEqual(await app.execute(["downloads", "clean"]), { deleted: ["b.txt"] });
   assert.deepEqual((await readdir(downloads)).sort(), ["folder", ...(linked ? ["link.txt"] : [])]);

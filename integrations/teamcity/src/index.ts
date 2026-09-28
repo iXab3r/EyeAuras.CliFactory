@@ -20,7 +20,6 @@ export type {
 export type { RuleInput, RuleKind, EntitySettingsKind } from "./advanced-authoring-models.js";
 export {
   TeamCityClient,
-  TeamCityHttpError,
   type CancelBuildOptions,
   type CreateJobOptions,
   type CreateProjectOptions,

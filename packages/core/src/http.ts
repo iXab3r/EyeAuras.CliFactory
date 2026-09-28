@@ -2,16 +2,17 @@ import { CliError, diagnosticCause, rememberSecret } from "./errors.js";
 
 const redirectStatuses = new Set([301, 302, 303, 307, 308]);
 
+/** The classified reason; the native detail follows it on the rendered cause line. */
 function requestFailure(cause: Error): { code: string; message: string } {
   for (let error: Error | undefined = cause; error; error = error.cause instanceof Error ? error.cause : undefined) {
     const code = (error as NodeJS.ErrnoException).code ?? "";
-    if (["ENOTFOUND", "EAI_AGAIN"].includes(code)) return { code: "request.dns", message: "The server name could not be resolved. Check the configured URL and DNS." };
-    if (/CERT|^ERR_TLS|SELF_SIGNED|UNABLE_TO_VERIFY/.test(code)) return { code: "request.tls", message: "TLS certificate validation failed. Check the server certificate and trust configuration." };
-    if (/TIMEOUT|TIMEDOUT/.test(code) || error.name === "TimeoutError") return { code: "request.timeout", message: "The request timed out. Check server availability and connectivity." };
-    if (code === "ECONNREFUSED") return { code: "request.connection", message: "The server refused the connection. Check its address, port and availability." };
+    if (["ENOTFOUND", "EAI_AGAIN"].includes(code)) return { code: "request.dns", message: "The server name could not be resolved; check the URL and DNS." };
+    if (/CERT|^ERR_TLS|SELF_SIGNED|UNABLE_TO_VERIFY/.test(code)) return { code: "request.tls", message: "The TLS certificate could not be verified; check the server certificate and trust store." };
+    if (/TIMEOUT|TIMEDOUT/.test(code) || error.name === "TimeoutError") return { code: "request.timeout", message: "The request timed out; check that the server is reachable." };
+    if (code === "ECONNREFUSED") return { code: "request.connection", message: "The server refused the connection; check the address and port." };
     if (code === "ECONNRESET") return { code: "request.connection", message: "The connection was reset before the request completed." };
   }
-  return { code: "request.failed", message: "See the underlying diagnostic for the failure reason." };
+  return { code: "request.failed", message: "The HTTP request failed before a response arrived." };
 }
 
 /** Standard redirects plus same-host HTTP-to-HTTPS credential continuity. No application retries. */
@@ -40,15 +41,13 @@ export async function fetchWithRedirects(
     } catch (cause) {
       const safe = diagnosticCause(cause, secrets);
       const reason = requestFailure(safe);
-      throw new CliError(`HTTP ${method} request failed. ${reason.message}`, {
-        code: reason.code, cause: safe,
-      });
+      throw new CliError(reason.message, { code: reason.code, cause: safe });
     }
     if (!redirectStatuses.has(response.status)) return response;
     const location = response.headers.get("location");
     if (location === null) return response;
     void response.body?.cancel().catch(() => undefined);
-    if (redirects >= 20) throw new CliError("HTTP redirect limit exceeded (20). Check the server's redirect configuration.", { code: "http.redirectLimit" });
+    if (redirects >= 20) throw new CliError("HTTP redirect limit exceeded (20); check the server's redirect configuration.", { code: "http.redirectLimit" });
     let next: URL;
     try { next = new URL(location, url); }
     catch (cause) { throw new CliError("The server returned an invalid redirect URL.", { code: "http.redirectInvalid", cause: diagnosticCause(cause, [location]) }); }

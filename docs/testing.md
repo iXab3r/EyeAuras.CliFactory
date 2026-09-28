@@ -182,9 +182,11 @@ destroyed causes:
 - Contextual English errors retain native type/code, stack and nested causes for DNS, TLS,
   connection, timeout, HTTP, decoding and storage failures. An authentication GET never claims
   an unknown write outcome. Inject synthetic failures to keep these cases deterministic.
-- Human stderr contains the explanation first and useful runtime diagnostics without a debug
-  rerun. JSON, JSON-RPC and execute preserve equivalent evidence and existing result/exit/profile
-  contracts. Expected usage/domain failures may remain concise.
+- Human stderr contains the explanation, at most one `Cause:` line and `Next:` commands, and no
+  stack frame without `--verbose`. With `--verbose`, human, `--json` and JSON-RPC output carry the
+  cause chain with frames; without it, JSON and JSON-RPC still carry the chain's names, codes and
+  messages. `execute` preserves the complete error object. Assert the concise form exactly and the
+  verbose form by content.
 - Redaction covers messages, stack headers, nested/aggregate causes and credential-bearing URLs.
   Assert both absence of synthetic secrets and presence of useful cause codes and stack locations;
   an empty or generic diagnostic is not a passing privacy test. Non-Error throws and cycles do

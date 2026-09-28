@@ -60,6 +60,8 @@ export interface ViewContext {
   now: number;
   cliName: string;
   profile: string;
+  /** The default profile; follow-ups name `profile` only when it differs. */
+  defaultProfile?: string;
 }
 
 export function tableView<Row, Value = readonly Row[]>(spec: TableViewSpec<Row, Value>): HumanView {
@@ -180,20 +182,25 @@ function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: Vi
     lines.push("", `${section.title(value)}:`,
       ...(items.length === 0 ? ["none"] : items).map((item) => `  ${item}`));
   }
-  const commands = nextCommands(view.next?.(value) ?? [], context.cliName, context.profile);
+  const commands = nextCommands(view.next?.(value) ?? [], context.cliName, context.profile, context.defaultProfile);
   if (commands.length > 0) lines.push("", "Next:", ...commands.map((line) => `  ${line}`));
   return lines.join("\n");
 }
 
-/** Printable follow-up commands with the selected profile; an action with an unsafe token is omitted. */
+/**
+ * Printable follow-up commands; an action with an unsafe token is omitted. The selected profile is
+ * named only when it is not the default, so a copied line never switches profile.
+ */
 export function nextCommands(
   actions: readonly (readonly string[])[],
   cliName: string,
   profile: string,
+  defaultProfile?: string,
 ): string[] {
   return actions
-    .map((argv) => [...argv, "--profile", profile])
-    .filter((argv) => argv.length > 2 && argv.every((token) => safeToken.test(token)))
+    .filter((argv) => argv.length > 0)
+    .map((argv) => (profile === defaultProfile ? [...argv] : [...argv, "--profile", profile]))
+    .filter((argv) => argv.every((token) => safeToken.test(token)))
     .map((argv) => [cliName, ...argv].join(" "));
 }
 

@@ -117,7 +117,7 @@ test("keyring write failure never falls back to files or exposes the candidate",
   assert.equal(await f.cli.run(["profile", "configure", "dev", "--url", "https://youtrack.example.com", "--token-stdin", "--json"]), 1);
   assert.equal(await f.secrets.get(service, "dev:token"), undefined);
   assert.equal(f.stdout(), "");
-  assert.match(f.stderr(), /Could not save profile configuration or authentication/);
+  assert.match(f.stderr(), /Could not save the profile or its credential/);
   assert.doesNotMatch(f.stderr(), /synthetic-candidate/);
   const config = await readFile(join(f.appArguments.RoamingAppDataDirectory, "profiles.json"), "utf8");
   assert.ok(!config.includes("synthetic-candidate"));

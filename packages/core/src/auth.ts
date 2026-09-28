@@ -16,7 +16,7 @@ export interface TokenAuthOptions {
 
 export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
   const name = options.secretName ?? "token";
-  const guidance = [options.tokenSource, tokenInputHelp].filter(Boolean).join(" ");
+  const source = options.tokenSource ? ` ${options.tokenSource}` : "";
   const validate = async (
     context: Parameters<AuthDefinition["login"]>[0],
     token: string,
@@ -33,7 +33,7 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
     ...(options.env ? { environmentKeys: [options.env] } : {}),
     isReady: async (context) => !!(await context.secrets.get(name)),
     loginOptions: [
-      { flags: "--token-stdin", description: "Read the token from stdin. " + guidance },
+      { flags: "--token-stdin", description: `Read the token from stdin.${source}` },
     ],
     async login(context, input) {
       if (input.tokenStdin && !context.stdinAvailable) {
@@ -47,7 +47,7 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
           ? context.environment[options.env]
           : undefined;
       if (!input.tokenStdin && token === undefined && context.interactive) {
-        context.io.error.write(guidance + "\n");
+        context.io.error.write(`${source.trim()}${source ? " " : ""}${tokenInputHelp}\n`);
         token = await promptSecret(
           context.io.input,
           context.io.error,
@@ -55,9 +55,9 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
         );
       }
       if (token === undefined)
-        throw new Error(
-          `Profile '${context.profile.name}': authentication is missing. No token was provided. ` +
-            `Run 'profile configure ${context.profile.name} --token-stdin' or use the documented environment variable.`,
+        throw new CliError(
+          `No token was provided${options.env ? `; set ${options.env} or use --token-stdin` : ""}.`,
+          { code: "auth.missingToken", next: [["profile", "configure", context.profile.name, "--token-stdin"]] },
         );
       rememberSecret(token);
       token = normalizeBearerToken(token);
@@ -65,8 +65,10 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
       let identity: unknown;
       try { identity = await validate(context, token); }
       catch (cause) {
+        // The reason is part of the sentence: callers read the message before the cause chain.
+        // ("token:" followed by a value would be redacted as a credential, so the wording avoids it.)
         const detail = diagnosticCause(cause, [token]);
-        throw new CliError(`Could not validate authentication. ${detail.message} Profile configuration and credentials were not saved.`, {
+        throw new CliError(`Token validation failed: ${detail.message} Nothing was saved.`, {
           code: "auth.validationFailed", cause: detail,
         });
       }
@@ -74,10 +76,11 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
       try {
         await context.secrets.set(name, token);
       } catch (cause) {
-        throw new Error(
-          "Could not write the OS credential store. No plaintext fallback is used. Retry 'auth login --token-stdin'.",
-          { cause: diagnosticCause(cause, [token]) },
-        );
+        throw new CliError("Could not write the OS credential store; the token was not saved.", {
+          code: "auth.storeFailed",
+          cause: diagnosticCause(cause, [token]),
+          next: [["auth", "login", "--token-stdin"]],
+        });
       }
       return { authenticated: true, identity: identity ?? null };
     },
@@ -189,9 +192,7 @@ export async function promptSecret(
 ): Promise<string> {
   const ttyInput = input as TtyReadable;
   if (!canPrompt(input, output) || !ttyInput.setRawMode) {
-    throw new Error(
-      "No token was provided. Use --token-stdin or the documented environment variable.",
-    );
+    throw new Error("No token was provided; use --token-stdin.");
   }
 
   if (signal?.aborted) throw new Error("Authentication cancelled.");
