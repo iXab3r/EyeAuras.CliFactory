@@ -37,14 +37,14 @@ test("YouTrack invalid paging fails before TTY onboarding and auth on CLI, execu
   const cases = [
     ...["0", "9007199254740992", "-0", "+1", "1.0", "1e2", "0x10", " 1", "1\n", "synthetic-secret\u0000value"].map(value => ({
       argv: ["project", "list", "--top", value],
-      message: "YouTrack top must be a positive safe decimal integer.",
+      message: "--top must be a positive integer.",
     })),
     ...["-0", "-1", "9007199254740992"].map(value => ({
       argv: ["project", "list", "--skip", value],
-      message: "YouTrack skip must be a nonnegative safe decimal integer.",
+      message: "--skip must be a nonnegative integer.",
     })),
     { argv: ["issues", "create", "--body", '{"synthetic-secret":"unterminated'],
-      message: "YouTrack body must be valid JSON." },
+      message: "The body must be valid JSON." },
   ];
   for (const { argv, message } of cases) {
     await assert.rejects(f.cli.execute(argv), { message });

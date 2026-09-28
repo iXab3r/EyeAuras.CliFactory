@@ -196,7 +196,7 @@ test("new read input validation runs before HTTP through the real declaration", 
     ["project", "list", "--top", "0"], ["issues", "list", "--skip", "-1"],
     ["issues", "list", "--skip", ""], ["issues", "get", "."],
     ["issues", "comments", "list", ".."], ["user", "me", "--fields", " "],
-  ]) await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /YouTrack/);
+  ]) await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   assert.equal(calls, 0);
 });
 
@@ -327,7 +327,7 @@ test("mutation body syntax and unsupported fields fail locally without echoing i
   assert.equal(calls, 0);
   assert.equal(f.stdout(), "");
   assert.match(f.stderr(), /body must be valid JSON/);
-  assert.match(f.stderr(), /supports only these body fields/);
+  assert.match(f.stderr(), /supports only these fields/);
   assert.doesNotMatch(f.stderr(), /synthetic-private/);
 });
 
@@ -466,7 +466,7 @@ test("projected credential keys and encoded tokens never reach human, JSON or RP
 });
 
 test("default identity and auth status reject sensitive fields in human, JSON and RPC output", async (t) => {
-  const message = "YouTrack returned an invalid identity response.";
+  const message = "Invalid identity response from YouTrack.";
   for (const command of [["user", "me"], ["auth", "status"]]) {
     for (const mode of ["human", "json", "rpc"]) {
       const argv = [...command, "--profile", "dev"];
@@ -494,7 +494,7 @@ test("default identity and auth status reject sensitive fields in human, JSON an
         assert.equal(f.stderr(), "");
       } else {
         assert.equal(f.stdout(), "");
-        assert.match(f.stderr(), /YouTrack returned an invalid identity response\./);
+        assert.match(f.stderr(), /Invalid identity response from YouTrack\./);
       }
       assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic|https:|sign=|\[redacted\]/);
       assert.equal(await f.secrets.get(service, "dev:token"), "synthetic-token");
@@ -530,7 +530,7 @@ test("configure and login reject sensitive identity before persisting candidate 
       : ["auth", "login", "--profile", "dev"];
     assert.equal(await f.cli.run([...argv, "--token-stdin", "--json"]), 1);
     assert.equal(f.stdout(), "");
-    assert.match(f.stderr(), /YouTrack returned an invalid identity response\./);
+    assert.match(f.stderr(), /Invalid identity response from YouTrack\./);
     assert.doesNotMatch(f.stderr(), /synthetic|https:|sign=|\[redacted\]/);
     assert.equal(writes, 0);
     assert.equal(calls, 1);

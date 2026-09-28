@@ -138,13 +138,11 @@ test("sprint bodies reject malformed or unsupported fields before fetch and neve
   assert.deepEqual(bodies, [{ name: "Fixture" }, { goal: null }]);
 });
 
-test("sprint help explains explicit carryover and automatic default membership", async (t) => {
+test("sprint create help is one short line; carryover and default membership are README rules", async (t) => {
   const f = await fixture(t);
   assert.equal(await f.cli.run(["sprint", "create", "--help"]), 0);
-  assert.match(f.stdout(), /previousSprint/);
-  assert.match(f.stdout(), /unresolved issues/);
-  assert.match(f.stdout(), /isDefault/);
-  assert.match(f.stdout(), /matching new issues/);
+  assert.match(f.stdout(), /\nCreate a sprint\n/);
+  assert.doesNotMatch(f.stdout(), /previousSprint|isDefault/);
   assert.match(f.stdout(), /--fields/);
 });
 
@@ -173,7 +171,7 @@ test("sprint mutations report safe failures without retry, including failed resp
   }
   for (const response of ["invalid JSON", "null", "[]"]) {
     server.use(http.post("*", () => new HttpResponse(response)));
-    await assert.rejects(createSprint(connection, "fixture", { name: "Fixture" }), /invalid/);
+    await assert.rejects(createSprint(connection, "fixture", { name: "Fixture" }), /invalid/i);
   }
 });
 

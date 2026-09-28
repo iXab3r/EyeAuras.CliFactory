@@ -48,14 +48,14 @@ test("all catalog routes retain empty/sparse data and reject malformed responses
     assert.deepEqual(await row.run(connection), row.collection ? [] : {});
     for (const body of ["null", row.collection ? "{}" : "[]", "malformed-synthetic-private"]) {
       server.use(http.get("*", () => new HttpResponse(body)));
-      await assert.rejects(row.run(connection), /invalid .*response/);
+      await assert.rejects(row.run(connection), /Invalid .*response/);
     }
     let calls = 0;
     server.use(http.get("*", () => {
       calls++;
       return new HttpResponse("synthetic-token private-server-message", { status: 403 });
     }));
-    await assert.rejects(row.run(connection), /^Error: YouTrack request failed \(HTTP 403\)\.$/);
+    await assert.rejects(row.run(connection), /^HttpError: YouTrack answered HTTP 403\.$/);
     assert.equal(calls, 1);
   }
 });
@@ -82,13 +82,13 @@ test("catalog rejects invalid paging and projection before fetch and detects ove
     await assert.rejects(row.run(connection, { fields: " " }), /fields must be nonempty/);
     if (row.collection) {
       for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
-        await assert.rejects(row.run(connection, options), /YouTrack/);
+        await assert.rejects(row.run(connection, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
       }
     }
   }
   assert.equal(calls, 0);
   for (const row of catalogCases.filter((item) => item.collection)) {
-    await assert.rejects(row.run(connection, { top: 1 }), /more items than the requested top limit/);
+    await assert.rejects(row.run(connection, { top: 1 }), /More items than the requested page size/);
   }
   assert.equal(calls, catalogCases.filter((item) => item.collection).length);
 });
@@ -107,7 +107,7 @@ test("all catalog ID positions reject dot traversal, controls and malformed Unic
       () => listStateValues(local, id),
       () => getStateValue(local, id, "valid"),
       () => getStateValue(local, "valid", id),
-    ]) await assert.rejects(run(), /YouTrack/);
+    ]) await assert.rejects(run(), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   assert.equal(calls, 0);
   server.use(http.get("*", ({ request }) => {

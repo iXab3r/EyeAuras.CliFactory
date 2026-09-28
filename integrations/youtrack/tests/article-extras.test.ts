@@ -106,14 +106,14 @@ test("article-extra collection projections and caller page limits are exact", as
 test("only the parent relation accepts actual JSON null; failures and malformed results stay errors", async () => {
   server.use(http.get("*", () => HttpResponse.json(null)));
   assert.equal(await getParentArticle(connection, "fixture-article"), null);
-  await assert.rejects(getChildArticle(connection, "fixture-parent", "fixture-child"), /invalid object/);
-  await assert.rejects(getArticleAttachment(connection, "fixture-article", "fixture-attachment"), /invalid object/);
+  await assert.rejects(getChildArticle(connection, "fixture-parent", "fixture-child"), /Invalid object/);
+  await assert.rejects(getArticleAttachment(connection, "fixture-article", "fixture-attachment"), /Invalid object/);
   for (const body of ["", " ", "{", "[]", "1", "false"]) {
     server.use(http.get("*", () => new HttpResponse(body)));
-    await assert.rejects(getParentArticle(connection, "fixture-article"), /invalid .*response/);
+    await assert.rejects(getParentArticle(connection, "fixture-article"), /Invalid .*response/);
   }
   server.use(http.get("*", () => new HttpResponse(null, { status: 204 })));
-  await assert.rejects(getParentArticle(connection, "fixture-article"), /invalid JSON response/);
+  await assert.rejects(getParentArticle(connection, "fixture-article"), /Invalid JSON response/);
   for (const status of [403, 404]) {
     server.use(http.get("*", () => new HttpResponse("synthetic-private-response", { status })));
     await assert.rejects(getParentArticle(connection, "fixture-article"), (error: Error) => {
@@ -134,9 +134,9 @@ test("extra reads reject invalid IDs/pages and malformed or oversized collection
   await assert.rejects(listChildArticles(connection, "fixture-parent", { top: 0 }), /top/);
   await assert.rejects(listArticleAttachments(connection, "fixture-parent", { skip: -1 }), /skip/);
   assert.equal(calls, 0);
-  await assert.rejects(listArticleAttachments(connection, "fixture-parent"), /invalid collection/);
+  await assert.rejects(listArticleAttachments(connection, "fixture-parent"), /Invalid collection/);
   server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-  await assert.rejects(listChildArticles(connection, "fixture-parent", { top: 1 }), /top limit/);
+  await assert.rejects(listChildArticles(connection, "fixture-parent", { top: 1 }), /page size/);
 });
 
 test("article upload sends one native multipart file with exact bytes, basename, projection and auth", async (t) => {
@@ -178,7 +178,7 @@ test("article upload uses metadata defaults, preserves arrays and empty success,
   assert.equal(await uploadArticleAttachment(connection, "fixture-article", f.file), null);
   for (const value of ["null", "{}", "[null]", "[1]", "{"]) {
     server.use(http.post("*", () => new HttpResponse(value)));
-    await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), /invalid .*response/);
+    await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), /Invalid .*response/);
   }
 });
 
@@ -207,7 +207,7 @@ test("article upload errors are safe, never retried and never follow another ori
   }));
   assert.deepEqual(await uploadArticleAttachment(connection, "fixture-article", f.file), []);
   server.use(http.post("*", () => { calls++; return HttpResponse.error(); }));
-  await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), /YouTrack request failed; check connectivity/);
+  await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), /Could not reach YouTrack/);
   assert.equal(calls, 6);
   assert.equal(followed, 1);
 });
@@ -218,7 +218,7 @@ test("article upload local-file errors and invalid inputs expose no path and pre
   server.use(http.post("*", () => { calls++; return HttpResponse.json([]); }));
   for (const path of [f.directory, join(f.directory, "not-present.bin")]) {
     await assert.rejects(uploadArticleAttachment(connection, "fixture-article", path), {
-      message: "YouTrack upload requires a readable regular file.",
+      message: "The upload requires a readable regular file.",
     });
   }
   await assert.rejects(uploadArticleAttachment(connection, "fixture-article", " "), /file path/);
@@ -228,7 +228,7 @@ test("article upload local-file errors and invalid inputs expose no path and pre
   await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file, { fields: "" }), /fields/);
   assert.equal(opens, 0);
   await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), {
-    message: "YouTrack upload requires a readable regular file.",
+    message: "The upload requires a readable regular file.",
   });
   assert.equal(opens, 1);
   assert.equal(calls, 0);

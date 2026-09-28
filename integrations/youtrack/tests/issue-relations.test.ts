@@ -94,7 +94,7 @@ for (const row of reads) {
       server.use(http.get("*", () => HttpResponse.json([])));
       assert.deepEqual(await row.run({}), []);
       server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-      await assert.rejects(row.run({ top: 1 }), /top limit/);
+      await assert.rejects(row.run({ top: 1 }), /page size/);
     }
   });
 }
@@ -123,16 +123,16 @@ test("relations mutations reject nonobjects, extra keys and invalid reference ID
   const local = { ...connection, fetch: (async () => { assert.fail("Invalid input reached fetch"); }) as typeof fetch };
   for (const body of [null, [], {}, { id: null }, { id: "" }, { id: " " }, { id: "fixture\n" },
     { id: ".." }, { id: "fixture", name: "Unsupported" }, { idReadable: "DEMO-1" }]) {
-    await assert.rejects(addIssueLink(local, "source", "link", body), /YouTrack/);
-    await assert.rejects(addIssueTag(local, "source", body), /YouTrack/);
+    await assert.rejects(addIssueLink(local, "source", "link", body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(addIssueTag(local, "source", body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   for (const id of ["", ".", "..", "x\n", "\ud800"]) {
-    await assert.rejects(getLinkType(local, id), /YouTrack/);
-    await assert.rejects(getTag(local, id), /YouTrack/);
-    await assert.rejects(getIssueLink(local, id, "link"), /YouTrack/);
-    await assert.rejects(getIssueLink(local, "source", id), /YouTrack/);
-    await assert.rejects(removeIssueLink(local, "source", "link", id), /YouTrack/);
-    await assert.rejects(removeIssueTag(local, "source", id), /YouTrack/);
+    await assert.rejects(getLinkType(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getTag(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getIssueLink(local, id, "link"), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(getIssueLink(local, "source", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(removeIssueLink(local, "source", "link", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+    await assert.rejects(removeIssueTag(local, "source", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
 });
 
@@ -154,7 +154,7 @@ test("all relation writes sanitize responses and fail remote errors without retr
     assert.deepEqual(await row.run(), { value: "[redacted]", nested: { url: "[redacted]" } });
     for (const raw of ["null", "[]", "synthetic-private-malformed"]) {
       server.use(http.all("*", () => new HttpResponse(raw)));
-      await assert.rejects(row.run(), /invalid .*response/);
+      await assert.rejects(row.run(), /Invalid .*response/);
     }
     for (const status of [400, 401, 403, 404, 409, 429, 500]) {
       let calls = 0;
@@ -162,7 +162,7 @@ test("all relation writes sanitize responses and fail remote errors without retr
         calls++;
         return new HttpResponse("synthetic-token private-diagnostic", { status });
       }));
-      await assert.rejects(row.run(), new RegExp(`^Error: YouTrack request failed \\(HTTP ${status}\\)\\.$`));
+      await assert.rejects(row.run(), new RegExp(`^HttpError: YouTrack answered HTTP ${status}\\.$`));
       assert.equal(calls, 1);
     }
   }
@@ -243,7 +243,7 @@ test("relation body commands reject missing, malformed and unsupported JSON befo
     ["issues", "tags", "add", "fixture-source"]]) {
     await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /required option/);
     for (const body of ["{", "{}", '{"name":"Unsupported"}', '{"id":"fixture","extra":true}'])
-      await assert.rejects(f.cli.execute([...argv, "--body", body, "--profile", "dev"]), /YouTrack/);
+      await assert.rejects(f.cli.execute([...argv, "--body", body, "--profile", "dev"]), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   assert.equal(calls, 0);
 });

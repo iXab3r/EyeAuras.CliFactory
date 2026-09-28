@@ -119,11 +119,11 @@ test("local invalid paging, fields, query and traversal IDs fail before fetch", 
 test("read response shapes reject null, scalars, empty bodies and wrong collections", async () => {
   for (const body of ["null", '"text"', "", "[]"]) {
     server.use(http.get("*", () => new HttpResponse(body)));
-    await assert.rejects(getIssue(connection, "DEMO-1"), /invalid .*response/);
+    await assert.rejects(getIssue(connection, "DEMO-1"), /Invalid .*response/);
   }
   for (const value of [{}, null, [null], [1], [[]]]) {
     server.use(http.get("*", () => HttpResponse.json(value)));
-    await assert.rejects(listProjects(connection), /invalid .*response/);
+    await assert.rejects(listProjects(connection), /Invalid .*response/);
   }
 });
 
@@ -131,18 +131,18 @@ test("rate-limit errors preserve safe Retry-After information without body or he
   server.use(http.get("*", () => new HttpResponse("synthetic-private-body", {
     status: 429, headers: { "Retry-After": "30" },
   })));
-  await assert.rejects(listIssues(connection), /^Error: YouTrack request failed \(HTTP 429\)\. Retry after 30 seconds\.$/);
+  await assert.rejects(listIssues(connection), /^HttpError: YouTrack answered HTTP 429\. Retry after 30 seconds\.$/);
   server.use(http.get("*", () => new HttpResponse("synthetic-private-body", {
     status: 429, headers: { "Retry-After": "synthetic-private-header" },
   })));
-  await assert.rejects(listIssues(connection), /^Error: YouTrack request failed \(HTTP 429\)\.$/);
+  await assert.rejects(listIssues(connection), /^HttpError: YouTrack answered HTTP 429\.$/);
 });
 
 test("valid HTTP-date Retry-After is normalized without copying arbitrary header data", async () => {
   server.use(http.get("*", () => new HttpResponse(null, {
     status: 429, headers: { "Retry-After": "Wed, 01 Jan 2031 00:00:00 GMT" },
   })));
-  await assert.rejects(listProjects(connection), /^Error: YouTrack request failed \(HTTP 429\)\. Retry after Wed, 01 Jan 2031 00:00:00 GMT\.$/);
+  await assert.rejects(listProjects(connection), /^HttpError: YouTrack answered HTTP 429\. Retry after Wed, 01 Jan 2031 00:00:00 GMT\.$/);
 });
 
 test("literal encoded dot IDs stay one encoded segment and redaction covers keys and embedded URLs", async () => {
@@ -164,7 +164,7 @@ test("collection reads reject a server page larger than the requested bound", as
     () => listProjects(connection, { top: 1 }),
     () => listIssues(connection, { top: 1 }),
     () => listComments(connection, "DEMO-1", { top: 1 }),
-  ]) await assert.rejects(run(), /more items than the requested top limit/);
+  ]) await assert.rejects(run(), /More items than the requested page size/);
 });
 
 test("explicit fields scrub API-key URL spellings while preserving unsigned URLs", async () => {

@@ -43,14 +43,14 @@ test("all bundle routes preserve empty/sparse data and reject malformed response
     assert.deepEqual(await row.run(connection), row.collection ? [] : {});
     for (const body of ["null", row.collection ? "{}" : "[]", "malformed-private-response"]) {
       server.use(http.get("*", () => new HttpResponse(body)));
-      await assert.rejects(row.run(connection), /invalid .*response/);
+      await assert.rejects(row.run(connection), /Invalid .*response/);
     }
     let calls = 0;
     server.use(http.get("*", () => {
       calls++;
       return new HttpResponse("synthetic-token private-response", { status: 403 });
     }));
-    await assert.rejects(row.run(connection), /^Error: YouTrack request failed \(HTTP 403\)\.$/);
+    await assert.rejects(row.run(connection), /^HttpError: YouTrack answered HTTP 403\.$/);
     assert.equal(calls, 1);
   }
 });
@@ -103,13 +103,13 @@ test("bundle lists reject invalid paging/projections before fetch and detect ove
     await assert.rejects(row.run(connection, { fields: " " }), /fields must be nonempty/);
     if (row.collection) {
       for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
-        await assert.rejects(row.run(connection, options), /YouTrack/);
+        await assert.rejects(row.run(connection, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
       }
     }
   }
   assert.equal(calls, 0);
   for (const row of bundleCases.filter((item) => item.collection)) {
-    await assert.rejects(row.run(connection, { top: 1 }), /more items than the requested top limit/);
+    await assert.rejects(row.run(connection, { top: 1 }), /More items than the requested page size/);
   }
   assert.equal(calls, 6);
 });
@@ -119,14 +119,14 @@ test("all bundle/value ID positions reject dot traversal, controls and malformed
   const local = { ...connection, fetch: (async () => { calls++; throw new Error("Unexpected fetch"); }) as typeof globalThis.fetch };
   for (const id of [".", "..", "bad\nvalue", "\ud800"]) {
     for (const get of [getBuildBundle, getOwnedBundle, getVersionBundle]) {
-      await assert.rejects(get(local, id), /YouTrack/);
+      await assert.rejects(get(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     }
     for (const list of [listBuildValues, listOwnedValues, listVersionValues]) {
-      await assert.rejects(list(local, id), /YouTrack/);
+      await assert.rejects(list(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     }
     for (const get of [getBuildValue, getOwnedValue, getVersionValue]) {
-      await assert.rejects(get(local, id, "valid"), /YouTrack/);
-      await assert.rejects(get(local, "valid", id), /YouTrack/);
+      await assert.rejects(get(local, id, "valid"), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+      await assert.rejects(get(local, "valid", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     }
   }
   assert.equal(calls, 0);

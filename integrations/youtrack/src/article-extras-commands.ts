@@ -10,23 +10,16 @@ import {
   listChildArticles,
   uploadArticleAttachment,
 } from "./article-extras.js";
+import { articleRecord, articleTable, attachmentRecord, attachmentTable, uploadedAttachments, withView } from "./presentation.js";
 
 export const articlesExtraChildren = [
-  command("attachment", "Inspect, upload or download one selected article attachment", [
+  command("attachment", "Inspect, upload or download article attachments", [
     articleAttachmentDownloadCommand,
-    pagedRead(
-      "list <article>",
-      "List one page of attachment metadata without downloading files",
-      listArticleAttachments,
-    ),
-    projectedRead(
-      "get <article> <attachment>",
-      "Read attachment metadata without downloading its contents",
-      getArticleAttachment,
-    ),
-    updateCommand(
+    pagedRead("list <article>", "List attachments", listArticleAttachments, attachmentTable),
+    projectedRead("get <article> <attachment>", "Show an attachment", getArticleAttachment, attachmentRecord),
+    withView(uploadedAttachments, updateCommand(
       "upload <article>",
-      "Upload one selected regular file to an existing article",
+      "Upload a file to the article",
       async (connection, { args, options }, context) =>
         uploadArticleAttachment(
           connection,
@@ -38,26 +31,18 @@ export const articlesExtraChildren = [
           ...projectionOptions,
           {
             flags: "--file <path>",
-            description: "Required explicit local input file; no copies or recursion",
+            description: "Local file to upload",
             required: true,
             parse: (value) => requiredText(value, "file path"),
           },
         ],
-    ),
+    )),
   ]),
-  command("child", "Inspect immediate child articles without recursive traversal", [
-    pagedRead("list <article>", "List one page of immediate child articles", listChildArticles),
-    projectedRead(
-      "get <article> <child>",
-      "Read the specified child of the parent article",
-      getChildArticle,
-    ),
+  command("child", "Inspect an article's child articles", [
+    pagedRead("list <article>", "List the immediate child articles", listChildArticles, articleTable),
+    projectedRead("get <article> <child>", "Show a child article", getChildArticle, articleRecord),
   ]),
   command("parent", "Inspect an article's parent", [
-    projectedRead(
-      "get <article>",
-      "Read the parent; preserve a successful JSON null for no parent",
-      getParentArticle,
-    ),
+    projectedRead("get <article>", "Show the parent article", getParentArticle, articleRecord),
   ]),
 ];

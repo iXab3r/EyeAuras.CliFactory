@@ -354,7 +354,9 @@ export function createCli(definition: CliDefinition): CliApplication {
             profile = await ensureConfigured(profile, globals, ownsExclusive);
           const context = contextFor(profile, execution, execution.render && globals.json !== true);
           context.signal.throwIfAborted();
-          const presentation = view && { view, cliName: definition.name, profile: profile.name, defaultProfile };
+          const presentation = view && {
+            view, cliName: definition.name, profile: profile.name, defaultProfile, input: commandInput,
+          };
           try {
             result = await handler(commandInput, context);
           } catch (caught) {

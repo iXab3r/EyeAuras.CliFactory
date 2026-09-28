@@ -1,4 +1,3 @@
-
 import { readCommand } from "./cli-support.js";
 import {
   downloadArticleAttachment,
@@ -7,49 +6,51 @@ import {
   downloadName,
   type DownloadOptions,
 } from "./attachment-download.js";
+import { savedAttachment, withView } from "./presentation.js";
 
 const downloadOptions = [
   {
     flags: "--name <basename>",
-    description: "Optional safe filename; an existing name is never overwritten",
+    description: "File name (existing files are kept)",
     parse: downloadName,
   },
   {
     flags: "--max-bytes <n>",
-    description: "Optional maximum transfer size in bytes (positive safe integer)",
+    description: "Fail above this many bytes",
     parse: downloadLimit,
   },
 ];
 
-function downloadInput(options: Record<string, unknown>): DownloadOptions {
+function downloadInput(options: Record<string, unknown>, progress: (message: string) => void): DownloadOptions {
   return {
+    progress,
     ...(typeof options.name === "string" ? { name: options.name } : {}),
     ...(typeof options.maxBytes === "number" ? { maxBytes: options.maxBytes } : {}),
   };
 }
 
-export const attachmentDownloadCommand = readCommand(
+export const attachmentDownloadCommand = withView(savedAttachment, readCommand(
   "download <issueID> <attachmentID>",
-  "Download one attachment into this profile's downloads directory without overwriting files",
+  "Download an attachment",
   async (connection, { args, options }, context) => downloadIssueAttachment(
     connection,
     args.issueID,
     args.attachmentID,
     context.appArguments.AppDataDirectory,
-    downloadInput(options),
+    downloadInput(options, context.progress),
   ),
   downloadOptions,
-);
+));
 
-export const articleAttachmentDownloadCommand = readCommand(
+export const articleAttachmentDownloadCommand = withView(savedAttachment, readCommand(
   "download <article> <attachment>",
-  "Download one article attachment into this profile's downloads directory without overwriting files",
+  "Download an attachment",
   async (connection, { args, options }, context) => downloadArticleAttachment(
     connection,
     args.article,
     args.attachment,
     context.appArguments.AppDataDirectory,
-    downloadInput(options),
+    downloadInput(options, context.progress),
   ),
   downloadOptions,
-);
+));

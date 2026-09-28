@@ -10,7 +10,7 @@ afterEach(() => server.resetHandlers());
 after(() => server.close());
 const connection = { baseUrl: "https://youtrack.example.com", token: "synthetic-token" };
 const limit = 8 * 1024 * 1024;
-const failure = "YouTrack response stream failed or was cancelled.";
+const failure = "The response stream failed or was cancelled.";
 function safeFailure(error: unknown): boolean {
   assert.ok(error instanceof Error);
   assert.equal(error.message, failure);
@@ -63,11 +63,11 @@ test("YouTrack preserves empty mutation, null read and invalid JSON semantics", 
     assert.equal(await deleteObject(connection, "api/issues/fixture"), null);
   }
   server.use(http.delete("*/api/issues/fixture", () => HttpResponse.json(null)));
-  await assert.rejects(deleteObject(connection, "api/issues/fixture"), /invalid mutation response/);
+  await assert.rejects(deleteObject(connection, "api/issues/fixture"), /Invalid mutation response/);
   server.use(http.get("*/api/issues/fixture", () => HttpResponse.json(null)));
   assert.equal(await readNullableObject(connection, "api/issues/fixture", {}), null);
   server.use(http.get("*/api/issues/fixture", () => new HttpResponse("synthetic-private-invalid-json")));
-  await assert.rejects(readObject(connection, "api/issues/fixture", {}), /^Error: YouTrack returned an invalid JSON response\.$/);
+  await assert.rejects(readObject(connection, "api/issues/fixture", {}), /^Error: Invalid JSON response from YouTrack\.$/);
 });
 
 test("YouTrack stream failure and pending abort hide causes and release locks", async () => {
@@ -89,7 +89,7 @@ test("YouTrack non-success cancels diagnostics and preserves safe Retry-After", 
     cancel() { cancelled++; return Promise.reject(new Error("synthetic-private-cancel")); },
   }), { status: 429, headers: { "retry-after": "3" } });
   await assert.rejects(currentUser({ ...connection, fetch: async () => input }),
-    /^Error: YouTrack request failed \(HTTP 429\)\. Retry after 3 seconds\.$/);
+    /^HttpError: YouTrack answered HTTP 429\. Retry after 3 seconds\.$/);
   assert.equal(cancelled, 1);
   assert.equal(input.body?.locked, false);
 });

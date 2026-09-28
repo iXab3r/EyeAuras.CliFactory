@@ -136,15 +136,15 @@ test("all eight reads reject remote errors and malformed response shapes without
     }
     for (const body of [null, "bad", row.collection ? {} : [], ...(row.collection ? [[null]] : [])]) {
       server.use(http.get("*", () => HttpResponse.json(body)));
-      await assert.rejects(row.run(), /invalid .*response/);
+      await assert.rejects(row.run(), /Invalid .*response/);
     }
     server.use(http.get("*", () => new HttpResponse("synthetic-private-invalid-json")));
-    await assert.rejects(row.run(), /^Error: YouTrack returned an invalid JSON response\.$/);
+    await assert.rejects(row.run(), /^Error: Invalid JSON response from YouTrack\.$/);
     if (row.collection) {
       server.use(http.get("*", () => HttpResponse.json([])));
       assert.deepEqual(await row.run(), []);
       server.use(http.get("*", () => HttpResponse.json([{ id: "one" }, { id: "two" }])));
-      await assert.rejects(row.run({ top: 1 }), /more items than the requested top limit/);
+      await assert.rejects(row.run({ top: 1 }), /More items than the requested page size/);
     }
   }
 });
@@ -170,10 +170,10 @@ test("directory inputs reject invalid IDs, projections and paging before native 
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));
   for (const row of rows) {
-    await assert.rejects(row.run({ fields: " " }), /YouTrack fields/);
+    await assert.rejects(row.run({ fields: " " }), /fields must be/);
     if (row.collection) {
       for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
-        await assert.rejects(row.run(options), /YouTrack (top|skip)/);
+        await assert.rejects(row.run(options), /--(top|skip) must/);
       }
     }
   }
@@ -189,7 +189,7 @@ test("directory inputs reject invalid IDs, projections and paging before native 
       () => getUserBundleIndividual(connection, bundleID, id),
       () => getUser(connection, id),
     ]) {
-      await assert.rejects(run(), /YouTrack/);
+      await assert.rejects(run(), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     }
   }
   assert.equal(calls, 0);

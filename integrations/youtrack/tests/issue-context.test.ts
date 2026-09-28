@@ -92,10 +92,10 @@ test("activity pages accept empty and sparse projections but reject invalid enve
   assert.deepEqual((await getActivitiesPage(connection, { categories: "CommentsCategory" })).activities, []);
   for (const invalid of [{}, { ...envelope, activities: null }, { ...envelope, activities: [null] }, { ...envelope, beforeCursor: 4 }, { ...envelope, hasAfter: "true" }, []]) {
     server.use(http.get(endpoint + "/activitiesPage", () => HttpResponse.json(invalid)));
-    await assert.rejects(getActivitiesPage(connection, { categories: "CommentsCategory" }), /invalid/);
+    await assert.rejects(getActivitiesPage(connection, { categories: "CommentsCategory" }), /invalid/i);
   }
   server.use(http.get(endpoint + "/activitiesPage", () => HttpResponse.json({ afterCursor: null })));
-  await assert.rejects(getActivitiesPage(connection, { categories: "CommentsCategory", fields: "afterCursor" }), /invalid activity page/);
+  await assert.rejects(getActivitiesPage(connection, { categories: "CommentsCategory", fields: "afterCursor" }), /Invalid activity page/);
   server.use(http.get(endpoint + "/activitiesPage", () => HttpResponse.json({ id: "fixture-page" })));
   assert.deepEqual(await getActivitiesPage(connection, { categories: "CommentsCategory", fields: "id" }), { id: "fixture-page" });
 });

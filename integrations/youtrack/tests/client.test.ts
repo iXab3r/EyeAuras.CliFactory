@@ -65,7 +65,7 @@ test("identity follows same-host HTTP-to-HTTPS upgrades from configured context 
 test("HTTP failures expose status only, never upstream diagnostics or URLs", async () => {
   for (const status of [400, 401, 403, 404, 409, 429, 500]) {
     server.use(http.get("*/api/users/me", () => new HttpResponse("synthetic-token private diagnostic", { status })));
-    await assert.rejects(currentUser(options), new RegExp(`^Error: YouTrack request failed \\(HTTP ${status}\\)\\.$`));
+    await assert.rejects(currentUser(options), new RegExp(`^HttpError: YouTrack answered HTTP ${status}\\.$`));
   }
 });
 
@@ -85,7 +85,7 @@ test("redirects reach another endpoint without credentials and transport errors 
     throw new Error("synthetic-token https://private.example.com");
   };
   await assert.rejects(currentUser({ ...options, fetch }), (error: Error) => {
-    assert.match(error.message, /YouTrack request failed/);
+    assert.match(error.message, /Could not reach YouTrack/);
     assert.ok(error.cause instanceof Error);
     assert.doesNotMatch(JSON.stringify(error), /synthetic-token/);
     return true;
@@ -95,7 +95,7 @@ test("redirects reach another endpoint without credentials and transport errors 
 test("malformed JSON and incomplete identity cannot validate credentials", async () => {
   for (const body of ["synthetic-token", "null", "[]", "{}", '{"id":"1-1"}', '{"id":"","login":"fixture"}']) {
     server.use(http.get("*/api/users/me", () => new HttpResponse(body)));
-    await assert.rejects(currentUser(options), /^Error: YouTrack returned an invalid identity response\.$/);
+    await assert.rejects(currentUser(options), /^Error: Invalid identity response from YouTrack\.$/);
   }
 });
 
@@ -125,7 +125,7 @@ test("identity rejects credential-bearing fields instead of accepting scrubbed p
     for (const key of ["id", "login"]) {
       const value = { id: "1-1", login: "fixture-user", [key]: text };
       server.use(http.get("*/api/users/me", () => HttpResponse.json(value)));
-      await assert.rejects(currentUser(options), /^Error: YouTrack returned an invalid identity response\.$/);
+      await assert.rejects(currentUser(options), /^Error: Invalid identity response from YouTrack\.$/);
     }
   }
 });
@@ -163,7 +163,7 @@ test("download metadata rejects malformed and credential-reflecting fields safel
   ]) {
     server.use(http.get("*/api/issues/DEMO-1/attachments/1-1", () => HttpResponse.json(value)));
     await assert.rejects(getAttachmentDownloadMetadata(options, "api/issues/DEMO-1/attachments/1-1"), (error: Error) => {
-      assert.match(error.message, /^YouTrack returned (an invalid object response|invalid attachment download metadata or no download URL)\.$/);
+      assert.match(error.message, /^Invalid (object response from YouTrack|attachment download metadata from YouTrack, or no download URL)\.$/);
       assert.ok(!error.message.includes("synthetic-token"));
       return true;
     });
@@ -181,13 +181,13 @@ test("nullable object reads accept JSON null only and retain normal scrubbing an
   const path = "api/articles/KB-1/parentArticle";
   server.use(http.get(`*/${path}`, () => HttpResponse.json(null)));
   assert.equal(await readNullableObject(options, path, { fields: "id" }), null);
-  await assert.rejects(readObject(options, path, { fields: "id" }), /invalid object response/);
+  await assert.rejects(readObject(options, path, { fields: "id" }), /Invalid object response/);
   server.use(http.get(`*/${path}`, () => HttpResponse.json({ id: "1-1", url: "/api/files/1?sign=fixture" })));
   assert.deepEqual(await readNullableObject(options, path, { fields: "id,url" }), { id: "1-1", url: "[redacted]" });
   for (const body of ["", "[]", '"private fixture"']) {
     server.use(http.get(`*/${path}`, () => new HttpResponse(body)));
-    await assert.rejects(readNullableObject(options, path, { fields: "id" }), /YouTrack returned an invalid/);
+    await assert.rejects(readNullableObject(options, path, { fields: "id" }), /Invalid .*from YouTrack/);
   }
   server.use(http.get(`*/${path}`, () => new HttpResponse("private fixture", { status: 404 })));
-  await assert.rejects(readNullableObject(options, path, { fields: "id" }), /^Error: YouTrack request failed \(HTTP 404\)\.$/);
+  await assert.rejects(readNullableObject(options, path, { fields: "id" }), /^HttpError: YouTrack answered HTTP 404\.$/);
 });

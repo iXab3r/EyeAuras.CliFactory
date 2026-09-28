@@ -207,7 +207,7 @@ test("download Content-Length and actual streamed byte limits are enforced with 
       start(controller) { controller.enqueue(bytes.subarray(0, 2)); controller.enqueue(bytes.subarray(2)); controller.close(); },
     }), { headers: contentLength === undefined ? {} : { "content-length": contentLength } }));
     await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { maxBytes: 3 }),
-      /limit|Content-Length|length/);
+      /limit|Content-Length|length|max-bytes/);
     assert.deepEqual(await readdir(join(directory, "downloads")), []);
     assert.deepEqual(await readdir(join(directory, "temp")), []);
   }
@@ -324,7 +324,8 @@ test("download CLI human and JSON return sanitized domain data beneath the selec
     } else {
       assert.match(f.stdout(), /chosen.bin/);
     }
-    assert.equal(f.stderr(), "");
+    // A person sees one progress line; JSON callers see none.
+    assert.equal(f.stderr(), json ? "" : "Downloading chosen.bin…\n");
     assert.doesNotMatch(f.stdout(), /synthetic|sign=/);
   }
 });
