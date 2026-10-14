@@ -129,7 +129,7 @@ test("missing build blocks Run, but management ignores invalid launch limits and
     }),
   };
   assert.equal(await runHosted(options, ["--help"], io), 1);
-  assert.match(error, /npm run build/);
+  assert.match(error, /rebuild|reinstall/i);
   for (const command of ["status", "stop"]) {
     output = "";
     error = "";

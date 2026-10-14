@@ -814,8 +814,12 @@ The initial npm release set is `@eyeauras/cli-factory`, `@eyeauras/teamcity-cli`
 and `@eyeauras/youtrack-cli`, licensed under MIT. The two CLI packages install the
 unscoped `teamcity-cli` and `youtrack-cli` executable names through npm's `bin` mapping.
 Package scope does not alter CLI syntax, application IDs, profile paths or credentials.
+Optional IPC can also be prepared as an external package artifact using the package-scoped
+build contract in [runtime modules](runtime-modules.md#build-compatibility); publishing it is a
+separate release decision. Factory owns stable host identity, election, readiness, compatibility,
+profiles and disposal; external products retain their domain state and queues.
 Runtime JavaScript/types are built before packing; consumers need no TypeScript compiler
-or repository checkout. Root and optional runtime/example packages remain private.
+or repository checkout. Root, browser and example packages remain private; IPC has explicit public-package metadata.
 Registry publication is separate from package preparation; the [release guide](npm-release.md)
 defines artifact verification and dependency-ordered publication.
 

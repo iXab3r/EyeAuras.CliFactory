@@ -733,3 +733,18 @@ The two RANDOM.ORG definitions ([HTTP](../integrations/random-rest/src/cli.ts),
 [PW](../integrations/random-pw/src/cli.ts)) are working examples with the same two service commands.
 They create cheap clients per invocation; only browser resources and service-specific quota/backoff
 persist. Do not extract a generic client cache from this service-specific state.
+
+### Hosted external package
+
+Use the same `runHosted` entry point. In the consumer build, after compiling, call:
+
+```js
+import { writePackageBuildManifest } from "@eyeauras/cli-factory-ipc/build";
+await writePackageBuildManifest(packageRoot);
+```
+
+Include `.cli-package-build.json` and explicit runtime/resource paths in package.json `files`.
+Prepare before packing; no consumer copy of the Factory build helper is needed.
+See [package-scoped build compatibility](runtime-modules.md#build-compatibility) for the supported
+inputs and dependency immutability boundary. Until an IPC registry release, install its prepared
+tarball alongside the external CLI tarball; this preparation does not publish either package.

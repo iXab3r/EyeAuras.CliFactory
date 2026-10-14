@@ -18,7 +18,7 @@ const failures = {
   ],
   build: [
     74,
-    "CLI host could not validate its build. Run npm run build before retrying.",
+    "CLI host could not validate its build. Rebuild the workspace or reinstall the prepared package before retrying.",
   ],
 } as const;
 
