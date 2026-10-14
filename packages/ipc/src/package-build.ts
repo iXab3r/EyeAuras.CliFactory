@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +36,11 @@ async function artifactHash(root: string): Promise<string> {
     const path = relative(root, resolve(root, input));
     if (!path || path.startsWith("..") || path.split(/[\\/]/).includes("node_modules"))
       throw new Error("Package artifact path is outside the supported files contract.");
+    let component = root;
+    for (const part of path.split(/[\\/]/)) {
+      component = join(component, part);
+      if ((await lstat(component)).isSymbolicLink()) throw new Error("Package artifacts must not contain symlink ancestors.");
+    }
     await visit(path);
   }
   const hash = createHash("sha256");
@@ -63,7 +67,7 @@ export async function writePackageBuildManifest(root: string): Promise<string> {
 }
 
 export async function readPackageBuildManifest(entry: string | URL): Promise<string | undefined> {
-  const root = await packageRoot(entry);
+  const root = await realpath(await packageRoot(entry));
   let manifest: { version: number; artifact: string };
   try { manifest = await readJson(join(root, marker)); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined; throw error; }
@@ -71,11 +75,9 @@ export async function readPackageBuildManifest(entry: string | URL): Promise<str
     throw new Error("Hosted package artifact is missing or stale. Rebuild and reinstall the package; ipc-server status/stop remain available.");
   // Installed dependencies are immutable artifacts. Include the resolved dependency graph's
   // deployed bytes in owner compatibility, independently of install paths or a parent workspace.
-  const graph = new Set<string>();
-  const seen = new Set<string>();
+  const graph = new Map<string, { path: string; digest: string; dependencies: [string, string][] }>();
   const visit = async (directory: string): Promise<void> => {
-    if (seen.has(directory)) return;
-    seen.add(directory);
+    if (graph.has(directory)) return;
     const pkg = await readJson(join(directory, "package.json"));
     const runtime = createHash("sha256");
     const scan = async (folder: string): Promise<void> => {
@@ -92,27 +94,32 @@ export async function readPackageBuildManifest(entry: string | URL): Promise<str
     };
     if (directory === root) runtime.update(manifest.artifact);
     else await scan(directory);
-    graph.add(runtime.digest("hex"));
-    const require = createRequire(join(directory, "package.json"));
+    const node = {path: relative(root, directory).replaceAll("\\", "/"), digest: runtime.digest("hex"), dependencies: [] as [string,string][]};
+    graph.set(directory,node); // Break cycles while retaining every resolution edge.
     const dependencyRoot = async (name: string): Promise<string> => {
-      // Inspect Node's standard npm search path without requiring a CommonJS export
-      // from ESM-only packages (Core itself deliberately exports only import).
-      for (const path of require.resolve.paths(name) ?? []) {
-        const candidate = join(path, ...name.split("/"));
+      // Standard npm ancestry, including ESM-only packages. Custom global search paths
+      // and loaders are intentionally outside the supported artifact contract.
+      let parent = directory;
+      for (;;) {
+        const candidate = join(parent, "node_modules", ...name.split("/"));
         try { await lstat(join(candidate, "package.json")); return await realpath(candidate); }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+        const next = dirname(parent); if (next === parent) break; parent = next;
       }
-      throw Object.assign(new Error("Installed dependency is missing."), { code: "MODULE_NOT_FOUND" });
+      throw Object.assign(new Error("Installed dependency is missing."), {code:"MODULE_NOT_FOUND"});
     };
-    for (const name of Object.keys(pkg.dependencies ?? {}).filter(name => !pkg.optionalDependencies?.[name]).sort()) {
-      await visit(await dependencyRoot(name));
-    }
-    for (const name of Object.keys(pkg.optionalDependencies ?? {}).sort()) {
+    const required = new Set([...Object.keys(pkg.dependencies ?? {}).filter(name => !pkg.optionalDependencies?.[name]),
+      ...Object.keys(pkg.peerDependencies ?? {}).filter(name => !pkg.peerDependenciesMeta?.[name]?.optional)]);
+    const optional = new Set([...Object.keys(pkg.optionalDependencies ?? {}),
+      ...Object.keys(pkg.peerDependencies ?? {}).filter(name => pkg.peerDependenciesMeta?.[name]?.optional)]);
+    for (const name of [...new Set([...required,...optional])].sort()) {
       let dependency: string;
-      try { dependency = await dependencyRoot(name); } catch (error) { if ((error as NodeJS.ErrnoException).code === "MODULE_NOT_FOUND") continue; throw error; }
+      try { dependency = await dependencyRoot(name); }
+      catch (error) { if (!required.has(name) && (error as NodeJS.ErrnoException).code === "MODULE_NOT_FOUND") continue; throw error; }
+      node.dependencies.push([name,relative(root,dependency).replaceAll("\\", "/")]);
       await visit(dependency);
     }
   };
   await visit(root);
-  return createHash("sha256").update(JSON.stringify([manifest.artifact, process.version, process.platform, process.arch, [...graph].sort()])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([manifest.artifact, process.version, process.platform, process.arch, [...graph.values()].sort((a,b) => a.path < b.path ? -1 : 1)])).digest("hex");
 }

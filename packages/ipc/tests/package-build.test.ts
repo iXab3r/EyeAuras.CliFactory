@@ -45,3 +45,21 @@ test('installed dependency bytes participate in compatibility', async t => {
   await writeFile(join(path,'index.js'),'module.exports = 2;');
   assert.notEqual(await readPackageBuildManifest(join(root,'dist/bin.js')),before);
 });
+test('artifact paths reject a symlinked ancestor', async t => {
+  const root=await fixture(t);const outside=await mkdtemp(join(tmpdir(),'outside-artifact-'));t.after(()=>rm(outside,{recursive:true,force:true}));
+  await writeFile(join(outside,'payload.js'),'outside');
+  const {symlink}=await import('node:fs/promises');await symlink(outside,join(root,'linked'),'dir');
+  await writeFile(join(root,'package.json'),JSON.stringify({files:['linked/payload.js','.cli-package-build.json']}));
+  await assert.rejects(writePackageBuildManifest(root),/symlink/);
+});
+test('required and installed optional peer bytes participate in compatibility',async t=>{
+  const root=await fixture(t);const path=join(root,'node_modules/peer');await mkdir(path,{recursive:true});
+  const pkg=JSON.parse(await readFile(join(root,'package.json'),'utf8'));pkg.peerDependencies={peer:'1.0.0',absent:'1.0.0'};pkg.peerDependenciesMeta={absent:{optional:true}};
+  await writeFile(join(root,'package.json'),JSON.stringify(pkg));await writeFile(join(path,'package.json'),JSON.stringify({name:'peer',version:'1.0.0'}));await writeFile(join(path,'code.js'),'one');
+  await writePackageBuildManifest(root);const before=await readPackageBuildManifest(join(root,'dist/bin.js'));await writeFile(join(path,'code.js'),'two');assert.notEqual(await readPackageBuildManifest(join(root,'dist/bin.js')),before);
+});
+test('swapped dependency resolution contexts change identity',async t=>{
+  const root=await fixture(t);const pkg=JSON.parse(await readFile(join(root,'package.json'),'utf8'));pkg.dependencies={a:'1.0.0',b:'1.0.0'};await writeFile(join(root,'package.json'),JSON.stringify(pkg));
+  for(const [name,v] of [['a','1'],['b','2']] as const){const path=join(root,'node_modules',name);await mkdir(join(path,'node_modules/c'),{recursive:true});await writeFile(join(path,'package.json'),JSON.stringify({name,version:'1.0.0',dependencies:{c:'*'}}));await writeFile(join(path,'node_modules/c/package.json'),JSON.stringify({name:'c',version:v}));await writeFile(join(path,'node_modules/c/index.js'),v);}
+  await writePackageBuildManifest(root);const before=await readPackageBuildManifest(join(root,'dist/bin.js'));const a=join(root,'node_modules/a/node_modules/c'),b=join(root,'node_modules/b/node_modules/c');await rename(a,a+'-tmp');await rename(b,a);await rename(a+'-tmp',b);assert.notEqual(await readPackageBuildManifest(join(root,'dist/bin.js')),before);
+});

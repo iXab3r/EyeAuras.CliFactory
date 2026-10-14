@@ -82,7 +82,11 @@ process.exitCode = await runHosted({
 ```
 
 The factory returns a fresh `CliDefinition` for each owner. Use the same factory with `createCli`
-in embedded tests. The runner adds management commands, derives applicationId from the definition
+in embedded tests. The runner executes definition.builtins locally for ordinary invocations, so immutable package
+resource discovery requires no host, build marker, profile or service connection. Service leaves
+belong in commands; an existing JSON-RPC session still routes its requests through the owner.
+This supplies no discovery naming/registration policy; Factory #29 owns those decisions.
+The runner adds management commands, derives applicationId from the definition
 (name by default), and handles cleanup. Each process constructs and validates one Core application
 before build lookup or spawn, including foreground relays. Definition construction and resource
 constructors must be cheap and effect-free: do not launch browsers or contact services there.
@@ -134,7 +138,10 @@ manifest validation takes precedence over a parent workspace marker; a stale pac
 Runtime compatibility includes the package artifact, Node version/platform/architecture and the
 resolved installed dependency graph: manifests and all deployed package files, excluding nested
 node_modules (resolved separately) and .git. This is deliberately conservative.
-Optional platform dependencies participate when installed. Resolution uses standard npm package
+Required peers and installed optional peers/platform dependencies participate. Relative deployed
+package locations and dependency-name resolution edges preserve distinct resolution contexts;
+relocating the complete installation preserves identity, while a changed hoisting layout may
+conservatively require stopping the owner. Absolute author/install paths are not stored. Resolution uses standard npm package
 lookup, including ESM-only dependencies. Dependencies are assumed immutable while an invocation
 runs; custom loaders, bundlers and dependency mutation during hashing are unsupported. This is
 build compatibility, not a tamper-proof signature. Stable applicationId still selects the owner;

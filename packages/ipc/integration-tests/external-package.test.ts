@@ -23,7 +23,7 @@ test('packed IPC + external CLI install runs one relocatable owner without Facto
   await writeFile(join(stage,'dist/bin.js'), `import {runHosted} from '@eyeauras/cli-factory-ipc';
 import {AppArguments,command} from '@eyeauras/cli-factory';
 const root=process.env.TEST_ROOT;
-process.exitCode=await runHosted({entryPoint:import.meta.url,createDefinition:()=>({name:'synthetic-external-cli',description:'Synthetic external owner proof',runtime:{appArguments:new AppArguments({AppName:'synthetic-external-cli',Environment:{AppDomainDirectory:root,ApplicationExecutablePath:process.argv[1],EnvironmentAppData:root,EnvironmentLocalAppData:root,ProcessId:process.pid}})},commands:[command('who','Return owner identity',()=>({pid:process.pid}))]})});`);
+process.exitCode=await runHosted({entryPoint:import.meta.url,createDefinition:()=>({name:'synthetic-external-cli',description:'Synthetic external owner proof',runtime:{appArguments:new AppArguments({AppName:'synthetic-external-cli',Environment:{AppDomainDirectory:root,ApplicationExecutablePath:process.argv[1],EnvironmentAppData:root,EnvironmentLocalAppData:root,ProcessId:process.pid}})},builtins:[command('resource','Locate a synthetic resource',()=>({version:'1.0.0'}))],commands:[command('who','Return owner identity',()=>({pid:process.pid}))]})});`);
   await exec('npm',['install','--ignore-scripts','--no-audit','--no-fund'],{cwd:stage});
   const externalPackage=JSON.parse(await readFile(join(stage,'package.json'),'utf8'));
   externalPackage.dependencies['@eyeauras/cli-factory-ipc']='0.1.0';
@@ -36,11 +36,14 @@ process.exitCode=await runHosted({entryPoint:import.meta.url,createDefinition:()
   const bin=join(install,'node_modules/synthetic-external-cli/dist/bin.js');
   const invoke=(argv:string[])=>exec(process.execPath,[bin,...argv],{cwd:install,env:{...process.env,TEST_ROOT:appData},timeout:15000});
   t.after(async()=>{await invoke(['ipc-server','stop','--json']).catch(()=>{});});
+  await invoke(['resource','--json']);
+  assert.equal(JSON.parse((await invoke(['ipc-server','status','--json'])).stdout).running,false);
   const results=await Promise.all([invoke(['who','--json']),invoke(['who','--json'])]);
   const pids=results.map(r=>JSON.parse(r.stdout).pid);
   assert.equal(pids[0],pids[1]); assert.notEqual(pids[0],process.pid);
   await writeFile(bin,(await readFile(bin,'utf8'))+'\n// changed artifact\n');
   await assert.rejects(invoke(['who','--json']),/stale|reinstall/i);
+  await invoke(['resource','--json']);
   await invoke(['ipc-server','status','--json']);
   await invoke(['ipc-server','stop','--json']);
 });

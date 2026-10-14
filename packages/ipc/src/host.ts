@@ -77,7 +77,9 @@ export async function runHosted(
   try {
     validateArgv(argv);
     definition = await startup("definition", () => options.createDefinition());
-    if (!isManagement(argv)) validateHostOptions(options);
+    const localRoots = (definition.builtins ?? []).map(c => c.name.split(" ")[0]!);
+    const localInvocation = isManagement(argv, localRoots);
+    if (!localInvocation) validateHostOptions(options);
     const environmentKeys = declaredEnvironment(definition);
     const appDefinition = definition;
     const applicationId = definition.applicationId ?? definition.name;
@@ -147,7 +149,7 @@ export async function runHosted(
           () => control(connection, true),
         ),
       );
-      code = isManagement(argv)
+      code = localInvocation
         ? await local.run(argv, io)
         : await runRemote(
             {
