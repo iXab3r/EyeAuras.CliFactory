@@ -11,21 +11,3 @@ export function management(
     ]),
   ];
 }
-/** Only routing of the module's root; Core parses/validates the actual declaration. */
-export function isManagement(argv: readonly string[], localRoots: readonly string[] = []): boolean {
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]!;
-    if (arg === "--json" || arg === "--verbose") continue;
-    if (arg === "--profile" || arg === "-p") {
-      i++;
-      continue;
-    }
-    if (
-      arg.startsWith("--profile=") ||
-      (arg.startsWith("-p") && !arg.startsWith("--"))
-    )
-      continue;
-    return arg === "ipc-server" || localRoots.includes(arg);
-  }
-  return false;
-}
