@@ -1,11 +1,11 @@
 import { status } from "@grpc/grpc-js";
 import type { CliIo } from "@eyeauras/cli-factory";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { protocol } from "./protocol.js";
 import { internalMode } from "./endpoint.js";
 import { relay } from "./relay.js";
-import { ownershipExitCode, startupMessage } from "./startup.js";
+import { ownershipExitCode, startupMessage, cancelStartup } from "./startup.js";
 import type { CliHostClient } from "./generated/clifactory/CliHost.js";
 import type { HostStatus__Output } from "./generated/clifactory/HostStatus.js";
 
@@ -14,12 +14,28 @@ function deniedAccess(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const failure = error as {code?: unknown; details?: unknown; cause?: unknown};
   return failure.code === status.PERMISSION_DENIED || failure.code === "EACCES" || failure.code === "EPERM" ||
-    (typeof failure.details === "string" && /\b(?:EACCES|EPERM)\b/.test(failure.details));
+    (typeof failure.details === "string" && /(?:^|[\s:])connect (?:EACCES|EPERM)(?:\s|$)/.test(failure.details));
 }
 function assertAccessible(error: unknown, noCommandSent = false): void {
   if (deniedAccess(error)) throw new Error(
     `IPC access was denied; owner state is unknown${noCommandSent ? " and no command was sent" : ""}. Allow access to the runtime storage and local IPC endpoint.`,
   );
+}
+
+/** A ready child disconnects this channel; only an unready child accepts cancellation. */
+async function retireStartup(child: ChildProcess): Promise<void> {
+  if (!child.connected) return;
+  await new Promise<void>((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      child.off("exit", done);
+      resolve();
+    };
+    const timer = setTimeout(done, 1000);
+    child.once("exit", done);
+    try { child.send(cancelStartup, (error) => { if (error) done(); }); }
+    catch { done(); }
+  });
 }
 
 function request(
@@ -118,7 +134,7 @@ export async function runRemote(
         options.entryPoint,
         internalMode,
       ],
-      { detached: true, stdio: "ignore", windowsHide: true },
+      { detached: true, stdio: ["ignore", "ignore", "ignore", "ipc"], windowsHide: true },
     );
     let spawnFailed = false;
     let exited = false;
@@ -129,6 +145,7 @@ export async function runRemote(
       exited = true;
     });
     child.unref();
+    child.channel?.unref();
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
       try {
@@ -141,6 +158,7 @@ export async function runRemote(
         connected = true;
         break;
       } catch (error) {
+        if (deniedAccess(error)) await retireStartup(child);
         assertAccessible(error, true);
         if (
           ![

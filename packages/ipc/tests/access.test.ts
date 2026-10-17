@@ -37,3 +37,10 @@ test('access lost after an acknowledged stop remains unknown rather than stopped
  await assert.rejects(control(client,true),error=>{accessFailure(error as Error);assert.doesNotMatch((error as Error).message,/no command was sent/);return true;});
  assert.equal(stops,1);assert.equal(probes,1);
 });
+
+test('denial words in an ENOENT endpoint path remain an absent endpoint',async()=>{
+ for(const name of ['EPERM','EACCES']){
+  const client={Status(_r:unknown,_o:unknown,done:(error:unknown)=>void){done({code:status.UNAVAILABLE,details:'No connection established: connect ENOENT /synthetic/'+name+'/host.sock'});}} as unknown as CliHostClient;
+  assert.deepEqual(await control(client),{running:false});
+ }
+});

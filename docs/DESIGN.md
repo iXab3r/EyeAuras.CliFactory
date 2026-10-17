@@ -120,7 +120,10 @@ The optional IPC host consumes this classification and opens a connection lazily
 IPC permission denial is an inaccessible/unknown owner state, not proof of absence. The host
 fails before sending research work or spawning a redundant owner when its initial connection
 is denied; status must not report `running: false` for that denial. Ownership failure guidance
-asks for storage/endpoint access diagnosis rather than prescribing a shared-owner stop. Local metadata
+asks for storage/endpoint access diagnosis rather than prescribing a shared-owner stop.
+A private Node child channel cancels a caller-owned startup only before readiness. The ready
+owner disconnects that channel; a later denied caller cannot terminate a shared owner. Denial
+classification matches the transport code position, not words in an endpoint path. Local metadata
 and help do not require a build marker or IPC endpoint; nested owner leaves still validate the
 prepared build and execute in the shared owner.
 

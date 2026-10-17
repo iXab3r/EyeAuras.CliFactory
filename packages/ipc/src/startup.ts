@@ -48,3 +48,6 @@ export function startupMessage(code: number | null): string {
     "CLI host exited before becoming ready. Check the executable and its runtime dependencies."
   );
 }
+
+/** Private parent-to-child startup cancellation; never an owner control command. */
+export const cancelStartup = "clifactory:cancel-startup";
