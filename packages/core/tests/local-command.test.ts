@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
-import { command, localCommand, createCli, recordView, type ProfileStoreContract, type SecretStore } from "../src/index.js";
+import { command, localCommand, createCli, recordView, type ProfileStoreContract, type SecretStore, CliError } from "../src/index.js";
 
 function fixture() {
   const forbidden = new Proxy({}, { get: () => () => { throw new Error("Profile/secret access forbidden"); } });
@@ -58,4 +58,21 @@ test("local handlers cannot bypass a gated profile handler", () => {
     assert.throws(() => createCli({name:"invalid",description:"Invalid",commands:[{...localCommand("metadata","Inspect metadata",()=>null),...extra}]}), /cannot declare/);
   }
   assert.throws(() => createCli({name:"invalid",description:"Invalid",permissions:{},commands:[command("service","Inspect service",()=>null)]}), /must declare a permission/);
+});
+
+
+test("local failures keep typed errors, human follow-ups and result data without selecting a profile", async t => {
+  const stdout: string[] = [], stderr: string[] = [];
+  const app = createCli({name:"metadata-errors",description:"Local failures",commands:[
+    localCommand("missing","Inspect missing data",()=>{throw new CliError("Tool is unavailable.",{code:"tool.missing",next:[["list"]]});}),
+    localCommand("native","Inspect broken data",()=>{throw new Error("Metadata could not be read.");}),
+    localCommand("partial","Inspect partial data",()=>{throw new CliError("Metadata is partial.",{code:"tool.partial",result:{partial:true}});}),
+  ],runtime:{input:Readable.from([]),output:new Writable({write(c,_e,done){stdout.push(String(c));done();}}),error:new Writable({write(c,_e,done){stderr.push(String(c));done();}})}});
+  t.after(()=>app.dispose());
+  assert.equal(await app.run(["missing"]),1);
+  assert.match(stderr.join(""),/Next:\n  metadata-errors list/);
+  assert.doesNotMatch(stderr.join(""),/--profile/);
+  await assert.rejects(app.execute(["native"]),error=>error instanceof CliError && error.profile===undefined && error.message==="Metadata could not be read.");
+  assert.equal(await app.run(["partial","--json"]),1);
+  assert.deepEqual(JSON.parse(stdout.join("")),{partial:true});
 });

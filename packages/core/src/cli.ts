@@ -356,7 +356,9 @@ export function createCli(definition: CliDefinition): CliApplication {
         try {
           result = await runLocal(commandInput, context);
         } catch (caught) {
-          const failure = afterInterrupt(caught, execution.interrupt);
+          const interrupted = afterInterrupt(caught, execution.interrupt);
+          const failure = interrupted instanceof Error && !(interrupted instanceof CliError)
+            ? CliError.from(interrupted) : interrupted;
           if (execution.render && failure instanceof CliError && failure.result !== undefined)
             writeResult(output, failure.result, globals.json === true, presentation);
           throw failure;
@@ -597,7 +599,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     const cause = verbose || failure.code === "usage" || failure.exitCode === 130 ? undefined : conciseCause(failure);
     if (cause) lines.push(cause);
     // A rendered result carries its own suggestions; stderr adds them only without one.
-    if (error instanceof CliError && error.result === undefined && error.profile !== undefined) {
+    if (error instanceof CliError && error.result === undefined) {
       const next = nextCommands(error.next, definition.name, error.profile, error.defaultProfile);
       if (next.length) lines.push("Next:", ...next.map((line) => `  ${line}`));
     }
