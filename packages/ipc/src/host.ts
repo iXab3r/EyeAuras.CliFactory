@@ -16,7 +16,7 @@ import { connect } from "./protocol.js";
 import { write } from "./relay.js";
 import { startup, StartupFailure } from "./startup.js";
 import { hostPaths, internalMode } from "./endpoint.js";
-import { management, isManagement } from "./commands.js";
+import { management } from "./commands.js";
 import { control, runRemote } from "./client.js";
 import { serveHost } from "./server.js";
 
@@ -77,9 +77,6 @@ export async function runHosted(
   try {
     validateArgv(argv);
     definition = await startup("definition", () => options.createDefinition());
-    const localRoots = (definition.builtins ?? []).map(c => c.name.split(" ")[0]!);
-    const localInvocation = isManagement(argv, localRoots);
-    if (!localInvocation) validateHostOptions(options);
     const environmentKeys = declaredEnvironment(definition);
     const appDefinition = definition;
     const applicationId = definition.applicationId ?? definition.name;
@@ -141,14 +138,15 @@ export async function runHosted(
       );
       code = 2;
     } else {
-      client = connect(hostPaths(appArguments).endpoint);
-      const connection = client;
+      const connection = () => client ??= connect(hostPaths(appArguments).endpoint);
       const local = createApplication(
         management(
-          () => control(connection),
-          () => control(connection, true),
+          () => control(connection()),
+          () => control(connection(), true),
         ),
       );
+      const localInvocation = await local.classify(argv, io) === "local";
+      if (!localInvocation) validateHostOptions(options);
       code = localInvocation
         ? await local.run(argv, io)
         : await runRemote(
@@ -160,7 +158,7 @@ export async function runHosted(
                 ? { nodeArguments: options.nodeArguments }
                 : {}),
             },
-            connection,
+            connection(),
             argv,
             io,
           );

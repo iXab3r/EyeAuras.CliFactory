@@ -80,14 +80,14 @@ export function writeResult(
   output: Writable,
   value: unknown,
   json: boolean,
-  presentation?: { view: HumanView; cliName: string; profile: string; defaultProfile?: string },
+  presentation?: { view: HumanView; cliName: string; profile?: string; defaultProfile?: string },
 ): void {
   const width = terminalWidth(output);
   const viewed = json || !presentation
     ? undefined
     : renderView(presentation.view, value, {
         cliName: presentation.cliName,
-        profile: presentation.profile,
+        ...(presentation.profile === undefined ? {} : { profile: presentation.profile }),
         ...(presentation.defaultProfile === undefined ? {} : { defaultProfile: presentation.defaultProfile }),
         now: Date.now(),
         ...(width === undefined ? {} : { width }),

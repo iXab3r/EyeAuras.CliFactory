@@ -103,6 +103,24 @@ diagnostic rendering/redaction glue. Verification obligations are in
 
 ### Commands are a tree
 
+`localCommand(name, description, handler, settings)` declares package metadata in that same
+recursive tree, including next to profile-scoped leaves. Its `runLocal` handler receives only
+cwd, environment, signal, I/O and progress: no profile, secrets or fetch. It runs without profile
+selection/readiness/permissions. Do not use it for service reads, mutations or owned process
+operations; those remain ordinary gated commands. A node cannot combine `runLocal` with `run`
+or a permission. Local human views have no selected profile; their follow-ups do not append one.
+
+`application.classify(argv, invocation?)` returns `local` or `owner` using the normal parser,
+without executing handlers or reading profiles/auth/storage. Option value parsers must be pure.
+Metadata, help, version, bare groups and usage errors are local. Profile/permission commands and
+service handlers belong to the owner; a persistent `--json-rpc` session does too. A bare root is
+local for redirected input/output and retains owner-side onboarding in a TTY. Classification
+never replaces authoritative parsing, readiness or permission checks when the owner executes.
+The optional IPC host consumes this classification and opens a connection lazily. Local metadata
+and help do not require a build marker or IPC endpoint; nested owner leaves still validate the
+prepared build and execute in the shared owner.
+
+
 A CLI is a recursive command declaration. Every node has a name and description; branch nodes
 contain children and leaf nodes execute handlers. The framework generates help at every node.
 Authors must not hand-write a dispatch switch or separate help pages.

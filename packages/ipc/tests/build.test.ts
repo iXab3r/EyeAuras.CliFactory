@@ -9,6 +9,7 @@ import {
   MemorySecretStore,
   command,
   createCli,
+  localCommand,
 } from "@eyeauras/cli-factory";
 import { runHosted } from "../src/host.js";
 import {
@@ -128,8 +129,9 @@ test("missing build blocks Run, but management ignores invalid launch limits and
       ],
     }),
   };
-  assert.equal(await runHosted(options, ["--help"], io), 1);
-  assert.match(error, /rebuild|reinstall/i);
+  assert.equal(await runHosted(options, ["--help"], io), 0);
+  assert.equal(error, "");
+  assert.match(output, /Usage: synthetic-build/);
   for (const command of ["status", "stop"]) {
     output = "";
     error = "";
@@ -209,7 +211,7 @@ test("host and Core declaration errors surface before build lookup and still dis
           commands:
             kind === "permission"
               ? [{ name: "inspect", description: "fixture", run: () => null }]
-              : [],
+              : [command("inspect", "Inspect fixture", () => null)],
           resources: [
             {
               dispose() {
@@ -219,7 +221,7 @@ test("host and Core declaration errors surface before build lookup and still dis
           ],
         }),
       },
-      ["--help"],
+      ["inspect"],
       io,
     );
     assert.equal(code, 1);
@@ -253,7 +255,7 @@ test("failed diagnostic sink does not crash runHosted or skip resource disposal"
         createDefinition: () => ({
           name: "synthetic-build",
           description: "fixture",
-          commands: [],
+          commands: [command("inspect", "Inspect fixture", () => null)],
           resources: [
             {
               dispose() {
@@ -264,7 +266,7 @@ test("failed diagnostic sink does not crash runHosted or skip resource disposal"
           ],
         }),
       },
-      [],
+      ["inspect"],
       {
         input: Readable.from([]),
         output: new Writable({
@@ -366,4 +368,23 @@ test("an absent or interrupted build marker never publishes readiness", async (t
     JSON.parse(await readFile(join(f.root, manifestName), "utf8")).build,
     build,
   );
+});
+
+
+test("nested metadata works without build inputs or AppData while mutations remain hosted", async t => {
+  const f = await fixture(t);
+  const blocked = join(f.root, "blocked"); await writeFile(blocked, "Not a directory");
+  const appArguments = new AppArguments({AppName:"synthetic-build",Environment:{AppDomainDirectory:f.root,ApplicationExecutablePath:f.entry,EnvironmentAppData:blocked,EnvironmentLocalAppData:blocked,ProcessId:process.pid}});
+  let output = "", error = "", mutations = 0;
+  const io = {input:Readable.from([]),output:new Writable({write(c,_e,done){output+=c;done();}}),error:new Writable({write(c,_e,done){error+=c;done();}})};
+  const options = {entryPoint:f.entry, createDefinition:()=>({name:"synthetic-build",description:"Nested discovery",runtime:{appArguments},commands:[command("tools","Inspect tools",[
+    localCommand("list","List tools",()=>({tools:["synthetic"]})),
+    command("processes","Inspect processes",()=>{mutations++;return {};})
+  ])]})};
+  assert.equal(await runHosted({...options,idleTimeoutMs:0},["tools","list","--json"],io),0,error);
+  assert.deepEqual(JSON.parse(output),{tools:["synthetic"]});
+  output="";
+  assert.equal(await runHosted(options,["tools","processes","--json"],io),1);
+  assert.match(error,/rebuild|reinstall/i);
+  assert.equal(mutations,0);
 });
