@@ -9,6 +9,19 @@ import { ownershipExitCode, startupMessage } from "./startup.js";
 import type { CliHostClient } from "./generated/clifactory/CliHost.js";
 import type { HostStatus__Output } from "./generated/clifactory/HostStatus.js";
 
+/** grpc preserves native transport denial in details rather than its numeric status. */
+function deniedAccess(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const failure = error as {code?: unknown; details?: unknown; cause?: unknown};
+  return failure.code === status.PERMISSION_DENIED || failure.code === "EACCES" || failure.code === "EPERM" ||
+    (typeof failure.details === "string" && /\b(?:EACCES|EPERM)\b/.test(failure.details));
+}
+function assertAccessible(error: unknown, noCommandSent = false): void {
+  if (deniedAccess(error)) throw new Error(
+    `IPC access was denied; owner state is unknown${noCommandSent ? " and no command was sent" : ""}. Allow access to the runtime storage and local IPC endpoint.`,
+  );
+}
+
 function request(
   client: CliHostClient,
   method: "Status" | "Stop",
@@ -34,6 +47,7 @@ export async function control(client: CliHostClient, stop = false) {
   try {
     current = await request(client, stop ? "Stop" : "Status", "");
   } catch (error) {
+    assertAccessible(error);
     if ((error as { code?: number }).code === status.UNAVAILABLE)
       return { running: false };
     throw new Error(
@@ -48,6 +62,7 @@ export async function control(client: CliHostClient, stop = false) {
       try {
         await request(client, "Status", "", 300);
       } catch (error) {
+        assertAccessible(error);
         if ((error as { code?: number }).code === status.UNAVAILABLE)
           return { running: false };
       }
@@ -85,6 +100,7 @@ export async function runRemote(
       throw new Error("Host is closing; no command was sent.");
     connected = true;
   } catch (error) {
+    assertAccessible(error, true);
     if (
       (error as { code?: number }).code !== status.UNAVAILABLE &&
       (error as { code?: number }).code !== status.DEADLINE_EXCEEDED
@@ -125,6 +141,7 @@ export async function runRemote(
         connected = true;
         break;
       } catch (error) {
+        assertAccessible(error, true);
         if (
           ![
             status.UNAVAILABLE,

@@ -116,7 +116,11 @@ Metadata, help, version, bare groups and usage errors are local. Profile/permiss
 service handlers belong to the owner; a persistent `--json-rpc` session does too. A bare root is
 local for redirected input/output and retains owner-side onboarding in a TTY. Classification
 never replaces authoritative parsing, readiness or permission checks when the owner executes.
-The optional IPC host consumes this classification and opens a connection lazily. Local metadata
+The optional IPC host consumes this classification and opens a connection lazily.
+IPC permission denial is an inaccessible/unknown owner state, not proof of absence. The host
+fails before sending research work or spawning a redundant owner when its initial connection
+is denied; status must not report `running: false` for that denial. Ownership failure guidance
+asks for storage/endpoint access diagnosis rather than prescribing a shared-owner stop. Local metadata
 and help do not require a build marker or IPC endpoint; nested owner leaves still validate the
 prepared build and execute in the shared owner.
 

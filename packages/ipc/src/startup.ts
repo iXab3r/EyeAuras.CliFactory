@@ -10,7 +10,7 @@ const failures = {
   ],
   ownership: [
     72,
-    "CLI host could not acquire ownership. Check ipc-server status or stop the existing owner before retrying.",
+    "CLI host could not acquire ownership. Check runtime storage permissions and IPC access.",
   ],
   endpoint: [
     73,
