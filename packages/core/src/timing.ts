@@ -23,17 +23,17 @@ export async function timingSpan<T>(stage: string, work: () => T | Promise<T>): 
   const parent = spans.getStore(), state = {request: parent?.request ?? randomUUID(), id: ++sequence, scope: parent?.scope};
   const start = process.hrtime.bigint(); let ok = false;
   return spans.run(state, async () => { try { const value = await work(); ok = true; return value; }
-    finally { emit(stage, state, parent?.id, start, ok); } });
+    finally { emit(stage, state, parent?.id || undefined, start, ok); } });
 }
 /** A logical command owns a fresh request; contexts/caller IDs are irreversibly hashed together. */
 export function timingRequest<T>(work: () => T | Promise<T>): Promise<T> {
   if (!timingEnabled()) return Promise.resolve().then(work);
-  return spans.run({ request: randomUUID(), id: ++sequence }, () => timingSpan('command.total', work));
+  return spans.run({ request: randomUUID(), id: 0 }, () => timingSpan('command.total', work));
 }
 export function timingScope<T>(identity: string, work: () => T | Promise<T>): Promise<T> {
   if (!timingEnabled()) return Promise.resolve().then(work);
   const parent = spans.getStore();
-  return spans.run({request: parent?.request ?? randomUUID(), id: parent?.id ?? ++sequence,
+  return spans.run({request: parent?.request ?? randomUUID(), id: parent?.id ?? 0,
     scope: createHash('sha256').update(identity).digest('hex').slice(0, 24)}, () => Promise.resolve().then(work));
 }
 export function timingSync<T>(stage: string, work: () => T): T {
@@ -41,5 +41,5 @@ export function timingSync<T>(stage: string, work: () => T): T {
   if (!/^[a-z][a-z0-9._-]{0,79}$/.test(stage)) throw new Error('Timing stage must be a static diagnostic name.');
   const parent = spans.getStore(), state: Span = {request: parent?.request ?? randomUUID(), id: ++sequence, scope: parent?.scope};
   const start = process.hrtime.bigint(); let ok = false;
-  return spans.run(state, () => {try {const value = work(); ok = true; return value;} finally {emit(stage,state,parent?.id,start,ok);}});
+  return spans.run(state, () => {try {const value = work(); ok = true; return value;} finally {emit(stage,state,parent?.id || undefined,start,ok);}});
 }
