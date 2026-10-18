@@ -1,3 +1,4 @@
+import {timingSync} from "./timing.js";
 import { inspect } from "node:util";
 import type { Writable } from "node:stream";
 import { renderView, type HumanView } from "./view.js";
@@ -80,20 +81,20 @@ export function writeResult(
   output: Writable,
   value: unknown,
   json: boolean,
-  presentation?: { view: HumanView; cliName: string; profile: string; defaultProfile?: string },
+  presentation?: { view: HumanView; cliName: string; profile?: string; defaultProfile?: string },
 ): void {
   const width = terminalWidth(output);
   const viewed = json || !presentation
     ? undefined
     : renderView(presentation.view, value, {
         cliName: presentation.cliName,
-        profile: presentation.profile,
+        ...(presentation.profile === undefined ? {} : { profile: presentation.profile }),
         ...(presentation.defaultProfile === undefined ? {} : { defaultProfile: presentation.defaultProfile }),
         now: Date.now(),
         ...(width === undefined ? {} : { width }),
       });
-  const rendered = json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value);
+  const rendered = timingSync("output.serialize", () => json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value));
   if (rendered.length > 0) {
-    output.write(`${rendered}\n`);
+    timingSync("output.write", () => output.write(`${rendered}\n`));
   }
 }

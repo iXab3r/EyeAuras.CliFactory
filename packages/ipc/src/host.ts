@@ -1,4 +1,6 @@
 import {
+  timingSpan,
+  timingRequest,
   AppArguments,
   createCli,
   visitResources,
@@ -14,9 +16,9 @@ import { fileURLToPath } from "node:url";
 import { readBuildManifest } from "./build.js";
 import { connect } from "./protocol.js";
 import { write } from "./relay.js";
-import { startup, StartupFailure } from "./startup.js";
+import { startup, StartupFailure, cancelStartup } from "./startup.js";
 import { hostPaths, internalMode } from "./endpoint.js";
-import { management, isManagement } from "./commands.js";
+import { management } from "./commands.js";
 import { control, runRemote } from "./client.js";
 import { serveHost } from "./server.js";
 
@@ -70,14 +72,14 @@ export async function runHosted(
     error: process.stderr,
   },
 ): Promise<number> {
+  return timingRequest(async()=>{
   let definition: CliDefinition | undefined;
   let application: CliApplication | undefined;
   let client: ReturnType<typeof connect> | undefined;
   let code = 1;
   try {
     validateArgv(argv);
-    definition = await startup("definition", () => options.createDefinition());
-    if (!isManagement(argv)) validateHostOptions(options);
+    definition = await startup("definition", () => timingSpan("bootstrap.definition", () => options.createDefinition()));
     const environmentKeys = declaredEnvironment(definition);
     const appDefinition = definition;
     const applicationId = definition.applicationId ?? definition.name;
@@ -110,7 +112,7 @@ export async function runHosted(
         createHash("sha256")
           .update(
             JSON.stringify([
-              await readBuildManifest(entryPoint),
+              await timingSpan("bootstrap.artifact-hash", () => readBuildManifest(entryPoint)),
               applicationId,
               appDefinition.version ?? "",
             ]),
@@ -118,20 +120,39 @@ export async function runHosted(
           .digest("hex"),
       );
     if (argv.length === 1 && argv[0] === internalMode) {
-      await serveHost(
-        {
-          appArguments,
-          environmentKeys,
-          ...(options.idleTimeoutMs !== undefined
-            ? { idleTimeoutMs: options.idleTimeoutMs }
-            : {}),
-          ...(options.maxInvocations !== undefined
-            ? { maxInvocations: options.maxInvocations }
-            : {}),
-        },
-        createApplication,
-        resolveBuild,
-      );
+      let ready = false, cancelled = false;
+      const cancel = (message: unknown) => {
+        if (message !== cancelStartup || ready) return;
+        cancelled = true;
+        // No command has been admitted. Retire only this caller's unready startup process.
+        process.kill(process.pid, "SIGTERM");
+      };
+      process.on("message", cancel);
+      try {
+        await serveHost(
+          {
+            appArguments,
+            environmentKeys,
+            startupCancelled: () => cancelled,
+            onReady: () => {
+              ready = true;
+              process.off("message", cancel);
+              if (process.connected) process.disconnect();
+            },
+            ...(options.idleTimeoutMs !== undefined
+              ? { idleTimeoutMs: options.idleTimeoutMs }
+              : {}),
+            ...(options.maxInvocations !== undefined
+              ? { maxInvocations: options.maxInvocations }
+              : {}),
+          },
+          createApplication,
+          resolveBuild,
+        );
+      } finally {
+        process.off("message", cancel);
+        if (process.connected) process.disconnect();
+      }
       code = 0;
     } else if (argv.includes(internalMode)) {
       await write(io.error, "Invalid internal host invocation.\n").catch(
@@ -139,15 +160,16 @@ export async function runHosted(
       );
       code = 2;
     } else {
-      client = connect(hostPaths(appArguments).endpoint);
-      const connection = client;
+      const connection = () => client ??= connect(hostPaths(appArguments).endpoint);
       const local = createApplication(
         management(
-          () => control(connection),
-          () => control(connection, true),
+          () => control(connection()),
+          () => control(connection(), true),
         ),
       );
-      code = isManagement(argv)
+      const localInvocation = await timingSpan("bootstrap.classify", () => local.classify(argv, io)) === "local";
+      if (!localInvocation) validateHostOptions(options);
+      code = localInvocation
         ? await local.run(argv, io)
         : await runRemote(
             {
@@ -158,7 +180,7 @@ export async function runHosted(
                 ? { nodeArguments: options.nodeArguments }
                 : {}),
             },
-            connection,
+            connection(),
             argv,
             io,
           );
@@ -192,4 +214,5 @@ export async function runHosted(
     }
   }
   return code;
+  });
 }

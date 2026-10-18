@@ -1,3 +1,4 @@
+export { timingSpan, timingSync, timingRequest, timingScope, timingEnabled } from "./timing.js";
 export { readResponseBody } from "./response-body.js";
 export { fetchWithRedirects } from "./http.js";
 export { parseServerUrl, normalizeBearerToken } from "./input-normalization.js";
@@ -13,7 +14,7 @@ export type {
 } from "./profile-file.js";
 export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
-export { command } from "./command.js";
+export { command, localCommand } from "./command.js";
 export type { InferredCommandHandler } from "./command-input.js";
 export { targetCommands } from "./target-commands.js";
 export type {
@@ -56,6 +57,8 @@ export type {
   CliRuntime,
   CliResource,
   CommandContext,
+  LocalCommandContext,
+  LocalCommandHandler,
   CommandDefinition,
   CommandHandler,
   CommandHelp,

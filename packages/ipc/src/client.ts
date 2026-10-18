@@ -1,13 +1,43 @@
+import {timingSpan} from "@eyeauras/cli-factory";
 import { status } from "@grpc/grpc-js";
 import type { CliIo } from "@eyeauras/cli-factory";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { protocol } from "./protocol.js";
 import { internalMode } from "./endpoint.js";
 import { relay } from "./relay.js";
-import { ownershipExitCode, startupMessage } from "./startup.js";
+import { ownershipExitCode, startupMessage, cancelStartup } from "./startup.js";
 import type { CliHostClient } from "./generated/clifactory/CliHost.js";
 import type { HostStatus__Output } from "./generated/clifactory/HostStatus.js";
+
+/** grpc preserves native transport denial in details rather than its numeric status. */
+function deniedAccess(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const failure = error as {code?: unknown; details?: unknown; cause?: unknown};
+  return failure.code === status.PERMISSION_DENIED || failure.code === "EACCES" || failure.code === "EPERM" ||
+    (typeof failure.details === "string" && /(?:^|[\s:])connect (?:EACCES|EPERM)(?:\s|$)/.test(failure.details));
+}
+function assertAccessible(error: unknown, noCommandSent = false): void {
+  if (deniedAccess(error)) throw new Error(
+    `IPC access was denied; owner state is unknown${noCommandSent ? " and no command was sent" : ""}. Allow access to the runtime storage and local IPC endpoint.`,
+  );
+}
+
+/** A ready child disconnects this channel; only an unready child accepts cancellation. */
+async function retireStartup(child: ChildProcess): Promise<void> {
+  if (!child.connected) return;
+  await new Promise<void>((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      child.off("exit", done);
+      resolve();
+    };
+    const timer = setTimeout(done, 1000);
+    child.once("exit", done);
+    try { child.send(cancelStartup, (error) => { if (error) done(); }); }
+    catch { done(); }
+  });
+}
 
 function request(
   client: CliHostClient,
@@ -34,6 +64,7 @@ export async function control(client: CliHostClient, stop = false) {
   try {
     current = await request(client, stop ? "Stop" : "Status", "");
   } catch (error) {
+    assertAccessible(error);
     if ((error as { code?: number }).code === status.UNAVAILABLE)
       return { running: false };
     throw new Error(
@@ -48,6 +79,7 @@ export async function control(client: CliHostClient, stop = false) {
       try {
         await request(client, "Status", "", 300);
       } catch (error) {
+        assertAccessible(error);
         if ((error as { code?: number }).code === status.UNAVAILABLE)
           return { running: false };
       }
@@ -76,7 +108,7 @@ export async function runRemote(
 ): Promise<number> {
   let connected = false;
   try {
-    const current = await request(client, "Status", options.build, 500);
+    const current = await timingSpan("owner.discover", () => request(client, "Status", options.build, 500));
     if (current.build !== options.build)
       throw new Error(
         "Host build mismatch. Run ipc-server stop before using this build.",
@@ -85,6 +117,7 @@ export async function runRemote(
       throw new Error("Host is closing; no command was sent.");
     connected = true;
   } catch (error) {
+    assertAccessible(error, true);
     if (
       (error as { code?: number }).code !== status.UNAVAILABLE &&
       (error as { code?: number }).code !== status.DEADLINE_EXCEEDED
@@ -102,7 +135,7 @@ export async function runRemote(
         options.entryPoint,
         internalMode,
       ],
-      { detached: true, stdio: "ignore", windowsHide: true },
+      { detached: true, stdio: ["ignore", "ignore", "ignore", "ipc"], windowsHide: true },
     );
     let spawnFailed = false;
     let exited = false;
@@ -113,10 +146,11 @@ export async function runRemote(
       exited = true;
     });
     child.unref();
+    child.channel?.unref();
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
       try {
-        const current = await request(client, "Status", options.build, 500);
+        const current = await timingSpan("owner.discover", () => request(client, "Status", options.build, 500));
         if (current.build !== options.build || current.closing)
           throw new Error("Existing host build mismatch or closing.");
         // The elected peer owns the application now. Our unused startup child must not
@@ -125,6 +159,8 @@ export async function runRemote(
         connected = true;
         break;
       } catch (error) {
+        if (deniedAccess(error)) await retireStartup(child);
+        assertAccessible(error, true);
         if (
           ![
             status.UNAVAILABLE,
@@ -159,11 +195,11 @@ export async function runRemote(
         process.env[key] === undefined ? [] : [[key, process.env[key]!]],
       ),
     );
-    return await relay(client, argv, options.build, io, {
+    return await timingSpan("ipc.roundtrip", () => relay(client, argv, options.build, io, {
       signal: cancellation.signal,
       cwd: process.cwd(),
       environment,
-    });
+    }));
   } finally {
     process.off("SIGINT", cancel).off("SIGTERM", cancel);
   }
