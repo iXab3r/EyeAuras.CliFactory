@@ -95,6 +95,6 @@ export function writeResult(
       });
   const rendered = timingSync("output.serialize", () => json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value));
   if (rendered.length > 0) {
-    output.write(`${rendered}\n`);
+    timingSync("output.write", () => output.write(`${rendered}\n`));
   }
 }
