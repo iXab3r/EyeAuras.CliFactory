@@ -1,3 +1,4 @@
+import {timingRequest,timingSpan,timingSync} from "./timing.js";
 import { Command, CommanderError, Option } from "commander";
 import { AppArguments } from "./app-arguments.js";
 import { canPrompt } from "./auth.js";
@@ -372,13 +373,13 @@ export function createCli(definition: CliDefinition): CliApplication {
       }
       const invoke = async (ownsExclusive: boolean) => {
         const globals = command.optsWithGlobals() as GlobalOptions;
-        let profile = await resolveProfile(globals.profile);
+        let profile = await timingSpan("profile.resolve", () => resolveProfile(globals.profile));
         // Follow-ups name the profile only when the selected one is not the default.
         const defaultProfile =
           globals.profile === undefined ? profile.name : (await profileStore.list()).active;
         try {
           if (requiredPermission) {
-            const enabled = await enabledPermissions(profile.name);
+            const enabled = await timingSpan("profile.permissions", () => enabledPermissions(profile.name));
             if (!enabled.has(requiredPermission)) {
               throw new CliError(
                 `Permission '${requiredPermission}' is disabled for profile '${profile.name}'.`,
@@ -392,7 +393,7 @@ export function createCli(definition: CliDefinition): CliApplication {
           context.signal.throwIfAborted();
           const presentation = view && { view, cliName: definition.name, profile: profile.name, defaultProfile };
           try {
-            result = await handler(commandInput, context);
+            result = await timingSpan("command.handler", () => handler(commandInput, context));
           } catch (caught) {
             const failure = afterInterrupt(caught, execution.interrupt);
             // A failed outcome still shows its data; `run` reports the reason and exit code.
@@ -486,6 +487,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       parent.addCommand(current);
     };
 
+    timingSync('schema.prepare',()=>{
     // Service commands lead the root help; Core's local configuration follows under its own heading.
     for (const item of definition.commands) {
       addDefinition(program, definition.name, item);
@@ -510,6 +512,8 @@ export function createCli(definition: CliDefinition): CliApplication {
       .showHelpAfterError(shortUsage(program, definition.name));
     addExamples(program, definition.name, definition.examples);
 
+    });
+
     program.action(async () => {
       rejectUnknownSubcommand(program);
       parsed = true;
@@ -526,7 +530,7 @@ export function createCli(definition: CliDefinition): CliApplication {
             canPrompt(input, output) &&
             canPrompt(input, error)
           ) {
-            const profile = await resolveProfile(globals.profile);
+            const profile = await timingSpan("profile.resolve", () => resolveProfile(globals.profile));
             const state = await configurationState(profile);
             if (state.missingFields.length > 0 || state.authenticationMissing) {
               result = await configureProfile(profile.name, {
@@ -546,7 +550,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     });
 
     try {
-      await program.parseAsync(["node", definition.name, ...argv]);
+      await timingSpan("schema.parse-and-execute", () => program.parseAsync(["node", definition.name, ...argv]));
     } catch (error_) {
       if (error_ instanceof CommanderError) {
         if (error_.exitCode === 0) {
@@ -567,7 +571,7 @@ export function createCli(definition: CliDefinition): CliApplication {
   };
 
   const execute = (argv: readonly string[], execution: ExecutionOptions): Promise<unknown> =>
-    withDiagnostics(async () => {
+    timingRequest(() => withDiagnostics(async () => {
       for (const name of definition.auth?.environmentKeys ?? []) rememberSecret(execution.environment[name]);
       try { return await executeInternal(argv, execution); }
       catch (error) {
@@ -581,7 +585,7 @@ export function createCli(definition: CliDefinition): CliApplication {
         }
         throw error;
       }
-    });
+    }));
 
   /**
    * The one place a CLI failure is reported: a JSON envelope, or the explanation with one line of

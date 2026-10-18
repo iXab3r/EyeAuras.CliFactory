@@ -1,3 +1,4 @@
+import {timingSpan,timingEnabled} from "./timing.js";
 interface Pending {
   exclusive: boolean;
   start(): void;
@@ -22,6 +23,11 @@ export class CommandGate {
     exclusive = false,
   ): Promise<T> {
     if (signal.aborted) return Promise.reject(new Error("Command cancelled."));
+    let admitted!: () => void;
+    if (timingEnabled()) {
+      const waiting = new Promise<void>(resolve => { admitted = resolve; });
+      void timingSpan("gate.wait", () => waiting);
+    } else admitted = () => {};
     return new Promise<T>((resolve, reject) => {
       const pending: Pending = {
         exclusive,
@@ -29,11 +35,13 @@ export class CommandGate {
           const index = this.#pending.indexOf(pending);
           if (index >= 0) this.#pending.splice(index, 1);
           signal.removeEventListener("abort", pending.abort);
+          admitted();
           reject(new Error("Command cancelled while queued."));
           this.#pump();
         },
         start: () => {
           signal.removeEventListener("abort", pending.abort);
+          admitted();
           this.#running++;
           if (exclusive) this.#exclusive = true;
           void Promise.resolve()

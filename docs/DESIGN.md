@@ -900,3 +900,26 @@ The implementation path for new products is documented in [`integrations.md`](in
 Feature and bug scope enters the development loop through
 [`practices/github-issues.md`](practices/github-issues.md). Phased integrations use the
 Reconciliation Lead practice in [`practices/workstreams.md`](practices/workstreams.md).
+
+### Opt-in monotonic stage timing
+
+`CLI_FACTORY_TRACE_DIRECTORY` selects an existing private directory for bounded JSONL timing files,
+created exclusively with mode 0600. With it unset, the tracer opens no files. `timingSpan`,
+`timingSync`, `timingRequest` and `timingScope` let the host and real consumers use one process-local
+request/span context. Stage names are static diagnostic labels; never supply argv, program text,
+URLs or credentials. Logical context identities are hashed. Records contain schema version, PID,
+random request ID, span/parent IDs, optional scope digest, monotonic start/duration nanoseconds and
+success only. A sink failure disables tracing for that process and never changes the command result.
+The limit is 200,000 records per process. Existing file contents are never reused.
+
+Spans are inclusive: command parsing includes execution, IPC includes backend work and nested
+persistence spans overlap. Do not sum these into a critical path. Compare intervals within a PID;
+use the runner's monotonic request clock for end-to-end measurements and process observations for
+cross-process attribution. Trace output itself has a cost; compare opt-in and disabled runs on the
+same workload. Trace selection belongs to process startup and does not mutate another owner's
+configuration. Output remains on the ordinary stdout/JSON/JSON-RPC contracts.
+
+Hosted artifact validation hashes the same package/dependency files and graph on every client
+bootstrap. Its filesystem traversal is synchronous, before commands are admitted, avoiding one
+promise/thread-pool round trip per file. There is no persistent verification cache, mtime-only trust
+or dependency exclusion. Identity and tamper/relocation checks retain the byte-for-byte contract.

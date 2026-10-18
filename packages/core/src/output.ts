@@ -1,3 +1,4 @@
+import {timingSync} from "./timing.js";
 import { inspect } from "node:util";
 import type { Writable } from "node:stream";
 import { renderView, type HumanView } from "./view.js";
@@ -92,7 +93,7 @@ export function writeResult(
         now: Date.now(),
         ...(width === undefined ? {} : { width }),
       });
-  const rendered = json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value);
+  const rendered = timingSync("output.serialize", () => json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value));
   if (rendered.length > 0) {
     output.write(`${rendered}\n`);
   }

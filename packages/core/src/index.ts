@@ -1,3 +1,4 @@
+export { timingSpan, timingSync, timingRequest, timingScope, timingEnabled } from "./timing.js";
 export { readResponseBody } from "./response-body.js";
 export { fetchWithRedirects } from "./http.js";
 export { parseServerUrl, normalizeBearerToken } from "./input-normalization.js";

@@ -1,4 +1,6 @@
 import {
+  timingSpan,
+  timingRequest,
   AppArguments,
   createCli,
   visitResources,
@@ -70,13 +72,14 @@ export async function runHosted(
     error: process.stderr,
   },
 ): Promise<number> {
+  return timingRequest(async()=>{
   let definition: CliDefinition | undefined;
   let application: CliApplication | undefined;
   let client: ReturnType<typeof connect> | undefined;
   let code = 1;
   try {
     validateArgv(argv);
-    definition = await startup("definition", () => options.createDefinition());
+    definition = await startup("definition", () => timingSpan("bootstrap.definition", () => options.createDefinition()));
     const environmentKeys = declaredEnvironment(definition);
     const appDefinition = definition;
     const applicationId = definition.applicationId ?? definition.name;
@@ -109,7 +112,7 @@ export async function runHosted(
         createHash("sha256")
           .update(
             JSON.stringify([
-              await readBuildManifest(entryPoint),
+              await timingSpan("bootstrap.artifact-hash", () => readBuildManifest(entryPoint)),
               applicationId,
               appDefinition.version ?? "",
             ]),
@@ -164,7 +167,7 @@ export async function runHosted(
           () => control(connection(), true),
         ),
       );
-      const localInvocation = await local.classify(argv, io) === "local";
+      const localInvocation = await timingSpan("bootstrap.classify", () => local.classify(argv, io)) === "local";
       if (!localInvocation) validateHostOptions(options);
       code = localInvocation
         ? await local.run(argv, io)
@@ -211,4 +214,5 @@ export async function runHosted(
     }
   }
   return code;
+  });
 }

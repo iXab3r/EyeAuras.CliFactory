@@ -63,3 +63,12 @@ test('swapped dependency resolution contexts change identity',async t=>{
   for(const [name,v] of [['a','1'],['b','2']] as const){const path=join(root,'node_modules',name);await mkdir(join(path,'node_modules/c'),{recursive:true});await writeFile(join(path,'package.json'),JSON.stringify({name,version:'1.0.0',dependencies:{c:'*'}}));await writeFile(join(path,'node_modules/c/package.json'),JSON.stringify({name:'c',version:v}));await writeFile(join(path,'node_modules/c/index.js'),v);}
   await writePackageBuildManifest(root);const before=await readPackageBuildManifest(join(root,'dist/bin.js'));const a=join(root,'node_modules/a/node_modules/c'),b=join(root,'node_modules/b/node_modules/c');await rename(a,a+'-tmp');await rename(b,a);await rename(a+'-tmp',b);assert.notEqual(await readPackageBuildManifest(join(root,'dist/bin.js')),before);
 });
+test('synchronous traversal preserves the deployed-byte identity algorithm',async t=>{
+ const {createHash}=await import('node:crypto');const {relative}=await import('node:path');const root=await fixture(t);
+ const pkg=JSON.parse(await readFile(join(root,'package.json'),'utf8'));pkg.dependencies={dependency:'1.0.0'};await writeFile(join(root,'package.json'),JSON.stringify(pkg));
+ const path=join(root,'node_modules/dependency');await mkdir(join(path,'a'),{recursive:true});await writeFile(join(path,'package.json'),JSON.stringify({name:'dependency',version:'1.0.0'}));await writeFile(join(path,'a/z.txt'),'synthetic bytes');await writeFile(join(path,'a.txt'),'before nested folder in depth-first order');
+ await writePackageBuildManifest(root);const manifest=JSON.parse(await readFile(join(root,'.cli-package-build.json'),'utf8'));
+ const runtime=createHash('sha256');for(const file of ['a/z.txt','a.txt','package.json']){const bytes=await readFile(join(path,file));runtime.update(JSON.stringify([file,bytes.length])).update(bytes);}
+ const graph=[{path:'',digest:createHash('sha256').update(manifest.artifact).digest('hex'),dependencies:[['dependency','node_modules/dependency']]},{path:'node_modules/dependency',digest:runtime.digest('hex'),dependencies:[]}];
+ const expected=createHash('sha256').update(JSON.stringify([manifest.artifact,process.version,process.platform,process.arch,graph])).digest('hex');assert.equal(await readPackageBuildManifest(join(root,'dist/bin.js')),expected);
+});

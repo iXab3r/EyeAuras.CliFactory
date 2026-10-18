@@ -1,3 +1,4 @@
+import {timingSpan} from "@eyeauras/cli-factory";
 import { status } from "@grpc/grpc-js";
 import type { CliIo } from "@eyeauras/cli-factory";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -107,7 +108,7 @@ export async function runRemote(
 ): Promise<number> {
   let connected = false;
   try {
-    const current = await request(client, "Status", options.build, 500);
+    const current = await timingSpan("owner.discover", () => request(client, "Status", options.build, 500));
     if (current.build !== options.build)
       throw new Error(
         "Host build mismatch. Run ipc-server stop before using this build.",
@@ -149,7 +150,7 @@ export async function runRemote(
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
       try {
-        const current = await request(client, "Status", options.build, 500);
+        const current = await timingSpan("owner.discover", () => request(client, "Status", options.build, 500));
         if (current.build !== options.build || current.closing)
           throw new Error("Existing host build mismatch or closing.");
         // The elected peer owns the application now. Our unused startup child must not
@@ -194,11 +195,11 @@ export async function runRemote(
         process.env[key] === undefined ? [] : [[key, process.env[key]!]],
       ),
     );
-    return await relay(client, argv, options.build, io, {
+    return await timingSpan("ipc.roundtrip", () => relay(client, argv, options.build, io, {
       signal: cancellation.signal,
       cwd: process.cwd(),
       environment,
-    });
+    }));
   } finally {
     process.off("SIGINT", cancel).off("SIGTERM", cancel);
   }
