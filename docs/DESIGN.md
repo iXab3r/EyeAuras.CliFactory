@@ -548,6 +548,9 @@ state; explicit logout/deletion owns removal. Help/errors never exit an embeddin
 Definitions declare flat owned `resources`: each has `dispose()` and optionally
 `invalidateProfile(appArguments)`. Core deduplicates them, invalidates the affected profile on
 configuration/update/deletion, and attempts all disposals in reverse order even after an error.
+For profile updates and non-authenticated configuration, invalidation completes before the
+candidate profile is persisted. A resource veto therefore leaves the original settings intact,
+including when retained data or an interrupted migration prevents reconfiguration.
 No resource lookup, scopes, DI or manual forwarding of profile hooks is required.
 
 `concurrency` limits logical commands (positive integer, otherwise unbounded), not connections.
