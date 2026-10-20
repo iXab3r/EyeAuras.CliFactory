@@ -26,6 +26,17 @@ function table(values: readonly Record<string, unknown>[]): string {
   const widths = columns.map((column, index) =>
     Math.max(column.length, ...rows.map((row) => row[index]?.length ?? 0)),
   );
+  let content = 0;
+  let padding = 0;
+  for (const row of rows) {
+    for (const [index, cell] of row.entries()) {
+      content += cell.length;
+      if (index < row.length - 1) padding += (widths[index] ?? 0) - cell.length;
+    }
+  }
+  // Prefer lossless records when alignment adds more whitespace than actual cell content.
+  if (padding > content) return values.map(formatHuman).join("\n\n");
+
   const formatRow = (row: readonly string[]): string =>
     row.map((cell, index) => cell.padEnd(widths[index] ?? 0)).join("  ").trimEnd();
 
