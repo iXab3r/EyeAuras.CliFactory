@@ -150,8 +150,8 @@ It requires `Credentials` and returns identity fields only. The copy also includ
 roots, triggers and dependencies: inspect and configure those for the new product before use.
 TeamCity's parameter-resolution API can return masked password values; `builds resolve-parameter`
 rejects those instead of saving a mask as a usable credential. A server-side copy preserves the
-actual password without reading it into the CLI. The configured release job reuses the Workbench
-token through this path. An inactive Migration validation job retains the migration's earlier
+actual password without reading it into the CLI. CLI Factory and Workbench now share an
+`@eyeauras` scope publishing token; rotate both jobs with `set-password`. An inactive Migration validation job retains the migration's earlier
 build evidence; it is not a release entry point.
 
 ## Package contents and checks
