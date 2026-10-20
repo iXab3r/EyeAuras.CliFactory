@@ -307,7 +307,8 @@ Windows tests cover real Chromium, app-owned synthetic auth, independent CLI pro
 host/browser identity, stop, idle, crashes, protocol errors and overload. The IPC suite also ran
 under a filtered Windows token with Administrators disabled and maximum privileges removed, and
 under Node 24 in Ubuntu 20.04/WSL on real Unix sockets. This is not evidence of macOS execution or
-of a Linux browser run; the CI matrix provisions browsers for those future runs.
+of a Linux browser run. TeamCity provisions Chromium and Xvfb for Linux verification;
+Windows and macOS remain supported local verification environments.
 
 The fixed real-service proof is four sequential read cases per example, outside default tests
 and CI. Hard process kill or power loss is not a graceful dispose guarantee; no cross-platform

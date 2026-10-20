@@ -60,6 +60,7 @@ Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.C
 | `agents list`, `agents show <id>` | Inspect build agents | `ReadOnly` |
 | `projects create/set/move/delete` | Author project identity, hierarchy and allowed fields | `Update` |
 | `jobs create/set/move/delete` | Author build configurations | `Update` |
+| `jobs copy <source-id> <id> --name <name> --project <id>` | Copy settings server-side, including protected parameters, without exposing their values | `Credentials` |
 | `projects parameters list/show`, `jobs parameters list/show` | Inspect safe parameter values and metadata | `ReadOnly` |
 | `projects parameters create/set/delete`, `jobs parameters create/set/delete` | Manage plain parameters | `Update` |
 | `jobs steps list/show` | Inspect ordered step summaries | `ReadOnly` |

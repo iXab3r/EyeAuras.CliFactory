@@ -401,6 +401,10 @@ export function createAuthoringCommands(
     ),
   ];
   const jobs = [
+    leaf("copy <source-id> <id>", "Copy a build configuration", "Credentials",
+      (c, { args, options }) => c.copyJob(args["source-id"], args.id, {
+        name: text(options, "name"), project: text(options, "project"),
+      }), [nameOption, projectOption]),
     ...bulk.jobs,
     ...advanced.jobs,
     parameters("output"),

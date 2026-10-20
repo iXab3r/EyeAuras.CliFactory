@@ -160,7 +160,7 @@ state remain available for the whole session.
 | `docs/roles`, `docs/practices` | GitHub Issues, Reconciliation Lead, and phased workstream practices |
 | `.workspace/workstreams` | Local Git-ignored coordination notes |
 | `scripts/bootstrap.cs` | .NET 10 file-based bootstrap for submodules and npm dependencies |
-| `build/` | C# release driver (verify, version, pack, publish) shared by local runs and GitHub Actions |
+| `build/` | C# release driver (verify, version, pack, publish) shared by local runs and TeamCity |
 
 `CliWrap.ts` is planned as a separate repository and will be connected as a Git submodule when
 its first process-pipeline consumer is implemented. It is deliberately not represented by an

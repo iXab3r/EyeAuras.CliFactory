@@ -2,7 +2,8 @@
 
 Core, YouTrack CLI and TeamCity CLI are released together under one version. The C# release
 driver in `build/` checks, packs, publishes (Core first) and verifies them. The same commands
-run locally and in the manually started GitHub Actions **Release** workflow.
+run locally and in TeamCity. GitHub hosts the source, pull requests, tags and Release assets;
+GitHub Actions does not build or publish this repository.
 
 ## Package and executable names
 
@@ -44,7 +45,7 @@ dotnet run --project build -- --target <Target> [--release-version <x.y.z>] [--d
 
 | Target | What it does |
 |---|---|
-| `Verify` | The bootstrap (`scripts/bootstrap.cs`: submodules, then `npm ci`), Playwright Chromium, `npm test` (under `xvfb-run` on Linux without a display) and `npm run test:packages`. CI runs it on the Linux/macOS/Windows × Node 22/24 matrix. |
+| `Verify` | The bootstrap (`scripts/bootstrap.cs`: submodules, then `npm ci`), Playwright Chromium, `npm test` (under `xvfb-run` on Linux without a display) and `npm run test:packages`. TeamCity runs it on Linux with Node 24; Windows, macOS and Node 22 can run the same target locally. Linux with `CI=true` also installs Chromium's system dependencies. |
 | `SetVersion` | Writes `--release-version` to the three package versions, both `CliDefinition.version` strings and every workspace's exact Core pin, then refreshes `package-lock.json`. |
 | `Pack` | After `CheckRelease` and `Verify`, packs the three public packages into `output/release/` and writes `release-manifest.json` (version, commit, shasums, integrity). |
 | `Publish` | Publishes those archives in dependency order and waits until the registry serves each version with the packed shasum. |
@@ -58,13 +59,13 @@ A live `Publish` still re-checks the clean `origin/main` tip and that the archiv
 
 Before any work, `CheckRelease` requires `--release-version` to match every version site and lists
 each mismatch. A live release also requires a clean working tree whose `HEAD` is the current
-`origin/main` tip and, in GitHub Actions, npm 11.5.1 or later. Publication is idempotent: a version
+`origin/main` tip. Publication is idempotent: a version
 already published with the same shasum is skipped and the same version with different content is
-refused. A dry run only warns about the latter, so ordinary pull requests pass the CI release dry
-run until a release bumps the version. An existing GitHub Release is skipped; a tag on another
+refused. A dry run only warns about the latter, so changes can be checked before a release bumps
+the version. An existing GitHub Release is skipped; a tag on another
 commit is refused. Nothing is unpublished or retried: fix the cause and run the same command again.
 Packed files use LF line endings on every OS, so the archives of a commit are byte-identical locally
-and in Actions (0.3.1 packed identically on Windows and Linux), and a failed release can be resumed
+and in Linux CI (0.3.1 packed identically on Windows and Linux), and a failed release can be resumed
 through either path. A Windows clone made before `LICENSE` was forced to LF keeps CRLF copies that
 Git still reports as clean; delete the four `LICENSE` files once and run
 `git checkout -- LICENSE packages/core/LICENSE integrations/youtrack/LICENSE integrations/teamcity/LICENSE`.
@@ -72,11 +73,11 @@ Git still reports as clean; delete the four `LICENSE` files once and run
 ## Releasing
 
 1. Run `dotnet run --project build -- --target SetVersion --release-version <x.y.z>` and merge the
-   change through a pull request. CI dry-runs the release of the committed version.
+   change through a pull request. Run the TeamCity release dry run for the committed version.
 2. Release from `main` in one of two ways:
-   - **GitHub Actions:** Actions → **Release** → *Run workflow* with the version, first with
-     *dry-run* checked, then unchecked. The workflow publishes through npm trusted publishing
-     (no npm token, provenance attached) and creates the GitHub Release.
+   - **TeamCity:** run **CLI.Factory → npm release** with `env.RELEASE_MODE=--dry-run`, then
+     `env.RELEASE_MODE=--publish`. The committed Core package version selects the version for
+     all three packages. TeamCity uses its protected npm token and creates the GitHub Release.
    - **Locally:** run `npm login`, then
      `dotnet run --project build -- --target Release --release-version <x.y.z>`. npm asks for your
      2FA for each package (terminal prompt or browser confirmation). The GitHub Release uses your
@@ -84,23 +85,66 @@ Git still reports as clean; delete the four `LICENSE` files once and run
 3. The run checks the published packages from the registry, then creates the GitHub Release, which
    lists each published shasum.
 
-## Trusted publishing setup
+## TeamCity configuration
 
-The Release workflow authenticates to npm through OIDC, so GitHub stores no npm secret. Each
-package trusts exactly `iXab3r/EyeAuras.CliFactory` with `.github/workflows/release.yml`; renaming
-the workflow file breaks publication until the trust is updated. The configuration is created once
-with npm 11.15+ (`npx -y npm@11 trust ...` works with an older npm) and the owner's interactive 2FA:
+For a new server setup, run `pwsh -File build/configure-teamcity.ps1` with an authenticated
+`@eyeauras/teamcity-cli` profile whose `Update` permission is enabled. The create-only script
+stops on an existing identity rather than replacing its settings. It creates no credentials;
+configure the protected release parameters separately. The script can be reviewed before use.
+It leaves the Verify VCS trigger disabled: first run Verify and the release dry run manually on
+the migration branch, merge the entry point to main, then enable that trigger. This avoids
+building old main before it contains `build/teamcity.sh`. Use `teamcity-cli jobs triggers list
+EyeAuras_CliFactory_Verify` to find its ID, then `teamcity-cli jobs triggers fields set
+EyeAuras_CliFactory_Verify <trigger-id> disabled false` to enable it.
+
+The project is `EyeAuras_CliFactory`, with the repository's `refs/heads/main` as its default
+VCS branch. Two command-line configurations run `bash build/teamcity.sh` in the official
+`node:24-bookworm` Docker image on Linux agents with Docker:
+
+| Configuration ID | Mode | Trigger |
+|---|---|---|
+| `EyeAuras_CliFactory_Verify` | `env.RELEASE_MODE=--verify-only` | VCS changes on main; branches can be checked manually |
+| `EyeAuras_CliFactory_Release` | `env.RELEASE_MODE=--dry-run` by default | Manual only; use `--publish` for a live release |
+
+The entry point installs xauth, .NET 10 and the root `packageManager` npm version, then calls the same
+Cake targets used locally. Linux CI installs Chromium's system libraries and runs headed fixture
+tests under Xvfb. It never runs profile-backed integration proofs. The release job must acquire
+the project's exclusive `cli-factory-release` Shared Resource lock so release runs are serialized.
+Release archives and the manifest are retained as `npm-release.zip`, including after a later
+publication or registry verification failure.
 
 ```text
-npm trust github @eyeauras/cli-factory  --repo iXab3r/EyeAuras.CliFactory --file release.yml --allow-publish --yes
-npm trust github @eyeauras/youtrack-cli --repo iXab3r/EyeAuras.CliFactory --file release.yml --allow-publish --yes
-npm trust github @eyeauras/teamcity-cli --repo iXab3r/EyeAuras.CliFactory --file release.yml --allow-publish --yes
+teamcity-cli jobs run EyeAuras_CliFactory_Verify --wait --timeout 30m
+teamcity-cli jobs run EyeAuras_CliFactory_Release --wait --timeout 30m
+teamcity-cli jobs run EyeAuras_CliFactory_Release --param env.RELEASE_MODE=--publish --wait --timeout 30m
 ```
 
-Anyone who can run the workflow (repository write access) can publish; no further approval is
-required by design. Optional later hardening on npmjs.com: package → Settings → Publishing access →
-"Require two-factor authentication and disallow tokens". OIDC and interactive 2FA publishing keep
-working with that setting.
+Configure `env.NPM_TOKEN` as a **password** parameter on the release configuration, or use
+`env.NPM_TOKEN=%npm.token%` backed by a protected `npm.token` parameter.
+It needs granular read/write access to the three public
+packages and permission to bypass interactive 2FA. `env.GITHUB_TOKEN` is a protected TeamCity
+parameter with repository contents write access for the GitHub Release and tag. Neither token
+belongs in source, command arguments or build artifacts. The temporary npm configuration contains
+only the literal `${NPM_TOKEN}` reference, is outside the checkout, and is removed on exit.
+Verify and dry-run modes clear publishing token variables before invoking Cake.
+
+TeamCity is not an npm trusted publishing provider, so publication uses a token and carries no
+npm OIDC provenance. The former GitHub trusted publisher for `release.yml` is no longer used;
+remove it in each package's npm settings after confirming the TeamCity path. Packages configured
+to disallow tokens must allow the granular publishing token before the first live release.
+Removing the workflow files does not remove or revoke existing npm trust or user credentials.
+Rotate the protected token before it expires. TeamCity project administrators control who can
+start a live release.
+
+For reuse of an existing release configuration, `jobs copy <source-id> <new-id> --name <name>
+--project <project-id>` uses TeamCity's native server-side copy, including protected parameters.
+It requires `Credentials` and returns identity fields only. The copy also includes steps, VCS
+roots, triggers and dependencies: inspect and configure those for the new product before use.
+TeamCity's parameter-resolution API can return masked password values; `builds resolve-parameter`
+rejects those instead of saving a mask as a usable credential. A server-side copy preserves the
+actual password without reading it into the CLI. The configured release job reuses the Workbench
+token through this path. An inactive Migration validation job retains the migration's earlier
+build evidence; it is not a release entry point.
 
 ## Package contents and checks
 
