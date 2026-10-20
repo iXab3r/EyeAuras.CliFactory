@@ -23,7 +23,7 @@ Invoke-TeamCity projects features create EyeAuras_CliFactory --type JetBrains.Sh
 
 foreach ($job in @(
     @{ Id = 'EyeAuras_CliFactory_Verify'; Name = 'Verify'; Mode = '--verify-only' },
-    @{ Id = 'EyeAuras_CliFactory_NpmRelease'; Name = 'npm release'; Mode = '--dry-run' }
+    @{ Id = 'EyeAuras_CliFactory_Release'; Name = 'npm release'; Mode = '--dry-run' }
 )) {
     Invoke-TeamCity jobs create $job.Id --project EyeAuras_CliFactory --name $job.Name
     Invoke-TeamCity jobs vcs attach $job.Id --root EyeAuras_CliFactory_Repo
@@ -37,7 +37,7 @@ foreach ($job in @(
         --property plugin.docker.pull.enabled=true --property 'plugin.docker.run.parameters=--user 0 --init --ipc=host'
 }
 
-Invoke-TeamCity jobs features create EyeAuras_CliFactory_NpmRelease --type JetBrains.SharedResources --enabled `
+Invoke-TeamCity jobs features create EyeAuras_CliFactory_Release --type JetBrains.SharedResources --enabled `
     --property 'locks-param=cli-factory-release writeLock'
 # Enable main verification after merging the entry point and checking the branch on TeamCity.
 Invoke-TeamCity jobs triggers create EyeAuras_CliFactory_Verify --type vcsTrigger `

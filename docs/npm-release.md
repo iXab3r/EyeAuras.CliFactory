@@ -104,7 +104,7 @@ VCS branch. Two command-line configurations run `bash build/teamcity.sh` in the 
 | Configuration ID | Mode | Trigger |
 |---|---|---|
 | `EyeAuras_CliFactory_Verify` | `env.RELEASE_MODE=--verify-only` | VCS changes on main; branches can be checked manually |
-| `EyeAuras_CliFactory_NpmRelease` | `env.RELEASE_MODE=--dry-run` by default | Manual only; use `--publish` for a live release |
+| `EyeAuras_CliFactory_Release` | `env.RELEASE_MODE=--dry-run` by default | Manual only; use `--publish` for a live release |
 
 The entry point installs xauth, .NET 10 and the root `packageManager` npm version, then calls the same
 Cake targets used locally. Linux CI installs Chromium's system libraries and runs headed fixture
@@ -115,11 +115,12 @@ publication or registry verification failure.
 
 ```text
 teamcity-cli jobs run EyeAuras_CliFactory_Verify --wait --timeout 30m
-teamcity-cli jobs run EyeAuras_CliFactory_NpmRelease --wait --timeout 30m
-teamcity-cli jobs run EyeAuras_CliFactory_NpmRelease --param env.RELEASE_MODE=--publish --wait --timeout 30m
+teamcity-cli jobs run EyeAuras_CliFactory_Release --wait --timeout 30m
+teamcity-cli jobs run EyeAuras_CliFactory_Release --param env.RELEASE_MODE=--publish --wait --timeout 30m
 ```
 
-Configure `env.NPM_TOKEN` as a **password** parameter on the release configuration.
+Configure `env.NPM_TOKEN` as a **password** parameter on the release configuration, or use
+`env.NPM_TOKEN=%npm.token%` backed by a protected `npm.token` parameter.
 It needs granular read/write access to the three public
 packages and permission to bypass interactive 2FA. `env.GITHUB_TOKEN` is a protected TeamCity
 parameter with repository contents write access for the GitHub Release and tag. Neither token
@@ -135,11 +136,15 @@ Removing the workflow files does not remove or revoke existing npm trust or user
 Rotate the protected token before it expires. TeamCity project administrators control who can
 start a live release.
 
-For an authorized transfer from an existing TeamCity build, `builds resolve-parameter` stores one
-named value in the current profile's OS keyring. `jobs parameters create-password <job-id>
-<name> --value-secret <alias>` creates a password parameter from that alias without exposing
-the value. Both require `Credentials`; existing target parameters are refused. Then forget the temporary alias and
-restore the operator's permissions. No token value is passed on the command line.
+For reuse of an existing release configuration, `jobs copy <source-id> <new-id> --name <name>
+--project <project-id>` uses TeamCity's native server-side copy, including protected parameters.
+It requires `Credentials` and returns identity fields only. The copy also includes steps, VCS
+roots, triggers and dependencies: inspect and configure those for the new product before use.
+TeamCity's parameter-resolution API can return masked password values; `builds resolve-parameter`
+rejects those instead of saving a mask as a usable credential. A server-side copy preserves the
+actual password without reading it into the CLI. The configured release job reuses the Workbench
+token through this path. An inactive Migration validation job retains the migration's earlier
+build evidence; it is not a release entry point.
 
 ## Package contents and checks
 

@@ -46,18 +46,9 @@ export function createAuthoringCommands(
     );
     return command(
       owner === "output" ? "output-parameters" : "parameters",
-      "Manage parameters",
+      "Manage plain parameters; protected values are redacted",
       [
         ...bulk.parameters(owner),
-        ...(owner === "jobs" ? [command(
-          "create-password <job-id> <name>",
-          "Create a password from keyring",
-          async ({ args, options }, context) =>
-            (await clientFor(context)).createPasswordParameter(
-              args["job-id"], args.name, text(options, "valueSecret"), context.secrets,
-            ),
-          { permission: "Credentials", options: [option("--value-secret <alias>", "Input-secret alias", true)] },
-        )] : []),
         leaf(
           `list <${ownerArg}>`,
           "List parameters in server order",
@@ -410,6 +401,10 @@ export function createAuthoringCommands(
     ),
   ];
   const jobs = [
+    leaf("copy <source-id> <id>", "Copy a build configuration", "Credentials",
+      (c, { args, options }) => c.copyJob(args["source-id"], args.id, {
+        name: text(options, "name"), project: text(options, "project"),
+      }), [nameOption, projectOption]),
     ...bulk.jobs,
     ...advanced.jobs,
     parameters("output"),
