@@ -136,14 +136,22 @@ Removing the workflow files does not remove or revoke existing npm trust or user
 Rotate the protected token before it expires. TeamCity project administrators control who can
 start a live release.
 
+To rotate an existing job-owned password through the CLI, import the new value from a named
+environment variable with `credentials import <alias> --env <variable>`, then run
+`jobs parameters set-password <job-id> npm.token --value-secret <alias>` and
+`credentials forget <alias>`. These operations require `Credentials`. The replacement retains
+the parameter's password specification; inherited, plain and unknown types are refused.
+The npm token must grant read/write publishing access to all three packages or their scope;
+successful `npm whoami` alone does not prove package publishing rights.
+
 For reuse of an existing release configuration, `jobs copy <source-id> <new-id> --name <name>
 --project <project-id>` uses TeamCity's native server-side copy, including protected parameters.
 It requires `Credentials` and returns identity fields only. The copy also includes steps, VCS
 roots, triggers and dependencies: inspect and configure those for the new product before use.
 TeamCity's parameter-resolution API can return masked password values; `builds resolve-parameter`
 rejects those instead of saving a mask as a usable credential. A server-side copy preserves the
-actual password without reading it into the CLI. The configured release job reuses the Workbench
-token through this path. An inactive Migration validation job retains the migration's earlier
+actual password without reading it into the CLI. CLI Factory and Workbench now share an
+`@eyeauras` scope publishing token; rotate both jobs with `set-password`. An inactive Migration validation job retains the migration's earlier
 build evidence; it is not a release entry point.
 
 ## Package contents and checks
