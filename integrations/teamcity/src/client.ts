@@ -711,6 +711,27 @@ export class TeamCityClient {
     return this.#writeParameter("POST", owner, id, name, value);
   }
 
+  public async createPasswordParameter(jobId: string, name: string, alias: string, secrets: ScopedSecrets) {
+    const collection = parametersPath("jobs", jobId);
+    if (!/^[A-Za-z0-9_.:-]+$/.test(name)) throw new Error("Expected one parameter name.");
+    const value = await requireInputSecret(secrets, alias);
+    try {
+      await this.#requestJson("GET", `${collection}/${pathSegment(name)}`, { fields: "name" });
+    } catch (error) {
+      if (!(error instanceof HttpError && error.status === 404)) throw error;
+      // Discard the response, including any server echo of the password.
+      try {
+        await this.#request("POST", collection, {}, { name, value, type: { rawValue: "password" } },
+          "application/json", { discard: true });
+      } catch (cause) {
+        throw new Error("Password parameter creation failed; the remote outcome may be unknown.",
+          { cause: diagnosticCause(cause, [value]) });
+      }
+      return { jobId: jobId.trim(), name, stored: true };
+    }
+    throw new Error("Parameter already exists.");
+  }
+
   public setParameter(owner: ParameterOwner, id: string, name: string, value: string) {
     return this.#writeParameter("PUT", owner, id, name, value);
   }

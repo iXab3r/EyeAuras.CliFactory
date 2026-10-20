@@ -10,7 +10,7 @@ case "$mode" in
 esac
 
 if [[ "$mode" == --publish ]]; then
-    : "${NPM_TOKEN:?Configure the protected npm.token TeamCity parameter.}"
+    : "${NPM_TOKEN:?Configure the protected env.NPM_TOKEN TeamCity parameter.}"
     export GH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
     : "${GH_TOKEN:?Configure the protected env.GITHUB_TOKEN TeamCity parameter.}"
 fi

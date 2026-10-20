@@ -119,8 +119,8 @@ teamcity-cli jobs run EyeAuras_CliFactory_NpmRelease --wait --timeout 30m
 teamcity-cli jobs run EyeAuras_CliFactory_NpmRelease --param env.RELEASE_MODE=--publish --wait --timeout 30m
 ```
 
-Configure `npm.token` as a **password** parameter on the release configuration, and expose it
-only there as `env.NPM_TOKEN=%npm.token%`. It needs granular read/write access to the three public
+Configure `env.NPM_TOKEN` as a **password** parameter on the release configuration.
+It needs granular read/write access to the three public
 packages and permission to bypass interactive 2FA. `env.GITHUB_TOKEN` is a protected TeamCity
 parameter with repository contents write access for the GitHub Release and tag. Neither token
 belongs in source, command arguments or build artifacts. The temporary npm configuration contains
@@ -134,6 +134,12 @@ to disallow tokens must allow the granular publishing token before the first liv
 Removing the workflow files does not remove or revoke existing npm trust or user credentials.
 Rotate the protected token before it expires. TeamCity project administrators control who can
 start a live release.
+
+For an authorized transfer from an existing TeamCity build, `builds resolve-parameter` stores one
+named value in the current profile's OS keyring. `jobs parameters create-password <job-id>
+<name> --value-secret <alias>` creates a password parameter from that alias without exposing
+the value. Both require `Credentials`; existing target parameters are refused. Then forget the temporary alias and
+restore the operator's permissions. No token value is passed on the command line.
 
 ## Package contents and checks
 
