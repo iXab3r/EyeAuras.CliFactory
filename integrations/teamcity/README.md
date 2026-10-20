@@ -63,6 +63,7 @@ Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.C
 | `jobs copy <source-id> <id> --name <name> --project <id>` | Copy settings server-side, including protected parameters, without exposing their values | `Credentials` |
 | `projects parameters list/show`, `jobs parameters list/show` | Inspect safe parameter values and metadata | `ReadOnly` |
 | `projects parameters create/set/delete`, `jobs parameters create/set/delete` | Manage plain parameters | `Update` |
+| `jobs parameters set-password <job-id> <name> --value-secret <alias>` | Replace an existing job-owned password from the active profile's input-secret; retain its specification and return no value | `Credentials` |
 | `jobs steps list/show` | Inspect ordered step summaries | `ReadOnly` |
 | `jobs steps create/replace/delete` | Manage build steps | `Update` |
 | `vcs roots list/show` | Discover existing roots without connection properties | `ReadOnly` |

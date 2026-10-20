@@ -725,6 +725,28 @@ export class TeamCityClient {
     return this.#writeParameter("PUT", owner, id, name, value);
   }
 
+  public async setPasswordParameter(jobId: string, name: string, alias: string, secrets: ScopedSecrets) {
+    const collection = parametersPath("jobs", jobId);
+    if (!/^[A-Za-z0-9_.:-]+$/.test(name)) throw new Error("Expected one parameter name.");
+    const path = `${collection}/${pathSegment(name)}`;
+    const value = await requireInputSecret(secrets, alias);
+    const existing = await this.#requestJson<RawProperty>("GET", path, {
+      fields: "name,inherited,type(rawValue)",
+    });
+    if (existing.name !== name || existing.inherited === true ||
+        !/^password(?:\s|$)/i.test(existing.type?.rawValue ?? "")) {
+      throw new Error("Expected an existing job-owned password parameter.");
+    }
+    try {
+      // Retain the password specification and discard any server echo of its value.
+      await this.#request("PUT", path, {}, { name, value, type: existing.type },
+        "application/json", { discard: true });
+    } catch (cause) {
+      throw new Error("Password parameter update failed.", { cause: diagnosticCause(cause, [value]) });
+    }
+    return { jobId: jobId.trim(), name, stored: true };
+  }
+
   async #writeParameter(
     method: "POST" | "PUT",
     owner: ParameterOwner,

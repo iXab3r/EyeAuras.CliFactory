@@ -46,9 +46,18 @@ export function createAuthoringCommands(
     );
     return command(
       owner === "output" ? "output-parameters" : "parameters",
-      "Manage plain parameters; protected values are redacted",
+      "Manage parameters",
       [
         ...bulk.parameters(owner),
+        ...(owner === "jobs" ? [command(
+          "set-password <job-id> <name>",
+          "Replace a password from keyring",
+          async ({ args, options }, context) =>
+            (await clientFor(context)).setPasswordParameter(
+              args["job-id"], args.name, text(options, "valueSecret"), context.secrets,
+            ),
+          { permission: "Credentials", options: [option("--value-secret <alias>", "Input-secret alias", true)] },
+        )] : []),
         leaf(
           `list <${ownerArg}>`,
           "List parameters in server order",
