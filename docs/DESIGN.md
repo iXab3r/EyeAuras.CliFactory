@@ -190,7 +190,9 @@ from an array result or from the view's `rows` accessor, under column headers, o
 aligned `Label: value` fields, omitting empty values. Accessors return values; they never print.
 Core owns the layout and the `age`, `duration` and `bytes` formats. There is no template language.
 Without a view, or when a table's rows are not an array, the generic fallback renders the value,
-so a shape mismatch never reads as "no results". `--json`, JSON-RPC and `execute` always return
+so a shape mismatch never reads as "no results". Generic object arrays use records instead of an
+aligned table when inter-column padding would exceed actual cell content. Values stay complete.
+`--json`, JSON-RPC and `execute` always return
 the unchanged domain value. A record may also have titled `sections`, one line per item. An empty
 section says `none`; an accessor that returns `undefined` omits it. Section lines are never cut:
 a long one wraps.
