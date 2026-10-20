@@ -101,6 +101,10 @@ A request to install these rules alone does not authorize remote issue writes. F
 [delivery lifecycle](docs/practices/github-issues.md) and honor explicit direct-to-main requests.
 New branches default to `bugfix/`; honor explicitly requested names or prefixes.
 
+For tasks that use YouTrack, follow the [shared tool workflow](docs/practices/youtrack-agent-workflow.md):
+our `youtrack-cli` is primary; the separate Python `yt.exe` remains an explicit fallback.
+The consuming repository owns tracker/project choice; this repository keeps GitHub Issues primary.
+
 ## Function role: Reviewer
 
 Use the read-only [Reviewer](docs/roles/reviewer.md) for independent review of a completed change.

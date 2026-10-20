@@ -2,6 +2,10 @@
 
 The scoped package provides the `youtrack-cli` command:
 
+Agents use the [shared YouTrack workflow](https://github.com/iXab3r/EyeAuras.CliFactory/blob/main/docs/practices/youtrack-agent-workflow.md):
+our executable is primary; the separate Python `yt.exe` is an explicit fallback.
+The guide covers field selection, paging and preserving tracker/profile ownership.
+
 ```sh
 npm install --global @eyeauras/youtrack-cli
 youtrack-cli --help
