@@ -32,6 +32,9 @@ if [[ "$mode" != --verify-only ]]; then
     # Do not attach an older candidate if bootstrap or verification fails.
     rm -rf -- "$PWD/output/release"
 fi
+# Playwright installs Xvfb without its recommended xauth package; xvfb-run needs both.
+apt-get update
+apt-get install --yes --no-install-recommends xauth
 curl --fail --silent --show-error --location https://dot.net/v1/dotnet-install.sh -o "$tools_dir/dotnet-install.sh"
 bash "$tools_dir/dotnet-install.sh" --channel 10.0 --install-dir "$tools_dir/dotnet" --no-path
 export PATH="$tools_dir/dotnet:$PATH"

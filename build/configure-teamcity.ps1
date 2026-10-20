@@ -39,8 +39,9 @@ foreach ($job in @(
 
 Invoke-TeamCity jobs features create EyeAuras_CliFactory_NpmRelease --type JetBrains.SharedResources --enabled `
     --property 'locks-param=cli-factory-release writeLock'
-# Publication has no triggers. Verification follows main, with branches available manually.
-Invoke-TeamCity jobs triggers create EyeAuras_CliFactory_Verify --type vcsTrigger --enabled `
+# Enable main verification after merging the entry point and checking the branch on TeamCity.
+Invoke-TeamCity jobs triggers create EyeAuras_CliFactory_Verify --type vcsTrigger `
     --property 'branchFilter=+:<default>'
 
-Write-Host 'TeamCity configurations created. Configure the release job password parameters before publishing.'
+Write-Host 'TeamCity configurations created; the Verify trigger is disabled for cutover.'
+Write-Host 'Configure the release job password parameters before publishing.'

@@ -91,6 +91,11 @@ For a new server setup, run `pwsh -File build/configure-teamcity.ps1` with an au
 `@eyeauras/teamcity-cli` profile whose `Update` permission is enabled. The create-only script
 stops on an existing identity rather than replacing its settings. It creates no credentials;
 configure the protected release parameters separately. The script can be reviewed before use.
+It leaves the Verify VCS trigger disabled: first run Verify and the release dry run manually on
+the migration branch, merge the entry point to main, then enable that trigger. This avoids
+building old main before it contains `build/teamcity.sh`. Use `teamcity-cli jobs triggers list
+EyeAuras_CliFactory_Verify` to find its ID, then `teamcity-cli jobs triggers fields set
+EyeAuras_CliFactory_Verify <trigger-id> disabled false` to enable it.
 
 The project is `EyeAuras_CliFactory`, with the repository's `refs/heads/main` as its default
 VCS branch. Two command-line configurations run `bash build/teamcity.sh` in the official
@@ -101,7 +106,7 @@ VCS branch. Two command-line configurations run `bash build/teamcity.sh` in the 
 | `EyeAuras_CliFactory_Verify` | `env.RELEASE_MODE=--verify-only` | VCS changes on main; branches can be checked manually |
 | `EyeAuras_CliFactory_NpmRelease` | `env.RELEASE_MODE=--dry-run` by default | Manual only; use `--publish` for a live release |
 
-The entry point installs .NET 10 and the root `packageManager` npm version, then calls the same
+The entry point installs xauth, .NET 10 and the root `packageManager` npm version, then calls the same
 Cake targets used locally. Linux CI installs Chromium's system libraries and runs headed fixture
 tests under Xvfb. It never runs profile-backed integration proofs. The release job must acquire
 the project's exclusive `cli-factory-release` Shared Resource lock so release runs are serialized.
