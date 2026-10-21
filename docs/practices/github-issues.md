@@ -164,8 +164,9 @@ Create a PR against the verified target with the concrete problem, resulting beh
 limitations and issue reference. Draft/partial changes must not contain a closing keyword.
 
 Review is the default for product changes: invoke the read-only [Reviewer](../roles/reviewer.md) in a
-separate clean context on the completed scoped diff and exact base/head with acceptance criteria and
-evidence. Resolve blocking/major findings and review affected corrections. A trivial low-risk change
+separate fresh context on the completed scoped diff and exact base/head with acceptance criteria and
+evidence under [independent review](independent-review.md). Architecture/planning audits use the same
+neutral intake and independent investigation. Resolve blocking/major findings and review affected corrections. A trivial low-risk change
 or explicit fast-fix request may skip optional independent review with a recorded reason;
 self-inspection is not independent review. Required approvals and
 checks cannot be bypassed. Do not expand scope for nonessential review suggestions.

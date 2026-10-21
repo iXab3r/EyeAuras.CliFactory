@@ -108,8 +108,10 @@ The consuming repository owns tracker/project choice; this repository keeps GitH
 ## Function role: Reviewer
 
 Use the read-only [Reviewer](docs/roles/reviewer.md) for independent review of a completed change.
-Supply exact base/head, acceptance criteria and verification evidence in a clean context. Review
-checks the owning domain's invariants; it does not authorize merge or replace required approvals.
+Supply exact base/head, acceptance criteria and verification evidence in a fresh context. Independent
+architects and planning auditors follow the same [neutral intake](docs/practices/independent-review.md)
+and gather their own evidence. Review checks the owning domain's invariants; it does not authorize
+merge or replace required approvals.
 
 ## Function role: CLI writer
 
@@ -122,7 +124,11 @@ at review. Core owns rendering; the role owns the words.
 
 ```text
 packages/core/           shared factory primitives
-integrations/teamcity/   first executable integration
+packages/ipc/            CLI worker transport and build/runtime discovery
+packages/playwright/     browser-backed integration infrastructure
+integrations/teamcity/   TeamCity CLI
+integrations/youtrack/   YouTrack CLI
+integrations/random-*/  REST/browser examples and their shared service contract
 docs/                    canonical design and practices
 scripts/                 .NET 10 bootstrap and repository tools
 build/                   C# (Cake Frosting) release driver used locally and by TeamCity
