@@ -51,7 +51,7 @@ export function createAuthoringCommands(
         ...bulk.parameters(owner),
         ...(owner === "jobs" ? [command(
           "set-password <job-id> <name>",
-          "Replace a password from keyring",
+          "Replace a password from secure storage",
           async ({ args, options }, context) =>
             (await clientFor(context)).setPasswordParameter(
               args["job-id"], args.name, text(options, "valueSecret"), context.secrets,

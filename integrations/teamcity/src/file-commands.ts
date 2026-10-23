@@ -129,7 +129,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     ),
     command(
       "resolve-parameter <id> <name>",
-      "Resolve one parameter to a new keyring alias; never print value",
+      "Save a resolved parameter as a secret alias",
       async ({ args, options }, context) =>
         (await clientFor(context)).resolveBuildParameter(
           args.id,
@@ -155,7 +155,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     command("secure", "Project secure references; these are NOT REST access tokens", [
       command(
         "create-reference <id>",
-        "Create/reuse reference from an input-secret alias and store it in keyring",
+        "Save a reference from an input-secret alias",
         async ({ args, options }, context) =>
           (await clientFor(context)).createSecureReference(
             args.id,

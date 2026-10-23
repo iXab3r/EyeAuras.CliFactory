@@ -413,7 +413,7 @@ export function createInfrastructureCommands(
     [
       command(
         "import <alias>",
-        "Import only the explicitly named environment variable into OS keyring",
+        "Import a secret from an environment variable",
         async ({ args, options }, context) =>
           importInputSecret(context.secrets, args.alias, text(options, "env")),
         {

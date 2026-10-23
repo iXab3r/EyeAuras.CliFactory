@@ -18,7 +18,7 @@ Read the root `AGENTS.md`, `docs/DESIGN.md`, `docs/integrations.md`, and `docs/t
   Normal redirects work by default; add service context to errors without discarding causes.
   Use Core's common diagnostic presentation and English tool-authored text, not per-tool policies.
 - Keep real-service proof outside default tests and CI. It must invoke the packaged CLI through a
-  real current-user profile/keyring and a fixed bounded `ReadOnly` inventory; never forward
+  real current-user profile/secret store and a fixed bounded `ReadOnly` inventory; never forward
   arbitrary argv or accept test-only URL/token injection.
 - Fixtures must be public-safe and minimal.
 

@@ -23,7 +23,10 @@ teamcity-cli --help
 
 Node.js 22+ is required. npm installs compiled JavaScript and the Core dependency;
 users do not need this repository, TypeScript, .NET, IPC or Chromium. Authentication
-uses the normal OS credential store (including an available system keyring on Linux).
+uses the normal platform secret store (including an available system keyring on Linux).
+On Windows this is DPAPI CurrentUser ciphertext under each profile's AppData `secrets/`
+directory. After upgrading from Credential Manager, sign in again per CLI/profile and reimport
+auxiliary secrets. There is no automatic migration or old-store fallback; old entries remain.
 Configure a profile with `youtrack-cli profile configure` or
 `teamcity-cli profile configure`; interactive terminals guide configuration and login.
 Use the documented `--token-stdin` flow for noninteractive authentication.
@@ -172,6 +175,8 @@ JSON-RPC help requests. They also import each installed integration and exercise
 listing through Core's temporary fixture, and verify that dependencies do not resolve through
 workspace links. Executable help reads no profiles or credentials; the JSON check uses synthetic
 AppData and memory secrets. Root/help output remains human text even when `--json` is supplied.
+On Windows, installed Core also encrypts, reloads and deletes a synthetic DPAPI credential under
+an injected temporary AppData root, proving the packaged native dependency works without a keyring.
 Packing suppresses the `prepack` build hooks because `Verify` has just built the whole workspace.
 
 Official references: [npm bin](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#bin),

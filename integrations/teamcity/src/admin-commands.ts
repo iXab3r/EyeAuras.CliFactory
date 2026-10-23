@@ -139,7 +139,7 @@ export function createAdminCommands(
     ),
     command(
       "create <name>",
-      "Issue once and persist to this profile's OS keyring; non-atomic",
+      "Issue and save a token for this profile",
       async ({ args, options }, context) =>
         (await clientFor(context)).createCurrentUserToken(
           {
@@ -237,7 +237,7 @@ export function createAdminCommands(
       ),
       leaf(
         "logout <id>",
-        "Terminate remote sessions, not local keyring/token",
+        "Terminate remote sessions",
         "Admin",
         (c, { args }) => c.terminateAccountSessions(args.id),
       ),

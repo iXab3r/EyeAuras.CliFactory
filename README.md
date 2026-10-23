@@ -22,7 +22,7 @@ flowchart LR
     agent["AI agent"] -->|"--json / --json-rpc"| cli
     cli --> tree["Command tree"]
     cli --> profiles["Profiles"]
-    cli --> auth["OS credential store"]
+    cli --> auth["platform secret store"]
     cli --> permissions["Profile permission gate"]
     tree --> integration["Small service integration"]
     profiles --> integration
@@ -52,7 +52,7 @@ those decisions once:
 - Handlers return data. The framework owns human rendering and the mandatory `--json` form, so
   integration authors do not implement output twice.
 - `auth login`, `auth status`, and `auth logout` are standard commands. The shipped token helper
-  uses the OS credential store, never profile JSON. The design also permits explicitly declared
+  uses the platform secret store, never profile JSON. The design also permits explicitly declared
   browser auth state in profile AppData; app-owned auth and optional IPC/Playwright modules are
   [planned](docs/runtime-modules.md), not shipped yet.
 - `profile` commands isolate endpoints and configuration such as UAT and Production. Handlers get
@@ -178,7 +178,7 @@ teamcity-cli --help
 
 The scoped package names install the unscoped commands shown above. Users need Node.js
 22+ and npm; these two CLIs need no source checkout, TypeScript, .NET or browser.
-Authentication uses the normal OS credential store. Existing application IDs and profile
+Authentication uses the normal platform secret store. Existing application IDs and profile
 storage stay unchanged. The release packages use the [MIT license](LICENSE).
 See the [npm release guide](docs/npm-release.md) for the release driver, artifact checks and publication.
 
@@ -219,7 +219,7 @@ the build queue, agents, project/job authoring, plain parameters, steps, existin
 triggers, features, snapshot/artifact dependencies, agent requirements, templates, agent pools,
 agent eligibility, queue positioning, build annotations and statistics.
 The tree also includes cloud/VCS/versioned settings, investigations/mutes, account/role/server
-administration, deployment dashboards, profile-owned file transfers and keyring-backed secure values.
+administration, deployment dashboards, profile-owned file transfers and platform-protected secure values.
 Mutations require Update or the explicit Admin/Credentials category. The local v2 implementation
 exposes **449/449 REST method/path pairs (100%)**:235 GET and214 mutation routes. This is route
 coverage, not every payload variant or live mutation verification. Config-parameter reset and
