@@ -108,11 +108,14 @@ async function prepareDirectories(path: string): Promise<PathIdentity[]> {
     }
     result.push(await directoryIdentity(current));
   }
-  const actual = resolve(await realpath(absolute));
-  const equal = process.platform === "win32"
-    ? actual.toLowerCase() === absolute.toLowerCase()
-    : actual === absolute;
-  if (!equal) throw new Error("The resolved path differs from the requested path.");
+  // Packaged Windows applications can resolve AppData to a different physical spelling.
+  // Ownership follows the directory identity, while the original link-free chain stays pinned.
+  const actual = await directoryIdentity(resolve(await realpath(absolute)));
+  const expected = result[result.length - 1]!;
+  if (actual.dev !== expected.dev || actual.ino !== expected.ino) {
+    throw new Error("The resolved directory identity differs from the requested directory.");
+  }
+  await verifyDirectories(result);
   return result;
 }
 

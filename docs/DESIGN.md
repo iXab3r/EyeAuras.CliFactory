@@ -474,8 +474,10 @@ callbacks at their respective gates. It preflights
 `downloads` and `temp` before acquisition, streams to a new private random directory under
 `AppDataDirectory/temp`, and publishes under `AppDataDirectory/downloads` with an exclusive hard
 link. It snapshots/rechecks directory and file identities, writes complete chunks, syncs before
-publication, verifies the published inode and never falls back to rename/copy or overwrites. Staged
-validation is read-only: detected size, modification-time or change-time mutations are rejected.
+publication, verifies the published inode and never falls back to rename/copy or overwrites.
+Directory ownership is verified by filesystem identity rather than path spelling, allowing Windows
+packaged AppData redirection while rejecting links in the configured chain and mismatched targets.
+Staged validation is read-only: detected size, modification-time or change-time mutations are rejected.
 The original exclusive file handle remains open through validation and the link decision. Cleanup
 matches the path to a fresh handle snapshot, closes successfully, rechecks, and only then unlinks.
 
