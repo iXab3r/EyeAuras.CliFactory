@@ -1,7 +1,6 @@
 {
   "name": "@eyeauras/cli-factory-ipc",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
@@ -9,20 +8,40 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
+    },
+    "./build": {
+      "types": "./dist/src/package-build.d.ts",
+      "import": "./dist/src/package-build.js"
     }
   },
   "scripts": {
     "generate": "proto-loader-gen-types --grpcLib=@grpc/grpc-js --oneofs --defaults --importFileExtension=.js --outDir=src/generated proto/cli-host.proto",
     "build": "npm run generate && tsc --project tsconfig.json && node scripts/copy-proto.mjs",
-    "test:compiled": "node --test dist/tests/*.test.js"
+    "test:compiled": "node --test dist/tests/*.test.js",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@eyeauras/cli-factory": "0.5.2",
-    "@grpc/grpc-js": "1.14.4",
+    "@grpc/grpc-js": "1.14.5",
     "@grpc/proto-loader": "0.8.1",
     "proper-lockfile": "4.1.2"
   },
   "devDependencies": {
     "@types/proper-lockfile": "4.1.4"
+  },
+  "files": [
+    "dist/src",
+    "dist/cli-host.proto",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iXab3r/EyeAuras.CliFactory.git",
+    "directory": "packages/ipc"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

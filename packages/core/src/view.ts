@@ -59,7 +59,7 @@ export interface ViewContext {
   /** Milliseconds since the epoch, used by `age`. */
   now: number;
   cliName: string;
-  profile: string;
+  profile?: string;
   /** The default profile; follow-ups name `profile` only when it differs. */
   defaultProfile?: string;
 }
@@ -194,12 +194,12 @@ function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: Vi
 export function nextCommands(
   actions: readonly (readonly string[])[],
   cliName: string,
-  profile: string,
+  profile?: string,
   defaultProfile?: string,
 ): string[] {
   return actions
     .filter((argv) => argv.length > 0)
-    .map((argv) => (profile === defaultProfile ? [...argv] : [...argv, "--profile", profile]))
+    .map((argv) => (profile === undefined || profile === defaultProfile ? [...argv] : [...argv, "--profile", profile]))
     .filter((argv) => argv.every((token) => safeToken.test(token)))
     .map((argv) => [cliName, ...argv].join(" "));
 }

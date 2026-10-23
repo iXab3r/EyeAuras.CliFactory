@@ -52,6 +52,10 @@ export interface CommandContext {
   progress(message: string): void;
 }
 
+/** Package metadata handlers have no profile, secret store or service transport. */
+export type LocalCommandContext = Pick<CommandContext, "signal" | "io" | "cwd" | "environment" | "progress">;
+export type LocalCommandHandler = (input: CommandInput, context: LocalCommandContext) => unknown | Promise<unknown>;
+
 export interface CommandInput {
   args: Record<string, unknown>;
   options: Record<string, unknown>;
@@ -95,6 +99,8 @@ export interface CommandDefinition extends CommandHelp {
   view?: HumanView;
   children?: readonly CommandDefinition[];
   run?: CommandHandler;
+  /** Profile-independent package metadata; hosted execution stays in the invoking client. */
+  runLocal?: LocalCommandHandler;
 }
 
 export interface PermissionCategory {
@@ -217,6 +223,8 @@ export interface ProfileStoreContract {
 }
 
 export interface CliApplication {
+  /** Parse without invoking handlers, profile/auth work or I/O. Option parsers must be pure. */
+  classify(argv: readonly string[], invocation?: CliInvocation): Promise<"local" | "owner">;
   run(argv?: readonly string[], invocation?: CliInvocation): Promise<number>;
   dispose(): Promise<void>;
   execute(argv: readonly string[], signal?: AbortSignal): Promise<unknown>;

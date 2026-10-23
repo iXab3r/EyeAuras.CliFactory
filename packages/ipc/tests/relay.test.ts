@@ -62,6 +62,7 @@ async function fixture(
       ? paths.endpoint
       : "unix:" + join(root, "relay.sock");
   const application: CliApplication = {
+    classify: async () => "owner",
     run,
     execute: async () => undefined,
     dispose: async () => {},

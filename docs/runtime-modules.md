@@ -82,7 +82,11 @@ process.exitCode = await runHosted({
 ```
 
 The factory returns a fresh `CliDefinition` for each owner. Use the same factory with `createCli`
-in embedded tests. The runner adds management commands, derives applicationId from the definition
+in embedded tests. The runner executes definition.builtins locally for ordinary invocations, so immutable package
+resource discovery requires no host, build marker, profile or service connection. Service leaves
+belong in commands; an existing JSON-RPC session still routes its requests through the owner.
+This supplies no discovery naming/registration policy; Factory #29 owns those decisions.
+The runner adds management commands, derives applicationId from the definition
 (name by default), and handles cleanup. Each process constructs and validates one Core application
 before build lookup or spawn, including foreground relays. Definition construction and resource
 constructors must be cheap and effect-free: do not launch browsers or contact services there.
@@ -123,9 +127,33 @@ own package.json; this is a runtime-maintainer detail, not application bootstrap
 This is a conservative **whole-workspace** fingerprint. Changes to another built CLI can invalidate
 the running host too. Validation rehashes files on launch: this costs disk I/O but catches stale,
 mixed or partial artifacts. It is a compatibility check, not a tamper-proof signature or hot reload.
-Installed dependencies are assumed immutable under their lock, except explicitly declared runtime
-inputs. External linked packages, bundlers, single-file executables and arbitrary build layouts
-are not supported by this initial build path. Do not copy the helper as a universal packager.
+External packages may instead ship `.cli-package-build.json` prepared by
+`writePackageBuildManifest(packageRoot)` from `@eyeauras/cli-factory-ipc/build` after compilation.
+Declare explicit relative files/directories (no globs) in package.json `files`, including that
+marker. Preparation hashes every declared immutable artifact plus package.json and rejects
+missing files, symlinks and escaped paths. No Factory checkout/root lock/build script is required.
+The ordinary `runHosted({entryPoint, createDefinition})` declaration is unchanged. Nearest-package
+manifest validation takes precedence over a parent workspace marker; a stale package fails closed.
+
+Runtime compatibility includes the package artifact, Node version/platform/architecture and the
+resolved installed dependency graph: manifests and all deployed package files, excluding nested
+node_modules (resolved separately) and .git. This is deliberately conservative.
+Required peers and installed optional peers/platform dependencies participate. Relative deployed
+package locations and dependency-name resolution edges preserve distinct resolution contexts;
+relocating the complete installation preserves identity, while a changed hoisting layout may
+conservatively require stopping the owner. Absolute author/install paths are not stored. Resolution uses standard npm package
+lookup, including ESM-only dependencies. Dependencies are assumed immutable while an invocation
+runs; custom loaders, bundlers and dependency mutation during hashing are unsupported. This is
+build compatibility, not a tamper-proof signature. Stable applicationId still selects the owner;
+a changed build cannot create a parallel owner, and status/stop do not require a valid manifest.
+
+The IPC package packs runtime JS/types, generated proto and MIT license. Registry publication is
+separate authorization. Prepared IPC and consumer tarballs can be installed together before a
+registry release; do not bundle or copy Factory source/build helpers into the consumer. Run
+`npm run test:external-ipc` for registry dependency acquisition and isolated external package
+smoke; it is separate from the default offline suite. Its runtime uses disposable AppData,
+concurrent clients, a relocated installed package, stale-artifact rejection and status/stop.
+As with existing Unix sockets, the selected AppData path must fit the platform socket-path limit.
 
 After changing compiled code/dependencies/patches, run the root build, then `ipc-server stop` and retry.
 Missing/stale manifests fail before spawning a host or sending service work. Status/Stop skip

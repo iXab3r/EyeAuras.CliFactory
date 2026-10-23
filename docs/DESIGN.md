@@ -103,6 +103,31 @@ diagnostic rendering/redaction glue. Verification obligations are in
 
 ### Commands are a tree
 
+`localCommand(name, description, handler, settings)` declares package metadata in that same
+recursive tree, including next to profile-scoped leaves. Its `runLocal` handler receives only
+cwd, environment, signal, I/O and progress: no profile, secrets or fetch. It runs without profile
+selection/readiness/permissions. Do not use it for service reads, mutations or owned process
+operations; those remain ordinary gated commands. A node cannot combine `runLocal` with `run`
+or a permission. Local human views have no selected profile; their follow-ups do not append one.
+
+`application.classify(argv, invocation?)` returns `local` or `owner` using the normal parser,
+without executing handlers or reading profiles/auth/storage. Option value parsers must be pure.
+Metadata, help, version, bare groups and usage errors are local. Profile/permission commands and
+service handlers belong to the owner; a persistent `--json-rpc` session does too. A bare root is
+local for redirected input/output and retains owner-side onboarding in a TTY. Classification
+never replaces authoritative parsing, readiness or permission checks when the owner executes.
+The optional IPC host consumes this classification and opens a connection lazily.
+IPC permission denial is an inaccessible/unknown owner state, not proof of absence. The host
+fails before sending research work or spawning a redundant owner when its initial connection
+is denied; status must not report `running: false` for that denial. Ownership failure guidance
+asks for storage/endpoint access diagnosis rather than prescribing a shared-owner stop.
+A private Node child channel cancels a caller-owned startup only before readiness. The ready
+owner disconnects that channel; a later denied caller cannot terminate a shared owner. Denial
+classification matches the transport code position, not words in an endpoint path. Local metadata
+and help do not require a build marker or IPC endpoint; nested owner leaves still validate the
+prepared build and execute in the shared owner.
+
+
 A CLI is a recursive command declaration. Every node has a name and description; branch nodes
 contain children and leaf nodes execute handlers. The framework generates help at every node.
 Authors must not hand-write a dispatch switch or separate help pages.
@@ -542,6 +567,9 @@ state; explicit logout/deletion owns removal. Help/errors never exit an embeddin
 Definitions declare flat owned `resources`: each has `dispose()` and optionally
 `invalidateProfile(appArguments)`. Core deduplicates them, invalidates the affected profile on
 configuration/update/deletion, and attempts all disposals in reverse order even after an error.
+For profile updates and non-authenticated configuration, invalidation completes before the
+candidate profile is persisted. A resource veto therefore leaves the original settings intact,
+including when retained data or an interrupted migration prevents reconfiguration.
 No resource lookup, scopes, DI or manual forwarding of profile hooks is required.
 
 `concurrency` limits logical commands (positive integer, otherwise unbounded), not connections.
@@ -834,8 +862,12 @@ The initial npm release set is `@eyeauras/cli-factory`, `@eyeauras/teamcity-cli`
 and `@eyeauras/youtrack-cli`, licensed under MIT. The two CLI packages install the
 unscoped `teamcity-cli` and `youtrack-cli` executable names through npm's `bin` mapping.
 Package scope does not alter CLI syntax, application IDs, profile paths or credentials.
+Optional IPC can also be prepared as an external package artifact using the package-scoped
+build contract in [runtime modules](runtime-modules.md#build-compatibility); publishing it is a
+separate release decision. Factory owns stable host identity, election, readiness, compatibility,
+profiles and disposal; external products retain their domain state and queues.
 Runtime JavaScript/types are built before packing; consumers need no TypeScript compiler
-or repository checkout. Root and optional runtime/example packages remain private.
+or repository checkout. Root, browser and example packages remain private; IPC has explicit public-package metadata.
 Registry publication is separate from package preparation; the [release guide](npm-release.md)
 defines artifact verification and dependency-ordered publication.
 
