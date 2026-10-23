@@ -30,7 +30,8 @@ calls app-owned login with those values. Core defers scoped credential writes un
 and commits them in fail-closed order around profile persistence; see the authentication contract
 in [DESIGN](DESIGN.md#authentication-contract). A failed login preserves profile/credential storage,
 but cannot undo resource invalidation or application-owned browser/remote effects. No-auth configure
-and ordinary set invalidate after saving. Successful configure does not invalidate the fresh login.
+and ordinary set validate and invalidate before saving, so a resource veto preserves stored values.
+Successful configure does not invalidate the fresh login.
 On delete, app-owned logout/revocation runs first while resources are still usable. A failed logout
 prevents Core invalidation/deletion so the caller can retry; Core cannot undo app-owned side effects.
 Profile selection alone does not invalidate another profile. Direct ProfileStore mutations outside
@@ -82,9 +83,10 @@ process.exitCode = await runHosted({
 ```
 
 The factory returns a fresh `CliDefinition` for each owner. Use the same factory with `createCli`
-in embedded tests. The runner executes definition.builtins locally for ordinary invocations, so immutable package
-resource discovery requires no host, build marker, profile or service connection. Service leaves
-belong in commands; an existing JSON-RPC session still routes its requests through the owner.
+in embedded tests. Declare immutable package metadata with `localCommand` for discovery without
+a host, build marker, profile or service connection, including nested metadata commands. Ordinary
+`definition.builtins` also execute locally outside JSON-RPC, but retain their profile context.
+Service leaves belong in commands; an existing JSON-RPC session routes requests through the owner.
 This supplies no discovery naming/registration policy; Factory #29 owns those decisions.
 The runner adds management commands, derives applicationId from the definition
 (name by default), and handles cleanup. Each process constructs and validates one Core application
