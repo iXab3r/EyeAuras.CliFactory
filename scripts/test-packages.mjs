@@ -109,6 +109,25 @@ try {
     `], { cwd: installed }));
     const core = await realpath(fileURLToPath(coreUrl));
     assert.ok(!relative(await realpath(prefix), core).startsWith(".."), "Core must resolve inside the isolated prefix.");
+    if (windows && !entry.bin) {
+      // Exercise the shipped native DPAPI dependency, not a workspace/in-memory substitute.
+      run(process.execPath, ["--input-type=module", "--eval", `
+        import assert from "node:assert/strict";
+        import { join } from "node:path";
+        import { AppArguments, PlatformSecretStore, ProfileSecrets } from "@eyeauras/cli-factory";
+        const root = ${JSON.stringify(join(working, "dpapi-fixture"))};
+        const app = new AppArguments({ AppName: "package-fixture", Environment: {
+          AppDomainDirectory: root, ApplicationExecutablePath: join(root, "fixture.js"),
+          EnvironmentAppData: root, EnvironmentLocalAppData: root, ProcessId: process.pid,
+        }});
+        const secrets = () => new ProfileSecrets(new PlatformSecretStore(app), app.AppName, "default");
+        await secrets().set("token", "synthetic-packaged-dpapi");
+        assert.equal(await secrets().require("token"), "synthetic-packaged-dpapi");
+        await secrets().delete("token");
+        assert.equal(await secrets().get("token"), undefined);
+      `], { cwd: installed });
+      console.log("Core: installed native DPAPI persistence passed");
+    }
     if (!entry.bin) continue;
     const help = command(entry.bin, ["--help"]);
     assert.ok(help.includes(`Usage: ${entry.bin}`));

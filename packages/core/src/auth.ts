@@ -76,7 +76,7 @@ export function tokenAuth(options: TokenAuthOptions = {}): AuthDefinition {
       try {
         await context.secrets.set(name, token);
       } catch (cause) {
-        throw new CliError("Could not write the OS credential store; the token was not saved.", {
+        throw new CliError("Could not save the token in secure storage.", {
           code: "auth.storeFailed",
           cause: diagnosticCause(cause, [token]),
           next: [["auth", "login", "--token-stdin"]],

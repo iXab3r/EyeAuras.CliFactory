@@ -40,7 +40,7 @@ export type {
 export { Permission } from "./permissions.js";
 export { ProfileStore } from "./profile-store.js";
 export {
-  KeyringSecretStore,
+  PlatformSecretStore,
   MemorySecretStore,
   ProfileSecrets,
 } from "./secret-store.js";

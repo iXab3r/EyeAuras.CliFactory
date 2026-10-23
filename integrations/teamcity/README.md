@@ -12,6 +12,10 @@ keep redacted native causes; stack traces appear with `--verbose`, response bodi
 probes stop reading unwanted bytes after 64 KiB; this does not reject an operation or truncate
 returned content. No automatic retry or command replay is added.
 
+On Windows, Core now stores DPAPI CurrentUser encrypted files under the selected profile's
+AppData `secrets/` directory. Credential Manager is no longer used or migrated. Sign in again
+for each profile and reimport auxiliary secrets. Existing profiles and permissions remain.
+
 ## URL and token input
 
 Copy the service base address, for example `https://teamcity.example.test/` or `https://example.test/teamcity/`. Include any context path and port; omit `/app/rest`, build/project pages and query strings. HTTP and HTTPS are supported.
@@ -40,7 +44,7 @@ teamcity-cli profile configure
 Requires Node.js 22+ and npm. The package includes compiled JavaScript and installs Core
 automatically; no repository checkout, .NET, TypeScript compiler or browser is needed.
 Interactive profile configuration guides endpoint/authentication setup; standalone secrets
-use the OS credential store. Existing `teamcity-cli` profiles and permissions are unchanged.
+use the platform secret store. Existing `teamcity-cli` profiles and permissions are unchanged.
 Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.CliFactory/blob/main/docs/npm-release.md).
 
 ## Command tree
@@ -470,7 +474,7 @@ assignments; the server retains All Users membership. Role scope is exactly one 
 `--project <id>`. Replace uses repeated `--item '{"roleId":"R","project":"Example"}'`.
 Password/email workflows are not exposed; username-only create does not guarantee login.
 
-`users tokens` is **current-user only**. To issue into the selected profile's OS keyring:
+`users tokens` is **current-user only**. To issue into the selected profile's platform secret store:
 
 ```text
 teamcity-cli users tokens create ExampleToken --alias automation --expires 20991231T235959+0000 --restriction '{"permission":"VIEW_PROJECT","project":"Example"}' --profile uat
@@ -523,7 +527,7 @@ Inspect configuration before retrying; the CLI does not retry or claim rollback.
 ## Explicit credential inputs
 
 Use `credentials import <alias> --env <VARIABLE_NAME>` to import only the named environment
-variable into the current profile's OS keyring. Requires Credentials; existing aliases fail.
+variable into the current profile's platform secret store. Requires Credentials; existing aliases fail.
 No raw credential argv, environment scanning, plaintext fallback or automatic auth-token reuse.
 `credentials forget <alias>` removes only that input entry. Versioned-settings token mappings use
 `--mapping remote-name=alias`; lists expose names and deletes retain local aliases.
@@ -621,7 +625,7 @@ teamcity-cli projects secure resolve Example --reference reference --store-as re
 teamcity-cli builds resolve-parameter 12345 env.MODE --store-as resolved-mode --profile uat
 ```
 
-Values go only from/to profile keyring aliases, preserving whitespace. A parameter expression
+Values go only from/to profile secret aliases, preserving whitespace. A parameter expression
 returned unchanged is unresolved, not success. Aliases are collision-checked; no secrets in JSON,
 RPC, diagnostics or files. These routes and sensitive downloads are excluded from live proof.
 
@@ -774,7 +778,7 @@ npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
 ```
 
 This command builds Core and TeamCity and then runs the compiled CLI as child processes. It uses
-the selected current-user profile and its OS-keyring credential, not test-only URL/token inputs.
+the selected current-user profile and its platform-protected credential, not test-only URL/token inputs.
 The fixed 19-row inventory covers authentication, permission inspection, server, bounded projects,
 jobs, builds/tests/problems/changes, the latest finished build of a listed finished build's job,
 queue, agents, VCS root discovery and a persistent JSON-RPC session. It deliberately excludes unpaged scoped parameter/step/extension/dependency/attachment lists;

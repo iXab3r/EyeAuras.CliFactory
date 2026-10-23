@@ -194,7 +194,7 @@ first slice is to reveal the real contract so deterministic mocks can take over 
 
 Once the authentication skeleton works, an integration owns a separate development proof that
 invokes its compiled executable with a required profile name. The profile comes from the current
-user's normal AppData and the credential comes from the OS keyring; do not add test-only URL/token
+user's normal AppData and the credential comes from the platform secret store; do not add test-only URL/token
 inputs. This catches packaging, profile, authentication, command-tree, and rendering failures that a
 direct client smoke cannot see.
 
@@ -287,7 +287,7 @@ inside one JSON-RPC process.
 
 Do not derive application state from `process.cwd()`, the source checkout, the executable directory,
 or a custom `--data-folder`. CliFactory CLIs are bound to the current OS user and are not portable.
-For standalone credentials use `context.secrets` so the OS credential store and profile
+For standalone credentials use `context.secrets` so the platform secret store and profile
 namespace remain authoritative. Explicit browser auth snapshots and user-requested sensitive
 videos are the narrow protected-AppData exceptions described in [DESIGN](DESIGN.md). Sanitized fixtures intended for Git remain in `tests/fixtures`;
 runtime captures and unsanitized service data do not.
@@ -534,7 +534,7 @@ tree against MSW. Assert:
 - absence of credentials and private data from errors and fixtures.
 
 The default suite never calls the real service. Local proof is opt-in, uses the packaged CLI and
-an explicit real current-user profile/keyring, and executes only a fixed bounded ReadOnly inventory.
+an explicit real current-user profile/secret store, and executes only a fixed bounded ReadOnly inventory.
 It refuses CI. New sensitive/expensive reads do not automatically join that inventory.
 
 ### A shared offline fixture
@@ -623,7 +623,7 @@ device and unsafe cross-platform basename forms. Staging is in a private fresh d
 active profile's `temp`; the destination is under `downloads`. Never call `privateDirectory` on
 user-selected or AppData ancestor directories. TeamCity and YouTrack are the two consumers;
 TeamCity retains PNG/ZIP/SVG validation and hashes in its DTO, while YouTrack retains signed-URL,
-no-bearer download and sanitized metadata rules. Credentials remain in the keyring, never files.
+no-bearer download and sanitized metadata rules. Credentials remain in Core's platform secret store; Windows stores only DPAPI ciphertext files.
 Measure helper/security costs at every authoring checkpoint.
 
 For text your command generates (an export, a result manifest), call

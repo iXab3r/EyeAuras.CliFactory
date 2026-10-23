@@ -55,7 +55,7 @@ export async function importInputSecret(secrets: ScopedSecrets, alias: string, e
     await secrets.set(key, value);
   } catch {
     throw new Error(
-      "Could not persist input-secret in the OS credential store; no plaintext fallback.",
+      "Could not save the input-secret in secure storage.",
     );
   }
   return { alias, stored: true };

@@ -118,7 +118,7 @@ Commander's suggestion. One exception remains: Commander's `help <name>` for an 
 prints the root help to stderr and exits 1.
 
 A service option may declare `required: true` in its existing `OptionDefinition`. The parser
-rejects a missing required value before profile onboarding, keyring access or the handler, in
+rejects a missing required value before profile onboarding, secret-store access or the handler, in
 ordinary CLI, programmatic and JSON-RPC execution. A declared default satisfies this requirement;
 existing option parsing still applies to supplied values. This is distinct from required profile
 fields, which the interactive configurator may prompt for.
@@ -347,8 +347,22 @@ commands remain ungated so users can inspect and recover their local setup.
 
 ### Credential persistence is explicit
 
-The default secret store delegates to the platform credential facility through a native binding:
-Windows Credential Manager backed by DPAPI, macOS Keychain, and a system keyring on Linux.
+The default `PlatformSecretStore` selects Windows DPAPI CurrentUser encrypted files,
+macOS Keychain, or a system keyring on Linux. Integrations use `context.secrets` unchanged.
+The native Windows DPAPI binding ships prebuilt x64 and ARM64 binaries.
+On Windows each secret lives at `AppDataDirectory/secrets/<sha256(secret-name)>.dpapi`.
+Files contain only DPAPI ciphertext. Application ID, exact profile name and secret name are
+bound as DPAPI optional entropy, so moving ciphertext between identities fails closed.
+Writes encrypt in memory, create a unique temporary ciphertext file in the same directory,
+then atomically replace the destination. Independent secret writes do not rewrite a shared map.
+Directories inherit the current user's AppData permissions, including access provisioned by
+the sandbox; do not replace them with a protected DACL that excludes AppContainer access.
+DPAPI protects data at rest, not from an authorized same-user process that can read the file.
+On Windows, help and absent-secret reads do not load native credential bindings or create files.
+
+Windows Credential Manager is no longer read, written, migrated or used as a fallback.
+Existing Windows users must sign in again for each CLI/profile and reimport auxiliary secrets.
+Existing profiles and permission grants remain; old Credential Manager entries are left untouched.
 There is no plaintext fallback for standalone secrets. If the secure store is needed and unavailable,
 the operation fails with an actionable error. The owner explicitly permits browser authentication
 state under the selected profile's AppDataDirectory: cookies/origin storage from Playwright
@@ -397,7 +411,7 @@ Core owns these codes:
 - `profile.saveFailed` — configuration or credential storage failed after validation;
 - `auth.missing` — no stored credential; the next step is `auth login`;
 - `auth.missingToken`, `auth.validationFailed`, `auth.storeFailed` — the token flow;
-- `secrets.unavailable` — the OS credential store could not be used;
+- `secrets.unavailable` — the platform secret store could not be used;
 - `download.failed` — a saved-file operation, with `published`/`cleanupFailed` on the error;
 - `http.*` and `request.*` — `HttpError` statuses and transport failures;
 - `interrupted` — an untyped failure after an interrupt, exit 130;
@@ -501,14 +515,15 @@ flowchart TB
     profiles["Profile JSON"] --> context["Command context"]
     appdata["Profile AppArguments"] --> context
     policy["Profile permissions"] --> commander
-    keyring["OS credential store"] --> context
+    secrets["Platform secret store"] --> context
     context --> handler
     handler --> renderer["Human / JSON renderer"]
     handler --> rpc["JSON-RPC result"]
 ```
 
-Commander is used for parsing and automatic nested help. `@napi-rs/keyring` is the native secret
-store binding. Both are replaceable implementation choices, not APIs exposed to integrations.
+Commander is used for parsing and automatic nested help. `@primno/dpapi` provides native Windows
+DPAPI; `@napi-rs/keyring` provides macOS/Linux keyring access. These are implementation choices,
+not APIs exposed to integrations.
 Core's profile/auth/permissions commands use the same recursive declarations and adapter as
 service commands. Their configuration and exclusive-admission policies are private Core details,
 not additional command types that an integration author needs to learn.
@@ -589,9 +604,10 @@ AppDataDirectory/log                       = LogDirectory()
 credential namespace. Document the required reconfiguration rather than adding old-namespace
 fallbacks, and leave existing user data untouched. `profiles.json` is application-wide and lives directly in
 `RoamingAppDataDirectory`. All other profile-owned files derive from `AppDataDirectory` using
-ordinary `node:path` composition. Standalone secrets remain in the OS credential store; explicitly
-declared browser auth files and explicitly requested sensitive browser videos are the only
-credential-bearing file exceptions in profile AppData.
+ordinary `node:path` composition. Standalone secrets use Core's platform secret store; on Windows
+their encrypted DPAPI files also derive from `AppDataDirectory`. Declared browser auth files and
+explicitly requested sensitive browser videos remain the only unencrypted credential-bearing
+file exceptions in profile AppData.
 
 The environment roots belong to the current OS user:
 
@@ -681,7 +697,7 @@ storage: stdin, the declared environment variable, and interactive input. It tri
 whitespace, rejects empty values, copied Bearer/Authorization headers, enclosing quotes and internal
 control characters, and preserves internal symbols. Explicit empty input fails without falling back
 to another source. The same helper protects directly callable TeamCity/YouTrack HTTP clients.
-This is a bearer-input contract, not a transformation of arbitrary secrets or existing keyring data.
+This is a bearer-input contract, not a transformation of arbitrary secrets or existing stored credentials.
 `tokenAuth.tokenSource` supplies the integration's token-settings location; the `--token-stdin`
 help names it, and the interactive prompt adds one sentence about pasting the bare value. A
 missing token fails with `auth.missingToken` and the `profile configure <name> --token-stdin`
@@ -757,7 +773,7 @@ Category changes are ordinary profile configuration and intentionally never cont
 Development follows a thin vertical TDD loop:
 
 1. Add the minimum authentication/profile skeleton needed to reach the service.
-2. Configure a real current-user profile through the built CLI and OS credential store.
+2. Configure a real current-user profile through the built CLI and platform secret store.
 3. Run an explicit local, read-only integration proof through the compiled CLI process, or use an
    official documentation sample when a real service is unavailable.
 4. Remove credentials and sensitive/customer data before saving a minimal fixture.
@@ -778,7 +794,7 @@ or grants permissions implicitly; unconfigured state is supported. An applicatio
 store retains its service validation rather than being replaced by a generic fixture store.
 
 A profile-backed integration proof is development evidence, not regression coverage. It uses a
-named profile from the current user's normal AppData and credentials from the normal OS keyring; it
+named profile from the current user's normal AppData and credentials from the normal platform secret store; it
 does not accept a test URL or token. It invokes the packaged CLI boundary and a fixed, bounded
 inventory of `ReadOnly` commands. It is a separate explicit script, refuses CI environments before
 networking, never prints or persists raw responses, and is never included in `npm test`. Mocked tests

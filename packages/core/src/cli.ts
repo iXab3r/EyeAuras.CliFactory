@@ -14,7 +14,7 @@ import { createProfileCommands } from "./profile-commands.js";
 import { CommandGate } from "./command-gate.js";
 import { globalFlagRequested, validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
-import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
+import { PlatformSecretStore, ProfileSecrets } from "./secret-store.js";
 import { nextCommands, type HumanView } from "./view.js";
 import {
   CliError,
@@ -190,7 +190,7 @@ export function createCli(definition: CliDefinition): CliApplication {
         : { validate: profileDefinition.validate }),
     });
   const secretStore: SecretStore =
-    definition.runtime?.secretStore ?? new KeyringSecretStore();
+    definition.runtime?.secretStore ?? new PlatformSecretStore(appArguments);
 
   const resolveProfile = async (requestedName?: string): Promise<Profile> =>
     profileStore.get(requestedName);

@@ -249,7 +249,7 @@ enable auth persistence.
 Core's `AuthDefinition` delegates `login`, `status`, `logout` and optional login options to
 the application; Core supplies common commands, profile selection and scoped secret persistence.
 `tokenAuth` is one helper of this contract, still used by TeamCity. Standalone secrets stay in
-the OS keyring. A browser-auth integration calls the browser owner from those callbacks and registers
+the platform secret store. A browser-auth integration calls the browser owner from those callbacks and registers
 `resources: [browser]` for automatic profile invalidation/disposal. Server-side logout/revocation semantics
 remain application-specific.
 

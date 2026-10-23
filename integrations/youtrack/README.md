@@ -15,7 +15,11 @@ youtrack-cli profile configure
 Requires Node.js 22+ and npm. Compiled JavaScript and the Core dependency are installed
 automatically; no repository checkout, .NET, TypeScript compiler or browser is needed.
 Interactive profile configuration guides endpoint/authentication setup; secrets use the
-OS credential store. Existing `youtrack-cli` profiles and permissions are unchanged.
+platform secret store. Existing `youtrack-cli` profiles and permissions are unchanged.
+On Windows, Core now stores DPAPI CurrentUser encrypted files under the selected profile's
+AppData `secrets/` directory. Credential Manager is no longer used or migrated. Sign in again
+for each profile and reimport auxiliary secrets. Existing profiles and permissions remain.
+
 Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.CliFactory/blob/main/docs/npm-release.md).
 
 YouTrack uses the same `@eyeauras/cli-factory` workspace as TeamCity. The CLI
@@ -428,7 +432,7 @@ npm run test:integration --workspace @eyeauras/youtrack-cli -- --profile youtrac
 ```
 
 The explicit local proof uses twenty-four fixed ReadOnly rows through the compiled CLI, named profile
-and OS keyring: current user; projects and issues (up to three each); one selected issue and its
+and platform secret store: current user; projects and issues (up to three each); one selected issue and its
 comments; one selected project and its custom fields; users; and the selected issue's custom
 fields, attachments, tags, links and work items. It also reads global fields, user bundles,
 groups, the selected project's team/time settings, global work-item types, agiles and articles.
