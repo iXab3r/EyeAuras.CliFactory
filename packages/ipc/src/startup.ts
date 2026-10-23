@@ -10,7 +10,7 @@ const failures = {
   ],
   ownership: [
     72,
-    "CLI host could not acquire ownership. Check ipc-server status or stop the existing owner before retrying.",
+    "CLI host could not acquire ownership. Check runtime storage permissions and IPC access.",
   ],
   endpoint: [
     73,
@@ -18,7 +18,7 @@ const failures = {
   ],
   build: [
     74,
-    "CLI host could not validate its build. Run npm run build before retrying.",
+    "CLI host could not validate its build. Rebuild the workspace or reinstall the prepared package before retrying.",
   ],
 } as const;
 
@@ -48,3 +48,6 @@ export function startupMessage(code: number | null): string {
     "CLI host exited before becoming ready. Check the executable and its runtime dependencies."
   );
 }
+
+/** Private parent-to-child startup cancellation; never an owner control command. */
+export const cancelStartup = "clifactory:cancel-startup";

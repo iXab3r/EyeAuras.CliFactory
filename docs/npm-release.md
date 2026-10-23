@@ -159,8 +159,8 @@ build evidence; it is not a release entry point.
 
 ## Package contents and checks
 
-Only the three packages above are published. The root, IPC, Playwright and RANDOM packages remain
-private. Released packages include the MIT notice, package metadata, README and built `dist/src`
+Only the three packages above are published. The root, Playwright and RANDOM packages remain private. IPC has public-package metadata
+and can be packed for external consumers, but remains outside this authorized registry release set. Released packages include the MIT notice, package metadata, README and built `dist/src`
 files. Tests, fixtures, source TypeScript and integration-proof runners are excluded. Core's
 public `/testing` and `/proof` library exports remain included.
 

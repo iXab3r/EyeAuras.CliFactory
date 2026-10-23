@@ -21,7 +21,8 @@
     "random-pw": "npm run start --workspace @eyeauras/random-pw-cli --",
     "browser:install": "playwright install chromium",
     "test:packages": "npm run build && node scripts/test-packages.mjs",
-    "test:registry": "node scripts/test-packages.mjs --registry"
+    "test:registry": "node scripts/test-packages.mjs --registry",
+    "test:external-ipc": "npm run build --workspace @eyeauras/cli-factory-ipc && node --test packages/ipc/dist/integration-tests/external-package.test.js"
   },
   "engines": {
     "node": ">=22"
