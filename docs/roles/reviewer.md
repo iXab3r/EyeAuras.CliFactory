@@ -20,8 +20,9 @@ The delivery owner supplies:
   reviewer has read-only Git tooling;
 - verification results, their applicable revision/scope, and explicit limitations.
 
-Start a separate invocation without the author's session, plan or rationalizations. With Codex
-`spawn_agent`, explicitly use `fork_turns="none"` and supply the intake above. Re-derive obligations
+Follow [independent review](../practices/independent-review.md): start a fresh invocation with
+`fork_turns="none"` in Codex, a narrow neutral brief and no author conversation or earlier verdicts.
+Supply the intake above. Independently inspect the relevant source and tests and re-derive obligations
 from the acceptance contract, diff and guides. If intake is missing or the available tree does not
 match the supplied head, report that limitation instead of claiming to have reviewed that head.
 
