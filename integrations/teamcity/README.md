@@ -54,7 +54,7 @@ Licensed under MIT. See the [release guide](https://github.com/iXab3r/EyeAuras.C
 | `server status` | Show server version, role, and clock | `ReadOnly` |
 | `projects list`, `projects show <id>` | Discover projects | `ReadOnly` |
 | `jobs list`, `jobs show <id>` | Discover build configurations | `ReadOnly` |
-| `jobs run <id>` | Queue one build, optionally with `--branch`, `--comment`, one-off `--param` values and `--wait` for its result | `Update` |
+| `jobs run <id>` | Queue one build, optionally with `--branch`, `--comment`, one-off `--param`, `--clean-sources` and `--wait` | `Update` |
 | `builds list`, `builds show <id>`, `builds show --job <id> --latest` | Inspect builds across all branches and states, one `--branch`, or the latest finished build of a job | `ReadOnly` |
 | `builds wait <id>`, `builds diagnose <id>` | Wait for a result; summarize problems and failed tests | `ReadOnly` |
 | `builds tests/problems/changes <id>` | Diagnose a build | `ReadOnly` |
@@ -242,6 +242,11 @@ teamcity-cli builds diagnose 101
   it had one. Both list builds in every state, because an accepted build can leave the queue
   within seconds. The command never repeats the POST.
 - `--branch` selects the branch to build; without it TeamCity builds the job's default branch.
+- `--clean-sources` asks TeamCity to delete this build's entire checkout directory, including
+  untracked files and build caches, then fetch its sources again. It applies only to the queued
+  build; it does not request cleanup of dependency builds or change persistent job settings. Omitted by default,
+  it sends only `triggeringOptions.cleanSources=true` when selected. See TeamCity's
+  [BuildTriggeringOptions](https://www.jetbrains.com/help/teamcity/rest/buildtriggeringoptions.html).
 
 **Waiting.** `jobs run --wait` (still `Update`) and `builds wait <id>` (`ReadOnly`) only read the
 build: GET `/builds/id:<id>`, every `--interval` (default 5s, 1s–10m). `--timeout` (default 10m,

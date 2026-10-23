@@ -197,6 +197,8 @@ export interface ListAgentsOptions extends TeamCityPageOptions {
 export interface RunJobOptions {
   branch?: string;
   comment?: string;
+  /** Clear this build's entire checkout and fetch its sources again. */
+  cleanSources?: boolean;
   /** One-off, non-secret parameters for this build only; the job configuration is unchanged. */
   properties?: readonly PlainProperty[];
 }
@@ -567,6 +569,9 @@ export class TeamCityClient {
    */
   public async runJob(id: string, options: RunJobOptions = {}): Promise<TeamCityBuild> {
     const jobId = requiredText(id, "TeamCity job ID");
+    if (options.cleanSources !== undefined && typeof options.cleanSources !== "boolean") {
+      throw new Error("Clean sources must be a boolean.");
+    }
     let contents: string;
     try {
       contents = await this.#request(
@@ -575,6 +580,9 @@ export class TeamCityClient {
         { fields: buildFields },
         {
           buildType: { id: jobId },
+          ...(options.cleanSources === undefined
+            ? {}
+            : { triggeringOptions: { cleanSources: options.cleanSources } }),
           ...(options.branch === undefined
             ? {}
             : { branchName: requiredText(options.branch, "TeamCity branch name") }),

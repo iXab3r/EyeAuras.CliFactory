@@ -344,6 +344,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
           ...(branch === undefined ? {} : { branch }),
           ...(comment === undefined ? {} : { comment }),
           properties,
+          ...(options.cleanSources === true ? { cleanSources: true } : {}),
         });
       } catch (error) {
         if (!(error instanceof TeamCityUnknownOutcomeError)) throw error;
@@ -376,6 +377,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
           description: "Branch to build; the job's default branch when omitted",
         },
         { flags: "--comment <text>", description: "Attach a queue comment" },
+        { flags: "--clean-sources", description: "Clear this build's entire checkout before fetching" },
         pairOption(
           "--param",
           "One-off parameter for this build only, such as env.MODE=test; repeat; never secrets",

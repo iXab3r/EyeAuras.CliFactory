@@ -163,14 +163,14 @@ test("jobs run sends one-off parameters in the single queue request and never ec
 test("jobs run --wait keeps Update, queues once and follows only by reads to success", async (t) => {
   const seen = buildStates([queued, running, finished("SUCCESS")]);
   const denied = await createTestRuntime(t);
-  const refused = await denied.run(denied.createCli(), ["jobs", "run", "Demo_Tests", "--wait"]);
+  const refused = await denied.run(denied.createCli(), ["jobs", "run", "Demo_Tests", "--clean-sources", "--wait"]);
   assert.equal(refused.exitCode, 1);
   assert.match(refused.stderr, /Permission 'Update' is disabled/);
   assert.deepEqual(seen, { posts: 0, reads: 0, other: 0 });
 
   const runtime = await updater(t);
   const result = await runtime.run(runtime.createCli(), [
-    "jobs", "run", "Demo_Tests", "--wait", "--interval", "1s", "--timeout", "1m",
+    "jobs", "run", "Demo_Tests", "--clean-sources", "--wait", "--interval", "1s", "--timeout", "1m",
   ]);
   assert.equal(result.exitCode, 0, result.stderr);
   assert.equal(
@@ -180,6 +180,38 @@ test("jobs run --wait keeps Update, queues once and follows only by reads to suc
   // "Queued" titles only a build still in the queue, not the finished result of the wait.
   assert.match(result.stdout, /^Build 201 · Demo_Tests\nOutcome: +succeeded\nState: +finished\n/);
   assert.deepEqual(seen, { posts: 1, reads: 3, other: 0 });
+});
+
+test("jobs run clean sources is opt-in and sends only this build's documented boolean", async (t) => {
+  const bodies: unknown[] = [];
+  server.use(http.post(`${base}/buildQueue`, async ({ request }) => {
+    bodies.push(await request.json());
+    return HttpResponse.json(queued);
+  }));
+  const runtime = await updater(t);
+  const cli = runtime.createCli();
+  await runtime.json(cli, [
+    "jobs", "run", "Demo_Tests", "--clean-sources", "--branch", "main",
+    "--comment", "Refresh checkout", "--param", "env.MODE=test",
+  ]);
+  assert.deepEqual(bodies, [{
+    buildType: { id: "Demo_Tests" },
+    branchName: "main",
+    comment: { text: "Refresh checkout" },
+    properties: { property: [{ name: "env.MODE", value: "test" }] },
+    triggeringOptions: { cleanSources: true },
+  }]);
+  const [reply] = await runtime.rpc(cli, [["jobs", "run", "Demo_Tests", "--clean-sources"]]) as
+    Array<{ result?: { accepted: boolean } }>;
+  assert.equal(reply?.result?.accepted, true);
+  assert.deepEqual(bodies[1], {
+    buildType: { id: "Demo_Tests" }, triggeringOptions: { cleanSources: true },
+  });
+  for (const args of [["--clean-sources=false"], ["--clean-sources", "false"], ["--clean-sources", "{}"]]) {
+    const invalid = await runtime.run(cli, ["jobs", "run", "Demo_Tests", ...args]);
+    assert.equal(invalid.exitCode, 1);
+  }
+  assert.equal(bodies.length, 2, "Malformed boolean input never queues a build.");
 });
 
 test("jobs run --wait queues and waits with one client, reading its credential only once", async (t) => {
