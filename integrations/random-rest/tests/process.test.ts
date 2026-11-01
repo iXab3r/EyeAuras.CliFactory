@@ -52,7 +52,7 @@ test("packaged bin: help, configuration, HTTP output, errors and JSON-RPC", asyn
   assert.deepEqual(JSON.parse(draw.stdout), { values: [2, 2, 2] });
   const sequence = run(["sequence", "--min", "1", "--max", "3"]);
   assert.equal(sequence.status, 0, sequence.stderr);
-  assert.equal(sequence.stdout, "values: [3,2,1]\n");
+  assert.equal(sequence.stdout, "values:\n  - 3\n  - 2\n  - 1\n");
   const invalid = run(["integers", "--count", "9007199254740992", "--json"]);
   assert.equal(invalid.status, 1);
   assert.equal(invalid.stdout, "");
