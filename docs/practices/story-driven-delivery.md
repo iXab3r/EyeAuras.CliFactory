@@ -14,7 +14,7 @@ an exit gate, and production code starts only after the planning layers are comp
 | 3. Dependencies | Each story is *blocked by* the operations it needs | Every story has links; unknown needs are stated |
 | 4. Milestones | Milestones delivering one or more stories each | Owner approved the plan |
 | 5. Execution | Red story tests, then implementation, per milestone | Story tests green at the milestone head |
-| 6. Review loop | Review rounds, bug issues, fixes | Fresh reviewers report PASS; every milestone issue closed |
+| 6. Review loop | Review rounds, bug issues, fixes | Fresh reviewers report PASS or PASS-WITH-NITS with no accepted findings; every milestone issue closed |
 
 Layers 5 and 6 repeat for each milestone. Layers 1–4 may be extended later (new stories, a newer
 service version); an extension passes the same gates before its code starts.
@@ -22,22 +22,26 @@ service version); an extension passes the same gates before its code starts.
 ## Tracker shape
 
 Use GitHub Issues with sub-issues, *blocked by* relationships and milestones. A GitHub Project may
-add board views and a status field; it does not replace issue state. Labels used by this practice:
+add board views and a status field; it does not replace issue state. The lead creates these labels once,
+at planning setup and with owner approval, so ordinary issue work never creates labels:
 
 | Label | Meaning |
 |---|---|
 | `type:api` | One service operation in the inventory |
 | `type:api-group` | Root tracker issue of one API group |
 | `type:story` | A user story |
-| `type:bug` | A defect found during a milestone |
 | `type:review` | A milestone review round record |
 | `api:<group>` | The API group of an operation |
 
-Add service-specific labels (for example, version availability) only when they help filtering.
+Defects found during a milestone use the default `bug` label plus the milestone. Add service-specific
+labels (for example, version availability) only when they help filtering.
 
 ## 1. API inventory
 
-Bound the API before planning against it. The inventory answers "how much of the service does the
+Bound the API before planning against it. In this practice the inventory lives in GitHub as a progress
+tracker. [Reconciliation Lead](../roles/reconciliation-lead.md) remains the role for census-style
+closure or audits of an inventory, with its local ledger. API expansion here still honors the
+authoring-review checkpoint of root law 13 (normally every 50 new operations) across milestones. The inventory answers "how much of the service does the
 product cover", not "what do we build next".
 
 - **Source.** Prefer the service's official machine-readable specification (OpenAPI or equivalent) at
@@ -90,14 +94,17 @@ the stories. Infrastructure (build, packaging, CI, test harness) may precede it.
 
 ## 5. Execution: test first
 
-Each milestone follows test-driven development against mocks of the network boundary (MSW for
-TypeScript CLIs; WireMock or an equivalent for other stacks):
+Each milestone follows test-driven development against mocks of the network boundary, as described
+in [testing](../testing.md) (MSW at the native `fetch` boundary):
 
 1. **Fixtures.** Prepare minimal, sanitized response fixtures for every operation the milestone
    needs. Follow the repository's fixture practice and [testing](../testing.md).
 2. **Red.** Encode every acceptance scenario of every milestone story as an end-to-end test that
    runs the real command tree (for example through the shared CLI fixture) against the mocks.
-   Commit these tests first. Record the failing run, test count and head in the milestone issue.
+   Commit these tests first, on the story's own branch. Record the failing run, test count and head
+   in the story issue. Red tests never reach the default branch: a story's PR merges only when its
+   tests are green, and tests are never merged skipped or marked as expected failures. Each PR
+   therefore passes the normal required checks and `npm test`.
 3. **Green.** Implement until the story tests pass. Add focused tests at the client boundary where
    an operation has behavior the story tests do not pin down (pagination, error mapping).
 4. **Story closure.** A story closes when all its scenarios pass at the milestone's final head and
@@ -115,8 +122,11 @@ When all stories of a milestone are green:
 2. Run one or more independent [Reviewers](../roles/reviewer.md) in fresh contexts under
    [independent review](independent-review.md), with the milestone's stories and acceptance as the
    contract and the full milestone diff as the subject.
-3. File every BLOCKER, MAJOR and accepted MINOR finding as a `type:bug` issue in the same milestone,
+3. File every BLOCKER, MAJOR and accepted MINOR finding as a `bug` issue in the same milestone,
    linked to the review round. Fix each with a regression test first.
+   The lead decides which MINOR findings are accepted and records the decision on the review issue;
+   the owner can overrule. This deliberately replaces the usual follow-up suggestions: an accepted
+   finding is fixed in the milestone instead of being deferred.
 4. Start a new round on the new head with fresh reviewers. Repeat until every reviewer reports PASS
    or PASS-WITH-NITS with no accepted findings.
 5. Close the milestone only when every issue in it is closed. Nothing moves to the next milestone

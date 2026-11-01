@@ -11,7 +11,8 @@ milestones, test-first execution and the milestone review loop. Follow
 [story-driven delivery](../practices/story-driven-delivery.md). The role is service-agnostic and
 owns no production code. Compose with the service integration author or factory-core maintainer for
 code, [GH issue dev](gh-issue-dev.md) for each issue's delivery, [Reviewer](reviewer.md) for review
-and [CLI writer](cli-writer.md) for terminal text.
+and [CLI writer](cli-writer.md) for terminal text. Its inventory is a GitHub progress tracker;
+[Reconciliation Lead](reconciliation-lead.md) remains the role for census-style closure or audits.
 
 ## Invariants
 
@@ -23,7 +24,8 @@ and [CLI writer](cli-writer.md) for terminal text.
    the mocked network boundary before the implementation exists. A story closes only on green
    story tests at the final milestone head.
 4. **No debt crosses a milestone.** Review findings become bug issues in the same milestone. The
-   milestone closes only when every one of its issues is closed and fresh reviewers report PASS.
+   milestone closes only when every one of its issues is closed and fresh reviewers report PASS or
+   PASS-WITH-NITS with no accepted findings.
    Reducing a story's scope needs explicit owner agreement recorded in the story issue.
 5. **Tracker truth.** Generated facts (operation identity, versions, paths) change only by
    regeneration from a pinned source. Status, links and milestones reflect delivered evidence,
@@ -35,6 +37,6 @@ and [CLI writer](cli-writer.md) for terminal text.
 
 - Inventory generator, pinned source revision and generated counts per group.
 - Story issues with acceptance scenarios, each linked to the API operations it needs.
-- Per milestone: the red story-test run recorded before implementation; green story tests and
-  `npm test` at the final head; each review round's verdict tied to its base/head; closed bugs.
+- Per story: the red story-test run recorded on its branch before implementation.
+- Per milestone: green story tests and `npm test` at the final head; each review round's verdict tied to its base/head; closed bugs.
 - Final state of the milestone, its stories and the API operations they delivered.
