@@ -38,3 +38,50 @@ test("ordinary short fallback tables remain aligned", () => {
   assert.equal(formatHuman([{ id: 1, state: "done" }, { id: 22, state: "busy" }]),
     "id  state\n--  -----\n1   done\n22  busy");
 });
+
+test("nested fallback records preserve keys, lists and empty values without JSON cells", () => {
+  assert.equal(formatHuman({ authenticated: true, identity: {
+    items: [{ id: 1 }, { id: 2 }], count: 2, roles: ["reader", "monitor"],
+    metadata: {}, pending: [],
+  }, profile: "default" }), [
+    "authenticated: true", "identity:", "  items:", "    -", "      id: 1",
+    "    -", "      id: 2", "  count: 2", "  roles:", "    - reader",
+    "    - monitor", "  metadata: (empty record)", "  pending: (empty list)", "profile: default",
+  ].join("\n"));
+  assert.equal(formatHuman({ active: false, identity: null, missing: undefined }),
+    "active: false\nidentity: \nmissing: ");
+});
+
+test("complex outer rows and empty rows each keep a visible record block", () => {
+  assert.equal(formatHuman([{ id: 1, identity: { user: "operator" } }, { id: 2, roles: ["reader"] }]),
+    "id: 1\nidentity:\n  user: operator\n\nid: 2\nroles:\n  - reader");
+  assert.equal(formatHuman([{}, {}]), "(empty record)\n\n(empty record)");
+  assert.equal(formatHuman([{}, { id: 1 }]), "(empty record)\n\nid: 1");
+  assert.equal(formatHuman([]), "No results.");
+});
+
+test("outer selections group scalar summaries and then nested details without changing nested items", () => {
+  assert.equal(formatHuman({
+    metadata: { items: [{ id: 9 }], count: 1 }, count: 1,
+    items: [{ id: 1 }], hasMore: null, warnings: ["stale", { source: "replica" }],
+  }), [
+    "id", "--", "1", "", "count: 1  hasMore: null", "", "metadata:",
+    "  items:", "    -", "      id: 9", "  count: 1", "warnings:",
+    "  - stale", "  -", "    source: replica",
+  ].join("\n"));
+});
+
+test("recursive fallback retains complete values and repeated acyclic references", () => {
+  const text = "x".repeat(20_000) + "last-character-marker";
+  let nested: unknown = { text };
+  for (let i = 0; i < 12; i++) nested = { child: [nested] };
+  const shared = { nested };
+  const rendered = formatHuman({ first: shared, second: shared });
+  assert.equal(rendered.split(text).length, 3);
+  assert.equal(rendered.match(/child:/g)?.length, 24);
+  assert.doesNotMatch(rendered, /more items|Circular/);
+  const date = new Date("2026-01-01T00:00:00Z");
+  assert.equal(formatHuman({ date }), `date: ${JSON.stringify(date)}`);
+  assert.equal(formatHuman(date), "");
+  assert.equal(formatHuman([date]), "");
+});

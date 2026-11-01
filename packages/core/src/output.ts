@@ -16,7 +16,53 @@ function displayCell(value: unknown): string {
   return String(value);
 }
 
+function isNested(value: unknown): value is Record<string, unknown> | unknown[] {
+  return Array.isArray(value) || (isRecord(value)
+    && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null));
+}
+
+function indent(value: string): string {
+  return value.split("\n").map((line) => `  ${line}`).join("\n");
+}
+
+function isEmpty(value: Record<string, unknown> | unknown[]): boolean {
+  return Array.isArray(value) ? value.length === 0 : Object.keys(value).length === 0;
+}
+
+// Only the outer result recognizes tables and selections. Nested keys are always data.
+function recordFields(value: Record<string, unknown>, ancestors: Set<object>): string {
+  return Object.entries(value).map(([key, entry]) => {
+    if (!isNested(entry)) return `${key}: ${displayCell(entry)}`;
+    const rendered = nested(entry, ancestors);
+    return isEmpty(entry) ? `${key}: ${rendered}` : `${key}:\n${indent(rendered)}`;
+  }).join("\n");
+}
+
+function nested(value: Record<string, unknown> | unknown[], ancestors: Set<object>): string {
+  if (ancestors.has(value)) throw new TypeError("Converting circular structure to human output");
+  ancestors.add(value);
+  try {
+    if (!Array.isArray(value)) return recordFields(value, ancestors) || "(empty record)";
+    if (value.length === 0) return "(empty list)";
+    return Array.from(value, (entry) => {
+      if (!isNested(entry)) {
+        const scalar = typeof entry === "string" ? entry
+          : inspect(entry, { colors: false, depth: null, maxArrayLength: null, maxStringLength: null, compact: false });
+        return `- ${scalar}`;
+      }
+      const rendered = nested(entry, ancestors);
+      return isEmpty(entry) ? `- ${rendered}` : `-\n${indent(rendered)}`;
+    }).join("\n");
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
 function table(values: readonly Record<string, unknown>[]): string {
+  if (values.some((value) => isNested(value)
+    && (isEmpty(value) || Object.values(value).some(isNested)))) {
+    return values.map((value) => nested(value, new Set())).join("\n\n");
+  }
   const columns = [...new Set(values.flatMap((value) => Object.keys(value)))];
   if (columns.length === 0) {
     return "";
@@ -35,7 +81,7 @@ function table(values: readonly Record<string, unknown>[]): string {
     }
   }
   // Prefer lossless records when alignment adds more whitespace than actual cell content.
-  if (padding > content) return values.map(formatHuman).join("\n\n");
+  if (padding > content) return values.map((value) => recordFields(value, new Set([value]))).join("\n\n");
 
   const formatRow = (row: readonly string[]): string =>
     row.map((cell, index) => cell.padEnd(widths[index] ?? 0)).join("  ").trimEnd();
@@ -60,21 +106,23 @@ export function formatHuman(value: unknown): string {
     }
     return table(value);
   }
-  // A selection object: its items as a table, then its other fields on one line. `null` is
-  // spelled out: an unknown value is information, unlike an empty cell.
+  // A selection prints rows, its scalar summary, then labeled nested details.
+  // `null` is spelled out: an unknown value is information, unlike an empty cell.
   if (isRecord(value) && Array.isArray(value.items) && value.items.every(isRecord)) {
     const { items, ...details } = value;
     const summary = Object.entries(details)
-      .filter(([, entry]) => entry !== undefined)
+      .filter(([, entry]) => entry !== undefined && !isNested(entry))
       .map(([key, entry]) => `${key}: ${entry === null ? "null" : displayCell(entry)}`)
       .join("  ");
-    return [formatHuman(items), ...(summary ? ["", summary] : [])].join("\n");
+    const blocks = Object.fromEntries(Object.entries(details).filter(([, entry]) => isNested(entry)));
+    const rendered = recordFields(blocks, new Set([value]));
+    return [formatHuman(items), ...[summary, rendered].filter(Boolean)].join("\n\n");
   }
   if (isRecord(value)) {
-    return Object.entries(value)
-      .map(([key, entry]) => `${key}: ${displayCell(entry)}`)
-      .join("\n");
+    return isNested(value) ? recordFields(value, new Set([value]))
+      : Object.entries(value).map(([key, entry]) => `${key}: ${displayCell(entry)}`).join("\n");
   }
+  if (Array.isArray(value)) return value.length === 0 ? "No results." : nested(value, new Set());
   return inspect(value, { colors: false, depth: null, maxArrayLength: null, maxStringLength: null, compact: false });
 }
 

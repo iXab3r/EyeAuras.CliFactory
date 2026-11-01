@@ -215,8 +215,16 @@ from an array result or from the view's `rows` accessor, under column headers, o
 aligned `Label: value` fields, omitting empty values. Accessors return values; they never print.
 Core owns the layout and the `age`, `duration` and `bytes` formats. There is no template language.
 Without a view, or when a table's rows are not an array, the generic fallback renders the value,
-so a shape mismatch never reads as "no results". Generic object arrays use records instead of an
-aligned table when inter-column padding would exceed actual cell content. Values stay complete.
+so a shape mismatch never reads as "no results". At the outermost result, arrays of nonempty
+simple records use an aligned table. An empty row, a nested plain-record/array cell, or
+inter-column padding exceeding actual cell content switches the collection to vertical record
+blocks. Every empty row says `(empty record)`; an empty outer collection says `No results.`.
+Nested plain records and arrays render recursively, with two-space indentation and list markers,
+retaining all keys, values and order. Nested arrays of records stay lists, and a nested `items`
+key is ordinary data. Empty nested values say `(empty record)` or `(empty list)`. Scalar-only
+records keep their existing formatting; non-plain instances keep their existing scalar fallback.
+Values stay complete: no depth, string or collection truncation is applied. Ancestor cycles in
+the recursive branch throw a serialization-style error; repeated acyclic references are valid.
 `--json`, JSON-RPC and `execute` always return
 the unchanged domain value. A record may also have titled `sections`, one line per item. An empty
 section says `none`; an accessor that returns `undefined` omits it. Section lines are never cut:
@@ -445,9 +453,12 @@ Core owns these codes:
 Integrations add their own dotted codes by throwing `CliError` or a subclass. There is no parallel
 plain-text error format for JSON callers.
 
-Without a view, the generic renderer prints an object whose `items` is a list of records as a
-table followed by its other fields on one line, with `null` spelled out, so an unknown `hasMore`
-stays visible. That is the shape of a paged selection. A table view may add one `footer` line,
+Without a view, an outermost object whose `items` is a list of records is a paged selection.
+The generic renderer prints its items first using the table/record rules above, then its scalar
+fields on one summary line, with `null` spelled out so an unknown `hasMore` stays visible.
+Nested detail fields follow as labeled indented blocks. This envelope groups items, scalar
+details and nested details in that order, preserving field order within each detail group;
+ordinary nested records do not use this exception. A table view may add one `footer` line,
 for example whether more results exist.
 
 ### JSON-RPC is a persistent transport

@@ -41,7 +41,7 @@ test("CLI defaults and human/JSON/programmatic output use the same declaration",
   assert.equal(io.stderr(), "");
   io.reset();
   assert.equal(await cli.run(["integers"]), 0);
-  assert.equal(io.stdout(), "values: [42]\n");
+  assert.equal(io.stdout(), "values:\n  - 42\n");
   io.reset();
   assert.deepEqual(await cli.execute(["sequence"]), {
     values: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
