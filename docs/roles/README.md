@@ -18,6 +18,7 @@ they compose with the domains they touch and never replace those domains' invari
 | Reviewer | Independent read-only audit of a completed diff: [role](reviewer.md) |
 | CLI writer | Text a person reads at the terminal, when authored or reviewed: [role](cli-writer.md) |
 | Reconciliation Lead | Migration, expansion or audit of a declared inventory: [role](reconciliation-lead.md), [workstreams](../practices/workstreams.md) |
+| Story Delivery Lead | Product delivery through user stories, test-first milestones and review loops: [role](story-delivery-lead.md), [practice](../practices/story-driven-delivery.md) |
 
 Select checks for the actual risk under the [verification policy](../practices/github-issues.md#verification-and-setup-limits)
 and preserve mandatory repository/domain gates. Several roles do not imply several copies of a test run.
