@@ -85,3 +85,21 @@ test("recursive fallback retains complete values and repeated acyclic references
   assert.equal(formatHuman(date), "");
   assert.equal(formatHuman([date]), "");
 });
+
+/** WHAT: Review found nested lists bypassing toJSON and exposing an instance's private projection. */
+test("nested non-plain instances retain their serialized projection in lists and mixed rows", () => {
+  class CredentialSummary {
+    token = "synthetic-secret-marker";
+    toJSON() { return { stored: true }; }
+  }
+  const credentials = new CredentialSummary();
+  const rendered = formatHuman({ identity: { credentials: [credentials] } });
+  assert.equal(rendered, 'identity:\n  credentials:\n    - {"stored":true}');
+  assert.doesNotMatch(rendered, /synthetic-secret-marker|CredentialSummary/);
+  class InstanceRow { identity = { credentials: [credentials] }; }
+  assert.equal(formatHuman([{}, new InstanceRow()]),
+    '(empty record)\n\nidentity: {"credentials":[{"stored":true}]}');
+  // The previous inspect-based outer mixed-array path remains distinct from JSON-based fields.
+  const date = new Date("2026-01-01T00:00:00Z");
+  assert.equal(formatHuman([1, date]), "- 1\n- 2026-01-01T00:00:00.000Z");
+});

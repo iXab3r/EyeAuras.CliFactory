@@ -29,28 +29,33 @@ function isEmpty(value: Record<string, unknown> | unknown[]): boolean {
   return Array.isArray(value) ? value.length === 0 : Object.keys(value).length === 0;
 }
 
+function inspectComplete(value: unknown): string {
+  return inspect(value, { colors: false, depth: null, maxArrayLength: null, maxStringLength: null, compact: false });
+}
+
 // Only the outer result recognizes tables and selections. Nested keys are always data.
-function recordFields(value: Record<string, unknown>, ancestors: Set<object>): string {
+function recordFields(value: Record<string, unknown>, ancestors: Set<object>, inspectInstances = false): string {
+  const recursive = isNested(value);
   return Object.entries(value).map(([key, entry]) => {
-    if (!isNested(entry)) return `${key}: ${displayCell(entry)}`;
-    const rendered = nested(entry, ancestors);
+    if (!recursive || !isNested(entry)) return `${key}: ${inspectInstances && isRecord(entry) ? inspectComplete(entry) : displayCell(entry)}`;
+    const rendered = nested(entry, ancestors, inspectInstances);
     return isEmpty(entry) ? `${key}: ${rendered}` : `${key}:\n${indent(rendered)}`;
   }).join("\n");
 }
 
-function nested(value: Record<string, unknown> | unknown[], ancestors: Set<object>): string {
+function nested(value: Record<string, unknown> | unknown[], ancestors: Set<object>, inspectInstances = false): string {
   if (ancestors.has(value)) throw new TypeError("Converting circular structure to human output");
   ancestors.add(value);
   try {
-    if (!Array.isArray(value)) return recordFields(value, ancestors) || "(empty record)";
+    if (!Array.isArray(value)) return recordFields(value, ancestors, inspectInstances) || "(empty record)";
     if (value.length === 0) return "(empty list)";
     return Array.from(value, (entry) => {
       if (!isNested(entry)) {
         const scalar = typeof entry === "string" ? entry
-          : inspect(entry, { colors: false, depth: null, maxArrayLength: null, maxStringLength: null, compact: false });
+          : isRecord(entry) && !inspectInstances ? displayCell(entry) : inspectComplete(entry);
         return `- ${scalar}`;
       }
-      const rendered = nested(entry, ancestors);
+      const rendered = nested(entry, ancestors, inspectInstances);
       return isEmpty(entry) ? `- ${rendered}` : `-\n${indent(rendered)}`;
     }).join("\n");
   } finally {
@@ -61,7 +66,8 @@ function nested(value: Record<string, unknown> | unknown[], ancestors: Set<objec
 function table(values: readonly Record<string, unknown>[]): string {
   if (values.some((value) => isNested(value)
     && (isEmpty(value) || Object.values(value).some(isNested)))) {
-    return values.map((value) => nested(value, new Set())).join("\n\n");
+    return values.map((value) => isNested(value) ? nested(value, new Set())
+      : recordFields(value, new Set([value]))).join("\n\n");
   }
   const columns = [...new Set(values.flatMap((value) => Object.keys(value)))];
   if (columns.length === 0) {
@@ -119,11 +125,11 @@ export function formatHuman(value: unknown): string {
     return [formatHuman(items), ...[summary, rendered].filter(Boolean)].join("\n\n");
   }
   if (isRecord(value)) {
-    return isNested(value) ? recordFields(value, new Set([value]))
-      : Object.entries(value).map(([key, entry]) => `${key}: ${displayCell(entry)}`).join("\n");
+    return recordFields(value, new Set([value]));
   }
-  if (Array.isArray(value)) return value.length === 0 ? "No results." : nested(value, new Set());
-  return inspect(value, { colors: false, depth: null, maxArrayLength: null, maxStringLength: null, compact: false });
+  // These outer arrays previously used inspect; keep that behavior for their non-plain instances.
+  if (Array.isArray(value)) return value.length === 0 ? "No results." : nested(value, new Set(), true);
+  return inspectComplete(value);
 }
 
 /** A terminal's usable line width; files, pipes and other streams have none. */
