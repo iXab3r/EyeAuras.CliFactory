@@ -13,6 +13,8 @@ export type {
 } from "./profile-file.js";
 export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
+export { streamResult } from "./stream-result.js";
+export type { StreamResult } from "./stream-result.js";
 export { command, localCommand } from "./command.js";
 export type { InferredCommandHandler } from "./command-input.js";
 export { targetCommands } from "./target-commands.js";
