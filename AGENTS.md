@@ -91,6 +91,14 @@ stay local and Git-ignored under `.workspace/workstreams/<id>/` of the verified 
 Do not commit/push notes or transfer them through Git. Small fixes and ordinary handoffs need no
 workstream; graduate only durable guidance to `docs/`.
 
+## Function role: Story Delivery Lead
+
+Use **Story Delivery Lead** when a product is planned as user stories over a generated API
+inventory and delivered in test-first milestones closed by review loops. Read
+[`docs/roles/story-delivery-lead.md`](docs/roles/story-delivery-lead.md) and
+[`docs/practices/story-driven-delivery.md`](docs/practices/story-driven-delivery.md). The practice
+is service-agnostic; consuming repositories add only their service specifics.
+
 ## Function role: GH issue dev
 
 **GitHub Issues is the primary tracker**: unspecified requests to file a bug/task go there,
