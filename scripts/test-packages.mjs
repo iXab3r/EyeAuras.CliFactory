@@ -109,6 +109,30 @@ try {
     `], { cwd: installed }));
     const core = await realpath(fileURLToPath(coreUrl));
     assert.ok(!relative(await realpath(prefix), core).startsWith(".."), "Core must resolve inside the isolated prefix.");
+    if (!entry.bin) {
+      run(process.execPath, ["--input-type=module", "--eval", `
+        import test from "node:test";
+        import assert from "node:assert/strict";
+        import { command, createCli, streamResult } from "@eyeauras/cli-factory";
+        import { createCliFixture } from "@eyeauras/cli-factory/testing";
+        test("installed finite streaming result", async t => {
+          const fixture = await createCliFixture(t, { applicationId: "stream-package-fixture", profiles: [{ name: "default" }] });
+          const app = fixture.createApplication(runtime => createCli({
+            name: "stream-package-fixture", description: "Fixture", runtime,
+            commands: [command("items", "List items", () => streamResult(async function* () { yield { id: 1 }; yield { id: 2 }; }))],
+          }));
+          const expected = [{ id: 1 }, { id: 2 }];
+          assert.deepEqual(await fixture.run(app, ["items", "--json"]), {
+            exitCode: 0, stdout: expected.map(item => JSON.stringify(item)).join("\\n") + "\\n", stderr: "",
+          });
+          assert.deepEqual(await app.execute(["items"]), expected);
+          assert.deepEqual(await fixture.rpc(app, [["items", "--json"], ["items"]]), [
+            { jsonrpc: "2.0", id: 0, result: expected }, { jsonrpc: "2.0", id: 1, result: expected },
+          ]);
+        });
+      `], { cwd: installed });
+      console.log("Core: installed NDJSON, execute and persistent RPC streaming passed");
+    }
     if (windows && !entry.bin) {
       // Exercise the shipped native DPAPI dependency, not a workspace/in-memory substitute.
       run(process.execPath, ["--input-type=module", "--eval", `

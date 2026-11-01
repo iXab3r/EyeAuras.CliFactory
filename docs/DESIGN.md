@@ -209,6 +209,29 @@ writes diagnostics to stderr.
 This separation is the basis for future output formats. A new format must be implemented once in
 the runner, not once per command.
 
+`streamResult<T>((signal: AbortSignal) => AsyncIterable<T>)` opts a handler into a lazy finite
+sequence of domain items. The factory callback must acquire resources only when called, pass its
+supplied signal to pending work, and release resources in `finally`. Construct signal-bound clients
+inside that callback; a client bound only to the original handler signal cannot observe output
+disconnect. Paging, result budgets and service-specific cleanup remain integration-owned.
+
+Ordinary CLI `--json` emits one unchanged JSON item per NDJSON line, awaiting each output write
+before requesting another item. An empty sequence emits no lines. Human CLI, `execute` (including
+argv containing `--json`) and JSON-RPC collect the finite sequence into an array; a human view sees
+that array, and RPC returns one existing response frame. Plain values, including ordinary arrays
+and unmarked async iterables, retain their existing behavior. This is not a subscription protocol.
+
+Consumption stays inside permission/profile admission, scheduling, diagnostics and the active
+operation lifetime. Invocation cancellation, application disposal and output close/error abort the
+producer's signal; Core awaits iterator closure and cleanup before releasing the command. Producers
+must cooperate with cancellation; Core cannot force arbitrary JavaScript to finish. Caller-owned
+streams are never ended or destroyed. Primary and iterator-cleanup failures retain their diagnostics.
+
+For a streamed JSON failure, already-emitted item lines remain on stdout and the CLI exits nonzero.
+The error and any `CliError.result` metadata go to stderr in the error envelope; no failed-result
+object is appended to the item stream. Human, `execute` and RPC failures keep the normal failed-result
+contract below. Nonstreaming JSON failures also keep their existing stdout result contract.
+
 A leaf may declare an optional human `view` next to its handler. `tableView` lists rows, taken
 from an array result or from the view's `rows` accessor, under column headers, or prints its
 `empty` message; it may add one `footer` line. `recordView` prints an optional title, then
@@ -259,7 +282,7 @@ Core's `CliError` with the `result` it would otherwise have returned. The error 
 - optional `next`: argv suggestions of the same CLI, without the CLI name or `--profile`.
 
 Core records the selected `profile`. Each caller receives the same failure in its own form:
-- **Ordinary CLI:** the result goes to stdout exactly as success would render it (view or
+- **Ordinary CLI:** except for streamed JSON as described above, the result goes to stdout exactly as success would render it (view or
   `--json`), the message goes to stderr, and the process exits with `exitCode`. In human mode,
   `next` is printed on stderr with the CLI name, only when there is no result; a result's view
   shows its own suggestions. A printed suggestion names `--profile <selected>` only when the
@@ -424,7 +447,8 @@ plus `name` and `stack` fields with `--verbose`. The diagnostics follow the cros
 The form reaches each caller as follows:
 - **CLI with `--json`:** the failure is one line on stderr, `{"error": {...}}`. Other stderr lines
   an integration documents, such as saved artifact paths, may precede it. stdout stays empty,
-  except for a failed outcome, whose result is printed there.
+  except for a failed outcome, whose result is printed there. Streamed JSON keeps emitted item lines
+  on stdout and includes any failed-result metadata as `error.result` on stderr instead.
 - **JSON-RPC:** every command failure (error `-32000`) carries the form, minus `message`, as
   `error.data`, plus `result` for a failed outcome. Protocol errors have no `data`.
 - **`execute`:** rejects with a `CliError` that has these fields, `result` included, once the

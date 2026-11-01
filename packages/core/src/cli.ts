@@ -3,6 +3,7 @@ import { AppArguments } from "./app-arguments.js";
 import { canPrompt } from "./auth.js";
 import { runJsonRpc } from "./json-rpc.js";
 import { writeResult } from "./output.js";
+import { consumeStreamResult, isStreamResult } from "./stream-result.js";
 import {
   resolvePermissionCategories,
   validateCommandPermissions,
@@ -49,6 +50,8 @@ interface ExecutionOptions {
   cwd: string;
   environment: Readonly<NodeJS.ProcessEnv>;
   classification?: { route: "local" | "owner" };
+  /** Only ordinary rendered JSON sequences put failed-result metadata on stderr. */
+  streamedJson?: boolean;
 }
 
 interface GlobalOptions {
@@ -355,15 +358,19 @@ export function createCli(definition: CliDefinition): CliApplication {
         const presentation = view && { view, cliName: definition.name };
         try {
           result = await runLocal(commandInput, context);
+          if (isStreamResult(result)) {
+            execution.streamedJson = execution.render && globals.json === true;
+            result = await consumeStreamResult(result, execution.signal, output, execution.streamedJson);
+          }
         } catch (caught) {
           const interrupted = afterInterrupt(caught, execution.interrupt);
           const failure = interrupted instanceof Error && !(interrupted instanceof CliError)
             ? CliError.from(interrupted) : interrupted;
-          if (execution.render && failure instanceof CliError && failure.result !== undefined)
+          if (execution.render && !execution.streamedJson && failure instanceof CliError && failure.result !== undefined)
             writeResult(output, failure.result, globals.json === true, presentation);
           throw failure;
         }
-        if (execution.render) writeResult(output, result, globals.json === true, presentation);
+        if (execution.render && !execution.streamedJson) writeResult(output, result, globals.json === true, presentation);
         return;
       }
       if (!handler) {
@@ -393,14 +400,18 @@ export function createCli(definition: CliDefinition): CliApplication {
           const presentation = view && { view, cliName: definition.name, profile: profile.name, defaultProfile };
           try {
             result = await handler(commandInput, context);
+            if (isStreamResult(result)) {
+              execution.streamedJson = execution.render && globals.json === true;
+              result = await consumeStreamResult(result, execution.signal, output, execution.streamedJson);
+            }
           } catch (caught) {
             const failure = afterInterrupt(caught, execution.interrupt);
             // A failed outcome still shows its data; `run` reports the reason and exit code.
-            if (execution.render && failure instanceof CliError && failure.result !== undefined)
+            if (execution.render && !execution.streamedJson && failure instanceof CliError && failure.result !== undefined)
               writeResult(output, failure.result, globals.json === true, presentation);
             throw failure;
           }
-          if (execution.render) {
+          if (execution.render && !execution.streamedJson) {
             writeResult(output, result, globals.json === true, presentation);
           }
         } catch (caught) {
@@ -587,11 +598,14 @@ export function createCli(definition: CliDefinition): CliApplication {
    * The one place a CLI failure is reported: a JSON envelope, or the explanation with one line of
    * technical cause and follow-ups. `--verbose` adds the complete chain with frames.
    */
-  const report = (error: unknown, argv: readonly string[], stream: CliIo["error"]): number => {
+  const report = (error: unknown, argv: readonly string[], stream: CliIo["error"], streamedJson = false): number => {
     const verbose = globalFlagRequested(argv, "--verbose");
     const failure = machineError(error, { verbose });
     if (globalFlagRequested(argv, "--json")) {
-      stream.write(`${JSON.stringify({ error: failure })}\n`);
+      stream.write(`${JSON.stringify({ error: {
+        ...failure,
+        ...(streamedJson && error instanceof CliError && error.result !== undefined ? { result: error.result } : {}),
+      } })}\n`);
       return failure.exitCode;
     }
     const lines = [failure.message];
@@ -665,7 +679,7 @@ export function createCli(definition: CliDefinition): CliApplication {
           return 0;
         });
       } catch (error) {
-        return report(afterInterrupt(error, invocation.signal), argv, execution.io.error);
+        return report(afterInterrupt(error, invocation.signal), argv, execution.io.error, execution.streamedJson);
       }
     },
     execute(argv, signal): Promise<unknown> {

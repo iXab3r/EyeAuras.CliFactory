@@ -27,6 +27,12 @@ and `@eyeauras/cli-factory/proof` entries provide offline fixtures and bounded,
 explicit local integration-proof helpers. IPC and Playwright are optional modules;
 Core imports neither.
 
+Handlers can return `streamResult(async function* (signal) { ... })` for a finite sequence.
+Acquire resources and create signal-bound clients inside the producer, pass its signal to pending
+work and clean up in `finally`. Ordinary CLI `--json` writes each item as NDJSON with backpressure;
+human output, `execute` and JSON-RPC receive an array. Streaming failures leave emitted lines on
+stdout and report errors and failed-result metadata on stderr. Ordinary result output is unchanged.
+
 Standalone secrets use `PlatformSecretStore` with no plaintext fallback: Windows DPAPI
 CurrentUser encrypted files under each profile's AppData `secrets/` directory, macOS Keychain,
 or Linux system keyring. Help does not need a configured service or stored credentials.
