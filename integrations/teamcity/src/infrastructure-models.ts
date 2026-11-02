@@ -127,6 +127,10 @@ export const propertyNames = (value: unknown) =>
   array(object(value).property).map((item) => safeScalars(item, ["name"]).name);
 export const repositoryEntries = (value: unknown) =>
   array(object(value).entry).map((item) => safeScalars(item, ["name", "value"]));
+function versionedFormat(value: unknown): string {
+  if (typeof value !== "string") throw new Error("Versioned settings format must be a string.");
+  return value;
+}
 export function versionedField(field: string, value?: string) {
   allowedField(field, [
     "synchronizationMode",
@@ -143,7 +147,7 @@ export function versionedField(field: string, value?: string) {
     return allowedField(value, ["useParentProjectSettings", "disabled", "enabled"]);
   if (field === "buildSettingsMode")
     return allowedField(value, ["alwaysUseCurrent", "useCurrentByDefault", "useFromVCS"]);
-  if (field === "format") return allowedField(value, ["xml", "kotlin"]);
+  if (field === "format") return versionedFormat(value);
   if (field === "vcsRootId") return inputText(value, "Root ID");
   const result = booleanText(value);
   if (field === "storeSecureValuesOutsideVcs" && result !== "true")
@@ -167,6 +171,10 @@ export function versionedConfigBody(value: unknown) {
   if (mode === "enabled" && (input.vcsRootId === undefined || input.format === undefined))
     throw new Error("Enabled synchronization needs vcsRootId and format.");
   for (const [key, field] of Object.entries(input)) {
+    if (key === "format") {
+      result[key] = versionedFormat(field);
+      continue;
+    }
     if (key === "importDecision") {
       result[key] = allowedField(inputText(field, "Import decision"), [
         "overrideInVCS",
