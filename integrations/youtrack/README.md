@@ -160,7 +160,7 @@ This documentation does not enable it automatically. The local proof remains Rea
 
 | Command | Required `--body` JSON object |
 |---|---|
-| `issues create` | Native `project` object and string `summary`; additional native fields are preserved |
+| `issues create` | Native `project` object and required `summary` (string or null); additional native fields are preserved |
 | `issues update <issueID>` | Native issue JSON; known supplied field types are checked |
 | `issues comments add <issueID>` | Native comment JSON; text may be a string or null |
 

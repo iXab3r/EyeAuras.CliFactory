@@ -107,7 +107,8 @@ test("invalid JSON and known field types fail locally; server resolves selectors
   for (const body of [
     { project: null, summary: "S" },
     { project: { id: 1 }, summary: "S" },
-    { project: { id: "0-1" }, summary: null },
+    { project: { id: "0-1" } },
+    { project: { id: "0-1" }, summary: 1 },
     { project: { id: "0-1" }, summary: "S", customFields: {} },
     { project: { id: "0-1" }, summary: "S", customFields: [{ ...field, $type: 1 }] },
   ]) await assert.rejects(createIssue(local, body), /YouTrack/);

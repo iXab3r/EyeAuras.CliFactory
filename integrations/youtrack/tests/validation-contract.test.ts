@@ -12,6 +12,8 @@ afterEach(() => server.resetHandlers());
 after(() => server.close());
 
 const cases = [
+  { argv: ["issues", "update", "DEMO-1"], path: "/issues/DEMO-1", body: { summary: null } },
+  { argv: ["issues", "create"], path: "/issues", body: { project: { id: "0-1" }, summary: null } },
   { argv: ["issues", "comments", "update", "DEMO-1", "Comment"], path: "/issues/DEMO-1/comments/Comment",
     body: { text: null, pinned: true, visibility: null } },
   { argv: ["issues", "fields", "set", "DEMO-1", "State"], path: "/issues/DEMO-1/customFields/State",
@@ -110,6 +112,21 @@ test("article comment metadata-only updates retain safe remote errors without re
   assert.equal(result.stdout, "");
   assert.match(JSON.parse(result.stderr).error.message, /HTTP 400/);
   assert.ok(!result.stderr.includes("synthetic-private-comment-response"));
+});
+
+test("nullable issue summaries retain safe remote errors without retries", async t => {
+  const f = await configuredFixture(t, { permissions: ["ReadOnly", "Update"] });
+  const requests = trackRequests(t, 1, async request => {
+    assert.equal(new URL(request.url).pathname, "/context/api/issues/DEMO-1");
+    assert.deepEqual(await request.json(), { summary: null });
+    return HttpResponse.text("synthetic-private-summary-response", { status: 400 });
+  });
+  server.use(http.post("*", ({ request }) => requests.handle(request)));
+  const result = await f.run(f.cli, ["issues", "update", "DEMO-1", "--body", '{"summary":null}', "--json"]);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.stdout, "");
+  assert.match(JSON.parse(result.stderr).error.message, /HTTP 400/);
+  assert.ok(!result.stderr.includes("synthetic-private-summary-response"));
 });
 
 test("native bodies still require JSON objects and JSON value types", () => {

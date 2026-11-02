@@ -146,7 +146,7 @@ export function issueWrite(input: unknown, create: boolean): IssueWrite {
     const project = mutationBody(body.project);
     write.body.project = { ...project, ...textSelectors(project, ["id", "shortName"], "project") };
   }
-  if (create || Object.hasOwn(body, "summary")) write.body.summary = narrative(body.summary, "summary");
+  if (create || Object.hasOwn(body, "summary")) write.body.summary = nullableText(body.summary, "summary");
   if (Object.hasOwn(body, "description")) write.body.description = nullableText(body.description, "description");
   if (Object.hasOwn(body, "customFields")) {
     if (!Array.isArray(body.customFields)) {
