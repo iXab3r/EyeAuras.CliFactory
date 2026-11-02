@@ -6,6 +6,14 @@ import {createCliFixture} from "../src/testing.js";
 
 const permissions={categories:[{name:"Delete",description:"Delete synthetic data"}]};
 
+test("module builtins cannot bypass admission with an additional resolver",async t=>{
+  // WHAT: independent review reproduced builtins executing a resolver without an enabled gate.
+  // HOW: the public application factory must reject that same module-owned command declaration.
+  const f=await createCliFixture(t,{applicationId:"additional-cli"});
+  const settings={additionalPermissions:()=>[]};
+  assert.throws(()=>f.createApplication(runtime=>createCli({name:"additional-cli",description:"Fixture",runtime,commands:[],builtins:[command("apply","Apply input",()=>true,settings)]})),/Additional permissions require a service command/);
+});
+
 test("additional permissions share the invocation input across CLI, execute and RPC",async t=>{
   const f=await createCliFixture(t,{applicationId:"additional-cli",profiles:[{name:"default",permissions:["ReadOnly","Update"]},{name:"other",permissions:["ReadOnly","Update","Delete"]}]});
   const snapshots=new WeakMap<CommandInput,string>();let prepared=0;
