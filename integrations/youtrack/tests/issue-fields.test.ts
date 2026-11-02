@@ -140,30 +140,24 @@ test("field clearing, primitive numbers, period presentation and text null remai
 test("invalid field payloads and IDs fail locally without secret-bearing diagnostics", async () => {
   let calls = 0;
   const local = { ...connection, fetch: (async () => { calls++; throw new Error("Unexpected fetch"); }) as typeof globalThis.fetch };
-  const cases: unknown[] = [null, [], {}, { value: null }, { $type: "synthetic-private-type", value: null },
-    { $type: "SimpleIssueCustomField" }, { $type: "SimpleIssueCustomField", value: true },
+  const cases: unknown[] = [null, [], {}, { value: null },
+    { $type: "SimpleIssueCustomField", value: true },
     { $type: "SimpleIssueCustomField", value: Infinity }, { $type: "SimpleIssueCustomField", value: NaN },
-    { $type: "SimpleIssueCustomField", value: {} }, { $type: "SimpleIssueCustomField", value: "ok", id: "forbidden" },
-    { $type: "SingleEnumIssueCustomField", value: {} }, { $type: "SingleEnumIssueCustomField", value: { name: " " } },
-    { $type: "SingleEnumIssueCustomField", value: { login: "wrong-family" } },
-    { $type: "SingleEnumIssueCustomField", value: { id: "a", $type: "EnumBundleElement" } },
+    { $type: "SimpleIssueCustomField", value: {} },
+
     { $type: "MultiEnumIssueCustomField", value: null }, { $type: "MultiUserIssueCustomField", value: [null] },
     { $type: "DateIssueCustomField", value: 1.5 }, { $type: "DateIssueCustomField", value: Number.MAX_SAFE_INTEGER + 1 },
-    { $type: "PeriodIssueCustomField", value: {} }, { $type: "PeriodIssueCustomField", value: { minutes: -1 } },
+
     { $type: "PeriodIssueCustomField", value: { minutes: 1.5 } },
-    { $type: "PeriodIssueCustomField", value: { presentation: " " } },
-    { $type: "TextIssueCustomField", value: { text: 3 } }, { $type: "TextIssueCustomField", value: { text: "x", markdownText: "forbidden" } },
-    { $type: "StateMachineIssueCustomField", value: { id: "state" } },
-    { $type: "StateMachineIssueCustomField", event: { id: "start" }, value: null },
+    { $type: "TextIssueCustomField", value: { text: 3 } },
     { $type: "StateMachineIssueCustomField", event: { presentation: "Start" } },
-    { $type: "StateMachineIssueCustomField", event: { id: " " } },
   ];
   for (const input of cases) await assert.rejects(setIssueField(local, "DEMO-1", "fixture-field", input), (error: Error) => {
     assert.match(error.message, /YouTrack/);
     assert.doesNotMatch(error.message, /synthetic-private/);
     return true;
   });
-  for (const id of [".", "..", "bad\nvalue", "\ud800"]) {
+  for (const id of ["", ".", "..", "\ud800"]) {
     await assert.rejects(getProject(local, id), /YouTrack/);
     await assert.rejects(getProjectField(local, "DEMO", id), /YouTrack/);
     await assert.rejects(getIssueField(local, "DEMO-1", id), /YouTrack/);
@@ -171,7 +165,7 @@ test("invalid field payloads and IDs fail locally without secret-bearing diagnos
   }
   await assert.rejects(listUsers(local, { top: Number.MAX_SAFE_INTEGER + 1 }), /YouTrack/);
   await assert.rejects(listProjectFields(local, "DEMO", { skip: -1 }), /YouTrack/);
-  await assert.rejects(listIssueFields(local, "DEMO-1", { fields: " " }), /YouTrack/);
+  await assert.rejects(listIssueFields(local, "DEMO-1", { fields: null as unknown as string }), /YouTrack/);
   assert.equal(calls, 0);
 });
 
@@ -191,10 +185,8 @@ test("field updates never retry rejection and preserve common empty/error/redact
   assert.deepEqual(await run(), { value: "[redacted]", nested: { url: "[redacted]" } });
 });
 
-
-
-test("period minutes enforce the explicit nonnegative Int32 CLI range before fetch", async () => {
-  const allowed = [0, 2_147_483_647];
+test("period minutes preserve signed Int32 values and reject overflow before fetch", async () => {
+  const allowed = [-2_147_483_648, -1, 0, 2_147_483_647];
   let calls = 0;
   server.use(http.post("*", async ({ request }) => {
     assert.deepEqual(await request.json(), {
@@ -210,8 +202,8 @@ test("period minutes enforce the explicit nonnegative Int32 CLI range before fet
   for (const minutes of [2_147_483_648, Number.MAX_SAFE_INTEGER]) {
     await assert.rejects(setIssueField(connection, "DEMO-1", "fixture-field", {
       $type: "PeriodIssueCustomField", value: { minutes },
-    }), /between 0 and 2147483647/);
+    }), /signed 32-bit/);
   }
-  assert.equal(calls, 2);
+  assert.equal(calls, allowed.length);
 });
 

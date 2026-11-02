@@ -14,7 +14,7 @@ loops, error printers or redaction glue into new integrations.
 
 Profile URL normalization follows the [shared preservation contract](DESIGN.md#profiles-own-non-secret-configuration).
 Use `parseServerUrl(value, message).href` for normalized HTTP(S) configuration; it retains explicit
-default ports. Keep service scheme/path restrictions local. Never save a redirect destination or
+default ports. Require primary evidence for additional service scheme/path restrictions. Never save a redirect destination or
 a native URL serialization that loses the user's explicit port.
 
 ## Start with one definition and a standalone entry point
@@ -242,8 +242,8 @@ acme-cli resources list --profile production --json
 A field may supply an idempotent `normalize(value)` callback for new input. Core uses it for both
 prompted values and profile create/set/configure flags, including execute/RPC. Use static errors;
 do not interpolate the rejected value. `parseServerUrl(value, safeMessage)` handles basic base-URL
-parsing and trailing slashes; keep service-specific schemes and forbidden API/page paths in the
-integration. The field description supplies prompt/help examples. For bearer authentication,
+parsing and trailing slashes. Preserve deployment contexts instead of guessing forbidden API/page
+segments. Any additional scheme/path rule needs primary contract evidence. The field description supplies prompt/help examples. For bearer authentication,
 `tokenAuth({ tokenSource: "Account settings > Access Tokens", ... })` adds the token source to
 Core's shared raw-token guidance and normalization. Arbitrary secrets do not use this helper.
 
@@ -588,6 +588,25 @@ service validation local. The reader checks Content-Length syntax/identity compl
 chunks, supports cancellation and releases its lock. Compressed wire length is not decoded size.
 Decoding remains explicit: Buffer retains an initial BOM; TextDecoder removes it. No retry occurs.
 
+### API-faithful validation
+
+The service's authoritative contract governs accepted values. Do not close a string to documentation
+examples, invent ID grammars, trim service text, impose undocumented numeric/length bounds, reject
+additional native JSON fields, or insert service defaults without a contract basis. A missing Swagger
+enum alone does not overrule an explicit enum elsewhere in the primary reference. State reference
+versions and gaps; when a service-value rule is uncertain, preserve the value and let the API validate it.
+
+Validate JSON value types and representable numbers, encode identifiers and locator dimensions without
+changing their values, and retain explicit permissions, profile isolation, secret protection and safe
+errors. Give each separate transport/security check its concrete reason: for example, dot segments
+would change URL routing, bearer text cannot enter a plain argv property, and a download destination
+must stay under the active profile without overwriting another file. Local controls such as polling
+duration and caller byte budgets are CLI behavior, not claims about service limits. Compact CLI forms
+may translate flags or selectors into service DTOs; document that translation and preserve additional
+native fields rather than silently discarding them. Output projections may omit private fields without
+claiming that those fields are unsupported by the service. Exercise newly admitted values at the
+offline HTTP boundary, including unchanged requests and safe remote rejection without retries.
+
 ## Native wire formats and private results
 
 CLI output format is independent of REST media. A text/XML/multipart/binary service contract does
@@ -652,7 +671,6 @@ it uses the same staging and no-overwrite publication. If the CLI saves files, a
 - MSW covers the actual network boundary; fixtures are minimal and sanitized.
 - Public docs name shipped behavior honestly; planned behavior is marked planned.
 - Focused tests and `npm test` are green.
-
 
 ## Optional IPC
 

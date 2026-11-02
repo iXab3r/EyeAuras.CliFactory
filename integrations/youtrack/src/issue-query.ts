@@ -27,9 +27,6 @@ const suggestions = "suggestions(option,description,caret,completionStart,comple
 const savedQueryFields = "id,name,query,owner(id,login)";
 
 function selectedIssues(ids: readonly string[]): YouTrackObject[] {
-  if (ids.length < 1 || new Set(ids).size !== ids.length) {
-    throw new Error("YouTrack issues must contain one or more distinct explicit issue IDs.");
-  }
   return ids.map((id) => {
     requiredText(id, "issue ID");
     if (/^\d+-\d+$/.test(id)) {
@@ -38,12 +35,12 @@ function selectedIssues(ids: readonly string[]): YouTrackObject[] {
     if (/^[^\s,]+-\d+$/.test(id)) {
       return { idReadable: id };
     }
-    throw new Error("YouTrack issues require database IDs (2-7) or readable IDs (DEMO-1), not a search query.");
+    return { id };
   });
 }
 
 export function parseIssueSelection(value: string): string[] {
-  const ids = value.split(",").map((id) => id.trim());
+  const ids = value.split(",");
   selectedIssues(ids);
   return ids;
 }
@@ -54,11 +51,11 @@ function queryBody(options: AssistOptions): YouTrackObject {
     options.caret !== undefined &&
     (
       !Number.isSafeInteger(options.caret) ||
-      options.caret < 0 ||
-      options.caret > query.length
+      options.caret < -2_147_483_648 ||
+      options.caret > 2_147_483_647
     )
   ) {
-    throw new Error("YouTrack caret must be an integer between zero and the query length.");
+    throw new Error("YouTrack caret must be a signed 32-bit integer.");
   }
   return {
     query,

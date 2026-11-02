@@ -25,8 +25,9 @@ export function booleanText(value: string): string {
   if (value !== "true" && value !== "false") throw new Error("Expected true or false.");
   return value;
 }
-export function allowedField(field: string, allowed: readonly string[]): string {
-  if (!allowed.includes(field)) throw new Error(`Supported fields: ${allowed.join(", ")}.`);
+export function allowedField(field: string, allowed: readonly string[], ignoreCase = false): string {
+  if (!allowed.some(value => ignoreCase ? value.toLowerCase() === field.toLowerCase() : value === field))
+    throw new Error(`Supported fields: ${allowed.join(", ")}.`);
   return field;
 }
 export function ruleBody(jobId: string, input: RuleInput) {
@@ -42,7 +43,6 @@ export function ruleBody(jobId: string, input: RuleInput) {
     };
   }
   const source = requiredText(input.source, "Source job ID");
-  if (source === jobId.trim()) throw new Error("A job cannot depend on itself.");
   return {
     type: "artifact_dependency",
     disabled: input.disabled === true,

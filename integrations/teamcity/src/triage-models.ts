@@ -1,6 +1,5 @@
 import { plainProperty } from "./authoring-models.js";
-import { distinctIds } from "./bulk-configuration-models.js";
-import { nestedId, positiveId, requiredText } from "./locator.js";
+import { nestedId, integerId, requiredText } from "./locator.js";
 import { allowedField } from "./advanced-authoring-models.js";
 
 export const evidenceBuildFields = "id,buildTypeId,number,state,status";
@@ -28,6 +27,26 @@ export function inputRecord(value: unknown, keys: readonly string[]) {
   if (Object.keys(item).some((k) => !keys.includes(k))) throw new Error("Unknown input field.");
   return item;
 }
+/** Native JSON bodies can grow; additional fields still use the plain-property credential boundary. */
+export function apiInputRecord(value: unknown, known: readonly string[]) {
+  const item = object(value);
+  if (![Object.prototype, null].includes(Object.getPrototypeOf(item))) throw new Error("Expected a JSON object.");
+  const ancestors = new Set<object>();
+  const validate = (key: string, value: unknown): void => {
+    plainProperty(key, typeof value === "string" ? value : "");
+    if (value === null || typeof value === "string" || typeof value === "boolean") return;
+    if (typeof value === "number" && Number.isFinite(value)) return;
+    if (typeof value !== "object" || ancestors.has(value) ||
+        (!Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value))))
+      throw new Error("Expected JSON input values.");
+    ancestors.add(value);
+    if (Array.isArray(value)) for (const child of value) validate("item", child);
+    else for (const [name, child] of Object.entries(value)) validate(name, child);
+    ancestors.delete(value);
+  };
+  for (const [key, field] of Object.entries(item)) if (!known.includes(key)) validate(key, field);
+  return item;
+}
 export function inputText(value: unknown, name: string): string {
   if (typeof value !== "string") throw new Error(`Expected text for ${name}.`);
   return plainProperty(name, requiredText(value, name)).value;
@@ -38,7 +57,7 @@ export function array(value: unknown): unknown[] {
   return value;
 }
 export function inputIds(value: unknown): string[] {
-  const ids = distinctIds(array(value).map((v) => inputText(v, "ID")));
+  const ids = array(value).map((v) => inputText(v, "ID"));
   if (!ids.length) throw new Error("At least one explicit ID is required.");
   return ids;
 }
@@ -152,27 +171,9 @@ export function safeMultiple(value: unknown) {
   return { count, errorCount, items };
 }
 export function buildUnion(ids: readonly number[]) {
-  const values = distinctIds(ids.map((id) => positiveId(id, "Build ID")));
+  const values = ids.map((id) => integerId(id, "Build ID"));
   if (!values.length) throw new Error("At least one build ID is required.");
   return values.map((id) => `item:(id:${id})`).join(",");
-}
-export function teamCityTimestamp(value: string): string {
-  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})([+-])(\d{2})(\d{2})$/.exec(value);
-  if (!match) throw new Error("Expected TeamCity timestamp YYYYMMDDTHHmmss+ZZZZ.");
-  const [, year, month, day, hour, minute, second, , zoneHour, zoneMinute] = match;
-  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-  if (
-    date.getUTCFullYear() !== Number(year) ||
-    date.getUTCMonth() + 1 !== Number(month) ||
-    date.getUTCDate() !== Number(day) ||
-    Number(hour) > 23 ||
-    Number(minute) > 59 ||
-    Number(second) > 59 ||
-    Number(zoneHour) > 23 ||
-    Number(zoneMinute) > 59
-  )
-    throw new Error("Invalid TeamCity timestamp.");
-  return value;
 }
 export function investigationTarget(value: unknown) {
   const input = inputRecord(value, ["kind", "jobId", "projectId", "testId", "problemId"]);
@@ -202,27 +203,30 @@ export function investigationTarget(value: unknown) {
   };
 }
 export function investigationBody(value: unknown) {
-  const input = inputRecord(value, ["target", "state", "assignee", "resolution", "comment"]);
+  const input = apiInputRecord(value, ["target", "state", "assignee", "resolution", "comment"]);
+  const { comment, ...native } = input;
   const { locator, scope, target } = investigationTarget(input.target);
-  if (typeof input.assignee !== "number") throw new Error("Assignee must be a numeric user ID.");
+  const assignee = input.assignee === undefined ? undefined
+    : typeof input.assignee === "number" ? { id: Number(integerId(input.assignee, "Assignee")) }
+    : apiInputRecord(input.assignee, []);
   return {
     locator,
     body: {
-      state: allowedField(inputText(input.state, "State"), ["TAKEN", "FIXED", "GIVEN_UP"]),
-      assignee: { id: Number(positiveId(input.assignee, "Assignee")) },
+      ...native,
+      ...(input.state === undefined ? {} : { state: inputText(input.state, "State") }),
+      ...(assignee === undefined ? {} : { assignee }),
       ...(input.comment === undefined
         ? {}
         : { assignment: { text: inputText(input.comment, "Comment") } }),
       scope,
       target,
-      resolution: {
-        type: allowedField(inputText(input.resolution, "Resolution"), ["manually", "whenFixed"]),
-      },
+      ...(input.resolution === undefined ? {} : { resolution: typeof input.resolution === "string"
+        ? { type: inputText(input.resolution, "Resolution") } : apiInputRecord(input.resolution, []) }),
     },
   };
 }
 export function muteBody(value: unknown) {
-  const input = inputRecord(value, [
+  const input = apiInputRecord(value, [
     "project",
     "jobs",
     "tests",
@@ -231,6 +235,13 @@ export function muteBody(value: unknown) {
     "time",
     "comment",
   ]);
+  if (input.scope !== undefined || input.target !== undefined ||
+      (input.resolution !== undefined && typeof input.resolution === "object")) {
+    const native = apiInputRecord(value, []);
+    for (const key of ["scope", "target", "resolution"]) if (native[key] !== undefined) object(native[key]);
+    return native;
+  }
+  const { project, jobs, tests, problems, time, comment, ...native } = input;
   if (
     (input.project === undefined) === (input.jobs === undefined) ||
     (input.tests === undefined) === (input.problems === undefined)
@@ -240,10 +251,10 @@ export function muteBody(value: unknown) {
     "manually",
     "whenFixed",
     "atTime",
-  ]);
-  if (type !== "atTime" && input.time !== undefined)
-    throw new Error("Time requires atTime resolution.");
+  ], true);
+  if (type.toLowerCase() === "attime") inputText(input.time, "Time");
   return {
+    ...native,
     ...(input.comment === undefined
       ? {}
       : { assignment: { text: inputText(input.comment, "Comment") } }),
@@ -257,7 +268,7 @@ export function muteBody(value: unknown) {
         : { problems: { problem: inputIds(input.problems).map((id) => ({ id })) } },
     resolution: {
       type,
-      ...(type === "atTime" ? { time: teamCityTimestamp(inputText(input.time, "Time")) } : {}),
+      ...(input.time === undefined ? {} : { time: inputText(input.time, "Time") }),
     },
   };
 }

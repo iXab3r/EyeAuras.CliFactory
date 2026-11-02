@@ -7,7 +7,7 @@ export interface PlainProperty {
 }
 export interface RawProperty {
   name: string;
-  value?: string;
+  value?: string | null;
   inherited?: boolean;
   type?: { rawValue?: string };
 }
@@ -64,17 +64,19 @@ export const rootFields = "id,name,vcsName,project(id,name)";
 export const entryFields = `vcs-root(${rootFields}),checkout-rules`;
 
 const sensitiveName =
-  /password|passwd|secret|token|credential|secure:|private[._-]?key|api[._-]?key|access[._-]?key|authorization|cookie/i;
+  /secure:|(?:password|passwd|secret|token|credentials?(?:JSON)?|private[._-]?key|secret[._-]?key|api[._-]?key|access[._-]?key|encryption[._-]?key|authorization|cookie)(?:[._-]?(?:value|hash|digest|header))?$/i;
+const protectedSpec = /\bpassword\b|display\s*=\s*['"]?hidden\b/i;
 function sensitiveValue(value: string): boolean {
   if (/-----BEGIN |\bBearer\s|credentialsJSON:/i.test(value)) return true;
-  for (const match of value.matchAll(/https?:\/\/[^\s"'<>]+/gi)) {
+  for (const match of value.matchAll(/[a-z][a-z0-9+.-]*:\/\/[^\s"'<>]+/gi)) {
     let url: URL;
     try {
       url = new URL(match[0]);
     } catch {
       continue;
     }
-    if (url.username || url.password) return true;
+    // SSH user names identify an account; passwords and HTTP token-as-user URLs carry secrets.
+    if (url.password || (url.username && url.protocol !== "ssh:")) return true;
     const keys = [...url.searchParams.keys(), ...new URLSearchParams(url.hash.slice(1)).keys()];
     if (
       keys.some(
@@ -92,21 +94,23 @@ export function parameterType(property: RawProperty): string {
   if (property.type === undefined) return "plain";
   const spec = property.type?.rawValue;
   if (typeof spec !== "string") return "unknown";
-  if (/\bpassword\b|display\s*=\s*['"]?hidden\b/i.test(spec)) return "protected";
+  if (protectedSpec.test(spec)) return "protected";
   const kind = spec.trim().split(/\s+/)[0] ?? "";
-  return kind === "" ? "plain" : ["text", "select", "checkbox"].includes(kind) ? kind : "unknown";
+  return kind === "" ? "plain" : kind;
 }
 
 export function isPlainParameter(property: RawProperty): boolean {
   return (
     typeof property.name === "string" &&
     !sensitiveName.test(property.name) &&
-    !["protected", "unknown"].includes(parameterType(property))
+    (property.type === undefined ||
+      (typeof property.type?.rawValue === "string" && !protectedSpec.test(property.type.rawValue)))
   );
 }
 
 export function safeProperty(property: RawProperty, exposeValue = true) {
   const redacted =
+    property.value === null ||
     !exposeValue ||
     !isPlainParameter(property) ||
     (property.value !== undefined && sensitiveValue(property.value));
@@ -121,6 +125,7 @@ export function safeProperty(property: RawProperty, exposeValue = true) {
 
 export function plainProperty(name: string, value: string): PlainProperty {
   const normalized = requiredText(name, "Property name");
+  if (typeof value !== "string") throw new Error("Property value must be text.");
   if (sensitiveName.test(normalized) || sensitiveValue(value)) {
     throw new Error("Only non-secret properties are supported; do not pass credentials on argv.");
   }
@@ -128,10 +133,12 @@ export function plainProperty(name: string, value: string): PlainProperty {
 }
 
 export function propertiesBody(input: readonly PlainProperty[] = []) {
-  const properties = input.map((p) => plainProperty(p.name, p.value));
-  if (new Set(properties.map((p) => p.name)).size !== properties.length) {
-    throw new Error("Duplicate property keys are not allowed.");
-  }
+  const properties = input.map((p) => {
+    const plain = plainProperty(p.name, p.value);
+    if (!isPlainParameter(p as RawProperty))
+      throw new Error("Protected parameter values require secure storage.");
+    return { ...p, ...plain };
+  });
   return { property: properties };
 }
 
@@ -146,14 +153,13 @@ export function stepBody(input: StepInput) {
 export function extensionBody(input: ExtensionInput) {
   return {
     type: requiredText(input.type, "Extension type"),
-    disabled: input.enabled !== true,
+    ...(input.enabled === undefined ? {} : { disabled: !input.enabled }),
     properties: propertiesBody(input.properties),
   };
 }
 
 export function snapshotBody(jobId: string, input: SnapshotDependencyInput) {
   const source = requiredText(input.source, "Source build configuration ID");
-  if (source === jobId.trim()) throw new Error("A job cannot depend on itself.");
   return {
     type: "snapshot_dependency",
     "source-buildType": { id: source },
@@ -190,9 +196,9 @@ export function safeSnapshot(dependency: RawSnapshotDependency) {
 // These endpoints parse a single-value locator, not an id: dimension.
 export function literalIdPath(id: string): string {
   const value = requiredText(id, "Resource ID");
-  if (!/^[A-Za-z0-9_-]+$/.test(value))
-    throw new Error("Expected a literal resource ID, not a locator.");
-  return value;
+  return /^[A-Za-z0-9_-]+$/.test(value)
+    ? value
+    : `$base64:${Buffer.from(value).toString("base64url")}`;
 }
 
 export function safeStep(step: RawStep) {
@@ -235,7 +241,7 @@ export function safeEntry(entry: RawVcsEntry) {
 export function pathSegment(value: string): string {
   const normalized = requiredText(value, "Path segment");
   // URL dot-segment normalization happens even for percent-encoded dots.
-  if (normalized === "." || normalized === "..")
-    throw new Error("Dot path segments are not allowed.");
+  if (normalized === "" || normalized === "." || normalized === "..")
+    throw new Error("Expected one nonempty path segment without dot traversal.");
   return encodeURIComponent(normalized);
 }

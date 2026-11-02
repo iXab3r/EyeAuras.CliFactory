@@ -8,19 +8,19 @@ import {
   type GatedTargetCommand,
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
-import { requiredText, youTrackUrl, type Connection, type IssueSearchOptions } from "./client.js";
+import { inputFilePath, youTrackUrl, type Connection, type IssueSearchOptions } from "./client.js";
 
 export const bodyOptions: readonly OptionDefinition[] = [
   {
     flags: "--body <json>",
-    description: "Required JSON object containing this command's supported fields",
+    description: "JSON request body",
     required: true,
     parse: jsonParser("YouTrack body must be valid JSON."),
   },
 ];
 
 export const fileOption = (flags: string, description: string, required = false): OptionDefinition => ({
-  flags, description, required, parse: (value) => requiredText(value, "file path"),
+  flags, description, required, parse: inputFilePath,
 });
 
 /** Read one caller-selected file as strict UTF-8 (initial BOM removed); call only inside an admitted handler. */
@@ -64,10 +64,10 @@ export const projectionOptions: readonly OptionDefinition[] = [
 export const pageOptions: readonly OptionDefinition[] = [
   ...projectionOptions,
   {
-    flags: "--top <count>", description: "Maximum results (positive safe integer)", defaultValue: 50,
+    flags: "--top <count>", description: "Maximum results", defaultValue: 50,
     parse: integerParser({
-      min: 1, max: Number.MAX_SAFE_INTEGER, signed: false,
-      errorMessage: "YouTrack top must be a positive safe decimal integer.",
+      min: 0, max: Number.MAX_SAFE_INTEGER, signed: false,
+      errorMessage: "YouTrack top must be a nonnegative safe decimal integer.",
     }),
   },
   {

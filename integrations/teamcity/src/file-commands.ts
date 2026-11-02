@@ -1,6 +1,6 @@
 import { command, Permission, type CommandContext } from "@eyeauras/cli-factory";
 import type { TeamCityClient } from "./client.js";
-import { clientLeaf, option, text } from "./command-support.js";
+import { clientLeaf, option, text, integerValue } from "./command-support.js";
 import { referenceKey, type FileTree } from "./file-models.js";
 import { fileTable, savedFileRecord, withView } from "./presentation.js";
 export function createFileCommands(clientFor: (c: CommandContext) => Promise<TeamCityClient>) {
@@ -9,6 +9,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   const count = {
     ...option("--limit <count>", "Maximum files; no recursive traversal"),
     defaultValue: 100,
+    parse: integerValue,
   };
   const output = [
     option(
@@ -18,6 +19,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     ),
     {
       ...option("--max-bytes <bytes>", "Optional caller-selected download byte budget"),
+      parse: integerValue,
     },
   ];
   const destination = (o: Record<string, unknown>) => ({
@@ -83,7 +85,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         ),
       {
         permission: R,
-        options: [...output, { ...option("--size <pixels>", "PNG size in pixels"), defaultValue: 64 }],
+        options: [...output, { ...option("--size <pixels>", "PNG size in pixels"), defaultValue: 64, parse: integerValue }],
         view: savedFileRecord,
       },
     ),

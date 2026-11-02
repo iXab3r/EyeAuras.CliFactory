@@ -32,20 +32,14 @@ export const getSprint = readObjectAt(
 );
 
 function sprintBody(input: unknown, creating: boolean): YouTrackObject {
-  const body = mutationBody(input, [
-    "name", "goal", "start", "finish", "archived", "isDefault",
-    ...(creating ? ["previousSprint"] : []),
-  ]);
+  const body = mutationBody(input);
   if (creating && !Object.hasOwn(body, "name")) {
     throw new Error("YouTrack sprint creation requires name.");
   }
-  if (Object.keys(body).length === 0) {
-    throw new Error("YouTrack sprint update requires at least one writable field.");
-  }
-  const result: YouTrackObject = {};
+  const result: YouTrackObject = { ...body };
   if (Object.hasOwn(body, "name")) {
     if (typeof body.name !== "string") {
-      throw new Error("YouTrack sprint name must be nonempty single-line text.");
+      throw new Error("YouTrack sprint name must be text.");
     }
     result.name = requiredText(body.name, "sprint name");
   }
@@ -70,11 +64,11 @@ function sprintBody(input: unknown, creating: boolean): YouTrackObject {
     }
   }
   if (Object.hasOwn(body, "previousSprint")) {
-    const previous = mutationBody(body.previousSprint, ["id"]);
+    const previous = mutationBody(body.previousSprint);
     if (typeof previous.id !== "string") {
-      throw new Error("YouTrack previousSprint.id must be nonempty text.");
+      throw new Error("YouTrack previousSprint.id must be text.");
     }
-    result.previousSprint = { id: requiredText(previous.id, "previousSprint.id") };
+    result.previousSprint = { ...previous, id: requiredText(previous.id, "previousSprint.id") };
   }
   return result;
 }

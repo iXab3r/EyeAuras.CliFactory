@@ -237,13 +237,13 @@ export function createOperatorCommands(
     command("position", "Inspect positions or move a queued build", [
       leaf(
         "show <position>",
-        "Show build at a positive position, first or last",
+        "Show the build at a queue position",
         Permission.ReadOnly,
         (c, { args }) => c.getQueuePosition(args.position),
       ),
       leaf(
         "set <position>",
-        "Move a build to 1, first or last only",
+        "Move a build to a queue position",
         Permission.Update,
         (c, { args, options }) =>
           c.setQueuePosition(args.position, number(options, "build")),

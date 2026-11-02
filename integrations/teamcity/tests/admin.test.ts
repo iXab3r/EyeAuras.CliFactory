@@ -59,30 +59,17 @@ test("S7 invalid identities, scopes, replacements, field names and node booleans
     }),
   );
   for (const argv of [
-    ["users", "delete", "-1"],
+
     ["users", "update", "7"],
     ["users", "fields", "get", "7", "password"],
-    ["users", "fields", "set", "7", "email", "synthetic@example.test"],
-    ["users", "fields", "clear", "7", "username"],
+
     ["users", "roles", "grant", "7", "ROLE"],
     ["users", "roles", "grant", "7", "ROLE", "--global", "--project", "Example"],
-    ["groups", "parents", "replace", "Developers", "--group", "Developers"],
-    ["groups", "parents", "replace", "Developers", "--group", "Other", "--group", "Other"],
-    [
-      "users",
-      "roles",
-      "replace",
-      "7",
-      "--item",
-      '{"roleId":"R","global":true}',
-      "--item",
-      '{"roleId":"R","global":true}',
-    ],
+
     ["users", "roles", "replace", "7", "--item", '{"roleId":"R","global":false}'],
     ["users", "properties", "set", "7", "password", "synthetic-invalid"],
     ["groups", "properties", "set", "Developers", "theme", "Bearer synthetic-invalid"],
-    ["server", "nodes", "list", "--role", "primary"],
-    ["server", "nodes", "responsibilities", "set", "node1", "CAN_CLEANUP", "true"],
+
     ["server", "nodes", "responsibilities", "set", "node1", "CAN_PROCESS_BUILD_MESSAGES", "yes"],
   ])
     await assert.rejects(cli.execute(argv), Error);
@@ -104,7 +91,6 @@ test("S7 explicit token expiry/permission choices and existing alias fail before
     ["--no-expiration"],
     ["--same-permissions"],
     ["--no-expiration", "--expires", "20991231T235959+0000", "--same-permissions"],
-    ["--expires", "20000101T000000+0000", "--same-permissions"],
     [
       "--no-expiration",
       "--same-permissions",
@@ -117,13 +103,7 @@ test("S7 explicit token expiry/permission choices and existing alias fail before
       "--restriction",
       '{"permission":"VIEW_PROJECT","global":true,"project":"Example"}',
     ],
-    [
-      "--no-expiration",
-      "--restriction",
-      '{"permission":"VIEW_PROJECT","project":"Example"}',
-      "--restriction",
-      '{"permission":"VIEW_PROJECT","project":"Example"}',
-    ],
+
   ])
     await assert.rejects(cli.execute([...head, ...flags]), Error);
   await runtime.secretStore.set(service, "default:issued-token:automation", "synthetic-existing");

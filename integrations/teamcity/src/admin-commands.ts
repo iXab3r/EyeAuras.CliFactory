@@ -156,7 +156,7 @@ export function createAdminCommands(
         permission: "Credentials",
         options: [
           option("--alias <name>", "New issued-token credential alias, never the auth token", true),
-          option("--expires <timestamp>", "Explicit future TeamCity expiry"),
+          option("--expires <timestamp>", "Set the token expiration timestamp"),
           option("--no-expiration", "Explicitly request a permanent token"),
           option("--same-permissions", "Explicitly inherit all current-user permissions"),
           {

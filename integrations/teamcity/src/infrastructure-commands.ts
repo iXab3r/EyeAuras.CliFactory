@@ -129,7 +129,7 @@ export function createInfrastructureCommands(
       [
         option("--name <text>", "Name", true),
         option("--project <id>", "Owner project", true),
-        option("--url <url>", "HTTPS URL with no userinfo/query/fragment", true),
+        option("--url <url>", "Set the Git repository URL", true),
         option("--branch <ref>", "Git branch ref", true),
       ],
     ),
@@ -261,14 +261,14 @@ export function createInfrastructureCommands(
       ),
       leaf(
         "set <id> <field> <value>",
-        "Set commitHookMode or lastVersionInternal",
+        "Set a VCS instance field",
         Permission.Update,
         (c, { args }) =>
           c.setVcsInstanceField(args.id, args.field, args.value),
       ),
       leaf(
         "clear <id> <field>",
-        "Clear lastVersionInternal only",
+        "Clear a VCS instance field",
         Permission.Update,
         (c, { args }) => c.clearVcsInstanceField(args.id, args.field),
       ),
@@ -367,7 +367,7 @@ export function createInfrastructureCommands(
         Permission.ReadOnly,
         (c, { args, options }) =>
           c.listVersionedTokenNames(args.id, optional(options, "status")),
-        [option("--status <status>", "used, unused or broken")],
+        [option("--status <status>", "Filter the token status")],
       ),
       command(
         "set <id>",

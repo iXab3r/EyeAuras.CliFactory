@@ -15,12 +15,8 @@ export interface Connection {
 export const youTrackUrlHelp = "YouTrack server URL, such as https://youtrack.example.test or https://example.test/youtrack";
 
 export function youTrackUrl(value: unknown): string {
-  const message = "YouTrack URL must be http(s)://host[:port][/context], without /api, a page path, credentials or a query.";
+  const message = "YouTrack URL must be http(s)://host[:port][/context], without credentials, a query or a fragment.";
   const url = parseServerUrl(value, message);
-  const pathname = decodeURIComponent(url.pathname);
-  if (/\/(?:api|issues|issue|articles|agiles|dashboard|dashboards|admin)(?:\/|$)/i.test(pathname)) {
-    throw new Error(message);
-  }
   return url.href;
 }
 
@@ -50,21 +46,26 @@ const issueListFields = "id,idReadable,summary,project(id,name,shortName),update
 const commentFields = "id,text,author(id,login),created,updated";
 
 export function requiredText(value: string, label: string): string {
-  if (!value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
-    throw new Error(`YouTrack ${label} must be nonempty text without control characters.`);
+  if (typeof value !== "string") {
+    throw new Error(`YouTrack ${label} must be text.`);
   }
+  return value;
+}
+export function inputFilePath(value: string): string {
+  if (typeof value !== "string" || value.length === 0 || value.includes("\0"))
+    throw new Error("YouTrack file path must identify a file without NUL characters.");
   return value;
 }
 
 export function fields(options: ProjectionOptions, defaults: string): string {
-  return requiredText(options.fields ?? defaults, "fields");
+  return requiredText(options.fields === undefined ? defaults : options.fields, "fields");
 }
 
 export function page(options: PageOptions, defaults: string): Record<string, string> {
-  const top = options.top ?? 50;
-  const skip = options.skip ?? 0;
-  if (!Number.isSafeInteger(top) || top < 1) {
-    throw new Error("YouTrack top must be a positive safe integer.");
+  const top = options.top === undefined ? 50 : options.top;
+  const skip = options.skip === undefined ? 0 : options.skip;
+  if (!Number.isSafeInteger(top) || top < 0) {
+    throw new Error("YouTrack top must be a nonnegative safe integer.");
   }
   if (!Number.isSafeInteger(skip) || skip < 0) {
     throw new Error("YouTrack skip must be a nonnegative safe integer.");
@@ -74,6 +75,7 @@ export function page(options: PageOptions, defaults: string): Record<string, str
 
 export function encodedID(id: string, label = "ID"): string {
   requiredText(id, label);
+  if (id.length === 0) throw new Error(`YouTrack ${label} must identify one path segment.`);
   if (id === "." || id === "..") {
     throw new Error(`YouTrack ${label} must not be a dot path segment.`);
   }
@@ -255,8 +257,8 @@ export async function getAttachmentDownloadMetadata(
   const token = connection.token.trim();
   const { id, name, mimeType, url } = value;
   if (
-    typeof id !== "string" || !id.trim() ||
-    typeof name !== "string" || !name.trim() ||
+    typeof id !== "string" ||
+    typeof name !== "string" ||
     typeof url !== "string" || !url.trim() ||
     (mimeType !== null && typeof mimeType !== "string") ||
     [id, name, mimeType, url].some((item) => typeof item === "string" && item.includes(token))
@@ -384,8 +386,8 @@ export async function currentUser(connection: Connection): Promise<YouTrackUser>
   const token = connection.token.trim();
   if (
     value === null || typeof value !== "object" ||
-    !("id" in value) || typeof value.id !== "string" || !value.id.trim() ||
-    !("login" in value) || typeof value.login !== "string" || !value.login.trim() ||
+    !("id" in value) || typeof value.id !== "string" ||
+    !("login" in value) || typeof value.login !== "string" ||
     scrubText(value.id, token) !== value.id || scrubText(value.login, token) !== value.login
   ) {
     throw new Error("YouTrack returned an invalid identity response.");
@@ -438,20 +440,30 @@ export const listComments = readCollectionAt(
   commentFields,
 );
 
-export function mutationBody(value: unknown, allowed: readonly string[]): Record<string, unknown> {
+export function mutationBody(value: unknown): YouTrackObject {
   if (value === null || typeof value !== "object" || Array.isArray(value) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
     throw new Error("YouTrack body must be a JSON object.");
   }
-  if (Object.keys(value).some((key) => !allowed.includes(key))) {
-    throw new Error(`This YouTrack slice supports only these body fields: ${allowed.join(", ")}.`);
+  const ancestors = new Set<object>();
+  function validate(item: unknown): void {
+    if (item === null || typeof item === "string" || typeof item === "boolean") return;
+    if (typeof item === "number" && Number.isFinite(item)) return;
+    if (typeof item !== "object" || ancestors.has(item) ||
+        (!Array.isArray(item) && ![Object.prototype, null].includes(Object.getPrototypeOf(item)))) {
+      throw new Error("YouTrack body must contain JSON values.");
+    }
+    ancestors.add(item);
+    for (const child of Array.isArray(item) ? item : Object.values(item)) validate(child);
+    ancestors.delete(item);
   }
-  return value as Record<string, unknown>;
+  validate(value);
+  return value as YouTrackObject;
 }
 
 export function narrative(value: unknown, label: string): string {
-  if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`YouTrack ${label} must be nonempty text.`);
+  if (typeof value !== "string") {
+    throw new Error(`YouTrack ${label} must be text.`);
   }
   return value;
 }
@@ -503,8 +515,9 @@ export async function addComment(
   issueID: string,
   input: unknown,
 ): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["text"]);
+  const body = mutationBody(input);
   return mutate(connection, `${issuePath(issueID)}/comments`, {
-    text: narrative(body.text, "text"),
+    ...body,
+    ...(Object.hasOwn(body, "text") ? { text: nullableText(body.text, "text") } : {}),
   }, commentFields);
 }
