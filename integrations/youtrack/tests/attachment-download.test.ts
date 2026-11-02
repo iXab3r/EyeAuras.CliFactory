@@ -412,14 +412,17 @@ test("over-limit download cancels its body reader and leaves no partial data", a
 });
 
 test("path signature decoding preserves literal plus while preventing decoded MIME disclosure", async (t) => {
-  const directory = await temporary(t);
+  const directory = join(await temporary(t), "abc-def-ghi");
+  await mkdir(directory);
   serve(() => new HttpResponse(bytes, { headers: { "content-type": "abc/def+ghi" } }), {
     ...metadata, name: "abc/def+ghi.bin", url: "/track/api/files/file/sign=abc%2Fdef+ghi",
   });
   const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
   assert.equal(result.name, "attachment-fixture-redacted.bin");
   assert.equal(result.contentType, "application/octet-stream");
-  assert.doesNotMatch(JSON.stringify(result), /abc|def|ghi/);
+  assert.equal(result.path, join(directory, "downloads", "attachment-fixture-redacted.bin"));
+  // The caller's temporary directory can itself contain a signature fragment.
+  assert.doesNotMatch(JSON.stringify({ ...result, path: undefined }), /abc|def|ghi/);
 });
 
 test("unsupported hard-link publication fails closed and cleans completed temporary bytes", async (t) => {

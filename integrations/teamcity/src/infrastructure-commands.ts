@@ -317,7 +317,7 @@ export function createInfrastructureCommands(
         ),
         leaf(
           "set <id> <field> <value>",
-          "Set typed enum/boolean/root; never publish secrets into VCS",
+          "Set a configuration field",
           Permission.Update,
           (c, { args }) =>
             c.setVersionedConfigField(args.id, args.field, args.value),

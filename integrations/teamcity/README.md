@@ -524,6 +524,11 @@ DSL on); secure values stay outside VCS. An existing-root conflict requires the 
 `importDecision`, never an automatic overwrite decision. Commit/load need confirmation.
 Context replacement removes omitted entries; values are never returned in context lists.
 
+Config replacement and `config fields set <project> format <value>` pass the format string
+unchanged to the server. The [API entity contract](https://www.jetbrains.com/help/teamcity/rest/versionedsettingsconfig.html)
+gives `kotlin` and `xml` as examples, rather than a closed set. The server validates the supplied
+format; forwarding a string does not establish support for executing that language.
+
 `config fields reset <project> vcsRootId --confirm` attempts the documented native DELETE.
 Older official server code can fail **after changing configuration**; current-server successful
 clear semantics are not verified. `resetRequested` means actual HTTP2xx only, not a verified clear.
