@@ -86,6 +86,13 @@ export interface CommandHelp {
 export interface CommandSettings extends CommandHelp {
   options?: readonly OptionDefinition[];
   permission?: string;
+  /** Local preparation before authentication; all returned categories are also required.
+   * The handler receives this same invocation-owned input object, so it can use the inspected
+   * snapshot instead of rereading mutable input after admission. */
+  additionalPermissions?: (
+    input: CommandInput,
+    context: Pick<CommandContext, "cwd" | "signal">,
+  ) => readonly string[] | Promise<readonly string[]>;
   /** Human presentation of the returned value; `--json` and JSON-RPC ignore it. */
   view?: HumanView;
 }
@@ -96,6 +103,7 @@ export interface CommandDefinition extends CommandHelp {
   description: string;
   options?: readonly OptionDefinition[];
   permission?: string;
+  additionalPermissions?: CommandSettings["additionalPermissions"];
   view?: HumanView;
   children?: readonly CommandDefinition[];
   run?: CommandHandler;

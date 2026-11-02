@@ -833,6 +833,19 @@ Custom categories contain a stable CLI-safe name, description, and optional defa
 hierarchical: enabling `Update` does not implicitly enable a custom `DeployProduction` category.
 Category changes are ordinary profile configuration and intentionally never contain secrets.
 
+A service leaf may add `additionalPermissions(input, {cwd, signal})` alongside its static
+`permission`. Core admits the static category first, then invokes this local preparation once,
+before configuration, authentication, secrets or service work. Every returned category must be
+declared and enabled for the selected profile. Unknown categories fail closed with
+`permission.unknown`; disabled categories use the existing `permission.denied` contract.
+Help and classification never invoke preparation. CLI, `execute` and RPC use the same admission.
+If onboarding reacquires exclusive execution, Core rechecks all grants without repeating preparation.
+The resolver and handler receive the same invocation-owned `CommandInput` object. A consumer can
+retain an inspected snapshot in a command-local `WeakMap` keyed by that input; the handler must use
+that snapshot rather than reread mutable input. Preparation receives no profile, secrets, transport
+or output. This option requires a service handler and an enabled permission gate; local metadata
+commands cannot declare it. Existing commands with static permissions retain their behavior.
+
 ## Testing model
 
 Development follows a thin vertical TDD loop:
