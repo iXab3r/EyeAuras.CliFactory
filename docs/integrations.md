@@ -355,6 +355,14 @@ acme-cli permissions grant DeployProduction --profile production
 ```
 
 Permission state is profile-specific. Granting `Update` in UAT does not grant it in Production.
+
+When the input can require another category, retain the static permission and add
+`additionalPermissions(input, {cwd, signal})`. Inspect the complete input locally and return the
+extra declared category names, or `[]`. Core admits their conjunction before onboarding/authentication.
+Keep the prepared snapshot in a command-local `WeakMap<CommandInput, PreparedInput>` and consume
+that same snapshot in the handler. Core passes the same input object to both and prepares once even
+when onboarding rechecks grants. Do not reread the input after admission. The resolver must not
+contact services; it receives only the working directory and cancellation signal.
 The gate is a deliberate fail-safe against accidental AI actions; it is not an authentication or
 authorization system. The remote service must still enforce the user's real rights. An AI that is
 explicitly instructed to grant a category can do so, so operator policy and review still matter.

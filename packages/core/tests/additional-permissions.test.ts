@@ -16,7 +16,7 @@ test("additional permissions share the invocation input across CLI, execute and 
   assert.deepEqual(await app.execute(["apply"]),{snapshot:"snapshot-2"});
   const denied=await f.run(app,["apply","--delete","--json"]);assert.equal(denied.exitCode,1);assert.equal(JSON.parse(denied.stderr).error.code,"permission.denied");assert.equal(JSON.parse(denied.stderr).error.profile,"default");
   const replies=await f.rpc(app,[["apply","--delete","--profile","other"],["apply","--delete"]]) as any[];
-  assert.deepEqual(replies[0].result,{snapshot:"snapshot-4"});assert.equal(replies[1].error.code,"permission.denied");
+  assert.deepEqual(replies[0].result,{snapshot:"snapshot-4"});assert.equal(replies[1].error.data.code,"permission.denied");
 });
 
 test("static admission precedes resolver and help/classification skip preparation",async t=>{

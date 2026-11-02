@@ -167,7 +167,7 @@ export function createCli(definition: CliDefinition): CliApplication {
   }
   const validateHandlers = (items: readonly CommandDefinition[]): void => {
     for (const item of items) {
-      if (item.runLocal && (item.run || item.permission))
+      if (item.runLocal && (item.run || item.permission || item.additionalPermissions))
         throw new Error(`Local command '${item.name}' cannot declare a profile handler or permission.`);
       validateHandlers(item.children ?? []);
     }
@@ -343,6 +343,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       exclusive = false,
       view?: HumanView,
       runLocal?: CommandDefinition["runLocal"],
+      additionalPermissions?: CommandDefinition["additionalPermissions"],
     ): Promise<void> => {
       if (execution.classification) {
         execution.classification.route = (!handler && !runLocal) || runLocal || (!requiresConfiguredProfile && !exclusive) ? "local" : "owner";
@@ -377,6 +378,7 @@ export function createCli(definition: CliDefinition): CliApplication {
         showHelp(command);
         return;
       }
+      let preparedPermissions: readonly string[] | undefined;
       const invoke = async (ownsExclusive: boolean) => {
         const globals = command.optsWithGlobals() as GlobalOptions;
         let profile = await resolveProfile(globals.profile);
@@ -384,14 +386,25 @@ export function createCli(definition: CliDefinition): CliApplication {
         const defaultProfile =
           globals.profile === undefined ? profile.name : (await profileStore.list()).active;
         try {
-          if (requiredPermission) {
-            const enabled = await enabledPermissions(profile.name);
-            if (!enabled.has(requiredPermission)) {
+          const enabled = requiredPermission ? await enabledPermissions(profile.name) : undefined;
+          const admit = (permission: string) => {
+            if (!enabled?.has(permission)) {
               throw new CliError(
-                `Permission '${requiredPermission}' is disabled for profile '${profile.name}'.`,
-                { code: "permission.denied", next: [["permissions", "grant", requiredPermission]] },
+                `Permission '${permission}' is disabled for profile '${profile.name}'.`,
+                { code: "permission.denied", next: [["permissions", "grant", permission]] },
               );
             }
+          };
+          if (requiredPermission) admit(requiredPermission);
+          if (additionalPermissions) {
+            execution.signal.throwIfAborted();
+            if (preparedPermissions === undefined) {
+              const requirements = await additionalPermissions(commandInput, { cwd: execution.cwd, signal: execution.signal });
+              if (!Array.isArray(requirements) || requirements.some(category => !permissionCategories?.some(known => known.name === category)))
+                throw new CliError("The command requires an unknown permission category.", { code: "permission.unknown" });
+              preparedPermissions = [...requirements];
+            }
+            for (const permission of preparedPermissions) admit(permission);
           }
           if (requiresConfiguredProfile)
             profile = await ensureConfigured(profile, globals, ownsExclusive);
@@ -492,6 +505,7 @@ export function createCli(definition: CliDefinition): CliApplication {
           exclusive,
           item.view,
           item.runLocal,
+          item.additionalPermissions,
         );
       });
       parent.addCommand(current);
