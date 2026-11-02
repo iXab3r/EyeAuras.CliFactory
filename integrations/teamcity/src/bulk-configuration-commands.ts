@@ -23,7 +23,7 @@ const number = (values: Record<string, unknown>, key: string) => Number(text(val
 const itemOption: OptionDefinition = {
   ...jsonOption(
     "--item <json>",
-    "Repeat a typed, non-secret item",
+    "Repeat a configuration item",
     true,
   ),
   required: false,

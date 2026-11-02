@@ -267,14 +267,14 @@ export function createAdminCommands(
     properties("users"),
     roles("users"),
     tokens,
-    command("fields", "Non-secret identity fields only", [
-      leaf("get <id> <field>", "Read id/name/username", Permission.ReadOnly, (c, { args }) =>
+    command("fields", "Read and write user fields", [
+      leaf("get <id> <field>", "Read a user field", Permission.ReadOnly, (c, { args }) =>
         c.getAccountUserField(args.id, args.field),
       ),
-      leaf("set <id> <field> <value>", "Set name/username only", "Admin", (c, { args }) =>
+      leaf("set <id> <field> <value>", "Set a user field", "Admin", (c, { args }) =>
         c.setAccountUserField(args.id, args.field, args.value),
       ),
-      leaf("clear <id> <field>", "Clear name only", "Admin", (c, { args }) =>
+      leaf("clear <id> <field>", "Clear a user field", "Admin", (c, { args }) =>
         c.clearAccountUserField(args.id, args.field),
       ),
     ]),

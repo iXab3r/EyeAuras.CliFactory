@@ -227,7 +227,7 @@ export function createSystemCommands(
     ),
     leaf(
       "field <field>",
-      "Read a non-secret server field",
+      "Read a server field",
       R,
       (c, { args }) => c.getServerField(args.field),
     ),

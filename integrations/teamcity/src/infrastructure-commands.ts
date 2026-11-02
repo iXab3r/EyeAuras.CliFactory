@@ -185,7 +185,7 @@ export function createInfrastructureCommands(
         Permission.ReadOnly,
         (c, { args }) => c.getVcsRootField(args.id, args.field),
       ),
-      leaf("set <id> <field> <value>", "Set name only", Permission.Update, (c, { args }) =>
+      leaf("set <id> <field> <value>", "Set a root field", Permission.Update, (c, { args }) =>
         c.setVcsRootField(args.id, args.field, args.value),
       ),
     ]),
@@ -255,7 +255,7 @@ export function createInfrastructureCommands(
     command("fields", "Read and write instance fields", [
       leaf(
         "get <id> <field>",
-        "Read a field; currentVersion may contact VCS",
+        "Read an instance field",
         Permission.ReadOnly,
         (c, { args }) => c.getVcsInstanceField(args.id, args.field),
       ),
