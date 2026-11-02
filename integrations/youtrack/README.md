@@ -40,17 +40,16 @@ The foundational read projections are:
 
 REST reads support explicit `--fields <projection>`. Projection results retain the server's
 field names, `$type` and nullable values; authentication always validates fixed `id,login`.
-Offset collections use `--top 50 --skip 0` by default; top is a positive safe integer and skip a nonnegative safe integer.
+Offset collections use `--top 50 --skip 0` by default; top is a nonnegative safe integer and skip a nonnegative safe integer.
 Paging accepts unsigned decimal digits, including leading zeros; signs (including `-0`), whitespace,
 fractions, exponents and unsafe integers reject. Invalid syntax, range and overflow now fail before
 onboarding or credential access on CLI, execute and RPC. The static errors are
-`YouTrack top must be a positive safe decimal integer.` and
+`YouTrack top must be a nonnegative safe decimal integer.` and
 `YouTrack skip must be a nonnegative safe decimal integer.`; they never include the supplied input.
 Directly callable service methods retain their own range validation.
 Each collection command makes one request, and rejects an oversized server page. Multi-page reads
-happen only for the explicit `issues list --all` described below and for field `name` selectors in
-issue writes (their field list is read completely; cancellable); no other nested follow-up requests
-are made. Issue IDs are encoded as opaque path segments, including readable IDs such as `DEMO-1`.
+happen only for the explicit `issues list --all` described below. Issue writes send selectors
+directly to the API without nested discovery requests. Issue IDs are encoded as opaque path segments, including readable IDs such as `DEMO-1`.
 
 `issues list --all --max-results <n>` reads every page (`--top` is the page size, `--skip` the start)
 with the same query and projection. Success means the selection is complete: the result is the
@@ -82,7 +81,8 @@ automatically. Runtime memory and service limits still apply.
 
 ## URL and token input
 
-Copy the service base address, for example `https://youtrack.example.test/youtrack/`. Include any context path and port; omit `/api`, issue pages and query strings. HTTP and HTTPS are supported.
+Copy the service base address, for example `https://youtrack.example.test/youtrack/`. Include any context path and port; omit `/api`, issue pages and query strings. HTTP and HTTPS are supported. Context segments named `api`, `app/rest`, `admin` or `issues` are
+valid deployment contexts; the CLI appends its own service endpoints to the configured base.
 Create/copy a permanent token in your YouTrack profile with the **YouTrack** service scope.
 See the [permanent-token guide](https://www.jetbrains.com/help/youtrack/devportal/Manage-Permanent-Token.html). Paste only its value: `FICTIONAL_TOKEN_VALUE` is a fictional example.
 Do not include `Bearer `, `Authorization:`, or surrounding quotes. The same guidance appears in
@@ -90,7 +90,7 @@ Do not include `Bearer `, `Authorization:`, or surrounding quotes. The same guid
 
 New URL/token input trims outer whitespace, including pasted CRLF. URL trailing slashes are
 normalized without losing the context path; internal token symbols remain unchanged. Empty input,
-headers/quoted tokens and obvious API/page URLs fail with a safe hint before authentication or
+headers/quoted tokens and malformed transport URLs fail with a safe hint before authentication or
 persistence. This applies to onboarding, profile URL writes, login, environment/stdin candidates,
 `execute` and JSON-RPC (which never prompts). Existing data is retained; use `profile set` or
 `profile configure` to correct an old URL. Failed configure input preserves working credentials.
@@ -160,25 +160,20 @@ This documentation does not enable it automatically. The local proof remains Rea
 
 | Command | Required `--body` JSON object |
 |---|---|
-| `issues create` | `project` as exactly one of `{id}`/`{shortName}`, nonempty `summary`; optional string or null `description`, optional `customFields` |
-| `issues update <issueID>` | Nonempty subset of `summary`, `description` and `customFields`; summary must be nonempty |
-| `issues comments add <issueID>` | Nonempty `text` only |
+| `issues create` | Native `project` object and required `summary` (string or null); additional native fields are preserved |
+| `issues update <issueID>` | Native issue JSON; known supplied field types are checked |
+| `issues comments add <issueID>` | Native comment JSON; text may be a string or null |
 
 Missing `--body` and malformed JSON fail before profile onboarding or credential access.
 Description and comment text preserve multiline Markdown. Omitted fields remain unchanged;
-`description: null` clears the description. Unknown fields (including nested project properties)
-are rejected locally. Visibility, notification controls and state-machine events are not accepted.
+`description: null` clears the description. Additional fields, including visibility and notification controls, reach the API unchanged.
+The server decides applicability and required fields.
 
-`customFields` is a nonempty array sent in the same single POST, so a project's required fields
-can be set at creation. Each entry has an explicit `$type`, exactly one of `id` or `name`, and a
-`value` validated like `issues fields set` below (`null`/`[]` clear on update). A field may appear
-once. `StateMachineIssueCustomField` is rejected: a new issue starts in its workflow's initial
-state, and transitions stay on `issues fields set` events or `commands apply`. Selectors resolve
-exactly before the write: `project.shortName` by one project read (case-insensitive match
-required), field `name` (case-sensitive) against all fields of the project (create) or issue
-(update). Zero or several matches fail before the POST; `id` entries need no lookup. Value
-selectors (`id`, `name`, `login` for users) are resolved by YouTrack inside the request; `$type`
-is never inferred and nothing is cached.
+`customFields` is an array sent in the same single POST; empty arrays, repeated entries and
+multiple identity attributes are preserved. Each entry supplies its `$type`; future types and native
+metadata are forwarded. Known value types are checked as below. YouTrack resolves project, field
+and value selectors inside the write; the CLI performs no catalog reads or ID rewriting.
+`$type` is never inferred and nothing is cached.
 
 ```powershell
 npm run youtrack -- issues create --profile youtrack-dev --body '{"project":{"shortName":"DEMO"},"summary":"Example","customFields":[{"$type":"SingleEnumIssueCustomField","name":"Priority","value":{"name":"Major"}}]}'
@@ -231,8 +226,8 @@ for exact arguments and permission categories; no endpoint, header or arbitrary 
 
 `commands assist`, `search assist` and `issues count` use POST on the wire but remain ReadOnly:
 they compute suggestions or counts without applying changes. Assist is not a dry run or a guarantee
-that a later command will succeed. Required `--query` is preserved exactly; optional `--caret` is
-between zero and its length. `commands apply` requires comma-separated distinct explicit issue IDs via
+that a later command will succeed. Required `--query` is preserved exactly; optional `--caret` uses the API's signed Int type; the server validates position semantics.
+`commands apply` requires comma-separated explicit issue IDs via
 `--issues`, never an implicit search expansion. It has no run-as or silent mode. Count returns the
 server's `count`, including `-1` (pending) or `null`; the CLI never polls automatically.
 
@@ -246,30 +241,31 @@ preserve polymorphic values, including scalar, null and array values. `issues fi
 an explicit `$type` and `value`: single/multi Enum, Build, Version, Owned, Group and User types;
 State, Simple, Date, Period and Text types. References use explicit identity selectors (`id`,
 `name`, and `login` for users); `fields set` performs no lookup of its own. Single values can use `null`,
-multi values use `[]` to clear. Period values accept nonnegative 32-bit integer `minutes`
+multi values use `[]` to clear. Period values accept signed 32-bit integer `minutes`
 and/or `presentation`; dates use
 integer Unix milliseconds. Text values use `{ "text": "..." }`. StateMachine fields instead
 require `$type` and `{ "event": { "id": "..." } }`; inspect `possibleEvents` explicitly with
-`--fields` before selecting a transition. Unknown types and body fields fail locally.
+`--fields` before selecting a transition. Additional native fields and future `$type` values reach the API unchanged, including readback
+metadata alongside an event. Known value types still validate JSON/scalar structure.
 
-Relationship additions accept only `{ "id": "TARGET_ID" }`. Link IDs include the explicit
+Relationship additions accept a native reference, such as `{ "id": "TARGET_ID" }`, and preserve metadata. Link IDs include the explicit
 direction returned by YouTrack. `issues links remove <issueID> <linkID> <targetIssueID>` unlinks
 the target; `issues tags remove <issueID> <tagID>` unassigns the tag. Neither deletes the issue or
-tag itself. Comment updates accept only nonempty `text`, preserving multiline Markdown.
+tag itself. Comment updates preserve native fields, including nullable text, visibility and pinning.
 
-Work-item creation requires `duration.minutes` (nonnegative 32-bit integer) and/or nonempty
+Work-item creation requires `duration.minutes` (signed 32-bit integer) and/or string
 `duration.presentation`. Both may be supplied; YouTrack interprets presentation text. Writable
 fields are `duration`, `date`, `author`, `type`, `text`, `created` and `updated`. Dates/timestamps
 use integer Unix milliseconds; `author` and `type` use `{ "id": "..." }` or `null`. Text may be
-empty, multiline or null; `updated` may also be null. Updates require at least one field and
-preserve omitted fields. No client-side date, user or duration conversion is guessed. Work-item
+empty, multiline or null; `updated` may also be null. Updates preserve additional native fields and
+leave omitted fields to the server. No client-side date, user or duration conversion is guessed. Work-item
 writes accept `--fields`; only global `work-items list` supports `--query`. Other date/author
 filters are outside this block. Time-tracking inspection defaults to `id,enabled`, without
 expanding work items.
 
 Attachment reads default to `id,name,size,mimeType`; explicit read projections still scrub signed
 URLs. Upload requires one explicit `--file <path>` and sends one native multipart request, returning
-metadata only. Missing/blank/invalid path syntax fails before onboarding. Regular-file and read
+metadata only. Missing/empty/NUL path syntax fails before onboarding. Regular-file and read
 checks occur inside the Update handler before HTTP, so denied uploads do not inspect files.
 Only the basename becomes the multipart filename; errors never echo local paths. No attachment
 binary download or signed-URL follow-up was included in the first 50 operations; the separate
@@ -308,24 +304,20 @@ other metadata reads return one object. No new date, author, search or archive f
 by these directory commands.
 
 Sprint reads use an explicit board ID; the literal sprint ID `current` goes directly to the
-same documented detail/update route. Create requires a nonempty single-line `name`; update
-requires at least one supported field. Writable fields are `name`, `goal`, `start`, `finish`,
+same documented detail/update route. Create requires a string `name`; update
+preserves supplied native fields. Known fields include `name`, `goal`, `start`, `finish`,
 `archived` and `isDefault`. Goal preserves empty/multiline text or null; dates are safe integer
 Unix milliseconds or null; flags are booleans. Create additionally accepts
 `previousSprint: { "id": "..." }`, which explicitly moves unresolved issues from that sprint.
-It is never inferred and is rejected on update. `isDefault: true` affects where matching new
-board issues go. Sprint issue-membership payloads, agile mutations and deletion remain outside
+It is never inferred; the server validates its applicability. `isDefault: true` affects where matching new
+board issues go. Additional native sprint properties are forwarded; separate agile mutations and deletion remain outside
 this block. Reads and writes support `--fields`; there is no carryover lookup or polling.
 
-Article create accepts nonempty `project.id` and `summary`, with optional string/null `content`.
-Article update accepts a nonempty subset of `summary` and `content`; comments accept only
-nonempty `text`, preserving multiline Markdown. Omission keeps fields unchanged; content null
-clears it. These narrow bodies exclude parent/hierarchy, visibility, reporter, stars, tags,
-nested attachments/comments and comment pinning/reactions. The REST entities have additional
-writable properties, but this CLI does not forward them. Article and comment reads/writes
+Article create accepts a native project reference and nullable summary. Article and comment
+updates preserve additional native fields, including parent, visibility and pinning. Known text
+fields preserve multiline strings and documented null values; omission leaves API defaults in charge. Article and comment reads/writes
 support `--fields`; article lists have no query flag. Article attachment transfer and hierarchy
-reads are documented below. Hierarchy writes, draft publishing, notification suppression and
-deletion remain unsupported.
+reads are documented below. Native body properties are validated by the API; separate deletion remains outside this command tree.
 
 ## Remaining bundles, article hierarchy and attachment transfer
 
@@ -349,9 +341,9 @@ npm run youtrack -- article attachment download KB-A-1 7-1 --profile youtrack-de
 ```
 
 Issue and article attachment downloads first read the exact attachment's fixed metadata, then request only
-its returned URL. The file request sends neither Authorization nor cookies, follows no redirects,
-and accepts only the configured origin and documented attachment path beneath its context.
-External/CDN URLs fail rather than relaxing this policy. Signatures stay in memory and never
+its returned URL. The file request sends neither Authorization nor cookies and follows normal HTTP redirects.
+HTTP(S) URLs may use an external/CDN origin or another native file path; userinfo and raw
+controls are rejected at the transport boundary. Signatures stay in memory and never
 appear in metadata output, errors or the download result.
 
 Files go beneath the selected profile's `AppDataDirectory/downloads`. `--name` must be a safe
@@ -389,8 +381,9 @@ with a header row. A row is `action` (`create`/`update`), `issue` (update only, 
 search) and the same body fields as `issues create/update`. CSV columns are `action`, `issue`,
 `project.id`, `project.shortName`, `summary`, `description` and `customFields` (a JSON array cell);
 an empty cell omits the field, so clearing needs JSON. CSV syntax errors and unknown or repeated
-columns fail as a whole; unknown keys and invalid rows fail with the row number. Either way nothing
-is written. Name selectors are resolved per row during apply.
+columns fail as a whole; malformed rows fail with the row number. Additional JSON row fields
+are forwarded as native issue fields. Either way nothing
+is written. The API resolves native selectors inside each row's single write.
 
 Apply runs rows in order, one request per write plus exact selector reads, without retries,
 rollback or compensation; a batch is not atomic. It stops at the first unsuccessful row unless

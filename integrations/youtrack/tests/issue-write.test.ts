@@ -36,7 +36,7 @@ const projectLookup = "GET /context/api/admin/projects/DEMO?fields=id,shortName"
 const projectFields = "GET /context/api/admin/projects/0-1/customFields?fields=id,field(name)&$top=50&$skip=0";
 const issueFields = "GET /context/api/issues/DEMO-1/customFields?fields=id,name&$top=50&$skip=0";
 
-test("create resolves shortName and field names, then satisfies required fields in one typed POST", async () => {
+test("create preserves native selectors in one POST", async () => {
   const { calls, bodies } = serve({
     [projectLookup]: { id: "0-1", shortName: "demo" },
     [projectFields]: [
@@ -55,14 +55,14 @@ test("create resolves shortName and field names, then satisfies required fields 
       { $type: "DateIssueCustomField", id: "92-9", value: 1_700_000_000_000 },
     ],
   }), { id: "2-1" });
-  assert.deepEqual(calls, [projectLookup, projectFields, `POST /context/api/issues?fields=${writeFields}`]);
+  assert.deepEqual(calls, [`POST /context/api/issues?fields=${writeFields}`]);
   assert.deepEqual(bodies, [{
-    project: { id: "0-1" },
+    project: { shortName: "DEMO" },
     summary: "Summary",
     description: "Line one\n\nLine two",
     customFields: [
-      { $type: "SingleEnumIssueCustomField", id: "92-1", value: { name: "Critical" } },
-      { $type: "SingleUserIssueCustomField", id: "92-2", value: { login: "fixture-user" } },
+      { $type: "SingleEnumIssueCustomField", name: "Priority", value: { name: "Critical" } },
+      { $type: "SingleUserIssueCustomField", name: "Assignee", value: { login: "fixture-user" } },
       { $type: "DateIssueCustomField", id: "92-9", value: 1_700_000_000_000 },
     ],
   }]);
@@ -85,60 +85,48 @@ test("exact IDs use exactly one POST without discovery; update clears, sets mult
   });
   assert.deepEqual(calls, [
     `POST /context/api/issues?fields=${writeFields}`,
-    issueFields,
     `POST /context/api/issues/DEMO-1?fields=${writeFields}`,
   ]);
   assert.deepEqual(bodies[1], {
     summary: "Changed", description: null,
     customFields: [
       { $type: "MultiEnumIssueCustomField", id: "1-1", value: [] },
-      { $type: "SingleOwnedIssueCustomField", id: "1-2", value: { name: "UI" } },
+      { $type: "SingleOwnedIssueCustomField", name: "Subsystem", value: { name: "UI" } },
       { $type: "PeriodIssueCustomField", id: "1-3", value: null },
       { $type: "MultiUserIssueCustomField", id: "1-4", value: [{ login: "a" }, { id: "1-9" }] },
     ],
   });
 });
 
-test("invalid bodies fail locally and unresolved selectors fail before any POST", async () => {
+test("invalid JSON and known field types fail locally; server resolves selectors", async () => {
   const local = {
     ...connection,
     fetch: (async () => assert.fail("Invalid body reached fetch")) as typeof globalThis.fetch,
   };
   const field = { $type: "SingleEnumIssueCustomField", name: "Priority", value: { name: "Major" } };
   for (const body of [
-    { project: { id: "0-1", shortName: "DEMO" }, summary: "S" },
-    { project: {}, summary: "S" },
-    { project: { id: "0-1" }, summary: "S", customFields: [] },
-    { project: { id: "0-1" }, summary: "S", customFields: [{ ...field, id: "92-1" }] },
-    { project: { id: "0-1" }, summary: "S", customFields: [{ $type: field.$type, value: field.value }] },
-    { project: { id: "0-1" }, summary: "S", customFields: [{ $type: field.$type, name: "Priority" }] },
-    { project: { id: "0-1" }, summary: "S", customFields: [{ ...field, event: { id: "start" } }] },
-    { project: { id: "0-1" }, summary: "S", customFields: [{ $type: "StateMachineIssueCustomField", id: "1-1", value: null }] },
-    { project: { id: "0-1" }, summary: "S", customFields: [{ $type: "UnknownIssueCustomField", id: "1-1", value: null }] },
-    { project: { id: "0-1" }, summary: "S", customFields: [field, field] },
-    { project: { shortName: ".." }, summary: "S" },
+    { project: null, summary: "S" },
+    { project: { id: 1 }, summary: "S" },
+    { project: { id: "0-1" } },
+    { project: { id: "0-1" }, summary: 1 },
+    { project: { id: "0-1" }, summary: "S", customFields: {} },
+    { project: { id: "0-1" }, summary: "S", customFields: [{ ...field, $type: 1 }] },
   ]) await assert.rejects(createIssue(local, body), /YouTrack/);
   await assert.rejects(updateIssue(local, "DEMO-1", { customFields: [{ ...field, value: [] }] }), /YouTrack/);
 
   const cases: [Record<string, unknown>, unknown, RegExp][] = [
-    [{ [projectLookup]: { id: "0-9", shortName: "OTHER" } }, { project: { shortName: "DEMO" }, summary: "S" }, /did not resolve/],
-    [{}, { project: { shortName: "DEMO" }, summary: "S" }, /HTTP 404/],
-    [{ [projectFields]: [{ id: "92-1", field: { name: "Priority " } }] },
-      { project: { id: "0-1" }, summary: "S", customFields: [field] }, /match exactly one field/],
-    [{ [projectFields]: [{ id: "92-1", field: { name: "Priority" } }, { id: "92-2", field: { name: "Priority" } }] },
-      { project: { id: "0-1" }, summary: "S", customFields: [field] }, /match exactly one field/],
-    [{ [projectFields]: [{ id: "92-1", field: { name: "Priority" } }] },
-      { project: { id: "0-1" }, summary: "S", customFields: [field, { ...field, name: undefined, id: "92-1" }] },
-      /must not repeat a field/],
+    [{}, { project: { shortName: "DEMO" }, summary: "S" }, /HTTP 400/],
+    [{}, { project: { id: "0-1" }, summary: "S", customFields: [field, field] }, /HTTP 400/],
   ];
   for (const [gets, body, error] of cases) {
-    const { calls } = serve(gets);
+    const { calls, bodies } = serve(gets, () => new HttpResponse("synthetic-private-error", { status: 400 }));
     await assert.rejects(createIssue(connection, JSON.parse(JSON.stringify(body))), error);
-    assert.ok(calls.every((call) => call.startsWith("GET ")), "A failed selector reached the write.");
+    assert.deepEqual(calls, [`POST /context/api/issues?fields=${writeFields}`]);
+    assert.deepEqual(bodies, [body]);
   }
 });
 
-test("CLI selector resolution and the write stay inside the selected profile", async (t) => {
+test("native writes stay inside the selected profile without discovery", async (t) => {
   const f = await createCliFixture(t, {
     applicationId: "youtrack-cli",
     profiles: [
@@ -165,8 +153,6 @@ test("CLI selector resolution and the write stay inside the selected profile", a
     seen.length = 0;
     assert.deepEqual(await cli.execute(["issues", "create", "--body", body, "--profile", profile!]), { id: "2-1", idReadable: "DEMO-1" });
     assert.deepEqual(seen, [
-      `${host} Bearer ${token} GET /yt/api/admin/projects/DEMO`,
-      `${host} Bearer ${token} GET /yt/api/admin/projects/0-1/customFields`,
       `${host} Bearer ${token} POST /yt/api/issues`,
     ]);
   }

@@ -79,7 +79,7 @@ export const contextCommentChildren = [
   projectedRead("get <issueID> <commentID>", "Read a specific issue comment", getComment),
   bodyUpdate(
     "update <issueID> <commentID>",
-    "Replace comment text with a nonempty text field",
+    "Update an issue comment",
     updateComment,
     "text",
   ),

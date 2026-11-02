@@ -6,9 +6,7 @@ import {
   narrative,
   nullableText,
   readCollectionAt,
-  readObject,
   readObjectAt,
-  readPages,
   type Connection,
   type YouTrackObject,
   type YouTrackValue,
@@ -45,13 +43,11 @@ export const listIssueFields = readCollectionAt(
 export const getIssueField = readObjectAt(fieldPath, issueFieldFields);
 
 function reference(value: unknown, user: boolean): YouTrackObject {
-  const body = mutationBody(value, user ? ["id", "name", "login"] : ["id", "name"]);
-  if (Object.keys(body).length === 0) {
-    throw new Error("YouTrack field reference requires an identity selector.");
+  const body = mutationBody(value);
+  for (const key of user ? ["id", "name", "login"] : ["id", "name"]) {
+    if (Object.hasOwn(body, key)) narrative(body[key], `value.${key}`);
   }
-  return Object.fromEntries(Object.entries(body).map(([key, item]) => [
-    key, narrative(item, `value.${key}`),
-  ]));
+  return body;
 }
 
 function fieldValue(type: string, value: unknown): YouTrackValue {
@@ -68,7 +64,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
   if (![
     "SimpleIssueCustomField", "DateIssueCustomField", "PeriodIssueCustomField", "TextIssueCustomField",
   ].includes(type)) {
-    throw new Error("YouTrack field $type is not a supported concrete issue custom-field type.");
+    return value as YouTrackValue;
   }
   if (value === null) {
     return null;
@@ -85,17 +81,14 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
       }
       throw new Error("YouTrack date field requires a safe integer timestamp in milliseconds or null.");
     case "PeriodIssueCustomField": {
-      const body = mutationBody(value, ["minutes", "presentation"]);
-      if (Object.keys(body).length === 0) {
-        throw new Error("YouTrack period value requires minutes or presentation.");
-      }
-      const result: YouTrackObject = {};
+      const body = mutationBody(value);
+      const result: YouTrackObject = { ...body };
       if (Object.hasOwn(body, "minutes")) {
         if (
           typeof body.minutes !== "number" || !Number.isSafeInteger(body.minutes) ||
-          body.minutes < 0 || body.minutes > 2_147_483_647
+          body.minutes < -2_147_483_648 || body.minutes > 2_147_483_647
         ) {
-          throw new Error("YouTrack period minutes must be an integer between 0 and 2147483647.");
+          throw new Error("YouTrack period minutes must be a signed 32-bit integer.");
         }
         result.minutes = body.minutes;
       }
@@ -105,11 +98,11 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
       return result;
     }
     default: {
-      const body = mutationBody(value, ["text"]);
-      if (body.text !== null && typeof body.text !== "string") {
+      const body = mutationBody(value);
+      if (Object.hasOwn(body, "text") && body.text !== null && typeof body.text !== "string") {
         throw new Error("YouTrack text field requires text or null.");
       }
-      return { text: body.text };
+      return body;
     }
   }
 }
@@ -120,119 +113,63 @@ export async function setIssueField(
   fieldID: string,
   input: unknown,
 ): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["$type", "value", "event"]);
+  const body = mutationBody(input);
   const type = narrative(body.$type, "field $type");
   let update: YouTrackObject;
-  if (type === "StateMachineIssueCustomField") {
-    if (Object.hasOwn(body, "value")) {
-      throw new Error("YouTrack state-machine fields require event instead of value.");
-    }
-    const event = mutationBody(body.event, ["id"]);
-    update = { $type: type, event: { id: narrative(event.id, "event.id") } };
+  if (type === "StateMachineIssueCustomField" && Object.hasOwn(body, "event")) {
+    const event = mutationBody(body.event);
+    update = { ...body, $type: type, event: { ...event, id: narrative(event.id, "event.id") } };
   } else {
-    if (Object.hasOwn(body, "event")) {
-      throw new Error("YouTrack event is only supported for state-machine fields.");
-    }
-    update = { $type: type, value: fieldValue(type, body.value) };
+    update = { ...body, $type: type,
+      ...(Object.hasOwn(body, "value") ? { value: fieldValue(type, body.value) } : {}) };
   }
   return mutate(connection, fieldPath(issueID, fieldID), update, issueFieldFields);
 }
 
 export const issueWriteFields = "id,idReadable,summary,updated";
 
-/** A locally validated create/update body whose name selectors are not resolved yet. */
+/** A JSON issue body; the API resolves supplied identity selectors. */
 export interface IssueWrite {
-  project?: YouTrackObject;
   body: YouTrackObject;
-  customFields?: YouTrackObject[];
 }
 
-function oneOf(body: Record<string, unknown>, keys: readonly string[], label: string): YouTrackObject {
+function textSelectors(body: Record<string, unknown>, keys: readonly string[], label: string): YouTrackObject {
   const present = keys.filter((key) => Object.hasOwn(body, key));
-  if (present.length !== 1) {
-    throw new Error(`YouTrack ${label} must use exactly one of ${keys.join(" or ")}.`);
-  }
-  const key = present[0]!;
-  return { [key]: narrative(body[key], `${label} ${key}`) };
+  return Object.fromEntries(present.map(key => [key, narrative(body[key], `${label} ${key}`)]));
 }
 
 /** Validate an issue create/update body without network access. */
 export function issueWrite(input: unknown, create: boolean): IssueWrite {
-  const body = mutationBody(input, [...(create ? ["project"] : []), "summary", "description", "customFields"]);
-  if (!create && !Object.keys(body).length) {
-    throw new Error("YouTrack issue update requires summary, description or customFields.");
-  }
-  const write: IssueWrite = { body: {} };
+  const body = mutationBody(input);
+  const write: IssueWrite = { body: { ...body } };
   if (create) {
-    write.project = oneOf(mutationBody(body.project, ["id", "shortName"]), ["id", "shortName"], "project");
-    encodedID(String(Object.values(write.project)[0]), "project selector");
+    const project = mutationBody(body.project);
+    write.body.project = { ...project, ...textSelectors(project, ["id", "shortName"], "project") };
   }
-  if (create || Object.hasOwn(body, "summary")) write.body.summary = narrative(body.summary, "summary");
+  if (create || Object.hasOwn(body, "summary")) write.body.summary = nullableText(body.summary, "summary");
   if (Object.hasOwn(body, "description")) write.body.description = nullableText(body.description, "description");
   if (Object.hasOwn(body, "customFields")) {
-    if (!Array.isArray(body.customFields) || !body.customFields.length) {
-      throw new Error("YouTrack customFields must be a nonempty array.");
+    if (!Array.isArray(body.customFields)) {
+      throw new Error("YouTrack customFields must be an array.");
     }
     const customFields: YouTrackObject[] = body.customFields.map((item: unknown) => {
-      const entry = mutationBody(item, ["$type", "id", "name", "value"]);
+      const entry = mutationBody(item);
       const type = narrative(entry.$type, "field $type");
-      if (type === "StateMachineIssueCustomField") {
-        throw new Error("YouTrack state-machine fields change only through issues fields set events or commands apply.");
-      }
-      if (!Object.hasOwn(entry, "value")) throw new Error("YouTrack custom field requires value.");
-      return { $type: type, ...oneOf(entry, ["id", "name"], "custom field"), value: fieldValue(type, entry.value) };
+      return { ...entry, $type: type, ...textSelectors(entry, ["id", "name"], "custom field"),
+        ...(Object.hasOwn(entry, "value") ? { value: fieldValue(type, entry.value) } : {}) };
     });
-    // Identical selectors fail locally; an id and a name for one field fail after resolution.
-    if (new Set(customFields.map(({ id, name }) => JSON.stringify([id, name]))).size !== customFields.length) {
-      throw new Error("YouTrack customFields must not repeat a field.");
-    }
-    write.customFields = customFields;
+    write.body.customFields = customFields;
   }
   return write;
 }
 
-/** Resolve name selectors with exact reads before the single write; ID-only bodies read nothing. */
+/** Send native selectors without extra catalog reads or body rewriting. */
 export async function issueRequest(
   connection: Connection,
   write: IssueWrite,
   issueID?: string,
 ): Promise<{ path: string; body: YouTrackObject }> {
-  const body: YouTrackObject = { ...write.body };
-  let fieldsPath = issueID === undefined ? "" : `${issuePath(issueID)}/customFields`;
-  if (write.project) {
-    let id = write.project.id;
-    const shortName = write.project.shortName;
-    if (typeof shortName === "string") {
-      const project = await readObject(connection, projectPath(shortName), { fields: "id,shortName" });
-      if (typeof project.shortName !== "string" || project.shortName.toLowerCase() !== shortName.toLowerCase()) {
-        throw new Error("YouTrack project shortName did not resolve to that project.");
-      }
-      id = project.id;
-    }
-    if (typeof id !== "string" || !id) throw new Error("YouTrack returned an invalid project identity.");
-    body.project = { id };
-    fieldsPath = `${projectPath(id)}/customFields`;
-  }
-  if (write.customFields) {
-    const catalog = write.customFields.some((field) => typeof field.name === "string")
-      ? await readPages(connection, fieldsPath, { fields: issueID === undefined ? "id,field(name)" : "id,name" }, {
-        top: 50, skip: 0,
-      })
-      : [];
-    const customFields = write.customFields.map(({ name, ...field }) => {
-      if (typeof name !== "string") return field;
-      const matches = catalog.filter((item) =>
-        (typeof item.name === "string" ? item.name : (item.field as YouTrackObject | null | undefined)?.name) === name);
-      const id = matches.length === 1 ? matches[0]!.id : undefined;
-      if (typeof id !== "string") throw new Error("YouTrack custom field name must match exactly one field.");
-      return { ...field, id };
-    });
-    if (new Set(customFields.map((field) => field.id)).size !== customFields.length) {
-      throw new Error("YouTrack customFields must not repeat a field.");
-    }
-    body.customFields = customFields;
-  }
-  return { path: issueID === undefined ? "api/issues" : issuePath(issueID), body };
+  return { path: issueID === undefined ? "api/issues" : issuePath(issueID), body: write.body };
 }
 
 export async function createIssue(connection: Connection, input: unknown): Promise<YouTrackObject | null> {

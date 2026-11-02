@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import { basename } from "node:path";
-import { requiredText } from "./client.js";
+import { inputFilePath } from "./client.js";
 
 export async function attachmentForm(filePath: string): Promise<FormData> {
-  requiredText(filePath, "file path");
+  inputFilePath(filePath);
   let file: Blob;
   try {
     if (!(await fs.promises.stat(filePath)).isFile()) {

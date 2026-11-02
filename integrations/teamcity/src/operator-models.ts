@@ -1,4 +1,4 @@
-import { plainProperty, safeIdentity, type BuildTypeIdentity } from "./authoring-models.js";
+import { plainProperty, safeIdentity, pathSegment, type BuildTypeIdentity } from "./authoring-models.js";
 import { requiredText } from "./locator.js";
 
 export interface AgentPoolSummary {
@@ -41,8 +41,8 @@ export const policyFields = "policy,buildTypes(buildType(id,name,projectId))";
 export const changeSummaryFields = "id,version,date,comment";
 
 export function poolNumber(id: number): number {
-  if (!Number.isSafeInteger(id) || id < 0)
-    throw new Error("Pool ID must be a non-negative integer.");
+  if (!Number.isSafeInteger(id))
+    throw new Error("Pool ID must be a safe integer.");
   return id;
 }
 export function safeNamed(value: AgentPoolSummary): AgentPoolSummary {
@@ -81,23 +81,17 @@ export function safeChange(value: ChangeSummary): ChangeSummary {
     ...(value.comment === undefined ? {} : { comment: value.comment }),
   };
 }
-export function queuePosition(value: string, writing = false): string {
-  if (["first", "last"].includes(value)) return value;
-  if (writing && value !== "1")
-    throw new Error("Queue position set supports only 1, first or last.");
-  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)))
-    throw new Error("Position must be a positive integer, first or last.");
-  return value;
+export function queuePosition(value: string): string {
+  return pathSegment(plainProperty("Queue position", value).value);
 }
 export function publicTags(tags: readonly string[], allowEmpty = false) {
   if (!allowEmpty && tags.length === 0) throw new Error("At least one tag is required.");
   const names = tags.map((tag) => plainProperty("tag", requiredText(tag, "Tag")).value);
-  if (new Set(names).size !== names.length) throw new Error("Duplicate tags are not allowed.");
   return { tag: names.map((name) => ({ name })) };
 }
 export function statistic(name: string, value: string) {
-  if (typeof value !== "string" || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value)) {
-    throw new Error("TeamCity statistic was not numeric text.");
+  if (typeof value !== "string") {
+    throw new Error("TeamCity statistic value must be text.");
   }
   return { name: requiredText(name, "Statistic name"), value };
 }

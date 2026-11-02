@@ -3,7 +3,7 @@ import test from "node:test";
 import { CliError } from "@eyeauras/cli-factory";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { continuation, pageBudget, readPages } from "../src/paging.js";
+import { continuation, pageSize, readPages } from "../src/paging.js";
 import { createTestRuntime } from "./support.js";
 
 const server = setupServer();
@@ -68,7 +68,7 @@ test("an empty page that only raises the lookup limit is followed; its limit is 
   ]);
 });
 
-test("an unexpected continuation, the request budget and the time budget leave completeness unknown", async () => {
+test("unexpected continuations stay unknown; valid progress has no hidden request cap", async () => {
   // TeamCity continues after the items it served; a start behind or beyond that is not followed,
   // and the next start is always past what was read, so a caller that pages on cannot loop.
   for (const next of ["start:0,count:6", "start:6,count:6"]) {
@@ -79,22 +79,12 @@ test("an unexpected continuation, the request budget and the time budget leave c
     assert.equal(odd.requests.length, 1, next);
   }
 
-  let limit = 5000;
-  const deep: Read = async () => ({ items: [], nextHref: href(`start:0,count:3,lookupLimit:${limit += 5000}`) });
-  let calls = 0;
-  const counted: Read = async (request) => { calls++; return deep(request); };
-  // Nothing was read, and `--start` cannot carry the lookup limit: there is no continuation.
-  assert.deepEqual(await readPages(2, 0, counted), {
-    count: 0, items: [], hasMore: null, nextStart: null,
-  });
-  assert.equal(calls, pageBudget.requests);
+  const pages = scripted([...Array.from({ length: 12 }, (_, i) =>
+    ({ items: [], next: 'start:0,count:3,lookupLimit:' + (i + 1) * 5000 })), { items: [1] }]);
+  const result = await readPages(2, 0, pages.read);
+  assert.deepEqual(result, { count: 1, items: [1], hasMore: false, nextStart: null });
+  assert.equal(pages.requests.length, 13);
 
-  let clock = 0;
-  const slow = scripted([{ items: [1], next: "start:1,count:6" }, { items: [2], next: "start:2,count:5" }]);
-  const timed: Read = async (request) => { clock += pageBudget.milliseconds; return slow.read(request); };
-  assert.deepEqual(await readPages(5, 0, timed, () => clock), {
-    count: 1, items: [1], hasMore: null, nextStart: 1,
-  });
 });
 
 /** A server that honors start and count over `total` numbered items and never sends a continuation. */
@@ -109,7 +99,7 @@ function collection(total: number) {
 }
 
 test("a request keeps at most one page size; its extra item proves more and reading goes on", async () => {
-  const size = pageBudget.size;
+  const size = pageSize;
   for (const [limit, total, requests, hasMore] of [
     [1001, 5000, [{ start: 0, count: size + 1 }, { start: size, count: 2 }], true],
     [2500, 2500, [
@@ -127,12 +117,12 @@ test("a request keeps at most one page size; its extra item proves more and read
 });
 
 test("a limit of a whole page size still asks for the one item that proves more", async () => {
-  const more = scripted([{ items: Array.from({ length: pageBudget.size + 1 }, (_, i) => i) }]);
-  const page = await readPages(pageBudget.size, 0, more.read);
-  assert.deepEqual(more.requests, [{ start: 0, count: pageBudget.size + 1 }]);
-  assert.equal(page.count, pageBudget.size);
+  const more = scripted([{ items: Array.from({ length: pageSize + 1 }, (_, i) => i) }]);
+  const page = await readPages(pageSize, 0, more.read);
+  assert.deepEqual(more.requests, [{ start: 0, count: pageSize + 1 }]);
+  assert.equal(page.count, pageSize);
   assert.equal(page.hasMore, true);
-  assert.equal(page.nextStart, pageBudget.size);
+  assert.equal(page.nextStart, pageSize);
 });
 
 test("a failed later page keeps the items read so far; a failed first page is the original error", async () => {
@@ -149,7 +139,7 @@ test("a failed later page keeps the items read so far; a failed first page is th
   // A later page stopped by the caller reports the stop, not an incomplete list.
   const stopped = scripted([{ items: [1, 2], next: "start:2,count:4" }, failure]);
   await assert.rejects(
-    readPages(3, 0, stopped.read, Date.now, AbortSignal.abort()),
+    readPages(3, 0, stopped.read, AbortSignal.abort()),
     (error: unknown) => error === failure,
   );
 });

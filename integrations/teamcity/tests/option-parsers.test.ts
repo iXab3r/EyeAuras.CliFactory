@@ -45,9 +45,9 @@ test("TeamCity invalid paging and JSON reject before TTY onboarding, credentials
   server.use(http.all("*", () => { calls++; return HttpResponse.json({}); }));
   const cli = f.createCli();
   const cases = [
-    ...["0", "9007199254740992", "1e2", "synthetic-secret\u0000value"].map(value => ({
+    ...["-1", "9007199254740992", "1e2", "synthetic-secret\u0000value"].map(value => ({
       argv: ["projects", "list", "--limit", value],
-      message: "TeamCity page limit must be a positive safe integer.",
+      message: "TeamCity page limit must be a nonnegative safe integer.",
     })),
     ...["-1", "9007199254740992", " 1"].map(value => ({
       argv: ["projects", "list", "--start", value],
@@ -96,9 +96,9 @@ test("TeamCity repeated JSON remains ordered and numeric IDs retain strict valid
     "--item", '{"name":"Second","type":"simpleRunner"}',
   ]), []);
   assert.deepEqual(await cli.execute(["builds", "show", "0007"]), { id: 7 });
-  for (const id of ["0", "-0", "+7", "7e0", " 7", "9007199254740992"]) {
+  for (const id of ["+7", "7e0", " 7", "9007199254740992"]) {
     await assert.rejects(cli.execute(["builds", "show", id]), {
-      message: "Expected a positive integer within the safe integer range.",
+      message: "Expected an integer within the safe integer range.",
     });
   }
   assert.equal(puts, 1);

@@ -1,4 +1,5 @@
 import type { TeamCityPageOptions } from "./models.js";
+import { integerParser } from "@eyeauras/cli-factory";
 
 export const defaultPageLimit = 100;
 
@@ -17,8 +18,8 @@ export function normalizePage(options: TeamCityPageOptions = {}): {
 } {
   const limit = requireInteger(options.limit ?? defaultPageLimit, "TeamCity page limit");
   const start = requireInteger(options.start ?? 0, "TeamCity page start");
-  if (limit < 1) {
-    throw new Error("TeamCity page limit must be positive.");
+  if (limit < 0) {
+    throw new Error("TeamCity page limit must be non-negative.");
   }
   if (start < 0) {
     throw new Error("TeamCity page start must be non-negative.");
@@ -27,11 +28,11 @@ export function normalizePage(options: TeamCityPageOptions = {}): {
 }
 
 export function requiredText(value: string, description: string): string {
-  const normalized = value.trim();
-  if (!normalized) {
-    throw new Error(`${description} cannot be empty.`);
+  if (typeof value !== "string") {
+    throw new Error(`${description} must be text.`);
   }
-  return normalized;
+  try { encodeURIComponent(value); } catch { throw new Error(`${description} must contain valid Unicode text.`); }
+  return value;
 }
 
 export function locatorValue(value: string, description: string): string {
@@ -78,9 +79,12 @@ export function idPath(value: string, description: string): string {
   return idLocator(value, description);
 }
 
-export function positiveId(value: number, description: string): string {
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`${description} must be a positive integer.`);
+const parseInteger = integerParser({ min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER, signed: true,
+  errorMessage: "Expected a safe decimal integer." });
+export function integerId(value: number | string, description: string): string {
+  if (typeof value === "string") value = parseInteger(value);
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(`${description} must be a safe integer.`);
   }
   return String(value);
 }

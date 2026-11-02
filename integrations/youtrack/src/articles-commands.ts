@@ -48,13 +48,13 @@ export const articlesRootCommands = [
       projectedRead("get <article> <comment>", "Read an article comment", getArticleComment),
       projectedBodyUpdate(
         "add <article>",
-        "Add an article comment with nonempty text",
+        "Add an article comment",
         addArticleComment,
         "text",
       ),
       projectedBodyUpdate(
         "update <article> <comment>",
-        "Replace an article comment's text",
+        "Update an article comment",
         updateArticleComment,
         "text",
       ),

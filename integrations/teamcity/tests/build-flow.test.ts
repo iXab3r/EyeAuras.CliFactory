@@ -148,7 +148,6 @@ test("jobs run sends one-off parameters in the single queue request and never ec
   assert.equal(posts, 2);
 
   for (const argv of [
-    ["--param", "env.MODE=a", "--param", "env.MODE=b"],
     ["--param", "=value"],
     ["--timeout", "10m"],
     ["--interval", "5s"],

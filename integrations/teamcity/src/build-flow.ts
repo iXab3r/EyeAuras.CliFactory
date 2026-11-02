@@ -12,7 +12,7 @@ import {
   TeamCityUnknownOutcomeError,
   type TeamCityClient,
 } from "./client.js";
-import { pairOption, positiveInteger } from "./command-support.js";
+import { pairOption, integerValue } from "./command-support.js";
 import type { PlainProperty } from "./authoring-models.js";
 import type {
   TeamCityBuild,
@@ -260,7 +260,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
         if (job !== undefined || branch !== undefined)
           throw new Error("--job and --branch select a build only together with --latest.");
         if (id === undefined) throw new Error("Specify a build ID, or --job <id> --latest.");
-        return (await clientFor(context)).getBuild(positiveInteger(id));
+        return (await clientFor(context)).getBuild(integerValue(id));
       }
       if (id !== undefined) throw new Error("Use either a build ID or --latest, not both.");
       if (job === undefined) throw new Error("--latest requires --job <id>.");
@@ -291,7 +291,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
     "wait <build-id>",
     "Wait for a build to finish; exits 1 unless it succeeded and 124 when time runs out",
     async ({ args, options }, context) => {
-      const id = positiveInteger(args["build-id"]);
+      const id = integerValue(args["build-id"]);
       return follow(await commandClient(clientFor, context), context, id, pause(options),
         (build, outcome) => ({ build, ...(outcome === undefined ? {} : { outcome }) }));
     },
@@ -302,7 +302,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
     "diagnose <build-id>",
     `Summarize a build: state, up to ${problemLimit} problems and ${testLimit} failed tests; no logs`,
     async ({ args }, context) => {
-      const id = positiveInteger(args["build-id"]);
+      const id = integerValue(args["build-id"]);
       const client = await clientFor(context);
       const build = await client.getBuildSummary(id);
       const [problems, failedTests] = await Promise.all([

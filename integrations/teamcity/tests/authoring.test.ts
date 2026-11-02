@@ -209,14 +209,14 @@ test("authoring validates fields, required options, paging, paths and plain prop
   );
   const invalid = [
     ["projects", "create", "Example"],
-    ["projects", "create", "Example", "--name", " "],
+
     ["projects", "move", "Example"],
     ["projects", "delete", "_Root"],
-    ["projects", "set", "Example", "parentProject", "Other"],
-    ["projects", "set", "Example", "archived", "yes"],
+
+    ["projects", "set", "Example", "archived", "Bearer synthetic"],
     ["jobs", "create", "Build", "--name", "Build"],
     ["jobs", "move", "Build"],
-    ["jobs", "set", "Build", "paused", "1"],
+    ["jobs", "set", "Build", "paused", "Bearer synthetic"],
     ["jobs", "parameters", "set", "Build", "env.MODE"],
     ["projects", "parameters", "create", "Example", "env.PASSWORD", "--value", "synthetic"],
     ["projects", "parameters", "show", "Example", ".."],
@@ -234,20 +234,7 @@ test("authoring validates fields, required options, paging, paths and plain prop
       "--property",
       "=empty",
     ],
-    [
-      "jobs",
-      "steps",
-      "create",
-      "Build",
-      "--name",
-      "Echo",
-      "--type",
-      "simpleRunner",
-      "--property",
-      "key=x",
-      "--property",
-      "key=y",
-    ],
+
     [
       "jobs",
       "steps",
@@ -263,26 +250,27 @@ test("authoring validates fields, required options, paging, paths and plain prop
     ["jobs", "vcs", "attach", "Build"],
     ["jobs", "vcs", "replace", "Build", "Root"],
     ["jobs", "vcs", "checkout-rules", "set", "Build", "Root"],
-    ["vcs", "roots", "list", "--limit", "0"],
+
     ["vcs", "roots", "list", "--start", "-1"],
   ];
   for (const argv of invalid) await assert.rejects(cli.execute(argv), Error);
   assert.equal(requests, 0);
 });
 
-test("parameter reads redact passwords, hidden/unknown types and credential-shaped data", async (testContext) => {
+test("parameter reads redact protected metadata while preserving future UI types", async (testContext) => {
   const properties = [
     { name: "plain", value: "debug" },
     { name: "password-type", value: "synthetic-hidden", type: { rawValue: "password" } },
     { name: "masked", value: "synthetic-hidden", type: { rawValue: "text display='hidden'" } },
     {
       name: "plugin",
-      value: "synthetic-hidden",
-      type: { rawValue: "future-kind label='synthetic-hidden'" },
+      value: "future value",
+      type: { rawValue: "future-kind label='Future'" },
     },
     { name: "malformed", value: "synthetic-hidden", type: {} },
     { name: "env.ACCESS_TOKEN", value: "synthetic-hidden" },
     { name: "endpoint", value: "https://fixture:synthetic-hidden@example.test" },
+    { name: "server-withheld", value: null },
   ];
   server.use(
     http.get(`${base}/projects/id:Example/parameters`, () =>
@@ -294,9 +282,10 @@ test("parameter reads redact passwords, hidden/unknown types and credential-shap
   assert.equal(await cli.run(["projects", "parameters", "list", "Example", "--json"]), 0);
   const result = JSON.parse(runtime.stdout());
   assert.equal(result[0].value, "debug");
+  assert.equal(result[3].value, "future value");
   assert.equal(
     result
-      .slice(1)
+      .filter((_: unknown, index: number) => index !== 0 && index !== 3)
       .every((p: { redacted: boolean; value?: string }) => p.redacted && p.value === undefined),
     true,
   );
@@ -306,7 +295,7 @@ test("parameter reads redact passwords, hidden/unknown types and credential-shap
   assert.equal(runtime.stdout().includes("synthetic-hidden"), false);
 });
 
-test("parameter writes preflight metadata, reject protected/unknown types and only tolerate create 404", async (testContext) => {
+test("parameter writes preflight metadata, reject protected/malformed metadata and only tolerate create 404", async (testContext) => {
   const runtime = await createTestRuntime(testContext);
   const cli = runtime.createCli();
   await cli.execute(["permissions", "grant", "Update"]);
@@ -322,11 +311,11 @@ test("parameter writes preflight metadata, reject protected/unknown types and on
   for (const action of ["create", "set"]) {
     await assert.rejects(
       cli.execute(["projects", "parameters", action, "Example", "innocent", "--value", "debug"]),
-      /Protected or unknown/,
+      /Protected or malformed/,
     );
   }
   assert.equal(writes, 0);
-  for (const metadata of [{ name: "innocent", type: { rawValue: "future-kind" } }, {}]) {
+  for (const metadata of [{ name: "innocent", type: {} }, {}]) {
     server.use(
       http.get(`${base}/projects/id:Example/parameters/innocent`, () =>
         HttpResponse.json(metadata),
@@ -334,7 +323,7 @@ test("parameter writes preflight metadata, reject protected/unknown types and on
     );
     await assert.rejects(
       cli.execute(["projects", "parameters", "set", "Example", "innocent", "--value", "debug"]),
-      /Protected or unknown/,
+      /Protected or malformed/,
     );
   }
   assert.equal(writes, 0);
@@ -429,7 +418,7 @@ test("literal path segments and locators cannot broaden authoring targets", asyn
     paths[0],
     "/app/rest/projects/id:($base64:RXhhbXBsZSxjb3VudDoxMDA)/parameters/mode%2Fwith%3Fquery%23fragment",
   );
-  await assert.rejects(client.deleteStep("Build", ".."), /Dot path/);
+  await assert.rejects(client.deleteStep("Build", ".."), /dot traversal/);
   assert.equal(paths.length, 1);
 });
 

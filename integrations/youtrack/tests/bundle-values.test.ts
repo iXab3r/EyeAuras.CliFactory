@@ -100,9 +100,9 @@ test("bundle lists reject invalid paging/projections before fetch and detect ove
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json([{ id: "a" }, { id: "b" }]); }));
   for (const row of bundleCases) {
-    await assert.rejects(row.run(connection, { fields: " " }), /fields must be nonempty/);
+    await assert.rejects(row.run(connection, { fields: null as unknown as string }), /fields must be text/);
     if (row.collection) {
-      for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
+      for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
         await assert.rejects(row.run(connection, options), /YouTrack/);
       }
     }
@@ -117,7 +117,7 @@ test("bundle lists reject invalid paging/projections before fetch and detect ove
 test("all bundle/value ID positions reject dot traversal, controls and malformed Unicode before fetch", async () => {
   let calls = 0;
   const local = { ...connection, fetch: (async () => { calls++; throw new Error("Unexpected fetch"); }) as typeof globalThis.fetch };
-  for (const id of [".", "..", "bad\nvalue", "\ud800"]) {
+  for (const id of ["", ".", "..", "\ud800"]) {
     for (const get of [getBuildBundle, getOwnedBundle, getVersionBundle]) {
       await assert.rejects(get(local, id), /YouTrack/);
     }

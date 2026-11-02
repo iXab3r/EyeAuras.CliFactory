@@ -42,8 +42,8 @@ test("the packaged CLI process separates help, JSON-RPC and errors without profi
   assert.match(frame.result.help, /Usage: teamcity-cli/);
   assert.equal(json.stderr, "");
 
-  const invalid = run(["builds", "list", "--limit", "0"]);
+  const invalid = run(["builds", "list", "--limit", "-1"]);
   assert.equal(invalid.status, 1);
   assert.equal(invalid.stdout, "");
-  assert.match(invalid.stderr, /positive/);
+  assert.match(invalid.stderr, /nonnegative/);
 });

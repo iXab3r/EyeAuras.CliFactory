@@ -21,5 +21,8 @@ Read the root `AGENTS.md`, `docs/DESIGN.md`, `docs/integrations.md`, and `docs/t
   real current-user profile/secret store and a fixed bounded `ReadOnly` inventory; never forward
   arbitrary argv or accept test-only URL/token injection.
 - Fixtures must be public-safe and minimal.
+- Follow [API-faithful validation](../docs/DESIGN.md#api-faithful-validation): primary contracts govern
+  service values. Examples are not closed enums; preserve literal strings and additional native fields.
+  Record versions/evidence for semantic checks and concrete reasons for transport/secret checks.
 
 Required evidence: focused mocked tests for the changed client/command and `npm test` before merge.

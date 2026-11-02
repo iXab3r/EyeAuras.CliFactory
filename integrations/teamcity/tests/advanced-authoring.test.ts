@@ -65,9 +65,7 @@ test("S3 validates flags, fields, booleans, paths, secret-like properties and se
       "create",
       "Build",
       "--source",
-      "Build",
-      "--rules",
-      "*.zip",
+      "Source",
       "--revision",
       "lastSuccessful",
     ],
@@ -81,19 +79,7 @@ test("S3 validates flags, fields, booleans, paths, secret-like properties and se
       "--revision",
       "lastSuccessful",
     ],
-    ["jobs", "steps", "parameters", "show", "Build", "Runner", ".."],
-    [
-      "jobs",
-      "steps",
-      "parameters",
-      "replace",
-      "Build",
-      "Runner",
-      "--property",
-      "x=a",
-      "--property",
-      "x=b",
-    ],
+
     ["jobs", "features", "parameters", "set", "Build", "Feature", "secret", "synthetic"],
     [
       "projects",
@@ -108,10 +94,9 @@ test("S3 validates flags, fields, booleans, paths, secret-like properties and se
     ["projects", "features", "replace", "Example", "Feature"],
     ["projects", "templates", "create", "Example", "Template"],
     ["projects", "templates", "default", "set", "Example"],
-    ["jobs", "branches", "Build", "--limit", "0"],
+
     ["jobs", "branches", "Build", "--start", "-1"],
-    ["jobs", "fields", "show", "Build", "settingsFile"],
-    ["projects", "fields", "show", "Example", "secure"],
+
   ];
   for (const kind of [
     "steps",
@@ -120,8 +105,7 @@ test("S3 validates flags, fields, booleans, paths, secret-like properties and se
     "agent-requirements",
     "artifact-dependencies",
   ]) {
-    invalid.push(["jobs", kind, "fields", "set", "Build", "Entity", "disabled", "yes"]);
-    invalid.push(["jobs", kind, "fields", "show", "Build", "Entity", "type"]);
+    invalid.push(["jobs", kind, "fields", "set", "Build", "Entity", "disabled", "Bearer synthetic"]);
   }
   for (const argv of invalid) await assert.rejects(cli.execute(argv), Error, argv.join(" "));
   assert.equal(calls, 0);

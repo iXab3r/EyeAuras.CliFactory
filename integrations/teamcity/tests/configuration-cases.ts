@@ -22,13 +22,13 @@ for (const family of [
   const properties = { property: [{ name: "example.setting", value: "a=b" }] };
   const body = dependency
     ? { type: family.type, "source-buildType": source, properties }
-    : { type: family.type, disabled: true, properties };
+    : { type: family.type, properties };
   const response = { id: family.id, ...body, inherited: false };
   const expected = {
     id: family.id,
     type: family.type,
     inherited: false,
-    ...(dependency ? { source } : { disabled: true }),
+    ...(dependency ? { source } : {}),
     properties: [{ name: "example.setting", type: "plain", redacted: true }],
   };
   const prefix = ["jobs", family.group];

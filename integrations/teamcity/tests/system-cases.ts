@@ -38,14 +38,14 @@ const mute = {
   resolution: { type: "manually" },
 };
 const mf =
-  "id,scope(project(id),buildTypes(buildType(id))),target(tests(test(id)),problems(problem(id))),resolution(type,time)";
+  "id,scope(project(id),buildTypes(buildType(id))),target(anyProblem,tests(test(id)),problems(problem(id))),resolution(type,time)";
 const lf =
   "valid,active,expired,obsolete,expirationDate,maintenanceEndDate,type,servers,agents,unlimitedAgents,buildTypes,unlimitedBuildTypes,pipelines,unlimitedPipelines";
 const license = { valid: true, active: true, type: "enterprise", agents: 10 };
 const licenseSecret = { "input-secret:license": "synthetic-license-value" };
 const auth = {
   allowGuest: false,
-  modules: { module: [{ name: "Default", properties: { property: [] } }] },
+  modules: { module: [{ name: "Default" }] },
 };
 const safeAuth = { allowGuest: false, modules: [{ name: "Default" }] };
 const cleanup = { enabled: false, maxCleanupDuration: 30, daily: { hour: 3, minute: 0 } };

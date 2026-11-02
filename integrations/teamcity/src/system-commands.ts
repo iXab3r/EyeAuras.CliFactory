@@ -6,7 +6,7 @@ import {
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
 import type { TeamCityClient } from "./client.js";
-import { clientLeaf, option, text, repeatOption, jsonOption } from "./command-support.js";
+import { clientLeaf, option, text, repeatOption, jsonOption, integerValue } from "./command-support.js";
 export function createSystemCommands(
   clientFor: (c: CommandContext) => Promise<TeamCityClient>,
   pageOptions: readonly OptionDefinition[],
@@ -227,7 +227,7 @@ export function createSystemCommands(
     ),
     leaf(
       "field <field>",
-      "Read allowlisted version/clock/role field; never superuser token",
+      "Read a server field",
       R,
       (c, { args }) => c.getServerField(args.field),
     ),
@@ -258,7 +258,7 @@ export function createSystemCommands(
       ...avatarCommands,
       leaf(
         "replace <id>",
-        "Upload selected regular PNG/JPEG",
+        "Upload a selected avatar file",
         U,
         (c, { args, options }) => c.replaceAvatar(args.id, text(options, "file")),
         [option("--file <path>", "Explicit local image path", true)],
@@ -281,7 +281,7 @@ export function createSystemCommands(
         {
           permission: "Credentials",
           options: [
-            option("--ttl <seconds>", "Positive token TTL in seconds", true),
+            { ...option("--ttl <seconds>", "Token lifetime in seconds", true), parse: integerValue },
             repeatOption(
               "--store-as <alias>",
               "One new alias per requested token",

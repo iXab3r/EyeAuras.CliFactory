@@ -136,19 +136,17 @@ test("rejects invalid TeamCity options before fetch", async (t) => {
   };
   const cli = testRuntime.createCli();
 
-  assert.equal(await cli.run(["builds", "list", "--limit", "0"]), 1);
-  assert.match(testRuntime.stderr(), /positive/);
+  assert.equal(await cli.run(["builds", "list", "--limit", "-1"]), 1);
+  assert.match(testRuntime.stderr(), /nonnegative/);
   assert.equal(fetchCalls, 0);
 
   testRuntime.resetOutput();
-  assert.equal(await cli.run(["agents", "show", "0"]), 1);
-  assert.match(testRuntime.stderr(), /positive integer/);
+  assert.equal(await cli.run(["agents", "show", "1.5"]), 1);
+  assert.match(testRuntime.stderr(), /safe integer range/);
   assert.equal(fetchCalls, 0);
 
   for (const [argv, message] of [
     [["queue", "list", "--start", "-1"], /non-negative integer/],
-    [["builds", "list", "--state", "stopped"], /must be one of/],
-    [["agents", "list", "--connected", "sometimes"], /must be one of/],
   ] as const) {
     testRuntime.resetOutput();
     assert.equal(await cli.run(argv), 1);

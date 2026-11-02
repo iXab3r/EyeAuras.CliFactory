@@ -129,7 +129,7 @@ export function createInfrastructureCommands(
       [
         option("--name <text>", "Name", true),
         option("--project <id>", "Owner project", true),
-        option("--url <url>", "HTTPS URL with no userinfo/query/fragment", true),
+        option("--url <url>", "Set the Git repository URL", true),
         option("--branch <ref>", "Git branch ref", true),
       ],
     ),
@@ -178,14 +178,14 @@ export function createInfrastructureCommands(
         c.deleteVcsRootProperty(args.id, args.name),
       ),
     ]),
-    command("fields", "Allowlisted root metadata", [
+    command("fields", "Read and write root fields", [
       leaf(
         "get <id> <field>",
-        "Read id/name/vcsName/projectId/modificationCheckInterval",
+        "Read a root field",
         Permission.ReadOnly,
         (c, { args }) => c.getVcsRootField(args.id, args.field),
       ),
-      leaf("set <id> <field> <value>", "Set name only", Permission.Update, (c, { args }) =>
+      leaf("set <id> <field> <value>", "Set a root field", Permission.Update, (c, { args }) =>
         c.setVcsRootField(args.id, args.field, args.value),
       ),
     ]),
@@ -252,23 +252,23 @@ export function createInfrastructureCommands(
         (c, { args }) => c.getVcsRepositoryStateCreated(args.id),
       ),
     ]),
-    command("fields", "Allowlisted instance fields; currentVersion may contact VCS", [
+    command("fields", "Read and write instance fields", [
       leaf(
         "get <id> <field>",
-        "Read safe identity/revision/polling fields",
+        "Read an instance field",
         Permission.ReadOnly,
         (c, { args }) => c.getVcsInstanceField(args.id, args.field),
       ),
       leaf(
         "set <id> <field> <value>",
-        "Set commitHookMode or lastVersionInternal",
+        "Set a VCS instance field",
         Permission.Update,
         (c, { args }) =>
           c.setVcsInstanceField(args.id, args.field, args.value),
       ),
       leaf(
         "clear <id> <field>",
-        "Clear lastVersionInternal only",
+        "Clear a VCS instance field",
         Permission.Update,
         (c, { args }) => c.clearVcsInstanceField(args.id, args.field),
       ),
@@ -311,7 +311,7 @@ export function createInfrastructureCommands(
       command("fields", "Typed config fields, not arbitrary build parameters", [
         leaf(
           "get <id> <field>",
-          "Read allowlisted config field",
+          "Read a configuration field",
           Permission.ReadOnly,
           (c, { args }) => c.getVersionedConfigField(args.id, args.field),
         ),
@@ -367,7 +367,7 @@ export function createInfrastructureCommands(
         Permission.ReadOnly,
         (c, { args, options }) =>
           c.listVersionedTokenNames(args.id, optional(options, "status")),
-        [option("--status <status>", "used, unused or broken")],
+        [option("--status <status>", "Filter the token status")],
       ),
       command(
         "set <id>",

@@ -55,8 +55,7 @@ for (const format of ["csharp", "future-format+v2", "xml", "kotlin", " future fo
       const body = await request.json() as Record<string, unknown>;
       assert.deepEqual(body, {
         synchronizationMode: "enabled", vcsRootId: "Git", format,
-        buildSettingsMode: "alwaysUseCurrent", allowUIEditing: true,
-        showSettingsChanges: false, storeSecureValuesOutsideVcs: true, portableDsl: true,
+        storeSecureValuesOutsideVcs: true,
       });
       return HttpResponse.json(body);
     });
@@ -138,10 +137,8 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
   ];
   const invalid = [
     ...[
-      "http://example.test/repo.git",
       "https://fixture:synthetic-hidden@example.test/repo.git",
       "https://example.test/repo.git?token=synthetic-hidden",
-      "https://example.test/repo.git#fragment",
     ].map((url) => [...createRoot, url]),
     [
       "cloud",
@@ -155,7 +152,7 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
       "Instance",
     ],
     ["cloud", "images", "show", "--cloud-profile", "Cloud"],
-    ["cloud", "instances", "list", "--limit", "0"],
+
     ["vcs", "roots", "properties", "clear", "Git"],
     [
       "vcs",
@@ -167,25 +164,11 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
       "https://example.test/repo?token=synthetic-hidden",
     ],
     ["vcs", "roots", "properties", "set", "Git", "secure:password", "synthetic-hidden"],
-    ["vcs", "roots", "fields", "set", "Git", "vcsName", "git"],
-    ["vcs", "instances", "check-changes", " "],
-    ["vcs", "instances", "fields", "set", "8", "commitHookMode", "yes"],
-    ["vcs", "instances", "fields", "clear", "8", "lastVersion"],
-    ["vcs", "instances", "state", "replace", "8", "--revision", "main="],
-    [
-      "vcs",
-      "instances",
-      "state",
-      "replace",
-      "8",
-      "--revision",
-      "main=abc",
-      "--revision",
-      "main=def",
-    ],
+
+    ["vcs", "instances", "fields", "set", "8", "commitHookMode", "Bearer synthetic"],
+
     [...versioned, "commit", "Example"],
     [...versioned, "load", "Example"],
-    [...versioned, "config", "replace", "Example", "--item", '{"synchronizationMode":"enabled"}'],
     [
       ...versioned,
       "config",
@@ -211,10 +194,8 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
       '{"synchronizationMode":"disabled","password":"synthetic-hidden"}',
     ],
     [...versioned, "config", "fields", "set", "Example", "storeSecureValuesOutsideVcs", "false"],
-    [...versioned, "config", "fields", "set", "Example", "showSettingsChanges", "yes"],
-    [...versioned, "config", "fields", "reset", "Example", "synchronizationMode", "--confirm"],
+    [...versioned, "config", "fields", "set", "Example", "showSettingsChanges", "Bearer synthetic"],
     [...versioned, "context", "replace", "Example", "--property", "password=synthetic-hidden"],
-    [...versioned, "tokens", "list", "Example", "--status", "all"],
     [
       ...versioned,
       "tokens",
@@ -317,9 +298,7 @@ test("S8 full repository/context replacements preserve empty and false values wi
   ]);
   assert.deepEqual(value, {
     synchronizationMode: "disabled",
-    buildSettingsMode: "alwaysUseCurrent",
     allowUIEditing: false,
-    showSettingsChanges: false,
     storeSecureValuesOutsideVcs: true,
     portableDsl: false,
   });

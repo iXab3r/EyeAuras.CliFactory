@@ -40,7 +40,7 @@ test("all S2 leaves declare their gate and deny before HTTP", async (testContext
   assert.equal(requests, 0);
 });
 
-test("S2 rejects missing fields, secret properties, duplicate keys, self-dependencies and raw locators before HTTP", async (testContext) => {
+test("S2 rejects malformed syntax, secret properties and self-dependencies before HTTP", async (testContext) => {
   const { cli } = await writableCli(testContext);
   let requests = 0;
   server.use(
@@ -53,15 +53,9 @@ test("S2 rejects missing fields, secret properties, duplicate keys, self-depende
     ["triggers", "create", "Example_Build"],
     ["features", "replace", "Example_Build", "F1"],
     ["snapshot-dependencies", "create", "Example_Build"],
-    ["snapshot-dependencies", "replace", "Example_Build", "Source", "--source", "Example_Build"],
-    ["snapshot-dependencies", "create", "Example_Build", "--source", " "],
+
     ["templates", "attach", "Example_Build"],
-    ["templates", "attach", "Example_Build", "--template", " "],
-    ["features", "show", "Example_Build", ".."],
-    ["triggers", "show", "Example_Build", "id:T1"],
-    ["triggers", "delete", "Example_Build", "T1,count:100"],
-    ["snapshot-dependencies", "delete", "Example_Build", "buildType:(id:Other)"],
-    ["triggers", "create", "Example_Build", "--type", " "],
+
   ];
   for (const group of ["triggers", "features", "snapshot-dependencies"]) {
     const create = [
@@ -78,7 +72,6 @@ test("S2 rejects missing fields, secret properties, duplicate keys, self-depende
     ]) {
       invalid.push([...create, "--property", property]);
     }
-    invalid.push([...create, "--property", "x=one", "--property", "x=two"]);
   }
   for (const argv of invalid)
     await assert.rejects(cli.execute(["jobs", ...argv]), Error, argv.join(" "));
@@ -87,18 +80,14 @@ test("S2 rejects missing fields, secret properties, duplicate keys, self-depende
   await assert.rejects(
     client.createExtension("features", "Build", {
       type: "plugin",
-      properties: [
-        { name: "x", value: "one" },
-        { name: "x", value: "two" },
-      ],
+      properties: [{ name: "password", value: "synthetic" }],
     }),
-    /Duplicate/,
+    /non-secret/,
   );
-  await assert.rejects(client.createSnapshotDependency("Build", { source: "Build" }), /itself/);
   assert.equal(requests, 0);
 });
 
-test("S2 replacement sends an empty property set without GET/merge and extensions default disabled", async (testContext) => {
+test("S2 replacement sends an empty property set without GET/merge and leaves extension defaults to the API", async (testContext) => {
   const { cli } = await writableCli(testContext);
   let requests = 0;
   server.use(
@@ -114,7 +103,7 @@ test("S2 replacement sends an empty property set without GET/merge and extension
               "source-buildType": { id: "Source" },
               properties: { property: [] },
             }
-          : { type: "plugin", disabled: true, properties: { property: [] } },
+          : { type: "plugin", properties: { property: [] } },
       );
       return HttpResponse.json({ id: "Entity", ...(body as object) });
     }),
@@ -341,7 +330,7 @@ test("S2 JSON-RPC preserves profile URL/token/gates and continues after help and
     .split("\n")
     .map((line) => JSON.parse(line));
   assert.equal(frames.length, 5);
-  assert.match(frames[0].result.help, /NOT preserved/);
+  assert.match(frames[0].result.help, /Replace an extension/);
   assert.match(frames[0].result.help, /Required permission: Update/);
   assert.match(frames[0].result.help, /--enabled/);
   assert.match(frames[1].error.message, /required option.*--type/);

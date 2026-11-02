@@ -54,14 +54,15 @@ export async function createArticle(
   input: unknown,
   options: ProjectionOptions = {},
 ): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["project", "summary", "content"]);
-  const project = mutationBody(body.project, ["id"]);
+  const body = mutationBody(input);
+  const project = mutationBody(body.project);
   return mutate(
     connection,
     "api/articles",
     {
-      project: { id: narrative(project.id, "project.id") },
-      summary: narrative(body.summary, "summary"),
+      ...body,
+      project: { ...project, id: narrative(project.id, "project.id") },
+      ...(Object.hasOwn(body, "summary") ? { summary: nullableText(body.summary, "summary") } : {}),
       ...(Object.hasOwn(body, "content") ? { content: nullableText(body.content, "article content") } : {}),
     },
     fields(options, articleWriteFields),
@@ -74,15 +75,13 @@ export async function updateArticle(
   input: unknown,
   options: ProjectionOptions = {},
 ): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["summary", "content"]);
-  if (Object.keys(body).length === 0) {
-    throw new Error("YouTrack article update requires summary or content.");
-  }
+  const body = mutationBody(input);
   return mutate(
     connection,
     articlePath(articleID),
     {
-      ...(Object.hasOwn(body, "summary") ? { summary: narrative(body.summary, "summary") } : {}),
+      ...body,
+      ...(Object.hasOwn(body, "summary") ? { summary: nullableText(body.summary, "summary") } : {}),
       ...(Object.hasOwn(body, "content") ? { content: nullableText(body.content, "article content") } : {}),
     },
     fields(options, articleWriteFields),
@@ -105,11 +104,11 @@ export async function addArticleComment(
   input: unknown,
   options: ProjectionOptions = {},
 ): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["text"]);
+  const body = mutationBody(input);
   return mutate(
     connection,
     `${articlePath(articleID)}/comments`,
-    { text: narrative(body.text, "text") },
+    { ...body, text: nullableText(body.text, "text") },
     fields(options, articleCommentFields),
   );
 }
@@ -121,11 +120,11 @@ export async function updateArticleComment(
   input: unknown,
   options: ProjectionOptions = {},
 ): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["text"]);
+  const body = mutationBody(input);
   return mutate(
     connection,
     `${articlePath(articleID)}/comments/${encodedID(commentID, "comment ID")}`,
-    { text: narrative(body.text, "text") },
+    { ...body, ...(Object.hasOwn(body, "text") ? { text: nullableText(body.text, "text") } : {}) },
     fields(options, articleCommentFields),
   );
 }

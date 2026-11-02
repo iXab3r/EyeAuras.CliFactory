@@ -1,5 +1,5 @@
 import { command } from "@eyeauras/cli-factory";
-import { requiredText } from "./client.js";
+import { inputFilePath } from "./client.js";
 import { articleAttachmentDownloadCommand } from "./attachment-download-commands.js";
 import { pagedRead, projectedRead, updateCommand, projectionOptions, readOptions } from "./cli-support.js";
 import {
@@ -38,9 +38,9 @@ export const articlesExtraChildren = [
           ...projectionOptions,
           {
             flags: "--file <path>",
-            description: "Required explicit local input file; no copies or recursion",
+            description: "Read the selected local file",
             required: true,
-            parse: (value) => requiredText(value, "file path"),
+            parse: inputFilePath,
           },
         ],
     ),

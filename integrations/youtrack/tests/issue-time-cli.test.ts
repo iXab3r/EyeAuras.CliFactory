@@ -117,7 +117,7 @@ test("work-time RPC isolates profiles, recovers after body and remote errors, an
     [...writes[0]!.argv, "--body", body, "--profile", "dev"],
     [...writes[1]!.argv, "--body", body, "--profile", "production"],
     ["work-items", "get", "fixture-work", "--profile", "production"],
-    [...writes[1]!.argv, "--body", '{"synthetic-private-key":"synthetic-private-value"}', "--profile", "dev"],
+    [...writes[1]!.argv, "--body", '{"duration":{"minutes":"synthetic-private-value"}}', "--profile", "dev"],
     [...writes[1]!.argv, "--body", body, "--profile", "dev"],
     ["work-items", "get", "fixture-work", "--profile", "dev"],
   ];

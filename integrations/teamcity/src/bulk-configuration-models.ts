@@ -5,10 +5,10 @@ import {
   stepBody,
   extensionBody,
   snapshotBody,
-  pathSegment,
 } from "./authoring-models.js";
 import { ruleBody } from "./advanced-authoring-models.js";
 import { requiredText } from "./locator.js";
+import { apiInputRecord } from "./triage-models.js";
 
 export type SettingsCollection =
   | "steps"
@@ -20,20 +20,12 @@ export type SettingsCollection =
   | "vcs-root-entries"
   | "projectFeatures";
 export type ParameterPart = "value" | "type" | "type/rawValue";
-export function distinctIds(values: readonly string[]): string[] {
+export function textIds(values: readonly string[]): string[] {
   const ids = values.map((value) => requiredText(value, "ID"));
-  if (new Set(ids).size !== ids.length) throw new Error("Duplicate IDs are not allowed.");
   return ids;
 }
 function record(value: unknown, keys: readonly string[]): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    Object.keys(value).some((k) => !keys.includes(k))
-  )
-    throw new Error("Item must be an object with only documented input fields.");
-  return value as Record<string, unknown>;
+  return apiInputRecord(value, keys);
 }
 function string(value: unknown, name: string): string {
   if (typeof value !== "string") throw new Error(`Missing or invalid ${name}.`);
@@ -51,7 +43,7 @@ function properties(value: unknown): PlainProperty[] {
   return value.map((value) => {
     const item = record(value, ["name", "value"]);
     if (typeof item.value !== "string") throw new Error("Property value must be a string.");
-    return plainProperty(string(item.name, "Property name"), item.value);
+    return { ...item, ...plainProperty(string(item.name, "Property name"), item.value) };
   });
 }
 export function settingsItems(
@@ -76,8 +68,8 @@ export function settingsItems(
                   ? ["source", "properties"]
                   : ["rootId", "rules"];
     const item = record(value, keys);
+    const additional = Object.fromEntries(Object.entries(item).filter(([key]) => !keys.includes(key)));
     const id = item.id === undefined ? {} : { id: string(item.id, "Item ID") };
-    if ("id" in id) pathSegment(id.id);
     if ("id" in id) ids.push(id.id);
     const optionalString = (key: string) => {
       if (item[key] === undefined) return {};
@@ -93,6 +85,7 @@ export function settingsItems(
             type: string(item.type, "Type"),
             properties: properties(item.properties),
           }),
+          ...additional,
         };
       case "features":
       case "triggers":
@@ -100,28 +93,30 @@ export function settingsItems(
           ...id,
           ...extensionBody({
             type: string(item.type, "Type"),
-            enabled: flag(item, "enabled") ?? false,
+            ...(item.enabled === undefined ? {} : { enabled: flag(item, "enabled")! }),
             properties: properties(item.properties),
           }),
+          ...additional,
         };
       case "projectFeatures":
         return {
           ...id,
           type: string(item.type, "Type"),
           properties: propertiesBody(properties(item.properties)),
+          ...additional,
         };
       case "agent-requirements":
         ids.push(string(item.parameter, "Parameter"));
-        return ruleBody(ownerId, {
+        return { ...ruleBody(ownerId, {
           kind,
           type: string(item.type, "Type"),
           parameter: string(item.parameter, "Parameter"),
           ...optionalString("value"),
           disabled: flag(item, "disabled") ?? false,
-        });
+        }), ...additional };
       case "artifact-dependencies":
         ids.push(string(item.source, "Source"));
-        return ruleBody(ownerId, {
+        return { ...ruleBody(ownerId, {
           kind,
           source: string(item.source, "Source"),
           rules: string(item.rules, "Rules"),
@@ -130,23 +125,24 @@ export function settingsItems(
           ...optionalString("branch"),
           clean: flag(item, "clean") ?? false,
           disabled: flag(item, "disabled") ?? false,
-        });
+        }), ...additional };
       case "snapshot-dependencies":
         ids.push(string(item.source, "Source"));
-        return snapshotBody(ownerId, {
+        return { ...snapshotBody(ownerId, {
           source: string(item.source, "Source"),
           properties: properties(item.properties),
-        });
+        }), ...additional };
       case "vcs-root-entries":
         ids.push(string(item.rootId, "Root ID"));
         if (typeof item.rules !== "string") throw new Error("Checkout rules must be a string.");
         return {
           "vcs-root": { id: string(item.rootId, "Root ID") },
           "checkout-rules": plainProperty("rules", item.rules).value,
+          ...additional,
         };
     }
   });
-  distinctIds(ids);
+  textIds(ids);
   return result;
 }
 export interface ApprovalSummary {

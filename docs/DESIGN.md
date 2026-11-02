@@ -127,7 +127,6 @@ classification matches the transport code position, not words in an endpoint pat
 and help do not require a build marker or IPC endpoint; nested owner leaves still validate the
 prepared build and execute in the shared owner.
 
-
 A CLI is a recursive command declaration. Every node has a name and description; branch nodes
 contain children and leaf nodes execute handlers. The framework generates help at every node.
 Authors must not hand-write a dispatch switch or separate help pages.
@@ -313,7 +312,26 @@ map closing the application to 130.
 Every other failure has the same machine form; see
 [machine output](#machine-output-is-a-first-class-contract).
 
-### Profiles own non-secret configuration
+#### API-faithful validation
+
+The service's authoritative contract governs accepted values. Do not close a string to documentation
+examples, invent ID grammars, trim service text, impose undocumented numeric/length bounds, reject
+additional native JSON fields, or insert service defaults without a contract basis. A missing Swagger
+enum alone does not overrule an explicit enum elsewhere in the primary reference. State reference
+versions and gaps; when a service-value rule is uncertain, preserve the value and let the API validate it.
+
+Validate JSON value types and representable numbers, encode identifiers and locator dimensions without
+changing their values, and retain explicit permissions, profile isolation, secret protection and safe
+errors. Give each separate transport/security check its concrete reason: for example, dot segments
+would change URL routing, bearer text cannot enter a plain argv property, and a download destination
+must stay under the active profile without overwriting another file. Local controls such as polling
+duration and caller byte budgets are CLI behavior, not claims about service limits. Compact CLI forms
+may translate flags or selectors into service DTOs; document that translation and preserve additional
+native fields rather than silently discarding them. Output projections may omit private fields without
+claiming that those fields are unsupported by the service. Exercise newly admitted values at the
+offline HTTP boundary, including unchanged requests and safe remote rejection without retries.
+
+## Profiles own non-secret configuration
 
 A profile is a named JSON object containing values such as a base URL, tenant, project, or user
 name. One profile is the default. A default profile exists even before configuration is persisted,
@@ -342,15 +360,15 @@ remains a storage API: callers using it directly own their field normalization/v
 `parseServerUrl(value, message)` trims outer whitespace, parses an absolute HTTP(S) base address,
 rejects credentials, query/fragment, backslashes, embedded whitespace/controls and invalid path
 encoding, and returns a readonly `{ href, pathname }` configuration record with one trailing slash.
-Its `href` preserves an explicitly written port; it is not a WHATWG `URL` instance. Integration rules
-then reject known API/page paths without guessing the intended base. TeamCity allows HTTP(S) and stores no trailing slash;
+Its `href` preserves an explicitly written port; it is not a WHATWG `URL` instance. TeamCity and YouTrack preserve any supported reverse-proxy context, including segments named
+admin, issues, api or app/rest; they do not guess deployment roots from path names. TeamCity allows HTTP(S) and stores no trailing slash;
 YouTrack allows HTTP(S) and stores one trailing slash for relative resolution.
 
 **Every CLI preserves the supported user-selected scheme, host, context path and explicit port
 presence/value in stored and displayed profile URLs**, including HTTP :80 and HTTPS :443.
 Approved outer-whitespace and trailing-slash normalization remains allowed. Do not persist
 a native URL serializer's output when it erases explicit default ports. Use the shared parser
-for HTTP(S) base-address normalization; service-specific scheme/path restrictions remain local.
+for HTTP(S) base-address normalization; any additional service-specific scheme/path restriction requires primary contract evidence.
 RANDOM REST and Playwright retain their HTTPS-origin-only policy and literal stored URLs.
 
 The initial HTTP request or browser base URL must use the configured effective endpoint. Native
