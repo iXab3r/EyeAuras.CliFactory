@@ -22,6 +22,8 @@ const cases = [
     body: { summary: null, parentArticle: { id: "Parent" }, visibility: { $type: "UnlimitedVisibility" }, futureOption: false } },
   { argv: ["article", "comment", "update", "Article", "Comment"], path: "/articles/Article/comments/Comment",
     body: { text: null, pinned: true, visibility: null } },
+  { argv: ["article", "comment", "update", "Article", "Comment"], path: "/articles/Article/comments/Comment",
+    body: { pinned: true, visibility: null } },
   { argv: ["issues", "fields", "set", "DEMO-1", "Field"], path: "/issues/DEMO-1/customFields/Field",
     body: { $type: "FutureIssueCustomField", value: { futureSelector: " value " }, futureOption: false } },
   { argv: ["issues", "create"], path: "/issues",
@@ -93,6 +95,21 @@ test("additional body fields retain safe remote errors without retries", async t
   assert.equal(result.stdout, "");
   assert.match(JSON.parse(result.stderr).error.message, /HTTP 400/);
   assert.ok(!result.stderr.includes("synthetic-private-response"));
+});
+
+test("article comment metadata-only updates retain safe remote errors without retries", async t => {
+  const f = await configuredFixture(t, { permissions: ["ReadOnly", "Update"] });
+  const requests = trackRequests(t, 1, async request => {
+    assert.equal(new URL(request.url).pathname, "/context/api/articles/Article/comments/Comment");
+    assert.deepEqual(await request.json(), { pinned: true });
+    return HttpResponse.text("synthetic-private-comment-response", { status: 400 });
+  });
+  server.use(http.post("*", ({ request }) => requests.handle(request)));
+  const result = await f.run(f.cli, ["article", "comment", "update", "Article", "Comment", "--body", '{"pinned":true}', "--json"]);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.stdout, "");
+  assert.match(JSON.parse(result.stderr).error.message, /HTTP 400/);
+  assert.ok(!result.stderr.includes("synthetic-private-comment-response"));
 });
 
 test("native bodies still require JSON objects and JSON value types", () => {

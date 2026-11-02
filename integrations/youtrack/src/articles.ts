@@ -124,7 +124,7 @@ export async function updateArticleComment(
   return mutate(
     connection,
     `${articlePath(articleID)}/comments/${encodedID(commentID, "comment ID")}`,
-    { ...body, text: nullableText(body.text, "text") },
+    { ...body, ...(Object.hasOwn(body, "text") ? { text: nullableText(body.text, "text") } : {}) },
     fields(options, articleCommentFields),
   );
 }
