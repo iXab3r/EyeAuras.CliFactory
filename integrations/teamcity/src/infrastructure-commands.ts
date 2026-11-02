@@ -178,10 +178,10 @@ export function createInfrastructureCommands(
         c.deleteVcsRootProperty(args.id, args.name),
       ),
     ]),
-    command("fields", "Allowlisted root metadata", [
+    command("fields", "Read and write root fields", [
       leaf(
         "get <id> <field>",
-        "Read id/name/vcsName/projectId/modificationCheckInterval",
+        "Read a root field",
         Permission.ReadOnly,
         (c, { args }) => c.getVcsRootField(args.id, args.field),
       ),
@@ -252,10 +252,10 @@ export function createInfrastructureCommands(
         (c, { args }) => c.getVcsRepositoryStateCreated(args.id),
       ),
     ]),
-    command("fields", "Allowlisted instance fields; currentVersion may contact VCS", [
+    command("fields", "Read and write instance fields", [
       leaf(
         "get <id> <field>",
-        "Read safe identity/revision/polling fields",
+        "Read a field; currentVersion may contact VCS",
         Permission.ReadOnly,
         (c, { args }) => c.getVcsInstanceField(args.id, args.field),
       ),
@@ -311,7 +311,7 @@ export function createInfrastructureCommands(
       command("fields", "Typed config fields, not arbitrary build parameters", [
         leaf(
           "get <id> <field>",
-          "Read allowlisted config field",
+          "Read a configuration field",
           Permission.ReadOnly,
           (c, { args }) => c.getVersionedConfigField(args.id, args.field),
         ),

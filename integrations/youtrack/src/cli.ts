@@ -196,7 +196,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
           ...contextCommentChildren,
           bodyUpdate(
             "add <issueID>",
-            "Add a comment with a nonempty text field",
+            "Add an issue comment",
             addComment,
             "text",
           ),

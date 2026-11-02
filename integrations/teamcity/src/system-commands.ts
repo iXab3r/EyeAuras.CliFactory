@@ -227,7 +227,7 @@ export function createSystemCommands(
     ),
     leaf(
       "field <field>",
-      "Read allowlisted version/clock/role field; never superuser token",
+      "Read a non-secret server field",
       R,
       (c, { args }) => c.getServerField(args.field),
     ),
@@ -258,7 +258,7 @@ export function createSystemCommands(
       ...avatarCommands,
       leaf(
         "replace <id>",
-        "Upload selected regular PNG/JPEG",
+        "Upload a selected avatar file",
         U,
         (c, { args, options }) => c.replaceAvatar(args.id, text(options, "file")),
         [option("--file <path>", "Explicit local image path", true)],
