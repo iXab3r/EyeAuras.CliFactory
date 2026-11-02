@@ -165,14 +165,17 @@ export function createCli(definition: CliDefinition): CliApplication {
       `Cli applicationId '${applicationId}' does not match AppArguments.AppName '${appArguments.AppName}'.`,
     );
   }
-  const validateHandlers = (items: readonly CommandDefinition[]): void => {
+  const validateHandlers = (items: readonly CommandDefinition[], builtin = false): void => {
     for (const item of items) {
+      if (builtin && item.additionalPermissions)
+        throw new Error("Additional permissions require a service command.");
       if (item.runLocal && (item.run || item.permission || item.additionalPermissions))
         throw new Error(`Local command '${item.name}' cannot declare a profile handler or permission.`);
-      validateHandlers(item.children ?? []);
+      validateHandlers(item.children ?? [], builtin);
     }
   };
-  validateHandlers([...definition.commands, ...(definition.builtins ?? [])]);
+  validateHandlers(definition.commands);
+  validateHandlers(definition.builtins ?? [], true);
   const permissionCategories: readonly PermissionCategory[] | undefined =
     definition.permissions === undefined
       ? undefined
