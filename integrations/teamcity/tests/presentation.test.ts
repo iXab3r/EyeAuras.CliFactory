@@ -223,7 +223,7 @@ test("artifact listings and saved files read clearly without changing their JSON
 
   runtime.resetOutput();
   assert.equal(await cli.run(["builds", "artifacts", "download", "--help"]), 0);
-  assert.match(runtime.stdout(), /Output path relative to the working directory; never\s+overwrites/);
+  assert.match(runtime.stdout(), /--output <path>\s+.*relative or absolute path/);
 });
 
 test("build tests and problems read as tables with flags and completeness; JSON is unchanged", async (t) => {

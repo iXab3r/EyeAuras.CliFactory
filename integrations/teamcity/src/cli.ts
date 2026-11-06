@@ -111,7 +111,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       "builds diagnose 101",
       "builds artifacts download 101 dist/app.zip --output app.zip",
     ],
-    version: "0.5.7",
+    version: "0.6.0",
     applicationId: "teamcity-cli",
     permissions: { categories: adminCategories },
     profile: {
