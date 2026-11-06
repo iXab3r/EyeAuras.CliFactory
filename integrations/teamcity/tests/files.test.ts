@@ -35,7 +35,7 @@ async function fileRuntime(testContext: test.TestContext, input = "", parent = t
     root,
     runtime,
     appArguments,
-    cli: runtime.createCli(),
+    cli: (() => { const cli = runtime.createCli(); const run = cli.run.bind(cli); cli.run = (argv, invocation) => run(argv, { ...invocation, cwd: root }); return cli; })(),
     cleanup: async () => {
       await runtime.dispose();
       assert.equal(await realpath(root), root);
@@ -111,13 +111,13 @@ for (const c of fileCases)
       if (c.bytes) {
         const name = c.argv[c.argv.indexOf("--output") + 1]!;
         assert.deepEqual(result, {
-          path: join(t.appArguments.AppDataDirectory, "downloads", name),
+          path: join(t.root, name),
           bytes: c.bytes.length,
           sha256: createHash("sha256").update(c.bytes).digest("hex"),
           mediaType: c.media,
         });
         assert.deepEqual(new Uint8Array(await readFile(result.path)), c.bytes);
-        assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+        assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
       } else assert.deepEqual(result, c.expected);
       if (c.storedKey)
         assert.equal(
@@ -155,7 +155,7 @@ test("file runtime canonicalizes its owned root through a platform directory ali
       ),
     );
     const result = (await t.cli.execute(download)) as { path: string };
-    assert.equal(result.path, join(t.appArguments.AppDataDirectory, "downloads", "example.bin"));
+    assert.equal(result.path, join(t.root, "example.bin"));
     assert.deepEqual(new Uint8Array(await readFile(result.path)), sourceBytes);
   } finally {
     await t?.cleanup();
@@ -186,7 +186,7 @@ test("whole-file downloads reject HTTP 206 without publishing or retrying partia
       assert.match(t.runtime.stderr(), /no destination was published/);
       assert.equal(calls, 1, "partial downloads must not be retried automatically");
       assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -227,7 +227,7 @@ test("download transport failures keep HTTP status semantics and remove private 
         return true;
       });
       assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -312,7 +312,7 @@ test("S10 existing destinations and publication races never overwrite another fi
     await assert.rejects(t.cli.execute(download), /no destination was published/);
     assert.equal(calls, 1);
     assert.equal(await readFile(path, "utf8"), "synthetic-racing-owner");
-    assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+    assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
   } finally {
     await t.cleanup();
   }
@@ -366,7 +366,7 @@ test("S10 size limits apply to actual streams and all failed staging bytes are r
       );
       await assert.rejects(t.cli.execute([...download, "--max-bytes", "8"]), /Download failed/);
       assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -406,7 +406,7 @@ test("S10 invalid PNG ZIP SVG content/media never becomes a successful file", as
       );
       await assert.rejects(t.cli.execute(c.argv), /Download failed/);
       assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -457,7 +457,7 @@ test("S10 cancellation during a response discards owned staging and suppresses a
         e.cause instanceof Error,
     );
     assert.ok(pulls >= 2);
-    assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+    assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
   } finally {
     await t.cleanup();
@@ -652,7 +652,7 @@ test("encoded downloads apply only an explicit decoded-byte budget", async (test
       } else {
         await assert.rejects(t.cli.execute(argv));
       }
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -674,4 +674,18 @@ test("downloads have no default byte ceiling and accept a caller budget above 64
   } finally {
     await t.cleanup();
   }
+});
+
+ test("issue86 source downloads default to invocation cwd and accept output paths", async t => {
+  const f = await fileRuntime(t);
+  try {
+    server.use(http.get("*", () => HttpResponse.text("synthetic-source")));
+    await mkdir(join(f.root, "nested"));
+    for (const output of [undefined, "nested/relative.ts", join(f.root, "absolute.ts")]) {
+      const result = await f.runtime.json(f.cli, ["builds", "source", "101", "src/example.ts", ...(output ? ["--output", output] : [])], { cwd: f.root }) as { path: string };
+      assert.equal(result.path, output ? (output.startsWith("/") ? output : join(f.root, output)) : join(f.root, "example.ts"));
+      assert.equal(await readFile(result.path, "utf8"), "synthetic-source");
+    }
+    await assert.rejects(f.cli.execute(["builds", "source", "101", "src/example.ts"], { cwd: f.root }));
+  } finally { await f.cleanup(); }
 });
