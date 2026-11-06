@@ -10,7 +10,7 @@ import { savedAttachment, withView } from "./presentation.js";
 const downloadOptions = [
   {
     flags: "--output <path>",
-    description: "Output path relative to the working directory; never overwrites",
+    description: "Save to a relative or absolute path",
   },
   {
     flags: "--max-bytes <n>",

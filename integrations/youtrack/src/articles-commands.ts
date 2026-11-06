@@ -40,7 +40,7 @@ export const articlesRootCommands = [
         context.cwd,
         typeof options.output === "string" ? options.output : undefined,
       ),
-      [{ flags: "--output <path>", description: "Output path relative to the working directory (default: <idReadable>.md)" }],
+      [{ flags: "--output <path>", description: "Save to a relative or absolute path (default: <idReadable>.md)" }],
     )),
     projectedBodyUpdate("create", "Create an article", createArticle, "content", createdArticle),
     projectedBodyUpdate("update <article>", "Update the summary or content", updateArticle, "content", updatedArticle),

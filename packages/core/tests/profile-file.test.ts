@@ -299,7 +299,7 @@ test("declared wire and actual byte limits, truncation and abort clean all stagi
       assertDisposition(false, false, /byte limit|incomplete transfer|cancelled/),
     );
   }
-  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
+  assert.deepEqual(await readdir(join(root, "downloads")), []);
   const encoded = await publishFile(options(root, "encoded.bin", stream([
     Uint8Array.of(1),
   ], {
@@ -496,7 +496,7 @@ test("zero-progress filesystem writes fail statically and clean private staging"
     publishFile(options(root, "zero.bin", stream([Uint8Array.of(1)]))),
     assertDisposition(false, false, /Download failed/),
   );
-  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
+  assert.deepEqual(await readdir(join(root, "downloads")), []);
 });
 
 test("abort during asynchronous file validation prevents publication and cleans staging", async (t) => {
@@ -511,7 +511,7 @@ test("abort during asynchronous file validation prevents publication and cleans 
       controller.abort(new Error("synthetic-private-validation-abort"));
     },
   })), assertDisposition(false, false, /cancelled.*no destination was published/));
-  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
+  assert.deepEqual(await readdir(join(root, "downloads")), []);
 });
 
 test("staged-file validation cannot mutate content in place", async (t) => {
@@ -525,7 +525,7 @@ test("staged-file validation cannot mutate content in place", async (t) => {
       await utimes(file.path, changedTime, changedTime);
     },
   })), assertDisposition(false, false, /changed during validation/));
-  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
+  assert.deepEqual(await readdir(join(root, "downloads")), []);
 });
 
 test("downloads-directory replacement after link is detected with truthful publication state", async (t) => {

@@ -14,7 +14,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   const output = [
     option(
       "--output <path>",
-      "Output path relative to the working directory; never overwrites",
+      "Save to a relative or absolute path",
       false,
     ),
     {

@@ -209,7 +209,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
               { flags: "--continue-on-error", description: "Keep going after a failed row" },
               {
                 flags: "--failed-rows <path>",
-                description: "Save failed rows as a .json manifest relative to the working directory",
+                description: "Save failed rows as a .json manifest at a relative or absolute path",
               },
             ],
           )),
