@@ -13,7 +13,7 @@ const npm = (args: string[], options: {cwd: string}) => exec(process.execPath, [
 
 test('packed IPC + external CLI install runs one relocatable owner without Factory source', {timeout:60000}, async t => {
   const root = await mkdtemp(join(tmpdir(),'factory-external-'));
-  const appData = await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'cf-ipc-'));
+  const appData = await mkdtemp(join(tmpdir(), 'cf-ipc-'));
   t.after(() => rm(appData,{recursive:true,force:true}));
   const install = join(root,'isolated spaces-Ω');
   await mkdir(install);
