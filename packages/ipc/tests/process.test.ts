@@ -11,8 +11,13 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
+import {status} from "@grpc/grpc-js";
+import {Readable,Writable} from "node:stream";
+import {runRemote,control} from "../src/client.js";
+import {connect} from "../src/protocol.js";
+import type {CliHostClient} from "../src/generated/clifactory/CliHost.js";
 import { ownershipExitCode } from "../src/startup.js";
 
 const bin = fileURLToPath(new URL("./fixtures/host.js", import.meta.url));
@@ -457,4 +462,44 @@ test("idle shutdown waits for work and releases ownership; crash is not replayed
   // The stale lease is intentionally conservative (10s) after an ungraceful owner loss.
   const after = json(await f.run(["info", "--json"]));
   assert.notEqual(after.identity, before.identity);
+});
+
+
+for(const ready of [false,true]) test(`polling denial retires only an unready startup child (ready=${ready})`,async t=>{
+ const f=await fixture(t),preload=join(f.root,'child-environment.mjs');
+ await writeFile(preload,`process.env.CLI_HOST_TEST_ROOT=${JSON.stringify(f.root)};${ready?'':"process.env.CLI_HOST_TEST_LEASE_GATE='file';"}`);
+ const real=connect(process.platform==='win32'
+  ? (await import('../src/endpoint.js')).hostPaths(new (await import('@eyeauras/cli-factory')).AppArguments({AppName:'ipc-fixture',Environment:{EnvironmentAppData:f.root,EnvironmentLocalAppData:f.root,AppDomainDirectory:f.root,ApplicationExecutablePath:bin,ProcessId:process.pid}})).endpoint
+  : 'unix:'+join(f.root,'ipc-fixture','.runtime','host.sock'));
+ t.after(()=>real.close());
+ let pid:number|undefined,calls=0;
+ t.after(()=>{if(pid&&!ready){try{process.kill(pid);}catch{}}});
+ const observed=async()=>{
+  const deadline=Date.now()+10000;
+  while(Date.now()<deadline){
+   try{
+    if(ready){const current=await control(real);if(current.running){pid=(current as {pid:number}).pid;const used=json(await f.run(['increment','--json']));assert.equal(used.counter,1);return;}}
+    else{const marker=JSON.parse(await readFile(join(f.root,'waiting-child.json'),'utf8'));pid=marker.pid;return;}
+   }catch{}
+   await delay(25);
+  }
+  throw Error('Owned child did not reach the requested barrier');
+ };
+ const fake={Status(_r:unknown,_o:unknown,done:(e:unknown)=>void){
+  calls++;
+  if(calls===1){done({code:status.UNAVAILABLE,details:'connect ENOENT synthetic'});return;}
+  void observed().then(()=>done({code:status.UNAVAILABLE,details:'connect EPERM synthetic'}),done);
+ }} as unknown as CliHostClient;
+ const sink=()=>new Writable({write(_c,_e,done){done();}});
+ await assert.rejects(runRemote({entryPoint:bin,build:'synthetic',environmentKeys:[],nodeArguments:['--import',pathToFileURL(preload).href]},fake,['info'],{input:Readable.from([]),output:sink(),error:sink()}),/IPC access was denied/);
+ assert.equal(calls,2);assert.ok(pid);
+ if(ready){
+  assert.doesNotThrow(()=>process.kill(pid!,0));
+  assert.equal(json(await f.run(['info','--json'])).pid,pid);
+ }else{
+  assert.throws(()=>process.kill(pid!,0));
+  await writeFile(join(f.root,'release-child'),'resume');
+  assert.deepEqual(json(await f.run(['ipc-server','status','--json'])),{running:false});
+  assert.notEqual(json(await f.run(['info','--json'])).pid,pid);
+ }
 });

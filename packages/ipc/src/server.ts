@@ -21,6 +21,8 @@ interface ServerOptions {
   appArguments: IAppArguments;
   environmentKeys: readonly string[];
   idleTimeoutMs?: number;
+  startupCancelled?: () => boolean;
+  onReady?: () => void;
   /** Optional caller-selected concurrent Run limit; unlimited when omitted. */
   maxInvocations?: number;
 }
@@ -247,8 +249,10 @@ export async function serveHost(
         { mode: 0o600 },
       ),
     );
+    if (options.startupCancelled?.()) throw new Error("CLI host startup was cancelled.");
     ready = true;
     process.on("SIGINT", signal).on("SIGTERM", signal);
+    options.onReady?.();
     armIdle();
     await done;
   } finally {

@@ -14,7 +14,7 @@ loops, error printers or redaction glue into new integrations.
 
 Profile URL normalization follows the [shared preservation contract](DESIGN.md#profiles-own-non-secret-configuration).
 Use `parseServerUrl(value, message).href` for normalized HTTP(S) configuration; it retains explicit
-default ports. Keep service scheme/path restrictions local. Never save a redirect destination or
+default ports. Require primary evidence for additional service scheme/path restrictions. Never save a redirect destination or
 a native URL serialization that loses the user's explicit port.
 
 ## Start with one definition and a standalone entry point
@@ -194,7 +194,7 @@ first slice is to reveal the real contract so deterministic mocks can take over 
 
 Once the authentication skeleton works, an integration owns a separate development proof that
 invokes its compiled executable with a required profile name. The profile comes from the current
-user's normal AppData and the credential comes from the OS keyring; do not add test-only URL/token
+user's normal AppData and the credential comes from the platform secret store; do not add test-only URL/token
 inputs. This catches packaging, profile, authentication, command-tree, and rendering failures that a
 direct client smoke cannot see.
 
@@ -242,8 +242,8 @@ acme-cli resources list --profile production --json
 A field may supply an idempotent `normalize(value)` callback for new input. Core uses it for both
 prompted values and profile create/set/configure flags, including execute/RPC. Use static errors;
 do not interpolate the rejected value. `parseServerUrl(value, safeMessage)` handles basic base-URL
-parsing and trailing slashes; keep service-specific schemes and forbidden API/page paths in the
-integration. The field description supplies prompt/help examples. For bearer authentication,
+parsing and trailing slashes. Preserve deployment contexts instead of guessing forbidden API/page
+segments. Any additional scheme/path rule needs primary contract evidence. The field description supplies prompt/help examples. For bearer authentication,
 `tokenAuth({ tokenSource: "Account settings > Access Tokens", ... })` adds the token source to
 Core's shared raw-token guidance and normalization. Arbitrary secrets do not use this helper.
 
@@ -287,7 +287,7 @@ inside one JSON-RPC process.
 
 Do not derive application state from `process.cwd()`, the source checkout, the executable directory,
 or a custom `--data-folder`. CliFactory CLIs are bound to the current OS user and are not portable.
-For standalone credentials use `context.secrets` so the OS credential store and profile
+For standalone credentials use `context.secrets` so the platform secret store and profile
 namespace remain authoritative. Explicit browser auth snapshots and user-requested sensitive
 videos are the narrow protected-AppData exceptions described in [DESIGN](DESIGN.md). Sanitized fixtures intended for Git remain in `tests/fixtures`;
 runtime captures and unsanitized service data do not.
@@ -355,6 +355,14 @@ acme-cli permissions grant DeployProduction --profile production
 ```
 
 Permission state is profile-specific. Granting `Update` in UAT does not grant it in Production.
+
+When the input can require another category, retain the static permission and add
+`additionalPermissions(input, {cwd, signal})`. Inspect the complete input locally and return the
+extra declared category names, or `[]`. Core admits their conjunction before onboarding/authentication.
+Keep the prepared snapshot in a command-local `WeakMap<CommandInput, PreparedInput>` and consume
+that same snapshot in the handler. Core passes the same input object to both and prepares once even
+when onboarding rechecks grants. Do not reread the input after admission. The resolver must not
+contact services; it receives only the working directory and cancellation signal.
 The gate is a deliberate fail-safe against accidental AI actions; it is not an authentication or
 authorization system. The remote service must still enforce the user's real rights. An AI that is
 explicitly instructed to grant a category can do so, so operator policy and review still matter.
@@ -539,7 +547,7 @@ tree against MSW. Assert:
 - absence of credentials and private data from errors and fixtures.
 
 The default suite never calls the real service. Local proof is opt-in, uses the packaged CLI and
-an explicit real current-user profile/keyring, and executes only a fixed bounded ReadOnly inventory.
+an explicit real current-user profile/secret store, and executes only a fixed bounded ReadOnly inventory.
 It refuses CI. New sensitive/expensive reads do not automatically join that inventory.
 
 ### A shared offline fixture
@@ -585,6 +593,25 @@ service validation local. The reader checks Content-Length syntax/identity compl
 chunks, supports cancellation and releases its lock. Compressed wire length is not decoded size.
 Decoding remains explicit: Buffer retains an initial BOM; TextDecoder removes it. No retry occurs.
 
+### API-faithful validation
+
+The service's authoritative contract governs accepted values. Do not close a string to documentation
+examples, invent ID grammars, trim service text, impose undocumented numeric/length bounds, reject
+additional native JSON fields, or insert service defaults without a contract basis. A missing Swagger
+enum alone does not overrule an explicit enum elsewhere in the primary reference. State reference
+versions and gaps; when a service-value rule is uncertain, preserve the value and let the API validate it.
+
+Validate JSON value types and representable numbers, encode identifiers and locator dimensions without
+changing their values, and retain explicit permissions, profile isolation, secret protection and safe
+errors. Give each separate transport/security check its concrete reason: for example, dot segments
+would change URL routing, bearer text cannot enter a plain argv property, and a download destination
+must stay under the active profile without overwriting another file. Local controls such as polling
+duration and caller byte budgets are CLI behavior, not claims about service limits. Compact CLI forms
+may translate flags or selectors into service DTOs; document that translation and preserve additional
+native fields rather than silently discarding them. Output projections may omit private fields without
+claiming that those fields are unsupported by the service. Exercise newly admitted values at the
+offline HTTP boundary, including unchanged requests and safe remote rejection without retries.
+
 ## Native wire formats and private results
 
 CLI output format is independent of REST media. A text/XML/multipart/binary service contract does
@@ -628,7 +655,7 @@ device and unsafe cross-platform basename forms. Staging is in a private fresh d
 active profile's `temp`; the destination is under `downloads`. Never call `privateDirectory` on
 user-selected or AppData ancestor directories. TeamCity and YouTrack are the two consumers;
 TeamCity retains PNG/ZIP/SVG validation and hashes in its DTO, while YouTrack retains signed-URL,
-no-bearer download and sanitized metadata rules. Credentials remain in the keyring, never files.
+no-bearer download and sanitized metadata rules. Credentials remain in Core's platform secret store; Windows stores only DPAPI ciphertext files.
 Measure helper/security costs at every authoring checkpoint.
 
 For text your command generates (an export, a result manifest), call
@@ -649,7 +676,6 @@ it uses the same staging and no-overwrite publication. If the CLI saves files, a
 - MSW covers the actual network boundary; fixtures are minimal and sanitized.
 - Public docs name shipped behavior honestly; planned behavior is marked planned.
 - Focused tests and `npm test` are green.
-
 
 ## Optional IPC
 
@@ -738,3 +764,18 @@ The two RANDOM.ORG definitions ([HTTP](../integrations/random-rest/src/cli.ts),
 [PW](../integrations/random-pw/src/cli.ts)) are working examples with the same two service commands.
 They create cheap clients per invocation; only browser resources and service-specific quota/backoff
 persist. Do not extract a generic client cache from this service-specific state.
+
+### Hosted external package
+
+Use the same `runHosted` entry point. In the consumer build, after compiling, call:
+
+```js
+import { writePackageBuildManifest } from "@eyeauras/cli-factory-ipc/build";
+await writePackageBuildManifest(packageRoot);
+```
+
+Include `.cli-package-build.json` and explicit runtime/resource paths in package.json `files`.
+Prepare before packing; no consumer copy of the Factory build helper is needed.
+See [package-scoped build compatibility](runtime-modules.md#build-compatibility) for the supported
+inputs and dependency immutability boundary. Until an IPC registry release, install its prepared
+tarball alongside the external CLI tarball; this preparation does not publish either package.

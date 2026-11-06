@@ -265,7 +265,7 @@ test("backend credentials are redacted while causes survive configure and login 
       }
       if (mode === "execute") {
         await assert.rejects(h.cli.execute(command), (error: Error) => {
-          assert.match(error.message, /Could not (save the profile or its credential|write the OS credential store)/);
+          assert.match(error.message, /Could not (save the profile or its credential|save the token in secure storage)/);
           assert.doesNotMatch(inspect(error) + JSON.stringify(error) + error.stack, /synthetic-/);
           assert.ok(error.cause instanceof Error);
           return true;
@@ -274,13 +274,13 @@ test("backend credentials are redacted while causes survive configure and login 
         assert.equal(await h.cli.run(["--json-rpc"]), 0);
         const replies = h.stdout().trim().split("\n").map((line) => JSON.parse(line));
         assert.equal(replies.length, 2);
-        assert.match(replies[0].error.message, /Could not (save the profile or its credential|write the OS credential store)/);
+        assert.match(replies[0].error.message, /Could not (save the profile or its credential|save the token in secure storage)/);
         assert.equal(replies[1].result.values.url, oldUrl);
         assert.equal(h.stderr(), "");
       } else {
         assert.equal(await h.cli.run([...command, "--json"]), 1);
         assert.equal(h.stdout(), "");
-        assert.match(h.stderr(), /Could not (save the profile or its credential|write the OS credential store)/);
+        assert.match(h.stderr(), /Could not (save the profile or its credential|save the token in secure storage)/);
       }
       assert.doesNotMatch(h.stdout() + h.stderr(), /synthetic-/);
       assert.equal(h.validated.length, 1);

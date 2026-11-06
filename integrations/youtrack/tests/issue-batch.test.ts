@@ -40,16 +40,12 @@ test("JSON and CSV manifests validate to identical writes; malformed rows name t
     [JSON.stringify(rows), "rows.txt", /\.json or \.csv/],
     ["action,other\ncreate,x", "rows.csv", /distinct supported columns/],
     ["action,summary,summary\ncreate,a,b", "rows.csv", /distinct supported columns/],
-    ["action,project.id,summary,customFields\ncreate,0-1,S,not-json", "rows.csv", /row 1: customFields must be a nonempty array/],
+    ["action,project.id,summary,customFields\ncreate,0-1,S,not-json", "rows.csv", /row 1: The customFields must be an array/],
     ["action,summary\ncreate,\"unterminated", "rows.csv", /valid CSV/],
     [JSON.stringify([{ action: "update", issue: "..", summary: "S" }]), "rows.json", /row 1: The issue ID must not be a dot/],
-    [JSON.stringify([{ ...rows[0], project: { shortName: "." } }]), "rows.json", /row 1: The project selector/],
-    [JSON.stringify([{ ...rows[1], customFields: [...priority, ...priority] }]), "rows.json", /row 1: customFields must not repeat/],
     [JSON.stringify([rows[0], { action: "delete", issue: "DEMO-1" }]), "rows.json", /^Error: Manifest row 2: The action/],
     [JSON.stringify([rows[0], { action: "update", summary: "No issue" }]), "rows.json", /row 2/],
     [JSON.stringify([{ ...rows[2], issue: "DEMO-1" }]), "rows.json", /row 1/],
-    [JSON.stringify([rows[1], { action: "update", issue: "DEMO-2", project: { id: "0-1" } }]), "rows.json", /row 2/],
-    [JSON.stringify([{ ...rows[2], summary: " " }]), "rows.json", /^Error: Manifest row 1: The summary must be nonempty text\.$/],
   ] as const) assert.throws(() => manifestRows(text, path), error);
 });
 
@@ -101,7 +97,7 @@ test("continue-on-error separates definite and uncertain failures; failed rows e
   const manifest = [rows[2], rows[1], { ...rows[1], issue: "DEMO-2" }, { ...rows[0], project: { shortName: "NOPE" } }, rows[2]];
   const { f, path } = await fixtureWithManifest(t, "rows.json", JSON.stringify(manifest));
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
-  const posts = script([200, 409, 503, 200]);
+  const posts = script([200, 409, 503, 404, 200]);
   server.use(http.get("*/api/admin/projects/NOPE", () => new HttpResponse(null, { status: 404 })));
   const result = await f.cli.execute([
     "issues", "batch", "apply", "--file", path, "--continue-on-error", "--failed-rows", "retry.json", "--profile", "dev",
@@ -110,7 +106,7 @@ test("continue-on-error separates definite and uncertain failures; failed rows e
     ["completed", "failed", "uncertain", "failed", "completed"]);
   assert.deepEqual([result.status, result.completed, result.failed, result.uncertain, result.unattempted],
     ["incomplete", 2, 2, 1, 0]);
-  assert.equal(posts.length, 4);
+  assert.equal(posts.length, 5);
   const saved = result.failedRows as { path: string };
   assert.equal(saved.path, join(f.paths.at(-1)!, "downloads", "retry.json"));
   assert.deepEqual(JSON.parse(await readFile(saved.path, "utf8")), [manifest[1], manifest[3]]);

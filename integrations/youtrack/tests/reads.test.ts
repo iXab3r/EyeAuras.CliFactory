@@ -103,14 +103,14 @@ test("signed/credential URLs and known tokens are scrubbed recursively from expl
 test("local invalid paging, fields, query and traversal IDs fail before fetch", async () => {
   const fetch: typeof globalThis.fetch = async () => { assert.fail("Invalid input reached fetch"); };
   const local = { ...connection, fetch };
-  for (const top of [0, Number.MAX_SAFE_INTEGER + 1, 1.5, NaN])
+  for (const top of [-1, Number.MAX_SAFE_INTEGER + 1, 1.5, NaN])
     await assert.rejects(listIssues(local, { top }), /top must/);
   for (const skip of [-1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1])
     await assert.rejects(listProjects(local, { skip }), /skip must/);
-  for (const fields of ["", " ", "id\nlogin"])
+  for (const fields of [null, 1] as unknown as string[])
     await assert.rejects(readUser(local, { fields }), /fields must/);
-  await assert.rejects(listIssues(local, { query: " " }), /query must/);
-  for (const id of ["", " ", ".", "..", "bad\u0000id"]) {
+  await assert.rejects(listIssues(local, { query: 1 as unknown as string }), /query must/);
+  for (const id of ["", ".", "..", "\ud800"]) {
     await assert.rejects(getIssue(local, id), /issue ID/);
     await assert.rejects(listComments(local, id), /issue ID/);
   }

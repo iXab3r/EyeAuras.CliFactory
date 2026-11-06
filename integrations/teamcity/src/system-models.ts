@@ -2,14 +2,14 @@ import {
   array,
   object,
   inputRecord,
+  apiInputRecord,
   inputText,
   inputIds,
   safeScalars,
-  teamCityTimestamp,
 } from "./triage-models.js";
 import { allowedField } from "./advanced-authoring-models.js";
 import { pathSegment, propertiesBody } from "./authoring-models.js";
-import { idPath, nestedId, joinLocator, positiveId } from "./locator.js";
+import { idPath, nestedId, joinLocator, integerId } from "./locator.js";
 import { open, lstat } from "node:fs/promises";
 import { constants } from "node:fs";
 import type { ScopedSecrets } from "@eyeauras/cli-factory";
@@ -26,7 +26,7 @@ export const licenseFields =
 export const licenseSummaryFields =
   "serverLicenseType,maxAgents,unlimitedAgents,maxBuildTypes,unlimitedBuildTypes";
 export const muteDeleteFields =
-  "id,scope(project(id),buildTypes(buildType(id))),target(tests(test(id)),problems(problem(id))),resolution(type,time)";
+  "id,scope(project(id),buildTypes(buildType(id))),target(anyProblem,tests(test(id)),problems(problem(id))),resolution(type,time)";
 export function collection(value: unknown, key: string, project: (v: unknown) => unknown) {
   const raw = object(value),
     items = array(raw[key]);
@@ -78,28 +78,24 @@ export function stateEntry(state: string, date: string, build?: string) {
   allowedField(state, ["IN_PROGRESS", "SUCCESSFUL", "FAILED", "CANCELLED", "UNKNOWN"]);
   return {
     state,
-    deploymentDate: teamCityTimestamp(date),
+    deploymentDate: inputText(date, "Deployment date"),
     ...(build === undefined
       ? {}
-      : { build: { id: Number(positiveId(Number(build), "Build ID")) } }),
+      : { build: { id: Number(integerId(build, "Build ID")) } }),
   };
 }
 export function healthLocator(
   options: { project?: string; global?: boolean; category?: string },
-  detail = false,
 ) {
-  if ((options.project !== undefined) === (options.global === true))
-    throw new Error("Choose exactly one project or global health scope.");
-  if (detail && !options.category)
-    throw new Error("Health detail requires a category; server rejects non-unique matches.");
+  if (options.global !== undefined) boolean(options.global);
   return joinLocator(
-    options.project ? nestedId("project", options.project, "Project ID") : "global:true",
-    options.category ? nestedId("healthCategory", options.category, "Category ID") : undefined,
+    options.project === undefined ? undefined : nestedId("project", options.project, "Project ID"),
+    options.global === undefined ? undefined : `global:${options.global}`,
+    options.category === undefined ? undefined : nestedId("healthCategory", options.category, "Category ID"),
   );
 }
 export function userId(id: string) {
-  if (!/^[1-9]\d*$/.test(id)) throw new Error("User ID must be a positive decimal string.");
-  return id;
+  return inputText(id, "User ID");
 }
 export function safeRole(value: unknown) {
   const v = object(value);
@@ -138,42 +134,40 @@ export const globalKeys = [
   "defaultVCSCheckInterval",
 ];
 export function globalPatch(value: unknown) {
-  const v = inputRecord(value, globalKeys),
-    result: Record<string, number | boolean> = {};
-  if (!Object.keys(v).length) throw new Error("At least one setting is required.");
-  for (const [k, x] of Object.entries(v))
+  const v = apiInputRecord(value, globalKeys),
+    result: Record<string, unknown> = { ...v };
+  for (const [k, x] of Object.entries(v)) {
+    if (!globalKeys.includes(k)) continue;
     result[k] =
       k === "enforceDefaultVCSCheckInterval"
         ? boolean(x)
         : integer(
             x,
-            k === "defaultExecutionTimeout" ? -2147483648 : k.startsWith("maxArtifact") ? -1 : 0,
+            k.startsWith("maxArtifact") ? Number.MIN_SAFE_INTEGER : -2147483648,
             k.startsWith("maxArtifact") ? Number.MAX_SAFE_INTEGER : 2147483647,
           );
+  }
   return result;
 }
 export const safeGlobal = (v: unknown) =>
   safeScalars(v, [...globalKeys, "useEncryption", "artifactsDomainIsolation"]);
 export function cleanupPatch(value: unknown) {
-  const v = inputRecord(value, ["enabled", "maxCleanupDuration", "daily", "cron"]),
-    result: Record<string, unknown> = {};
-  if (!Object.keys(v).length || (v.daily !== undefined && v.cron !== undefined))
-    throw new Error("Choose settings and at most one cleanup schedule.");
+  const v = apiInputRecord(value, ["enabled", "maxCleanupDuration", "daily", "cron"]),
+    result: Record<string, unknown> = { ...v };
   if (v.enabled !== undefined) result.enabled = boolean(v.enabled);
-  if (v.maxCleanupDuration !== undefined) result.maxCleanupDuration = integer(v.maxCleanupDuration);
+  if (v.maxCleanupDuration !== undefined) result.maxCleanupDuration = integer(v.maxCleanupDuration, -2147483648);
   if (v.daily !== undefined) {
-    const d = inputRecord(v.daily, ["hour", "minute"]);
-    result.daily = { hour: integer(d.hour, 0, 23), minute: integer(d.minute, 0, 59) };
+    const d = apiInputRecord(v.daily, ["hour", "minute"]);
+    result.daily = { ...d,
+      ...(d.hour === undefined ? {} : { hour: integer(d.hour, 0, 23) }),
+      ...(d.minute === undefined ? {} : { minute: integer(d.minute, 0, 59) }),
+    };
   }
   if (v.cron !== undefined) {
-    const c = inputRecord(v.cron, ["minute", "hour", "day", "month", "dayWeek"]);
-    result.cron = Object.fromEntries(
-      ["minute", "hour", "day", "month", "dayWeek"].map((k) => {
-        const x = inputText(c[k], "Cron field");
-        if (!/^[\d*,/\-?LW#]+$/.test(x)) throw new Error("Invalid cron field.");
-        return [k, x];
-      }),
-    );
+    const c = apiInputRecord(v.cron, ["minute", "hour", "day", "month", "dayWeek"]);
+    result.cron = { ...c };
+    for (const k of ["minute", "hour", "day", "month", "dayWeek"])
+      if (c[k] !== undefined) inputText(c[k], "Cron field");
   }
   return result;
 }
@@ -203,28 +197,26 @@ export function safeAuth(value: unknown) {
   };
 }
 export async function authBody(value: unknown, secrets: ScopedSecrets) {
-  const v = inputRecord(value, [...authBooleans, "buildAuthenticationMode", "modules"]),
-    result: Record<string, unknown> = {};
+  const v = apiInputRecord(value, [...authBooleans, "buildAuthenticationMode", "modules"]),
+    result: Record<string, unknown> = { ...v };
   for (const k of authBooleans) if (v[k] !== undefined) result[k] = boolean(v[k]);
   if (v.buildAuthenticationMode !== undefined)
     result.buildAuthenticationMode = allowedField(inputText(v.buildAuthenticationMode, "Mode"), [
       "strict",
       "lax",
     ]);
-  const modules = array(v.modules);
-  if (!modules.length)
-    throw new Error("Supply a complete nonempty authentication module list.");
-  const seen = new Set<string>(),
-    prepared = [];
+  if (v.modules === undefined) return result;
+  const moduleEnvelope = Array.isArray(v.modules) ? {} : apiInputRecord(v.modules, ["module"]);
+  const modules = Array.isArray(v.modules) ? v.modules : array(moduleEnvelope.module);
+  const prepared = [];
   for (const item of modules) {
-    const m = inputRecord(item, ["name", "properties", "secrets"]),
+    const m = apiInputRecord(item, ["name", "properties", "secrets"]),
       name = inputText(m.name, "Module name");
-    if (seen.has(name)) throw new Error("Duplicate authentication module.");
-    seen.add(name);
     const properties = propertiesBody(
-      array(m.properties).map((x) => {
-        const p = inputRecord(x, ["name", "value"]);
+      (Array.isArray(m.properties) ? m.properties : array(m.properties === undefined ? undefined : object(m.properties).property)).map((x) => {
+        const p = apiInputRecord(x, ["name", "value"]);
         return {
+          ...p,
           name: inputText(p.name, "Property name"),
           value: inputText(p.value, "Property value"),
         };
@@ -247,9 +239,11 @@ export async function authBody(value: unknown, secrets: ScopedSecrets) {
         value: await requireInputSecret(secrets, inputText(s.alias, "Alias")),
       });
     }
-    prepared.push({ name, properties: { property: properties } });
+    const { secrets: aliases, ...native } = m;
+    prepared.push({ ...native, name,
+      ...(m.properties === undefined && m.secrets === undefined ? {} : { properties: { property: properties } }) });
   }
-  return { ...result, modules: { module: prepared } };
+  return { ...result, modules: { ...moduleEnvelope, module: prepared } };
 }
 export function safeMetric(value: unknown) {
   const v = object(value);
@@ -264,11 +258,6 @@ export function safeMetric(value: unknown) {
       return safeScalars(m, ["name", "value"]);
     }),
   };
-}
-export function safeText(value: string) {
-  if (/[\u0000-\u0008\u000b-\u001f]/.test(value))
-    throw new Error("Invalid text response; payload omitted.");
-  return value;
 }
 // Deliberately parse the attribute-only plugin projection, not a general XML document.
 export function pluginXml(value: string) {
@@ -309,19 +298,18 @@ export function pluginXml(value: string) {
 export async function avatarInput(path: string) {
   const stat = await lstat(path);
   if (!stat.isFile() || stat.isSymbolicLink())
-    throw new Error("Avatar must be a regular PNG/JPEG file.");
+    throw new Error("Avatar input must be a regular file.");
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     if (!(await file.stat()).isFile()) throw new Error("Expected regular avatar file.");
     const data = await file.readFile();
     const png = data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
     const jpeg = data[0] === 255 && data[1] === 216 && data[2] === 255;
-    if (!png && !jpeg) throw new Error("Avatar is not PNG/JPEG.");
     const form = new FormData();
     form.set(
       "avatar",
-      new Blob([data], { type: png ? "image/png" : "image/jpeg" }),
-      png ? "avatar.png" : "avatar.jpg",
+      new Blob([data], { type: png ? "image/png" : jpeg ? "image/jpeg" : "application/octet-stream" }),
+      png ? "avatar.png" : jpeg ? "avatar.jpg" : "avatar.bin",
     );
     return form;
   } finally {
@@ -331,35 +319,8 @@ export async function avatarInput(path: string) {
 export function fullMute(value: unknown, id: number) {
   const v = object(value);
   if (v.id !== id) throw new Error("Mute preflight identity differs from selected ID.");
-  const s = object(v.scope),
-    t = object(v.target),
-    r = object(v.resolution);
-  if (
-    (s.project !== undefined) === (s.buildTypes !== undefined) ||
-    (t.tests !== undefined) === (t.problems !== undefined) ||
-    t.anyProblem === true
-  )
-    throw new Error("Unsupported mute scope/target.");
-  const list = (v: unknown, key: string) =>
-    inputIds(array(object(v)[key]).map((x) => inputText(object(x).id, "Target ID"))).map((id) => ({
-      id,
-    }));
-  const scope =
-    s.project !== undefined
-      ? { project: { id: inputText(object(s.project).id, "Project ID") } }
-      : { buildTypes: { buildType: list(s.buildTypes, "buildType") } };
-  const target =
-    t.tests !== undefined
-      ? { tests: { test: list(t.tests, "test") } }
-      : { problems: { problem: list(t.problems, "problem") } };
-  const type = allowedField(inputText(r.type, "Resolution"), ["manually", "whenFixed", "atTime"]);
-  return {
-    id,
-    scope,
-    target,
-    resolution: {
-      type,
-      ...(type === "atTime" ? { time: teamCityTimestamp(inputText(r.time, "Time")) } : {}),
-    },
-  };
+  object(v.scope);
+  object(v.target);
+  object(v.resolution);
+  return v;
 }

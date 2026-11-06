@@ -33,10 +33,10 @@ const assistOptions: readonly OptionDefinition[] = [
   ...queryOptions,
   {
     flags: "--caret <position>",
-    description: "Caret position within the query",
+    description: "Set the command caret position",
     parse: (value) => {
-      if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
-        throw new Error("--caret must be a nonnegative integer.");
+      if (!/^-?\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) < -2_147_483_648 || Number(value) > 2_147_483_647) {
+        throw new Error("The caret must be a signed 32-bit integer.");
       }
       return Number(value);
     },

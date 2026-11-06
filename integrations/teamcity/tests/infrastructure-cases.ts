@@ -34,11 +34,7 @@ const config = {
   synchronizationMode: "enabled",
   vcsRootId: "Git",
   format: "kotlin",
-  buildSettingsMode: "alwaysUseCurrent",
-  allowUIEditing: true,
-  showSettingsChanges: false,
   storeSecureValuesOutsideVcs: true,
-  portableDsl: true,
 };
 const imageArgs = ["--cloud-profile", "Cloud", "--image", "Image"];
 const instanceArgs = [...imageArgs, "--instance", "Instance"];

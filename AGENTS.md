@@ -36,13 +36,13 @@ The [role index](docs/roles/README.md) explains how domain and function roles co
    active profile. Tests must cover any change that could cross profiles.
 5. **AppData belongs to the current user and profile.** Derive profile-owned files from
    `AppArguments.AppDataDirectory`. Never add portable, executable-relative, or working-directory
-   storage. Declared browser auth state and explicitly requested sensitive videos are the file
-   exceptions; profile JSON stays non-secret.
+   storage. Windows DPAPI encrypted secrets, declared browser auth state and explicitly requested
+   sensitive videos are the file exceptions; profile JSON stays non-secret.
 6. **Permission-gated means explicit.** When an integration enables permission gates, every
    service leaf declares a category. Read operations use `ReadOnly`; side effects use `Update` or
    a documented custom category. Never weaken a category merely to make a command pass.
 7. **Mock the network boundary.** Default tests are offline and deterministic. Real-service proof
-   is an explicit local-only packaged-CLI run through a real profile/keyring, uses a fixed bounded
+   is an explicit local-only packaged-CLI run through a real profile/secret store, uses a fixed bounded
    `ReadOnly` inventory, and never runs in CI. Sanitize evidence before it becomes a fixture.
 8. **Keep service concepts in integrations.** Core must not know TeamCity terminology. Extract a
    shared mechanism only when another real integration proves it.
@@ -91,6 +91,14 @@ stay local and Git-ignored under `.workspace/workstreams/<id>/` of the verified 
 Do not commit/push notes or transfer them through Git. Small fixes and ordinary handoffs need no
 workstream; graduate only durable guidance to `docs/`.
 
+## Function role: Story Delivery Lead
+
+Use **Story Delivery Lead** when a product is planned as user stories over a generated API
+inventory and delivered in test-first milestones closed by review loops. Read
+[`docs/roles/story-delivery-lead.md`](docs/roles/story-delivery-lead.md) and
+[`docs/practices/story-driven-delivery.md`](docs/practices/story-driven-delivery.md). The practice
+is service-agnostic; consuming repositories add only their service specifics.
+
 ## Function role: GH issue dev
 
 **GitHub Issues is the primary tracker**: unspecified requests to file a bug/task go there,
@@ -101,11 +109,17 @@ A request to install these rules alone does not authorize remote issue writes. F
 [delivery lifecycle](docs/practices/github-issues.md) and honor explicit direct-to-main requests.
 New branches default to `bugfix/`; honor explicitly requested names or prefixes.
 
+For tasks that use YouTrack, follow the [shared tool workflow](docs/practices/youtrack-agent-workflow.md):
+our `youtrack-cli` is primary; the separate Python `yt.exe` remains an explicit fallback.
+The consuming repository owns tracker/project choice; this repository keeps GitHub Issues primary.
+
 ## Function role: Reviewer
 
 Use the read-only [Reviewer](docs/roles/reviewer.md) for independent review of a completed change.
-Supply exact base/head, acceptance criteria and verification evidence in a clean context. Review
-checks the owning domain's invariants; it does not authorize merge or replace required approvals.
+Supply exact base/head, acceptance criteria and verification evidence in a fresh context. Independent
+architects and planning auditors follow the same [neutral intake](docs/practices/independent-review.md)
+and gather their own evidence. Review checks the owning domain's invariants; it does not authorize
+merge or replace required approvals.
 
 ## Function role: CLI writer
 
@@ -118,10 +132,14 @@ at review. Core owns rendering; the role owns the words.
 
 ```text
 packages/core/           shared factory primitives
-integrations/teamcity/   first executable integration
+packages/ipc/            CLI worker transport and build/runtime discovery
+packages/playwright/     browser-backed integration infrastructure
+integrations/teamcity/   TeamCity CLI
+integrations/youtrack/   YouTrack CLI
+integrations/random-*/  REST/browser examples and their shared service contract
 docs/                    canonical design and practices
 scripts/                 .NET 10 bootstrap and repository tools
-build/                   C# (Cake Frosting) release driver used locally and by GitHub Actions
+build/                   C# (Cake Frosting) release driver used locally and by TeamCity
 .workspace/workstreams/  local Git-ignored coordination notes
 ```
 

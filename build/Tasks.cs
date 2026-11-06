@@ -11,7 +11,7 @@ public sealed class VerifyTask : AsyncFrostingTask<BuildContext>
     {
         // The documented bootstrap (submodules, then npm ci), so every CI platform exercises it.
         await context.Run("dotnet", "run", "--file", "scripts/bootstrap.cs");
-        await context.Exec("npm", context.GitHubActions
+        await context.Exec("npm", OperatingSystem.IsLinux() && System.Environment.GetEnvironmentVariable("CI") == "true"
             ? ["run", "browser:install", "--", "--with-deps"]
             : ["run", "browser:install"]);
         // Headless Linux CI has no display; the browser tests run under a virtual X server there.
@@ -45,8 +45,6 @@ public sealed class CheckReleaseTask : AsyncFrostingTask<BuildContext>
         Versions.Check(context.Root, context.RequireVersion());
         if (context.DryRun) return;
         await RequireReleasableSource(context);
-        if (context.GitHubActions && System.Version.Parse(await context.Read("npm", "--version")) < new System.Version(11, 5, 1))
-            throw new CakeException("Trusted publishing needs npm 11.5.1+; install the root packageManager version.");
     }
 
     /// <summary>Returns the clean origin/main tip; Publish repeats this so --exclusive cannot bypass it.</summary>

@@ -88,9 +88,9 @@ test("attachment read validation rejects invalid IDs/pages and malformed shapes"
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));
   await assert.rejects(getIssueAttachment(connection, "..", "fixture-attachment"), /dot path/);
   await assert.rejects(getIssueAttachment(connection, "fixture-issue", "."), /dot path/);
-  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { top: 0 }), /top/);
+  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { top: -1 }), /top/);
   await assert.rejects(listIssueAttachments(connection, "fixture-issue", { skip: -1 }), /skip/);
-  await assert.rejects(getIssueAttachment(connection, "fixture-issue", "fixture-attachment", { fields: "" }), /fields/);
+  await assert.rejects(getIssueAttachment(connection, "fixture-issue", "fixture-attachment", { fields: 1 as unknown as string }), /fields/);
   assert.equal(calls, 0);
   await assert.rejects(listIssueAttachments(connection, "fixture-issue"), /Invalid collection/);
   server.use(http.get("*", () => HttpResponse.json([{}, {}])));
@@ -173,7 +173,7 @@ test("invalid local files reject before fetch without exposing filesystem diagno
     });
   }
   await assert.rejects(uploadIssueAttachment(connection, "..", f.file), /dot path/);
-  await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", " "), /file path/);
+  await assert.rejects(uploadIssueAttachment(connection, "fixture-issue", ""), /file path/);
   assert.equal(calls, 0);
 });
 
@@ -226,8 +226,8 @@ test("upload missing/invalid file syntax rejects before fresh-profile authentica
   let keyringReads = 0;
   t.mock.method(f.secrets, "get", async () => { keyringReads++; throw new Error("unexpected keyring"); });
   await assert.rejects(f.cli.execute(["issues", "attachments", "upload", "fixture-issue"]), /--file/);
-  await assert.rejects(f.cli.execute(["issues", "attachments", "upload", "fixture-issue", "--file", " "]), /file path/);
-  await assert.rejects(f.cli.execute(["issues", "attachments", "upload", "fixture-issue", "--file", "fixture\nfile"]), /file path/);
+  await assert.rejects(f.cli.execute(["issues", "attachments", "upload", "fixture-issue", "--file", ""]), /file path/);
+  await assert.rejects(f.cli.execute(["issues", "attachments", "upload", "fixture-issue", "--file", "fixture\0file"]), /file path/);
   assert.equal(keyringReads, 0);
 });
 

@@ -54,9 +54,9 @@ export function createTriageCommands(
     start: Number(options.start),
   });
   const ids = (options: Record<string, unknown>) => ((options.build ?? []) as string[]).map(Number);
-  const batchIds = repeatOption("--build <id>", "Repeat unique explicit build IDs", true);
+  const batchIds = repeatOption("--build <id>", "Repeat build IDs", true);
   const comment = option("--comment <text>", "Non-secret comment", true);
-  const message = option("--text <text>", "Non-secret plain text; no service messages", true);
+  const message = option("--text <text>", "Supply build log text", true);
   const item = jsonOption("--item <json>", "Strict typed input; see integration guide");
   const items = jsonOption("--item <json>", "Repeat strict typed items", true);
   const target = jsonOption("--target <json>", "One typed job/test/problem target");

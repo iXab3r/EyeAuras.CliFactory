@@ -1,7 +1,7 @@
 import { locatorValue, idPath, requiredText } from "./locator.js";
 import { plainProperty, propertiesBody, type PlainProperty } from "./authoring-models.js";
-import { allowedField, booleanText } from "./advanced-authoring-models.js";
-import { array, inputRecord, inputText, object, safeScalars } from "./triage-models.js";
+import { allowedField } from "./advanced-authoring-models.js";
+import { apiInputRecord, array, inputText, object, safeScalars } from "./triage-models.js";
 
 export type CloudKind = "profiles" | "images" | "instances";
 export interface CloudImageId {
@@ -90,20 +90,6 @@ export function anonymousGitRoot(
   url: string,
   branch: string,
 ) {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error("Expected a credential-free HTTPS Git URL.");
-  }
-  if (
-    parsed.protocol !== "https:" ||
-    parsed.username ||
-    parsed.password ||
-    parsed.search ||
-    parsed.hash
-  )
-    throw new Error("Git URL must be HTTPS with no userinfo, query or fragment.");
   return {
     id: inputText(id, "Root ID"),
     name: inputText(name, "Name"),
@@ -113,7 +99,7 @@ export function anonymousGitRoot(
       property: [
         { name: "authMethod", value: "ANONYMOUS" },
         plainProperty("branch", requiredText(branch, "Branch")),
-        { name: "url", value: parsed.toString() },
+        plainProperty("url", url),
       ],
     },
   };
@@ -127,46 +113,36 @@ export const propertyNames = (value: unknown) =>
   array(object(value).property).map((item) => safeScalars(item, ["name"]).name);
 export const repositoryEntries = (value: unknown) =>
   array(object(value).entry).map((item) => safeScalars(item, ["name", "value"]));
+function versionedFormat(value: unknown): string {
+  if (typeof value !== "string") throw new Error("Versioned settings format must be a string.");
+  return value;
+}
 export function versionedField(field: string, value?: string) {
-  allowedField(field, [
-    "synchronizationMode",
-    "vcsRootId",
-    "showSettingsChanges",
-    "buildSettingsMode",
-    "format",
-    "allowUIEditing",
-    "storeSecureValuesOutsideVcs",
-    "portableDsl",
-  ]);
+  plainProperty(field, "");
   if (value === undefined) return field;
   if (field === "synchronizationMode")
     return allowedField(value, ["useParentProjectSettings", "disabled", "enabled"]);
   if (field === "buildSettingsMode")
     return allowedField(value, ["alwaysUseCurrent", "useCurrentByDefault", "useFromVCS"]);
-  if (field === "format") return allowedField(value, ["xml", "kotlin"]);
+  if (field === "format") return versionedFormat(value);
   if (field === "vcsRootId") return inputText(value, "Root ID");
-  const result = booleanText(value);
+  const result = inputText(value, "Configuration value");
   if (field === "storeSecureValuesOutsideVcs" && result !== "true")
     throw new Error("Secrets must remain outside VCS.");
   return result;
 }
 export function versionedConfigBody(value: unknown) {
-  const input = inputRecord(value, [...versionedConfigKeys, "importDecision"]);
-  const mode = versionedField(
-    "synchronizationMode",
-    inputText(input.synchronizationMode, "Synchronization mode"),
-  );
+  const input = apiInputRecord(value, [...versionedConfigKeys, "importDecision"]);
   const result: Record<string, unknown> = {
-    synchronizationMode: mode,
-    buildSettingsMode: "alwaysUseCurrent",
-    allowUIEditing: true,
-    showSettingsChanges: false,
+    ...input,
     storeSecureValuesOutsideVcs: true,
-    portableDsl: true,
   };
-  if (mode === "enabled" && (input.vcsRootId === undefined || input.format === undefined))
-    throw new Error("Enabled synchronization needs vcsRootId and format.");
   for (const [key, field] of Object.entries(input)) {
+    if (![...versionedConfigKeys, "importDecision"].includes(key)) continue;
+    if (key === "format") {
+      result[key] = versionedFormat(field);
+      continue;
+    }
     if (key === "importDecision") {
       result[key] = allowedField(inputText(field, "Import decision"), [
         "overrideInVCS",
@@ -179,7 +155,7 @@ export function versionedConfigBody(value: unknown) {
       continue;
     }
     if (key === "dslExecutionMode") {
-      result[key] = allowedField(inputText(field, "DSL execution mode"), ["sandbox", "agent"]);
+      result[key] = inputText(field, "DSL execution mode");
       continue;
     }
     if (

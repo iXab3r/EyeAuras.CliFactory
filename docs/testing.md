@@ -17,12 +17,17 @@ only one workspace does not publish hosted readiness: use the root build before 
 AI CLI Factory uses mock-first development while keeping a narrow path to real-service evidence.
 The default test suite must be safe to run offline and must never require credentials.
 
+Windows Core storage tests use real DPAPI CurrentUser with synthetic values and injected temporary
+AppData roots. They cover encrypted persistence, application/profile/name binding, corruption,
+concurrent publication, cleanup and the default CLI store. They never access Credential Manager
+or real profiles. Other platforms skip the Windows-native tests and retain keyring-backed storage.
+
 ## The auth-first development loop
 
 1. Start with a walking skeleton: profile fields, authentication, and the cheapest identity/status
    command that proves the service is reachable.
 2. Build the real CLI and configure a named current-user profile through `profile configure`; let
-   the normal OS credential store own its secret.
+   the normal platform secret store own its secret.
 3. Run the integration's explicit local read-only proof through the packaged CLI process.
 4. Inspect only the fields needed for the next user-visible command. Obtain them from that proof or
    from official documentation.
@@ -70,7 +75,7 @@ profiles or credentials. See [npm release](npm-release.md) for the exact release
 
 Every real integration should grow one explicit proof command as soon as authentication works. The
 proof uses the compiled executable, a required profile name, the normal current-user profile store,
-and the normal OS keyring. It must not accept a test-only endpoint or credential: URL/token injection
+and the normal platform secret store. It must not accept a test-only endpoint or credential: URL/token injection
 can prove a client while bypassing the product path that users actually depend on.
 
 The proof is physically separate from unit/mocked test globs and from `npm test`. Its script refuses

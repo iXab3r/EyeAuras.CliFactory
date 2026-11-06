@@ -69,6 +69,8 @@ test("real Chromium uses the effective configured endpoint without saving redire
         const url = new URL(route.request().url());
         if (url.origin === new URL(configured).origin && url.pathname === "/quota/") {
           await route.fulfill({ status: 302, headers: { location: destination } });
+        } else if (url.href === destination) {
+          await route.continue();
         } else await route.abort();
       });
     } });

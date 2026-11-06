@@ -18,7 +18,7 @@ function mediaType(response: Response, format: DownloadFormat) {
     .split(";")[0]!
     .trim()
     .toLowerCase();
-  if (!/^[-a-z0-9+.]+\/[-a-z0-9+.]+$/.test(media)) {
+  if (!/^[!#$%&'*+.^_`|~a-z0-9-]+\/[!#$%&'*+.^_`|~a-z0-9-]+$/.test(media)) {
     throw new Error("Invalid download media type.");
   }
   const allowed =
@@ -80,13 +80,6 @@ export async function saveDownload(
   signal?: AbortSignal,
 ) {
   const name = options.output;
-  if (
-    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) ||
-    name.endsWith(".") ||
-    /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(name)
-  ) {
-    throw new Error("Output must be a safe new basename, not a path/device name.");
-  }
   const maxBytes = options.maxBytes === undefined
     ? undefined
     : integer(options.maxBytes, 1, Number.MAX_SAFE_INTEGER);

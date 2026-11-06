@@ -18,14 +18,14 @@ for (const endpoint of ["http://example.test", "https://example.test", "http://e
   const padded = ` \t${base}/// \r\n`;
   const environment = { YOUTRACK_TOKEN: " \tfictional.A+b/c== \r\n" };
 
-  test(endpoint + " normalization preserves context/port and rejects API/page URLs safely", () => {
+  test(endpoint + " normalization preserves context/port and rejects malformed transport URLs safely", () => {
     for (const value of [base, base + "/", padded]) {
       assert.equal(youTrackUrl(value), canonical);
       assert.equal(youTrackUrl(youTrackUrl(value)), canonical);
     }
-    for (const value of [" ", "not-a-url", "https://", "https://example.test?fictional-private", base + "/api/users/me", base + "/issues/DEMO-1", "https://fictional:private@example.test"]) {
+    for (const value of [" ", "not-a-url", "https://", "https://example.test?fictional-private", "https://fictional:private@example.test"]) {
       assert.throws(() => youTrackUrl(value), (error: Error) => {
-        assert.match(error.message, /YouTrack URL must be http\(s\):\/\/host/);
+        assert.match(error.message, /The URL must be http\(s\):\/\/host/);
         assert.doesNotMatch(error.message, /fictional-private|fictional:private/);
         return true;
       });
@@ -89,7 +89,7 @@ for (const endpoint of ["http://example.test", "https://example.test", "http://e
       assert.ok(human.stdout.includes(canonical));
       const before = await h.profileStore.list();
       for (const action of ["configure", "create", "set"]) {
-        await assert.rejects(reloaded.execute(["profile", action, action === "create" ? "new" : "default", "--url", base + "/api/users/me"]));
+        await assert.rejects(reloaded.execute(["profile", action, action === "create" ? "new" : "default", "--url", base + "?invalid"]));
       }
       const replies = await h.rpc(reloaded, [["profile", "configure", "--url", "  "], ["profile", "show"]], { environment });
       assert.ok((replies[0] as { error: unknown }).error);

@@ -139,7 +139,7 @@ export function createAdminCommands(
     ),
     command(
       "create <name>",
-      "Issue once and persist to this profile's OS keyring; non-atomic",
+      "Issue and save a token for this profile",
       async ({ args, options }, context) =>
         (await clientFor(context)).createCurrentUserToken(
           {
@@ -156,7 +156,7 @@ export function createAdminCommands(
         permission: "Credentials",
         options: [
           option("--alias <name>", "New issued-token credential alias, never the auth token", true),
-          option("--expires <timestamp>", "Explicit future TeamCity expiry"),
+          option("--expires <timestamp>", "Set the token expiration timestamp"),
           option("--no-expiration", "Explicitly request a permanent token"),
           option("--same-permissions", "Explicitly inherit all current-user permissions"),
           {
@@ -237,7 +237,7 @@ export function createAdminCommands(
       ),
       leaf(
         "logout <id>",
-        "Terminate remote sessions, not local keyring/token",
+        "Terminate remote sessions",
         "Admin",
         (c, { args }) => c.terminateAccountSessions(args.id),
       ),
@@ -267,14 +267,14 @@ export function createAdminCommands(
     properties("users"),
     roles("users"),
     tokens,
-    command("fields", "Non-secret identity fields only", [
-      leaf("get <id> <field>", "Read id/name/username", Permission.ReadOnly, (c, { args }) =>
+    command("fields", "Read and write user fields", [
+      leaf("get <id> <field>", "Read a user field", Permission.ReadOnly, (c, { args }) =>
         c.getAccountUserField(args.id, args.field),
       ),
-      leaf("set <id> <field> <value>", "Set name/username only", "Admin", (c, { args }) =>
+      leaf("set <id> <field> <value>", "Set a user field", "Admin", (c, { args }) =>
         c.setAccountUserField(args.id, args.field, args.value),
       ),
-      leaf("clear <id> <field>", "Clear name only", "Admin", (c, { args }) =>
+      leaf("clear <id> <field>", "Clear a user field", "Admin", (c, { args }) =>
         c.clearAccountUserField(args.id, args.field),
       ),
     ]),

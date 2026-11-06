@@ -214,8 +214,8 @@ export function createProfileCommands(
         ? profileStore.set(profileName, values)
         : profileStore.create(profileName, values);
     if (!definition.auth || !authenticationRequired(candidate)) {
+      await invalidateProfile(candidate);
       const profile = await saveProfile();
-      await invalidateProfile(profile);
       return {
         configured: true,
         profile: profile.name,
@@ -308,12 +308,11 @@ export function createProfileCommands(
       "set <name>",
       "Update an existing profile",
       async ({ args, options }) => {
-        const profile = await profileStore.set(
-          String(args.name),
-          profileValues(options),
-        );
-        await invalidateProfile(profile);
-        return profile;
+        const current = await profileStore.get(String(args.name));
+        const values = { ...current.values, ...profileValues(options) };
+        await profileDefinition.validate?.(values);
+        await invalidateProfile({ name: current.name, values });
+        return profileStore.set(current.name, values);
       },
       { options: fieldOptions },
     ),

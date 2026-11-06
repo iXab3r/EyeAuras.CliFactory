@@ -3,6 +3,7 @@ import type {
   CommandDefinition,
   CommandHandler,
   CommandHelp,
+  LocalCommandHandler,
   CommandSettings,
 } from "./types.js";
 import type { InferredCommandHandler } from "./command-input.js";
@@ -37,10 +38,21 @@ export function command(
       run: childrenOrRun as CommandHandler,
       ...(settings.options === undefined ? {} : { options: settings.options }),
       ...(settings.permission === undefined ? {} : { permission: settings.permission }),
+      ...(settings.additionalPermissions === undefined ? {} : { additionalPermissions: settings.additionalPermissions }),
       ...(settings.view === undefined ? {} : { view: settings.view }),
       ...help,
     };
   }
 
   return { name, description, children: childrenOrRun, ...help };
+}
+
+/** Declare a metadata leaf in the same tree as profile-scoped commands. */
+export function localCommand(
+  name: string,
+  description: string,
+  runLocal: LocalCommandHandler,
+  settings: Omit<CommandSettings, "permission" | "additionalPermissions"> = {},
+): CommandDefinition {
+  return { name, description, runLocal, ...settings };
 }

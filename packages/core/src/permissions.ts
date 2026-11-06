@@ -103,6 +103,8 @@ export function validateCommandPermissions(
   const visit = (command: CommandDefinition, parentPath: string): void => {
     const commandName = command.name.trim().split(/\s+/, 1)[0] ?? command.name;
     const path = parentPath ? `${parentPath} ${commandName}` : commandName;
+    if (command.additionalPermissions && !command.run)
+      throw new Error(`Command '${path}' requires a handler for additional permissions.`);
     if (command.run && !command.permission) {
       throw new Error(
         `Command '${path}' must declare a permission because the permission gate is enabled.`,
@@ -126,7 +128,7 @@ export function validatePermissionsDisabled(
   commands: readonly CommandDefinition[],
 ): void {
   const visit = (command: CommandDefinition): void => {
-    if (command.permission) {
+    if (command.permission || command.additionalPermissions) {
       throw new Error(
         `Command '${command.name}' declares permission '${command.permission}', but the CLI permission gate is not enabled.`,
       );

@@ -40,6 +40,68 @@ async function writable(testContext: test.TestContext) {
 }
 const versioned = ["projects", "versioned-settings"];
 
+for (const format of ["csharp", "future-format+v2", "xml", "kotlin", " future format ", ""]) {
+  test(`versioned settings forwards format ${JSON.stringify(format)} unchanged`, async (testContext) => {
+    const { cli } = await writable(testContext);
+    const path = base + "/projects/id:Example/versionedSettings/config";
+    const requests = trackRequests(testContext, 2, async (request) => {
+      assert.equal(request.method, "PUT");
+      if (new URL(request.url).pathname.endsWith("/parameters/format")) {
+        assert.equal(request.headers.get("content-type"), "text/plain");
+        assert.equal(await request.text(), format);
+        return HttpResponse.text(format);
+      }
+      assert.equal(new URL(request.url).pathname, new URL(path).pathname);
+      const body = await request.json() as Record<string, unknown>;
+      assert.deepEqual(body, {
+        synchronizationMode: "enabled", vcsRootId: "Git", format,
+        storeSecureValuesOutsideVcs: true,
+      });
+      return HttpResponse.json(body);
+    });
+    server.use(http.all("*", ({ request }) => requests.handle(request)));
+    const results = await Promise.allSettled([
+      cli.execute([...versioned, "config", "fields", "set", "Example", "format", format]),
+      cli.execute([...versioned, "config", "replace", "Example", "--item",
+        JSON.stringify({ synchronizationMode: "enabled", vcsRootId: "Git", format })]),
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") throw result.reason;
+    }
+    assert.equal(((results[1] as PromiseFulfilledResult<unknown>).value as Record<string, unknown>).format, format);
+  });
+}
+
+test("versioned settings rejects invalid JSON and format types before HTTP", async (testContext) => {
+  const { cli } = await writable(testContext);
+  const requests = trackRequests(testContext, 0, () => HttpResponse.json({}));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  for (const item of ["{", ...[null, 42, false, [], {}].map(format =>
+    JSON.stringify({ synchronizationMode: "enabled", vcsRootId: "Git", format }))]) {
+    await assert.rejects(cli.execute([...versioned, "config", "replace", "Example", "--item", item]));
+  }
+});
+
+test("versioned settings format keeps safe remote validation failures", async (testContext) => {
+  const { cli, runtime } = await writable(testContext);
+  const requests = trackRequests(testContext, 2, () =>
+    HttpResponse.text("synthetic-private-server-detail", { status: 400 }));
+  server.use(http.all("*", ({ request }) => requests.handle(request)));
+  for (const argv of [
+    [...versioned, "config", "fields", "set", "Example", "format", "csharp"],
+    [...versioned, "config", "replace", "Example", "--item",
+      '{"synchronizationMode":"enabled","vcsRootId":"Git","format":"future-format+v2"}'],
+  ]) {
+    const result = await runtime.run(cli, [...argv, "--json"]);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.stdout, "");
+    const error = JSON.parse(result.stderr).error;
+    assert.equal(error.code, "http.rejected");
+    assert.equal(error.message, "TeamCity request failed with HTTP 400.");
+    assert.ok(!result.stderr.includes("synthetic-private-server-detail"));
+  }
+});
+
 test("S8 all50 gates deny before network or secret-input reads", async (testContext) => {
   const runtime = await createTestRuntime(testContext, {
     profiles: [{ name: "default", url: "https://teamcity.test", permissions: [] }],
@@ -75,10 +137,8 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
   ];
   const invalid = [
     ...[
-      "http://example.test/repo.git",
       "https://fixture:synthetic-hidden@example.test/repo.git",
       "https://example.test/repo.git?token=synthetic-hidden",
-      "https://example.test/repo.git#fragment",
     ].map((url) => [...createRoot, url]),
     [
       "cloud",
@@ -92,7 +152,7 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
       "Instance",
     ],
     ["cloud", "images", "show", "--cloud-profile", "Cloud"],
-    ["cloud", "instances", "list", "--limit", "0"],
+
     ["vcs", "roots", "properties", "clear", "Git"],
     [
       "vcs",
@@ -104,25 +164,11 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
       "https://example.test/repo?token=synthetic-hidden",
     ],
     ["vcs", "roots", "properties", "set", "Git", "secure:password", "synthetic-hidden"],
-    ["vcs", "roots", "fields", "set", "Git", "vcsName", "git"],
-    ["vcs", "instances", "check-changes", " "],
-    ["vcs", "instances", "fields", "set", "8", "commitHookMode", "yes"],
-    ["vcs", "instances", "fields", "clear", "8", "lastVersion"],
-    ["vcs", "instances", "state", "replace", "8", "--revision", "main="],
-    [
-      "vcs",
-      "instances",
-      "state",
-      "replace",
-      "8",
-      "--revision",
-      "main=abc",
-      "--revision",
-      "main=def",
-    ],
+
+    ["vcs", "instances", "fields", "set", "8", "commitHookMode", "Bearer synthetic"],
+
     [...versioned, "commit", "Example"],
     [...versioned, "load", "Example"],
-    [...versioned, "config", "replace", "Example", "--item", '{"synchronizationMode":"enabled"}'],
     [
       ...versioned,
       "config",
@@ -148,10 +194,8 @@ test("S8 typed inputs reject unsafe URLs, missing confirmation, invalid fields a
       '{"synchronizationMode":"disabled","password":"synthetic-hidden"}',
     ],
     [...versioned, "config", "fields", "set", "Example", "storeSecureValuesOutsideVcs", "false"],
-    [...versioned, "config", "fields", "set", "Example", "showSettingsChanges", "yes"],
-    [...versioned, "config", "fields", "reset", "Example", "synchronizationMode", "--confirm"],
+    [...versioned, "config", "fields", "set", "Example", "showSettingsChanges", "Bearer synthetic"],
     [...versioned, "context", "replace", "Example", "--property", "password=synthetic-hidden"],
-    [...versioned, "tokens", "list", "Example", "--status", "all"],
     [
       ...versioned,
       "tokens",
@@ -254,9 +298,7 @@ test("S8 full repository/context replacements preserve empty and false values wi
   ]);
   assert.deepEqual(value, {
     synchronizationMode: "disabled",
-    buildSettingsMode: "alwaysUseCurrent",
     allowUIEditing: false,
-    showSettingsChanges: false,
     storeSecureValuesOutsideVcs: true,
     portableDsl: false,
   });

@@ -84,25 +84,29 @@ test("download supports relative and both documented signature forms without mat
     "api/files/other-file?sign=synthetic%2Fsignature%0D%0A&updated=123",
     "/track/api/files/other-file/sign=synthetic%2Fsignature%0D%0A",
     "https://youtrack.example.com/track/api/files/other-file?sign=synthetic-signature",
+    "https://cdn.example.test/revised/files/file.bin?version=2",
+    "https://cdn.example.test/file.bin?tokenCount=2&authorizationMode=public&version=2",
+    "http://youtrack.example.com/arbitrary/file?version=2",
+    "/api/files/file?sign=synthetic",
+    "/track/api/files/../files/file?sign=synthetic",
+    "/track/api/files/file%2Fchild?sign=synthetic",
+    "/track/api/files/file%5Cchild?sign=synthetic",
+    "/track/api/files/file%252Fchild?sign=synthetic",
+    "/track/api/files/file/extra?sign=synthetic#fragment",
   ]) {
     const directory = await temporary(t);
     const calls = serve(undefined, { ...metadata, url });
-    const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
+    const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory,
+      url.includes("version=2") ? { name: "version2.bin" } : {});
     assert.equal(result.bytes, 4);
     assert.equal(calls.length, 2);
   }
 });
 
-test("download rejects foreign origins, userinfo, wrong context and normalized traversal before binary fetch", async (t) => {
+test("download rejects credential transport, raw controls and unsupported protocols before binary fetch", async (t) => {
   const urls = [
-    "https://foreign.example.com/track/api/files/file?sign=synthetic",
-    "http://youtrack.example.com/track/api/files/file?sign=synthetic",
     "https://user:pass@youtrack.example.com/track/api/files/file?sign=synthetic",
-    "/api/files/file?sign=synthetic", "/track/api/users/me?sign=synthetic",
-    "/track/api/files/../files/file?sign=synthetic", "/track/api/files/%2e%2e/files/file?sign=synthetic",
-    "/track/api/files/file%2Fchild?sign=synthetic", "/track/api/files/file%5Cchild?sign=synthetic",
-    "/track/api/files/file%252Fchild?sign=synthetic", "/track/api/files/file\\child?sign=synthetic",
-    "/track/api/files/file/extra?sign=synthetic", "/track/api/files/file?sign=synthetic#fragment",
+    "/track/api/files/file\\child?sign=synthetic",
     "/track/api/files/file?sign=synthetic\ncontrol", "data:text/plain,synthetic",
   ];
   for (const url of urls) {
@@ -112,6 +116,17 @@ test("download rejects foreign origins, userinfo, wrong context and normalized t
       /attachment URL|download URL/);
     assert.equal(calls.length, 1);
     assert.deepEqual(await readdir(directory), []);
+  }
+});
+
+test("encoded and provider credential query values are redacted from reflected download metadata", async t => {
+  for (const key of ["%74oken", "X-Amz-Credential", "apiKey", "%73ecretKey"]) {
+    const directory = await temporary(t);
+    const calls = serve(undefined, { ...metadata, name: "synthetic-private-query", url: `/track/api/files/file?${key}=synthetic-private-query&version=2` });
+    const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
+    assert.equal(result.bytes, 4);
+    assert.equal(calls.length, 2);
+    assert.doesNotMatch(JSON.stringify(result), /synthetic-private-query|%74oken|X-Amz-Credential|apiKey/);
   }
 });
 
@@ -413,14 +428,17 @@ test("over-limit download cancels its body reader and leaves no partial data", a
 });
 
 test("path signature decoding preserves literal plus while preventing decoded MIME disclosure", async (t) => {
-  const directory = await temporary(t);
+  const directory = join(await temporary(t), "abc-def-ghi");
+  await mkdir(directory);
   serve(() => new HttpResponse(bytes, { headers: { "content-type": "abc/def+ghi" } }), {
     ...metadata, name: "abc/def+ghi.bin", url: "/track/api/files/file/sign=abc%2Fdef+ghi",
   });
   const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
   assert.equal(result.name, "attachment-fixture-redacted.bin");
   assert.equal(result.contentType, "application/octet-stream");
-  assert.doesNotMatch(JSON.stringify(result), /abc|def|ghi/);
+  assert.equal(result.path, join(directory, "downloads", "attachment-fixture-redacted.bin"));
+  // The caller's temporary directory can itself contain a signature fragment.
+  assert.doesNotMatch(JSON.stringify({ ...result, path: undefined }), /abc|def|ghi/);
 });
 
 test("unsupported hard-link publication fails closed and cleans completed temporary bytes", async (t) => {

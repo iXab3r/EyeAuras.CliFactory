@@ -132,7 +132,7 @@ test("field set body syntax, type validation and remote errors stay local or san
   await configured.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
   let calls = 0;
   server.use(http.post("*", () => { calls++; return new HttpResponse("synthetic-token private-message", { status: 403 }); }));
-  await assert.rejects(configured.cli.execute(["issues", "fields", "set", "DEMO-1", "fixture-field", "--body", '{"$type":"StateMachineIssueCustomField","value":null}', "--profile", "dev"]), /event instead of value/);
+  await assert.rejects(configured.cli.execute(["issues", "fields", "set", "DEMO-1", "fixture-field", "--body", '{"$type":42,"value":null}', "--profile", "dev"]), /field \$type must be text/);
   assert.equal(calls, 0);
   assert.equal(await configured.cli.run([...setCommand, "--profile", "dev", "--json"]), 1);
   assert.equal(calls, 1);

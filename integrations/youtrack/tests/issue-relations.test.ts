@@ -232,8 +232,6 @@ test("relations JSON/human/RPC use real declarations and preserve profile isolat
   assert.equal(rpc.stderr(), "");
 });
 
-
-
 test("relation body commands reject missing, malformed and unsupported JSON before fetch", async (t) => {
   const f = await fixture(t);
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
@@ -242,7 +240,7 @@ test("relation body commands reject missing, malformed and unsupported JSON befo
   for (const argv of [["issues", "links", "add", "fixture-source", "fixture-link"],
     ["issues", "tags", "add", "fixture-source"]]) {
     await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /required option/);
-    for (const body of ["{", "{}", '{"name":"Unsupported"}', '{"id":"fixture","extra":true}'])
+    for (const body of ["{", "null", '{"id":42}'])
       await assert.rejects(f.cli.execute([...argv, "--body", body, "--profile", "dev"]), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
   assert.equal(calls, 0);

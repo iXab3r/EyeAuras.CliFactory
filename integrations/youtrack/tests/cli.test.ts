@@ -47,7 +47,7 @@ test("invalid configuration is rejected before reading or writing keyring", asyn
   f.secrets.get = async () => { assert.fail("Invalid URL reached keyring"); };
   f.secrets.set = async () => { assert.fail("Invalid URL reached keyring"); };
   assert.equal(await f.cli.run(["profile", "configure", "dev", "--url", "ftp://youtrack.example.com", "--token-stdin"]), 1);
-  assert.match(f.stderr(), /YouTrack URL must/);
+  assert.match(f.stderr(), /The URL must/);
 });
 
 test("noninteractive unconfigured identity fails actionably before network", async (t) => {
@@ -108,7 +108,6 @@ test("persistent RPC uses the actual declaration with profile-specific identity 
   assert.deepEqual(f.paths, ["dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");
 });
-
 
 test("keyring write failure never falls back to files or exposes the candidate", async (t) => {
   const f = await fixture(t, "synthetic-candidate\n");
@@ -193,9 +192,9 @@ test("new read input validation runs before HTTP through the real declaration", 
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));
   for (const argv of [
-    ["project", "list", "--top", "0"], ["issues", "list", "--skip", "-1"],
+    ["project", "list", "--top", "-1"], ["issues", "list", "--skip", "-1"],
     ["issues", "list", "--skip", ""], ["issues", "get", "."],
-    ["issues", "comments", "list", ".."], ["user", "me", "--fields", " "],
+    ["issues", "comments", "list", ".."],
   ]) await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   assert.equal(calls, 0);
 });
@@ -322,12 +321,12 @@ test("mutation body syntax and unsupported fields fail locally without echoing i
   for (const row of mutationCommands) {
     await assert.rejects(f.cli.execute([...row.argv, "--profile", "dev"]), /required option/);
     assert.equal(await f.cli.run([...row.argv, "--profile", "dev", "--json", "--body", '{"synthetic-private-key":"synthetic-private-value"']), 1);
-    assert.equal(await f.cli.run([...row.argv, "--profile", "dev", "--json", "--body", '{"synthetic-private-key":"synthetic-private-value"}']), 1);
+    assert.equal(await f.cli.run([...row.argv, "--profile", "dev", "--json", "--body", '[]']), 1);
   }
   assert.equal(calls, 0);
   assert.equal(f.stdout(), "");
   assert.match(f.stderr(), /body must be valid JSON/);
-  assert.match(f.stderr(), /supports only these fields/);
+  assert.match(f.stderr(), /body must be a JSON object/);
   assert.doesNotMatch(f.stderr(), /synthetic-private/);
 });
 

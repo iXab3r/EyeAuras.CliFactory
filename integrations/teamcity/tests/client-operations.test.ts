@@ -140,6 +140,23 @@ test("starts one job with the exact JSON payload", async () => {
   );
 });
 
+test("clean sources rejects non-booleans before HTTP and preserves explicit false", async () => {
+  const bodies: unknown[] = [];
+  server.use(http.post(`${baseUrl}/app/rest/buildQueue`, async ({ request }) => {
+    bodies.push(await request.json());
+    return HttpResponse.json({ id: 201, state: "queued" });
+  }));
+  const api = client();
+  for (const value of ["true", "false", 1, null, {}]) {
+    await assert.rejects(api.runJob("Example_Build", { cleanSources: value as boolean }), /must be a boolean/);
+  }
+  assert.equal(bodies.length, 0);
+  await api.runJob("Example_Build", { cleanSources: false });
+  assert.deepEqual(bodies, [{
+    buildType: { id: "Example_Build" }, triggeringOptions: { cleanSources: false },
+  }]);
+});
+
 test("cancels running and queued builds with metadata-preserving POSTs", async () => {
   server.use(
     http.post(`${baseUrl}/app/rest/builds/id:101`, async ({ request }) => {

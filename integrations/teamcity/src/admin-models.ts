@@ -1,14 +1,14 @@
 import type { ScopedSecrets } from "@eyeauras/cli-factory";
 import { locatorValue, idPath, requiredText } from "./locator.js";
 import { pathSegment } from "./authoring-models.js";
-import { distinctIds } from "./bulk-configuration-models.js";
+import { textIds } from "./bulk-configuration-models.js";
 import {
   array,
   inputRecord,
+  apiInputRecord,
   inputText,
   object,
   safeScalars,
-  teamCityTimestamp,
 } from "./triage-models.js";
 
 export const adminCategories = [
@@ -31,8 +31,6 @@ export const responsibilityFields = "count,responsibility(name,description)";
 export const tokenFields = "name,creationTime,expirationTime";
 export const groupLocator = (key: string) => "key:" + locatorValue(key, "Group key");
 export function accountPath(kind: AccountKind, id: string) {
-  if (kind === "users" && !/^[1-9]\d*$/.test(id))
-    throw new Error("User ID must be a positive decimal string.");
   return kind === "users"
     ? "/app/rest/users/" + idPath(id, "User ID")
     : "/app/rest/userGroups/" + groupLocator(id);
@@ -42,7 +40,7 @@ export const safeGroup = (value: unknown) => safeScalars(value, ["key", "name", 
 export const safeNode = (value: unknown) => safeScalars(value, ["id", "role", "state", "current"]);
 export const safeRole = (value: unknown) => safeScalars(value, ["roleId", "scope"]);
 export function groupKeys(keys: readonly string[]) {
-  return { group: distinctIds(keys).map((key) => ({ key })) };
+  return { group: textIds(keys).map((key) => ({ key })) };
 }
 export interface RoleInput {
   roleId: string;
@@ -50,15 +48,17 @@ export interface RoleInput {
   project?: string;
 }
 function assignmentScope(input: { global?: unknown; project?: unknown }) {
-  if (input.global !== undefined && input.global !== true)
-    throw new Error("Global scope must be true.");
+  if (input.global !== undefined && typeof input.global !== "boolean")
+    throw new Error("Global scope must be a boolean.");
   if ((input.global === true) === (input.project !== undefined))
     throw new Error("Choose exactly one global or project scope.");
   return input.global ? "g" : "p:" + inputText(input.project, "Project ID");
 }
 export function roleBody(value: unknown) {
-  const input = inputRecord(value, ["roleId", "global", "project"]);
-  return { roleId: inputText(input.roleId, "Role ID"), scope: assignmentScope(input) };
+  const input = apiInputRecord(value, ["roleId", "global", "project", "scope"]);
+  const { global, project, ...native } = input;
+  return { ...native, roleId: inputText(input.roleId, "Role ID"),
+    scope: input.scope === undefined ? assignmentScope(input) : inputText(input.scope, "Scope") };
 }
 export function roleSuffix(input: RoleInput) {
   const role = roleBody(input);
@@ -66,7 +66,7 @@ export function roleSuffix(input: RoleInput) {
 }
 export function roleBodies(inputs: readonly unknown[]) {
   const roles = inputs.map(roleBody);
-  distinctIds(roles.map((role) => JSON.stringify([role.roleId, role.scope])));
+  textIds(roles.map((role) => JSON.stringify([role.roleId, role.scope])));
   return { role: roles };
 }
 export function safeToken(value: unknown) {
@@ -94,27 +94,29 @@ export function tokenBody(input: TokenCreationOptions) {
     throw new Error("Choose expiry or explicit no-expiration.");
   let expirationTime: string | undefined;
   if (input.expires !== undefined) {
-    expirationTime = teamCityTimestamp(input.expires);
-    const iso = expirationTime.replace(
-      /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})([+-])(\d{2})(\d{2})$/,
-      "$1-$2-$3T$4:$5:$6$7$8:$9",
-    );
-    const expiry = Date.parse(iso);
-    if (!Number.isFinite(expiry) || expiry <= Date.now())
-      throw new Error("Token expiry must be a valid future timestamp.");
+    expirationTime = inputText(input.expires, "Expiration time");
   }
   const restrictions = input.restrictions ?? [];
   if ((input.samePermissions === true) === restrictions.length > 0)
     throw new Error("Choose same-permissions or explicit restrictions.");
   const permissionRestriction = restrictions.map((value) => {
-    const item = inputRecord(value, ["permission", "global", "project"]);
+    const item = apiInputRecord(value, ["permission", "global", "project", "isGlobalScope"]);
+    const { global, project, ...native } = item;
+    const permission = typeof item.permission === "string"
+      ? { id: inputText(item.permission, "Permission") } : apiInputRecord(item.permission, []);
+    if (item.isGlobalScope === true || (project !== null && typeof project === "object")) {
+      if (item.isGlobalScope !== undefined && typeof item.isGlobalScope !== "boolean")
+        throw new Error("Global scope must be a boolean.");
+      return { ...native, permission, ...(project === undefined ? {} : { project: apiInputRecord(project, []) }) };
+    }
     const scope = assignmentScope(item);
     return {
-      permission: { id: inputText(item.permission, "Permission") },
+      ...native,
+      permission,
       ...(scope === "g" ? { isGlobalScope: true } : { project: { id: scope.slice(2) } }),
     };
   });
-  distinctIds(permissionRestriction.map((item) => JSON.stringify(item)));
+  textIds(permissionRestriction.map((item) => JSON.stringify(item)));
   return {
     name,
     ...(expirationTime === undefined ? {} : { expirationTime }),

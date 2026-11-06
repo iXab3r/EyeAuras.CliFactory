@@ -94,13 +94,13 @@ test("all work-time reads reject malformed responses and return safe HTTP status
 
 test("invalid work-time IDs and paging fail before networking", async () => {
   const local = { ...connection, fetch: (async () => { assert.fail("Invalid input reached fetch"); }) as typeof globalThis.fetch };
-  for (const id of ["", ".", "..", "bad\nvalue", "\ud800"]) {
+  for (const id of ["", ".", "..", "\ud800"]) {
     await assert.rejects(getTimeTracking(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(listIssueWorkItems(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(getIssueWorkItem(local, "DEMO-1", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(getWorkItem(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
-  for (const options of [{ top: 0 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
+  for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: 1 as unknown as string }]) {
     await assert.rejects(listIssueWorkItems(local, "DEMO-1", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(listWorkItems(local, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
@@ -117,7 +117,7 @@ test("global work-item query is encoded once and remains absent from issue-local
   }));
   assert.deepEqual(await listWorkItems(connection, { query, top: 2 }), []);
   const local = { ...connection, fetch: (async () => { assert.fail("Invalid query reached fetch"); }) as typeof globalThis.fetch };
-  for (const query of ["", " ", "value\nvalue"]) await assert.rejects(listWorkItems(local, { query }), /search query|query must be/);
+  for (const query of [null, 1] as unknown as string[]) await assert.rejects(listWorkItems(local, { query }), /query must be text/);
 });
 
 const writes = [

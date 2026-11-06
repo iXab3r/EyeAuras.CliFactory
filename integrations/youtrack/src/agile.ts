@@ -32,20 +32,14 @@ export const getSprint = readObjectAt(
 );
 
 function sprintBody(input: unknown, creating: boolean): YouTrackObject {
-  const body = mutationBody(input, [
-    "name", "goal", "start", "finish", "archived", "isDefault",
-    ...(creating ? ["previousSprint"] : []),
-  ]);
+  const body = mutationBody(input);
   if (creating && !Object.hasOwn(body, "name")) {
     throw new Error("A new sprint requires name.");
   }
-  if (Object.keys(body).length === 0) {
-    throw new Error("A sprint update requires at least one writable field.");
-  }
-  const result: YouTrackObject = {};
+  const result: YouTrackObject = { ...body };
   if (Object.hasOwn(body, "name")) {
     if (typeof body.name !== "string") {
-      throw new Error("The sprint name must be nonempty single-line text.");
+      throw new Error("The sprint name must be text.");
     }
     result.name = requiredText(body.name, "sprint name");
   }
@@ -56,7 +50,7 @@ function sprintBody(input: unknown, creating: boolean): YouTrackObject {
     if (Object.hasOwn(body, key)) {
       const value = body[key];
       if (value !== null && (typeof value !== "number" || !Number.isSafeInteger(value))) {
-        throw new Error(`The sprint ${key} must be a UTC timestamp in milliseconds or null.`);
+        throw new Error(`The sprint ${key} must be a safe integer UTC timestamp in milliseconds or null.`);
       }
       result[key] = value;
     }
@@ -70,11 +64,11 @@ function sprintBody(input: unknown, creating: boolean): YouTrackObject {
     }
   }
   if (Object.hasOwn(body, "previousSprint")) {
-    const previous = mutationBody(body.previousSprint, ["id"]);
+    const previous = mutationBody(body.previousSprint);
     if (typeof previous.id !== "string") {
-      throw new Error("previousSprint.id must be nonempty text.");
+      throw new Error("The previousSprint.id must be text.");
     }
-    result.previousSprint = { id: requiredText(previous.id, "previousSprint.id") };
+    result.previousSprint = { ...previous, id: requiredText(previous.id, "previousSprint.id") };
   }
   return result;
 }

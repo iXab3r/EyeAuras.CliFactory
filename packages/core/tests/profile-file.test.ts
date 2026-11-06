@@ -141,6 +141,44 @@ test("local validation and existing destinations fail before response acquisitio
   assert.equal(calls, 0);
 });
 
+test("filesystem redirection preserves the configured profile path when directory identities match", async (t) => {
+  const root = await temporary(t);
+  const profile = join(root, "profile");
+  const redirected = join(root, "redirected");
+  await mkdir(profile);
+  await symlink(profile, redirected, process.platform === "win32" ? "junction" : "dir");
+  const originalRealpath = fs.promises.realpath;
+  t.mock.method(fs.promises, "realpath", async (...args: Parameters<typeof originalRealpath>) => {
+    const path = String(args[0]);
+    if (path === join(profile, "downloads")) return join(redirected, "downloads");
+    if (path === join(profile, "temp")) return join(redirected, "temp");
+    return originalRealpath(...args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  const saved = await publishProfileFile(options(profile, "fixture.txt", new Response("owned")));
+  assert.equal(saved.path, join(profile, "downloads", "fixture.txt"));
+  assert.equal(await readFile(saved.path, "utf8"), "owned");
+  assert.deepEqual(await readdir(join(profile, "temp")), []);
+});
+
+test("a resolved path identifying another directory fails before response acquisition", async (t) => {
+  const root = await temporary(t);
+  const unrelated = join(root, "unrelated");
+  await mkdir(unrelated);
+  const originalRealpath = fs.promises.realpath;
+  t.mock.method(fs.promises, "realpath", async (...args: Parameters<typeof originalRealpath>) =>
+    String(args[0]) === join(root, "downloads") ? unrelated : originalRealpath(...args));
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  let calls = 0;
+  await assert.rejects(publishProfileFile(options(root, "fixture.bin", new Response(), {
+    openResponse: async () => { calls++; return new Response(); },
+  })), assertDisposition(false, false, /directories could not be verified/));
+  assert.equal(calls, 0);
+  assert.deepEqual(await readdir(unrelated), []);
+});
+
 test("directory links and pre-acquisition cancellation fail without response or outside writes", async (t) => {
   for (const directory of ["downloads", "temp"]) {
     const root = await temporary(t);

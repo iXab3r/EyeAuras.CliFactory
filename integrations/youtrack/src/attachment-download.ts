@@ -10,7 +10,6 @@ import {
 export interface DownloadOptions {
   name?: string;
   maxBytes?: number;
-  /** One human-only line when the transfer starts. */
   progress?: (message: string) => void;
 }
 
@@ -43,33 +42,25 @@ export function downloadLimit(value: number | string): number {
 
 function attachmentUrl(connection: Connection, value: string): { url: URL; secrets: string[] } {
   const invalid = new DownloadError(
-    "The attachment URL must point at the profile's YouTrack origin; external downloads are not followed.",
+    "The attachment URL must be HTTP(S), without embedded credentials or raw controls.",
   );
   try {
-    if (/[\\\u0000-\u0020\u007f]/.test(value) || value.includes("#")) {
+    if (/[\\\u0000-\u0020\u007f]/.test(value)) {
       throw invalid;
     }
     const base = new URL(youTrackUrl(connection.baseUrl));
     const rawPath = value.split("?", 1)[0]!;
     const originPath = rawPath.replace(/^(?:https?:)?\/\/[^/]*/, "");
-    const prefix = originPath.startsWith("/") ? `${base.pathname}api/files/` : "api/files/";
-    if (!originPath.startsWith(prefix)) {
-      throw invalid;
-    }
-    const segments = originPath.slice(prefix.length).split("/");
-    const fileID = decodeURIComponent(segments[0] ?? "");
-    if (!fileID || fileID === "." || fileID === ".." || /[/\\%?#\u0000-\u0020\u007f]/.test(fileID) ||
-        segments.length > 2 || (segments.length === 2 && !/^sign=.+$/.test(segments[1]!))) {
-      throw invalid;
-    }
+    const segments = originPath.split("/");
     const url = new URL(value, base);
-    if (url.origin !== base.origin || url.protocol !== base.protocol || url.username || url.password || url.hash ||
-        !url.pathname.startsWith(`${base.pathname}api/files/`)) {
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
       throw invalid;
     }
-    const pathSignature = segments[1]?.slice(5);
+    const pathSignature = segments.find(part => /^sign=/.test(part))?.slice(5);
     const querySignatures = url.search.slice(1).split("&")
-      .filter((part) => part && part.split("=", 1)[0] !== "updated")
+      .filter((part) => /(?:^sign$|^sig$|(?:signature|token|password|passwd|secret|credentials?(?:JSON)?|authorization|cookie|(?:api|access|private|secret)[-_]?key|(?:^|[-_])key)(?:[-_]?(?:value|hash|digest|header))?$)/i.test(
+        decodeURIComponent(part.split("=", 1)[0]!.replace(/\+/g, " ")),
+      ))
       .map((part) => part.slice(part.indexOf("=") + 1));
     const signatures = [
       ...(pathSignature === undefined ? [] : [pathSignature, decodeURIComponent(pathSignature)]),
@@ -80,7 +71,7 @@ function attachmentUrl(connection: Connection, value: string): { url: URL; secre
         [...url.searchParams].some(([key, part]) => key.includes(token) || part.includes(token))) {
       throw invalid;
     }
-    return { url, secrets: [token, ...signatures].filter(Boolean) };
+    return { url, secrets: [token, url.href, decodeURIComponent(url.href), ...signatures].filter(Boolean) };
   } catch {
     throw invalid;
   }
@@ -99,7 +90,7 @@ function filenamePart(value: string, fallback: string): string {
 
 function contentType(value: string | null, secrets: string[]): string {
   const type = value?.split(";", 1)[0]?.trim() ?? "";
-  return type && redact(type, secrets) === type && /^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/.test(type)
+  return type && redact(type, secrets) === type && /^[!#$%&'*+.^_`|~a-zA-Z0-9-]+\/[!#$%&'*+.^_`|~a-zA-Z0-9-]+$/.test(type)
     ? type : "application/octet-stream";
 }
 
@@ -165,7 +156,7 @@ async function downloadAttachment(
       }),
       inspectResponse(response) {
         if (!response.ok || response.status === 206) {
-          throw new DownloadError(`The attachment download failed with HTTP ${response.status}.`);
+          throw new DownloadError(`YouTrack attachment download failed (HTTP ${response.status}).`);
         }
         const length = response.headers.get("content-length");
         const declared = length === null ? undefined : Number(length);

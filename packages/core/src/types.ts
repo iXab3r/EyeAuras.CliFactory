@@ -52,6 +52,10 @@ export interface CommandContext {
   progress(message: string): void;
 }
 
+/** Package metadata handlers have no profile, secret store or service transport. */
+export type LocalCommandContext = Pick<CommandContext, "signal" | "io" | "cwd" | "environment" | "progress">;
+export type LocalCommandHandler = (input: CommandInput, context: LocalCommandContext) => unknown | Promise<unknown>;
+
 export interface CommandInput {
   args: Record<string, unknown>;
   options: Record<string, unknown>;
@@ -82,6 +86,13 @@ export interface CommandHelp {
 export interface CommandSettings extends CommandHelp {
   options?: readonly OptionDefinition[];
   permission?: string;
+  /** Local preparation before authentication; all returned categories are also required.
+   * The handler receives this same invocation-owned input object, so it can use the inspected
+   * snapshot instead of rereading mutable input after admission. */
+  additionalPermissions?: (
+    input: CommandInput,
+    context: Pick<CommandContext, "cwd" | "signal">,
+  ) => readonly string[] | Promise<readonly string[]>;
   /** Human presentation of the returned value; `--json` and JSON-RPC ignore it. */
   view?: HumanView;
 }
@@ -92,9 +103,12 @@ export interface CommandDefinition extends CommandHelp {
   description: string;
   options?: readonly OptionDefinition[];
   permission?: string;
+  additionalPermissions?: CommandSettings["additionalPermissions"];
   view?: HumanView;
   children?: readonly CommandDefinition[];
   run?: CommandHandler;
+  /** Profile-independent package metadata; hosted execution stays in the invoking client. */
+  runLocal?: LocalCommandHandler;
 }
 
 export interface PermissionCategory {
@@ -217,6 +231,8 @@ export interface ProfileStoreContract {
 }
 
 export interface CliApplication {
+  /** Parse without invoking handlers, profile/auth work or I/O. Option parsers must be pure. */
+  classify(argv: readonly string[], invocation?: CliInvocation): Promise<"local" | "owner">;
   run(argv?: readonly string[], invocation?: CliInvocation): Promise<number>;
   dispose(): Promise<void>;
   execute(argv: readonly string[], signal?: AbortSignal): Promise<unknown>;

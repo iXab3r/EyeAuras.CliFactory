@@ -19,7 +19,6 @@ public sealed class BuildContext : FrostingContext
     public string Root { get; } = FindRoot();
     public string? Version { get; }
     public bool DryRun { get; }
-    public bool GitHubActions { get; } = System.Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
     public string ReleaseDirectory => Path.Combine(Root, "output", "release");
     public string ManifestPath => Path.Combine(ReleaseDirectory, "release-manifest.json");
 

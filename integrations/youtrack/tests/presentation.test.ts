@@ -46,6 +46,16 @@ test("issue lists are tables that continue with --skip only when the page came b
   assert.deepEqual(JSON.parse(json.stdout), [issue(1)]);
 });
 
+test("a zero-size page has no continuation footer", async (t) => {
+  server.use(http.get(`${base}/issues`, ({ request }) => {
+    assert.equal(new URL(request.url).searchParams.get("$top"), "0");
+    return HttpResponse.json([]);
+  }));
+  const result = await human(t, ["issues", "list", "--top", "0"]);
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.stdout, "No issues found.\n");
+});
+
 test("an issue record names the object, wraps the description and suggests the next command", async (t) => {
   server.use(http.get(`${base}/issues/DEMO-7`, () =>
     HttpResponse.json(issue(7, { description: "First line.\nSecond line.", created: now - 86_400_000 }))));
@@ -56,7 +66,7 @@ test("an issue record names the object, wraps the description and suggests the n
   server.use(http.get(`${base}/issues/DEMO-8`, () =>
     HttpResponse.json({ summary: "Issue 8", customFields: [{ name: "State", value: { name: "Open" } }] })));
   const projected = await human(t, ["issues", "get", "DEMO-8", "--fields", "summary,customFields(name,value(name))"]);
-  assert.equal(projected.stdout, 'summary: Issue 8\ncustomFields: [{"name":"State","value":{"name":"Open"}}]\n');
+  assert.equal(projected.stdout, 'summary: Issue 8\ncustomFields:\n  -\n    name: State\n    value:\n      name: Open\n');
 });
 
 test("a batch apply prints its summary and one line per row, and reports failures as progress", async (t) => {

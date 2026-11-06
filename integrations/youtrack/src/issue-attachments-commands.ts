@@ -1,5 +1,5 @@
 import { command } from "@eyeauras/cli-factory";
-import { requiredText } from "./client.js";
+import { inputFilePath } from "./client.js";
 import { attachmentDownloadCommand } from "./attachment-download-commands.js";
 import { pagedRead, projectedRead, updateCommand } from "./cli-support.js";
 import {
@@ -28,7 +28,7 @@ export const attachmentsIssueChildren = [
             flags: "--file <path>",
             description: "Local file to upload",
             required: true,
-            parse: (value) => requiredText(value, "file path"),
+            parse: inputFilePath,
           },
         ],
     )),

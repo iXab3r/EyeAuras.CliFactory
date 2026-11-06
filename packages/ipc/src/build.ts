@@ -1,3 +1,4 @@
+import { readPackageBuildManifest } from "./package-build.js";
 import { createHash, randomUUID } from "node:crypto";
 import {
   glob,
@@ -144,6 +145,8 @@ export async function writeBuildManifest(root: string): Promise<string> {
 export async function readBuildManifest(
   entryPoint: URL | string,
 ): Promise<string> {
+  const packaged = await readPackageBuildManifest(entryPoint);
+  if (packaged !== undefined) return packaged;
   try {
     const root = await buildRoot(entryPoint);
     const manifest = (await readJson(join(root, manifestName))) as {

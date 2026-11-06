@@ -21,10 +21,10 @@ function linkPath(issueID: string, linkID: string): string {
 }
 
 function targetBody(input: unknown): YouTrackObject {
-  const body = mutationBody(input, ["id"]);
+  const body = mutationBody(input);
   const id = narrative(body.id, "target id");
   encodedID(id, "target ID");
-  return { id };
+  return { ...body, id };
 }
 
 export const listLinkTypes = readCollectionAt("api/issueLinkTypes", linkTypeFields);

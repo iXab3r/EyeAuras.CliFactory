@@ -35,9 +35,9 @@ test("YouTrack invalid paging fails before TTY onboarding and auth on CLI, execu
   let calls = 0;
   server.use(http.all("*", () => { calls++; return HttpResponse.json([]); }));
   const cases = [
-    ...["0", "9007199254740992", "-0", "+1", "1.0", "1e2", "0x10", " 1", "1\n", "synthetic-secret\u0000value"].map(value => ({
+    ...["-1", "9007199254740992", "-0", "+1", "1.0", "1e2", "0x10", " 1", "1\n", "synthetic-secret\u0000value"].map(value => ({
       argv: ["project", "list", "--top", value],
-      message: "--top must be a positive integer.",
+      message: "--top must be a nonnegative safe decimal integer.",
     })),
     ...["-0", "-1", "9007199254740992"].map(value => ({
       argv: ["project", "list", "--skip", value],

@@ -13,7 +13,9 @@ export type {
 } from "./profile-file.js";
 export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
-export { command } from "./command.js";
+export { streamResult } from "./stream-result.js";
+export type { StreamResult } from "./stream-result.js";
+export { command, localCommand } from "./command.js";
 export type { InferredCommandHandler } from "./command-input.js";
 export { targetCommands } from "./target-commands.js";
 export type {
@@ -45,7 +47,7 @@ export type { HelpLayout } from "./help.js";
 export { Permission } from "./permissions.js";
 export { ProfileStore } from "./profile-store.js";
 export {
-  KeyringSecretStore,
+  PlatformSecretStore,
   MemorySecretStore,
   ProfileSecrets,
 } from "./secret-store.js";
@@ -61,6 +63,8 @@ export type {
   CliRuntime,
   CliResource,
   CommandContext,
+  LocalCommandContext,
+  LocalCommandHandler,
   CommandDefinition,
   CommandHandler,
   CommandHelp,

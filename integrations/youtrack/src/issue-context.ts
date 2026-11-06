@@ -4,7 +4,7 @@ import {
   issuePath,
   mutate,
   mutationBody,
-  narrative,
+  nullableText,
   page,
   readCollection,
   readCollectionAt,
@@ -29,11 +29,7 @@ const commentFields = "id,text,author(id,login),created,updated";
 const vcsFields = "id,$type,date,fetched,text,author(login)";
 
 export function activityCategories(value: string): string {
-  requiredText(value, "categories");
-  if (value.split(",").some((category) => !category.trim())) {
-    throw new Error("--categories must contain nonempty comma-separated category IDs.");
-  }
-  return value;
+  return requiredText(value, "categories");
 }
 
 function activityQuery(options: ActivityOptions): Record<string, string> {
@@ -109,11 +105,11 @@ export async function updateComment(
   commentID: string,
   input: unknown,
 ): Promise<YouTrackObject | null> {
-  const body = mutationBody(input, ["text"]);
+  const body = mutationBody(input);
   return mutate(
     connection,
     `${issuePath(issueID)}/comments/${encodedID(commentID, "comment ID")}`,
-    { text: narrative(body.text, "text") },
+    { ...body, ...(Object.hasOwn(body, "text") ? { text: nullableText(body.text, "text") } : {}) },
     commentFields,
   );
 }

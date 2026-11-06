@@ -18,6 +18,7 @@ they compose with the domains they touch and never replace those domains' invari
 | Reviewer | Independent read-only audit of a completed diff: [role](reviewer.md) |
 | CLI writer | Text a person reads at the terminal, when authored or reviewed: [role](cli-writer.md) |
 | Reconciliation Lead | Migration, expansion or audit of a declared inventory: [role](reconciliation-lead.md), [workstreams](../practices/workstreams.md) |
+| Story Delivery Lead | Product delivery through user stories, test-first milestones and review loops: [role](story-delivery-lead.md), [practice](../practices/story-driven-delivery.md) |
 
 Select checks for the actual risk under the [verification policy](../practices/github-issues.md#verification-and-setup-limits)
 and preserve mandatory repository/domain gates. Several roles do not imply several copies of a test run.
@@ -32,5 +33,9 @@ Shared lifecycle rules belong in the practice, not in every role.
 
 The existing `.claude/agents/` adapters point to canonical guides and carry only discovery metadata,
 role/guide selection and harness controls (such as read-only tools). Adapters do not duplicate policy
-or install tool prerequisites. Other harnesses follow the same router and guides; personal configuration
-changes are outside ordinary repository work.
+or install tool prerequisites. Other harnesses receive the same `AGENTS.md` router and Markdown role
+guides directly; do not maintain a duplicate `CLAUDE.md` or prompt-only TOML role definitions. Native
+model/tool controls remain in the adapters. Personal configuration changes are outside repository work.
+
+Independent architecture, planning and diff audits follow [fresh-context intake](../practices/independent-review.md).
+The owning domain supplies architecture expertise; a new persona or model tier is unnecessary.

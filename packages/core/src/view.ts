@@ -79,7 +79,7 @@ export interface ViewContext {
   /** Milliseconds since the epoch, used by `age`. */
   now: number;
   cliName: string;
-  profile: string;
+  profile?: string;
   /** The default profile; follow-ups name `profile` only when it differs. */
   defaultProfile?: string;
   /** The command's parsed arguments and options, for titles and continuation footers. */
@@ -110,7 +110,7 @@ export function offsetFooter(
   pageSize: number | undefined,
   skip = 0,
 ): string | undefined {
-  return pageSize !== undefined && shown >= pageSize ? moreResults(option, skip + shown) : undefined;
+  return pageSize !== undefined && pageSize > 0 && shown >= pageSize ? moreResults(option, skip + shown) : undefined;
 }
 
 const ellipsis = "…";
@@ -245,12 +245,12 @@ function renderRecord(view: RecordViewSpec<unknown>, value: unknown, context: Vi
 export function nextCommands(
   actions: readonly (readonly string[])[],
   cliName: string,
-  profile: string,
+  profile?: string,
   defaultProfile?: string,
 ): string[] {
   return actions
     .filter((argv) => argv.length > 0)
-    .map((argv) => (profile === defaultProfile ? [...argv] : [...argv, "--profile", profile]))
+    .map((argv) => (profile === undefined || profile === defaultProfile ? [...argv] : [...argv, "--profile", profile]))
     .filter((argv) => argv.every((token) => safeToken.test(token)))
     .map((argv) => [cliName, ...argv].join(" "));
 }

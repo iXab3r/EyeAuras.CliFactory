@@ -936,6 +936,23 @@ test("already-cancelled JSON-RPC returns without waiting for caller stdin", asyn
   await app.dispose();
 });
 
+test("a resource veto preserves persisted profiles during set and no-auth configure", async (t) => {
+  const runtime = await harness(t);
+  await runtime.profileStore.create("retained", { url: "https://original.example.invalid" });
+  const app = createCli({
+    name: "lifecycle-test", description: "fixture", runtime, commands: [],
+    profile: { fields: [{ name: "url", flags: "--url <url>", description: "Synthetic URL" }] },
+    resources: [{ dispose() {}, invalidateProfile() { throw new Error("Retained migration prevents reconfiguration"); } }],
+  });
+  t.after(() => app.dispose());
+  for (const leaf of ["set", "configure"]) {
+    await assert.rejects(app.execute(["profile", leaf, "retained", "--url", "https://candidate.example.invalid"]), /Retained migration/);
+    assert.equal((await runtime.profileStore.get("retained")).values.url, "https://original.example.invalid");
+  }
+  await assert.rejects(app.execute(["profile", "configure", "candidate", "--url", "https://candidate.example.invalid"]), /Retained migration/);
+  await assert.rejects(runtime.profileStore.get("candidate"), /does not exist/);
+});
+
 test("owned resources invalidate only the changed profile and all dispose after a failure", async (t) => {
   const runtime = await harness(t);
   const events: string[] = [];

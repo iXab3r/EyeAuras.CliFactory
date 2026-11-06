@@ -11,11 +11,8 @@ export interface TeamCityPage<T> {
   nextStart: number | null;
 }
 
-/**
- * Requests per selection, the time after which no new page starts, and the items one request
- * keeps; each request asks for one more, which proves that more exist.
- */
-export const pageBudget = { requests: 10, milliseconds: 30_000, size: 1_000 };
+/** Wire chunk size; the caller's selection has no hidden request or elapsed-time cap. */
+export const pageSize = 1_000;
 
 interface Continuation {
   start: number;
@@ -62,10 +59,10 @@ export function continuation(nextHref: unknown): Continuation | undefined {
 }
 
 /**
- * Read up to `limit` items from `start`, following TeamCity's continuation within the budget.
+ * Read up to `limit` items from `start`, following TeamCity's continuation.
  * One extra item proves that more exist, and reading continues after the kept items; a short page
  * without a continuation proves the end; an unexpected continuation, one that makes no progress,
- * or an exhausted budget leaves it open.
+ * leaves completeness unknown.
  *
  * TeamCity continues after the items it served, or, having served none because its lookup limit
  * was reached, at the same start with a deeper `lookupLimit` (`PagerDataImpl` in JetBrains'
@@ -78,10 +75,8 @@ export async function readPages<T>(
     items: T[];
     nextHref: unknown;
   }>,
-  now: () => number = Date.now,
   signal?: AbortSignal,
 ): Promise<TeamCityPage<T>> {
-  const began = now();
   const items: T[] = [];
   // `--start` cannot carry a lookup limit: only a start past the first one continues anything.
   const page = (hasMore: boolean | null, nextStart: number | null): TeamCityPage<T> => ({
@@ -92,7 +87,7 @@ export async function readPages<T>(
   });
   let position: Continuation = { start };
   for (let request = 1; ; request++) {
-    const take = Math.min(limit - items.length, pageBudget.size);
+    const take = Math.min(limit - items.length, pageSize);
     let response: Awaited<ReturnType<typeof read>>;
     try {
       response = await read({ ...position, count: take + 1 });
@@ -106,10 +101,9 @@ export async function readPages<T>(
     }
     items.push(...response.items.slice(0, take));
     const reached = position.start + Math.min(response.items.length, take);
-    const spent = request >= pageBudget.requests || now() - began >= pageBudget.milliseconds;
     if (response.items.length > take) {
       // The extra item proves that more exist; continue right after the kept items.
-      if (items.length >= limit || spent) return page(true, reached);
+      if (items.length >= limit) return page(true, reached);
       position = { ...position, start: reached };
       continue;
     }
@@ -119,7 +113,7 @@ export async function readPages<T>(
     const lookupLimit = next.lookupLimit ?? position.lookupLimit;
     const advances = next.start === reached &&
       (reached > position.start || (lookupLimit ?? 0) > (position.lookupLimit ?? 0));
-    if (!advances || items.length >= limit || spent) return page(null, reached);
+    if (!advances || items.length >= limit) return page(null, reached);
     position = lookupLimit === undefined ? { start: reached } : { start: reached, lookupLimit };
   }
 }

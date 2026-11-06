@@ -46,9 +46,18 @@ export function createAuthoringCommands(
     );
     return command(
       owner === "output" ? "output-parameters" : "parameters",
-      "Manage plain parameters; protected values are redacted",
+      "Manage parameters",
       [
         ...bulk.parameters(owner),
+        ...(owner === "jobs" ? [command(
+          "set-password <job-id> <name>",
+          "Replace a password from secure storage",
+          async ({ args, options }, context) =>
+            (await clientFor(context)).setPasswordParameter(
+              args["job-id"], args.name, text(options, "valueSecret"), context.secrets,
+            ),
+          { permission: "Credentials", options: [option("--value-secret <alias>", "Input-secret alias", true)] },
+        )] : []),
         leaf(
           `list <${ownerArg}>`,
           "List parameters in server order",
@@ -99,17 +108,17 @@ export function createAuthoringCommands(
   ];
   const extensionOptions = [
     option("--type <type>", "TeamCity extension type", true),
-    option("--enabled", "Enable the extension (disabled by default, including replace)"),
+    option("--enabled", "Enable the extension"),
     propertyOption,
   ];
   function extensions(kind: ExtensionKind): CommandDefinition {
     const idArg = kind === "triggers" ? "trigger-id" : "feature-id";
     const input = (options: Record<string, unknown>) => ({
       type: text(options, "type"),
-      enabled: options.enabled === true,
+      ...(options.enabled === undefined ? {} : { enabled: options.enabled === true }),
       properties: (options.property ?? []) as PlainProperty[],
     });
-    return command(kind, "Manage disabled-by-default extensions; property values are redacted", [
+    return command(kind, "Manage job extensions", [
       bulk.replaceAll(kind),
       advanced.entityFields(kind),
       ...(kind === "features" ? [advanced.pluginParameters(kind)] : []),
@@ -121,14 +130,14 @@ export function createAuthoringCommands(
       ),
       leaf(
         "create <job-id>",
-        "Add an extension; disabled unless --enabled",
+        "Add an extension",
         Permission.Update,
         (c, { args, options }) => c.createExtension(kind, args["job-id"], input(options)),
         extensionOptions,
       ),
       leaf(
         `replace <job-id> <${idArg}>`,
-        "Full replacement; omitted properties are NOT preserved; disabled unless --enabled",
+        "Replace an extension",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceExtension(kind, text(args, "job-id"), text(args, idArg), input(options)),
@@ -401,6 +410,10 @@ export function createAuthoringCommands(
     ),
   ];
   const jobs = [
+    leaf("copy <source-id> <id>", "Copy a build configuration", "Credentials",
+      (c, { args, options }) => c.copyJob(args["source-id"], args.id, {
+        name: text(options, "name"), project: text(options, "project"),
+      }), [nameOption, projectOption]),
     ...bulk.jobs,
     ...advanced.jobs,
     parameters("output"),

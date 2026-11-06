@@ -1,6 +1,6 @@
 import { command, Permission, type CommandContext } from "@eyeauras/cli-factory";
 import type { TeamCityClient } from "./client.js";
-import { clientLeaf, option, text } from "./command-support.js";
+import { clientLeaf, option, text, integerValue } from "./command-support.js";
 import { referenceKey, type FileTree } from "./file-models.js";
 import { fileTable, savedFileRecord, withView } from "./presentation.js";
 export function createFileCommands(clientFor: (c: CommandContext) => Promise<TeamCityClient>) {
@@ -9,6 +9,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   const count = {
     ...option("--limit <count>", "Maximum files; no recursive traversal"),
     defaultValue: 100,
+    parse: integerValue,
   };
   const output = [
     option(
@@ -18,6 +19,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     ),
     {
       ...option("--max-bytes <bytes>", "Optional caller-selected download byte budget"),
+      parse: integerValue,
     },
   ];
   const destination = (o: Record<string, unknown>) => ({
@@ -83,7 +85,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         ),
       {
         permission: R,
-        options: [...output, { ...option("--size <pixels>", "PNG size in pixels"), defaultValue: 64 }],
+        options: [...output, { ...option("--size <pixels>", "PNG size in pixels"), defaultValue: 64, parse: integerValue }],
         view: savedFileRecord,
       },
     ),
@@ -129,7 +131,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     ),
     command(
       "resolve-parameter <id> <name>",
-      "Resolve one parameter to a new keyring alias; never print value",
+      "Save a resolved parameter as a secret alias",
       async ({ args, options }, context) =>
         (await clientFor(context)).resolveBuildParameter(
           args.id,
@@ -155,7 +157,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     command("secure", "Project secure references; these are NOT REST access tokens", [
       command(
         "create-reference <id>",
-        "Create/reuse reference from an input-secret alias and store it in keyring",
+        "Save a reference from an input-secret alias",
         async ({ args, options }, context) =>
           (await clientFor(context)).createSecureReference(
             args.id,

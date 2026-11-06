@@ -131,7 +131,7 @@ test("extra reads reject invalid IDs/pages and malformed or oversized collection
   await assert.rejects(getChildArticle(connection, "fixture-parent", "."), /dot path/);
   await assert.rejects(getArticleAttachment(connection, "fixture-parent", ".."), /dot path/);
   await assert.rejects(getParentArticle(connection, "."), /dot path/);
-  await assert.rejects(listChildArticles(connection, "fixture-parent", { top: 0 }), /top/);
+  await assert.rejects(listChildArticles(connection, "fixture-parent", { top: -1 }), /top/);
   await assert.rejects(listArticleAttachments(connection, "fixture-parent", { skip: -1 }), /skip/);
   assert.equal(calls, 0);
   await assert.rejects(listArticleAttachments(connection, "fixture-parent"), /Invalid collection/);
@@ -221,11 +221,11 @@ test("article upload local-file errors and invalid inputs expose no path and pre
       message: "The upload requires a readable regular file.",
     });
   }
-  await assert.rejects(uploadArticleAttachment(connection, "fixture-article", " "), /file path/);
+  await assert.rejects(uploadArticleAttachment(connection, "fixture-article", ""), /file path/);
   await assert.rejects(uploadArticleAttachment(connection, "..", f.file), /dot path/);
   let opens = 0;
   t.mock.method(fs, "openAsBlob", async () => { opens++; throw new Error("synthetic-private-path"); });
-  await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file, { fields: "" }), /fields/);
+  await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file, { fields: 42 as unknown as string }), /fields/);
   assert.equal(opens, 0);
   await assert.rejects(uploadArticleAttachment(connection, "fixture-article", f.file), {
     message: "The upload requires a readable regular file.",
@@ -288,7 +288,7 @@ test("extra missing/invalid file syntax and unsupported query fail before fresh-
   let keyringReads = 0;
   t.mock.method(f.secrets, "get", async () => { keyringReads++; throw new Error("unexpected keyring"); });
   await assert.rejects(f.cli.execute(["article", "attachment", "upload", "fixture-parent"]), /--file/);
-  for (const path of [" ", "fixture\nfile"]) {
+  for (const path of ["", "fixture\0file"]) {
     await assert.rejects(f.cli.execute(["article", "attachment", "upload", "fixture-parent", "--file", path]), /file path/);
   }
   for (const command of [reads[0]!, reads[2]!]) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { command, createCli, helpLayout, listView, offsetFooter, recordView, tableView } from "../src/index.js";
+import { command, localCommand, createCli, helpLayout, listView, offsetFooter, recordView, tableView } from "../src/index.js";
 import { formatHuman } from "../src/output.js";
 import { moreResults, renderView } from "../src/view.js";
 import { createCliFixture } from "../src/testing.js";
@@ -22,6 +22,7 @@ test("offset pages continue only when they came back full", () => {
   assert.equal(offsetFooter("--skip", 50, 50, 100), "More results: --skip 150");
   assert.equal(offsetFooter("--skip", 12, 50), undefined);
   assert.equal(offsetFooter("--skip", 12, undefined), undefined);
+  assert.equal(offsetFooter("--skip", 0, 0), undefined);
 });
 
 test("views read the command's arguments and options through the context", async (t) => {
@@ -29,6 +30,9 @@ test("views read the command's arguments and options through the context", async
   const app = fixture.createApplication((runtime) => createCli({
     name: "input-cli", description: "Input fixture", runtime,
     commands: [
+      localCommand("metadata <name>", "Show metadata", () => null, {
+        view: recordView<null>({ title: (_value, ctx) => `Metadata ${ctx.input?.args.name}.`, fields: [] }),
+      }),
       command("remove <tagID>", "Remove", () => null, {
         view: recordView<null>({ title: (_value, ctx) => `Removed tag ${ctx.input?.args.tagID}.`, fields: [] }),
       }),
@@ -41,6 +45,7 @@ test("views read the command's arguments and options through the context", async
       }),
     ],
   }));
+  assert.equal((await fixture.run(app, ["metadata", "fixture"])).stdout, "Metadata fixture.\n");
   assert.equal((await fixture.run(app, ["remove", "7"])).stdout, "Removed tag 7.\n");
   assert.equal((await fixture.run(app, ["page"])).stdout, "NAME\na\nb\n\nMore results: --skip 2\n");
   assert.equal((await fixture.run(app, ["page", "--top", "5"])).stdout, "NAME\na\nb\n");

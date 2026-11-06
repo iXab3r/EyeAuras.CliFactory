@@ -23,7 +23,7 @@ import { adminCategories } from "./admin-models.js";
 import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
-import { clientLeaf, positiveInteger } from "./command-support.js";
+import { clientLeaf, integerValue } from "./command-support.js";
 import { buildTable, problemTable, testTable, withView } from "./presentation.js";
 import { createBuildFlowCommands } from "./build-flow.js";
 import type {
@@ -39,8 +39,8 @@ const pageOptions: readonly OptionDefinition[] = [
     description: "Maximum results to return",
     defaultValue: 100,
     parse: integerParser({
-      min: 1, max: Number.MAX_SAFE_INTEGER, signed: true,
-      errorMessage: "TeamCity page limit must be a positive safe integer.",
+      min: 0, max: Number.MAX_SAFE_INTEGER, signed: true,
+      errorMessage: "TeamCity page limit must be a nonnegative safe integer.",
     }),
   },
   {
@@ -72,18 +72,6 @@ async function client(context: CommandContext): Promise<TeamCityClient> {
   });
 }
 
-function oneOf<const T extends string>(
-  description: string,
-  values: readonly T[],
-): (value: string) => T {
-  return (value) => {
-    if (!values.includes(value as T)) {
-      throw new Error(`${description} must be one of: ${values.join(", ")}.`);
-    }
-    return value as T;
-  };
-}
-
 function stringOption(options: Record<string, unknown>, name: string): string | undefined {
   const value = options[name];
   return typeof value === "string" ? value : undefined;
@@ -102,23 +90,6 @@ function pageValues(options: Record<string, unknown>): { limit?: number; start?:
     ...(start === undefined ? {} : { start }),
   };
 }
-
-const buildState = oneOf<TeamCityBuildState>("Build state", [
-  "queued",
-  "running",
-  "finished",
-  "any",
-]);
-const buildStatus = oneOf<TeamCityBuildStatus>("Build status", ["SUCCESS", "FAILURE", "UNKNOWN"]);
-const testStatus = oneOf<TeamCityTestStatus>("Test status", [
-  "unknown",
-  "normal",
-  "warning",
-  "failure",
-  "error",
-  "success",
-]);
-const triState = oneOf<TeamCityTriState>("Agent filter", ["true", "false", "any"]);
 
 export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
   const leaf = clientLeaf(client);
@@ -141,7 +112,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       "builds diagnose 101",
       "builds artifacts download 101 dist/app.zip --output app.zip",
     ],
-    version: "0.4.1",
+    version: "0.5.6",
     applicationId: "teamcity-cli",
     permissions: { categories: adminCategories },
     profile: {
@@ -303,12 +274,10 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             {
               flags: "--state <state>",
               description: "queued, running, finished, or any",
-              parse: buildState,
             },
             {
               flags: "--status <status>",
               description: "SUCCESS, FAILURE, or UNKNOWN",
-              parse: buildStatus,
             },
             ...pageOptions,
           ],
@@ -322,7 +291,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           Permission.ReadOnly,
           (c, { args, options }) => {
             const status = stringOption(options, "status") as TeamCityTestStatus | undefined;
-            return c.listBuildTests(positiveInteger(args.id), {
+            return c.listBuildTests(integerValue(args.id), {
               ...(status === undefined ? {} : { status }),
               ...pageValues(options),
             });
@@ -331,7 +300,6 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             {
               flags: "--status <status>",
               description: "failure, success, error, warning, normal or unknown",
-              parse: testStatus,
             },
             ...pageOptions,
           ],
@@ -341,7 +309,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "List problem occurrences for a build",
           Permission.ReadOnly,
           (c, { args, options }) =>
-            c.listBuildProblems(positiveInteger(args.id), pageValues(options)),
+            c.listBuildProblems(integerValue(args.id), pageValues(options)),
           pageOptions,
         )),
         leaf(
@@ -349,7 +317,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "List source changes associated with a build",
           Permission.ReadOnly,
           (c, { args, options }) =>
-            c.listBuildChanges(positiveInteger(args.id), pageValues(options)),
+            c.listBuildChanges(integerValue(args.id), pageValues(options)),
           pageOptions,
         ),
         leaf(
@@ -358,7 +326,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           Permission.Update,
           (c, { args, options }) => {
             const comment = stringOption(options, "comment");
-            return c.cancelBuild(positiveInteger(args.id), {
+            return c.cancelBuild(integerValue(args.id), {
               ...(comment === undefined ? {} : { comment }),
             });
           },
@@ -402,7 +370,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           Permission.Update,
           (c, { args, options }) => {
             const comment = stringOption(options, "comment");
-            return c.cancelQueuedBuild(positiveInteger(args.id), {
+            return c.cancelQueuedBuild(integerValue(args.id), {
               ...(comment === undefined ? {} : { comment }),
             });
           },
@@ -432,17 +400,14 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             {
               flags: "--connected <value>",
               description: "true, false, or any",
-              parse: triState,
             },
             {
               flags: "--enabled <value>",
               description: "true, false, or any",
-              parse: triState,
             },
             {
               flags: "--authorized <value>",
               description: "true, false, or any",
-              parse: triState,
             },
             ...pageOptions,
           ],
@@ -451,7 +416,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           "show <id>",
           "Show one build agent",
           Permission.ReadOnly,
-          (c, { args }) => c.getAgent(positiveInteger(args.id)),
+          (c, { args }) => c.getAgent(integerValue(args.id)),
         ),
       ], "Control")),
       command("vcs", "Inspect and configure version control", [

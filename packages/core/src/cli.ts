@@ -3,6 +3,7 @@ import { AppArguments } from "./app-arguments.js";
 import { canPrompt } from "./auth.js";
 import { runJsonRpc } from "./json-rpc.js";
 import { writeResult } from "./output.js";
+import { consumeStreamResult, isStreamResult } from "./stream-result.js";
 import {
   resolvePermissionCategories,
   validateCommandPermissions,
@@ -14,7 +15,7 @@ import { createProfileCommands } from "./profile-commands.js";
 import { CommandGate } from "./command-gate.js";
 import { globalFlagRequested, validateArgv } from "./argv.js";
 import { visitResources } from "./resources.js";
-import { KeyringSecretStore, ProfileSecrets } from "./secret-store.js";
+import { PlatformSecretStore, ProfileSecrets } from "./secret-store.js";
 import { nextCommands, type HumanView } from "./view.js";
 import {
   CliError,
@@ -48,6 +49,9 @@ interface ExecutionOptions {
   io: CliIo;
   cwd: string;
   environment: Readonly<NodeJS.ProcessEnv>;
+  classification?: { route: "local" | "owner" };
+  /** Only ordinary rendered JSON sequences put failed-result metadata on stderr. */
+  streamedJson?: boolean;
 }
 
 interface GlobalOptions {
@@ -161,6 +165,17 @@ export function createCli(definition: CliDefinition): CliApplication {
       `Cli applicationId '${applicationId}' does not match AppArguments.AppName '${appArguments.AppName}'.`,
     );
   }
+  const validateHandlers = (items: readonly CommandDefinition[], builtin = false): void => {
+    for (const item of items) {
+      if (builtin && item.additionalPermissions)
+        throw new Error("Additional permissions require a service command.");
+      if (item.runLocal && (item.run || item.permission || item.additionalPermissions))
+        throw new Error(`Local command '${item.name}' cannot declare a profile handler or permission.`);
+      validateHandlers(item.children ?? [], builtin);
+    }
+  };
+  validateHandlers(definition.commands);
+  validateHandlers(definition.builtins ?? [], true);
   const permissionCategories: readonly PermissionCategory[] | undefined =
     definition.permissions === undefined
       ? undefined
@@ -190,7 +205,7 @@ export function createCli(definition: CliDefinition): CliApplication {
         : { validate: profileDefinition.validate }),
     });
   const secretStore: SecretStore =
-    definition.runtime?.secretStore ?? new KeyringSecretStore();
+    definition.runtime?.secretStore ?? new PlatformSecretStore(appArguments);
 
   const resolveProfile = async (requestedName?: string): Promise<Profile> =>
     profileStore.get(requestedName);
@@ -270,6 +285,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     program.exitOverride();
     // Commander's own output, so a bare group shows exactly what --help shows, examples included.
     const showHelp = (target: Command) => {
+      if (execution.classification) return;
       const start = capturedOutput.length;
       target.outputHelp();
       result = { help: capturedOutput.slice(start).trimEnd() };
@@ -329,11 +345,43 @@ export function createCli(definition: CliDefinition): CliApplication {
       requiresConfiguredProfile = false,
       exclusive = false,
       view?: HumanView,
+      runLocal?: CommandDefinition["runLocal"],
+      additionalPermissions?: CommandDefinition["additionalPermissions"],
     ): Promise<void> => {
+      if (execution.classification) {
+        execution.classification.route = (!handler && !runLocal) || runLocal || (!requiresConfiguredProfile && !exclusive) ? "local" : "owner";
+        return;
+      }
+      if (runLocal) {
+        const globals = command.optsWithGlobals() as GlobalOptions;
+        const context = {
+          signal: execution.signal, io: execution.io, cwd: execution.cwd, environment: execution.environment,
+          progress: execution.render && globals.json !== true
+            ? (message: string) => void execution.io.error.write(`${message}\n`) : () => undefined,
+        };
+        const presentation = view && { view, cliName: definition.name, input: commandInput };
+        try {
+          result = await runLocal(commandInput, context);
+          if (isStreamResult(result)) {
+            execution.streamedJson = execution.render && globals.json === true;
+            result = await consumeStreamResult(result, execution.signal, output, execution.streamedJson);
+          }
+        } catch (caught) {
+          const interrupted = afterInterrupt(caught, execution.interrupt);
+          const failure = interrupted instanceof Error && !(interrupted instanceof CliError)
+            ? CliError.from(interrupted) : interrupted;
+          if (execution.render && !execution.streamedJson && failure instanceof CliError && failure.result !== undefined)
+            writeResult(output, failure.result, globals.json === true, presentation);
+          throw failure;
+        }
+        if (execution.render && !execution.streamedJson) writeResult(output, result, globals.json === true, presentation);
+        return;
+      }
       if (!handler) {
         showHelp(command);
         return;
       }
+      let preparedPermissions: readonly string[] | undefined;
       const invoke = async (ownsExclusive: boolean) => {
         const globals = command.optsWithGlobals() as GlobalOptions;
         let profile = await resolveProfile(globals.profile);
@@ -341,14 +389,25 @@ export function createCli(definition: CliDefinition): CliApplication {
         const defaultProfile =
           globals.profile === undefined ? profile.name : (await profileStore.list()).active;
         try {
-          if (requiredPermission) {
-            const enabled = await enabledPermissions(profile.name);
-            if (!enabled.has(requiredPermission)) {
+          const enabled = requiredPermission ? await enabledPermissions(profile.name) : undefined;
+          const admit = (permission: string) => {
+            if (!enabled?.has(permission)) {
               throw new CliError(
-                `Permission '${requiredPermission}' is disabled for profile '${profile.name}'.`,
-                { code: "permission.denied", next: [["permissions", "grant", requiredPermission]] },
+                `Permission '${permission}' is disabled for profile '${profile.name}'.`,
+                { code: "permission.denied", next: [["permissions", "grant", permission]] },
               );
             }
+          };
+          if (requiredPermission) admit(requiredPermission);
+          if (additionalPermissions) {
+            execution.signal.throwIfAborted();
+            if (preparedPermissions === undefined) {
+              const requirements = await additionalPermissions(commandInput, { cwd: execution.cwd, signal: execution.signal });
+              if (!Array.isArray(requirements) || requirements.some(category => !permissionCategories?.some(known => known.name === category)))
+                throw new CliError("The command requires an unknown permission category.", { code: "permission.unknown" });
+              preparedPermissions = [...requirements];
+            }
+            for (const permission of preparedPermissions) admit(permission);
           }
           if (requiresConfiguredProfile)
             profile = await ensureConfigured(profile, globals, ownsExclusive);
@@ -359,14 +418,18 @@ export function createCli(definition: CliDefinition): CliApplication {
           };
           try {
             result = await handler(commandInput, context);
+            if (isStreamResult(result)) {
+              execution.streamedJson = execution.render && globals.json === true;
+              result = await consumeStreamResult(result, execution.signal, output, execution.streamedJson);
+            }
           } catch (caught) {
             const failure = afterInterrupt(caught, execution.interrupt);
             // A failed outcome still shows its data; `run` reports the reason and exit code.
-            if (execution.render && failure instanceof CliError && failure.result !== undefined)
+            if (execution.render && !execution.streamedJson && failure instanceof CliError && failure.result !== undefined)
               writeResult(output, failure.result, globals.json === true, presentation);
             throw failure;
           }
-          if (execution.render) {
+          if (execution.render && !execution.streamedJson) {
             writeResult(output, result, globals.json === true, presentation);
           }
         } catch (caught) {
@@ -400,14 +463,14 @@ export function createCli(definition: CliDefinition): CliApplication {
     ): void => {
       const parts = commandParts(item.name);
       const path = `${parentPath} ${parts.name}`;
-      if (item.view && !item.run) {
+      if (item.view && !item.run && !item.runLocal) {
         throw new Error(`Command '${path}' declares a view but has no handler.`);
       }
       const current = new Command(parts.name)
         .copyInheritedSettings(parent)
         .description(item.description)
         .configureOutput(parent.configureOutput())
-        .allowExcessArguments(item.run === undefined);
+        .allowExcessArguments(item.run === undefined && item.runLocal === undefined);
       if (item.group) current.helpGroup(`${item.group}:`);
       if (item.permission) {
         current.addHelpText(
@@ -428,7 +491,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       current.showHelpAfterError(shortUsage(current, path));
       current.action(async (...parameters: unknown[]) => {
         const actionCommand = parameters.at(-1) as Command;
-        if (!item.run) rejectUnknownSubcommand(actionCommand);
+        if (!item.run && !item.runLocal) rejectUnknownSubcommand(actionCommand);
         parsed = true;
         const options = (parameters.at(-2) ?? {}) as Record<string, unknown>;
         const positional = parameters.slice(0, -2);
@@ -446,6 +509,8 @@ export function createCli(definition: CliDefinition): CliApplication {
           configured,
           exclusive,
           item.view,
+          item.runLocal,
+          item.additionalPermissions,
         );
       });
       parent.addCommand(current);
@@ -478,6 +543,10 @@ export function createCli(definition: CliDefinition): CliApplication {
     program.action(async () => {
       rejectUnknownSubcommand(program);
       parsed = true;
+      if (execution.classification) {
+        execution.classification.route = canPrompt(input, output) && canPrompt(input, error) ? "owner" : "local";
+        return;
+      }
       await gate.run(
         async () => {
           const globals = program.opts() as GlobalOptions;
@@ -548,11 +617,14 @@ export function createCli(definition: CliDefinition): CliApplication {
    * The one place a CLI failure is reported: a JSON envelope, or the explanation with one line of
    * technical cause and follow-ups. `--verbose` adds the complete chain with frames.
    */
-  const report = (error: unknown, argv: readonly string[], stream: CliIo["error"]): number => {
+  const report = (error: unknown, argv: readonly string[], stream: CliIo["error"], streamedJson = false): number => {
     const verbose = globalFlagRequested(argv, "--verbose");
     const failure = machineError(error, { verbose });
     if (globalFlagRequested(argv, "--json")) {
-      stream.write(`${JSON.stringify({ error: failure })}\n`);
+      stream.write(`${JSON.stringify({ error: {
+        ...failure,
+        ...(streamedJson && error instanceof CliError && error.result !== undefined ? { result: error.result } : {}),
+      } })}\n`);
       return failure.exitCode;
     }
     const lines = [failure.message];
@@ -560,7 +632,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     const cause = verbose || failure.code === "usage" || failure.exitCode === 130 ? undefined : conciseCause(failure);
     if (cause) lines.push(cause);
     // A rendered result carries its own suggestions; stderr adds them only without one.
-    if (error instanceof CliError && error.result === undefined && error.profile !== undefined) {
+    if (error instanceof CliError && error.result === undefined) {
       const next = nextCommands(error.next, definition.name, error.profile, error.defaultProfile);
       if (next.length) lines.push("Next:", ...next.map((line) => `  ${line}`));
     }
@@ -588,6 +660,18 @@ export function createCli(definition: CliDefinition): CliApplication {
   });
 
   return {
+    async classify(argv, invocation = {}) {
+      // A persistent transport always belongs to the owner; malformed mixed invocations are usage.
+      if (argv.length === 1 && argv[0] === "--json-rpc") return "owner";
+      const classification: { route: "local" | "owner" } = { route: "local" };
+      await track(async () => {
+        try { await executeInternal(argv, { ...executionFor(false, invocation), classification }); }
+        catch (error) {
+          if (!(error instanceof CliError) || !["usage", "usage.jsonRpc"].includes(error.code)) throw error;
+        }
+      });
+      return classification.route;
+    },
     async run(argv = process.argv.slice(2), invocation = {}): Promise<number> {
       const execution = executionFor(true, invocation);
       try {
@@ -614,7 +698,7 @@ export function createCli(definition: CliDefinition): CliApplication {
           return 0;
         });
       } catch (error) {
-        return report(afterInterrupt(error, invocation.signal), argv, execution.io.error);
+        return report(afterInterrupt(error, invocation.signal), argv, execution.io.error, execution.streamedJson);
       }
     },
     execute(argv, signal): Promise<unknown> {

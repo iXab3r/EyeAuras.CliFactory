@@ -65,7 +65,7 @@ export function manifestRows(text: string, path: string): BatchRow[] {
   if (!Array.isArray(rows) || !rows.length) throw new Error("The manifest must be a nonempty array of rows.");
   return rows.map((value: unknown, index) => {
     try {
-      const source = mutationBody(value, ["action", "issue", "project", "summary", "description", "customFields"]);
+      const source = mutationBody(value);
       const { action, issue, ...body } = source;
       if (action === "create" && issue === undefined) return { row: index + 1, source, write: issueWrite(body, true) };
       if (action === "update" && typeof issue === "string") {

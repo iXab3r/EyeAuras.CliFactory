@@ -109,6 +109,49 @@ try {
     `], { cwd: installed }));
     const core = await realpath(fileURLToPath(coreUrl));
     assert.ok(!relative(await realpath(prefix), core).startsWith(".."), "Core must resolve inside the isolated prefix.");
+    if (!entry.bin) {
+      run(process.execPath, ["--input-type=module", "--eval", `
+        import test from "node:test";
+        import assert from "node:assert/strict";
+        import { command, createCli, streamResult } from "@eyeauras/cli-factory";
+        import { createCliFixture } from "@eyeauras/cli-factory/testing";
+        test("installed finite streaming result", async t => {
+          const fixture = await createCliFixture(t, { applicationId: "stream-package-fixture", profiles: [{ name: "default" }] });
+          const app = fixture.createApplication(runtime => createCli({
+            name: "stream-package-fixture", description: "Fixture", runtime,
+            commands: [command("items", "List items", () => streamResult(async function* () { yield { id: 1 }; yield { id: 2 }; }))],
+          }));
+          const expected = [{ id: 1 }, { id: 2 }];
+          assert.deepEqual(await fixture.run(app, ["items", "--json"]), {
+            exitCode: 0, stdout: expected.map(item => JSON.stringify(item)).join("\\n") + "\\n", stderr: "",
+          });
+          assert.deepEqual(await app.execute(["items"]), expected);
+          assert.deepEqual(await fixture.rpc(app, [["items", "--json"], ["items"]]), [
+            { jsonrpc: "2.0", id: 0, result: expected }, { jsonrpc: "2.0", id: 1, result: expected },
+          ]);
+        });
+      `], { cwd: installed });
+      console.log("Core: installed NDJSON, execute and persistent RPC streaming passed");
+    }
+    if (windows && !entry.bin) {
+      // Exercise the shipped native DPAPI dependency, not a workspace/in-memory substitute.
+      run(process.execPath, ["--input-type=module", "--eval", `
+        import assert from "node:assert/strict";
+        import { join } from "node:path";
+        import { AppArguments, PlatformSecretStore, ProfileSecrets } from "@eyeauras/cli-factory";
+        const root = ${JSON.stringify(join(working, "dpapi-fixture"))};
+        const app = new AppArguments({ AppName: "package-fixture", Environment: {
+          AppDomainDirectory: root, ApplicationExecutablePath: join(root, "fixture.js"),
+          EnvironmentAppData: root, EnvironmentLocalAppData: root, ProcessId: process.pid,
+        }});
+        const secrets = () => new ProfileSecrets(new PlatformSecretStore(app), app.AppName, "default");
+        await secrets().set("token", "synthetic-packaged-dpapi");
+        assert.equal(await secrets().require("token"), "synthetic-packaged-dpapi");
+        await secrets().delete("token");
+        assert.equal(await secrets().get("token"), undefined);
+      `], { cwd: installed });
+      console.log("Core: installed native DPAPI persistence passed");
+    }
     if (!entry.bin) continue;
     const help = command(entry.bin, ["--help"]);
     assert.ok(help.includes(`Usage: ${entry.bin}`));

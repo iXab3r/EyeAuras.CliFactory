@@ -98,16 +98,10 @@ export interface TeamCityPageOptions {
   start?: number;
 }
 
-export type TeamCityBuildState = "queued" | "running" | "finished" | "any";
-export type TeamCityBuildStatus = "SUCCESS" | "FAILURE" | "UNKNOWN";
-export type TeamCityTestStatus =
-  | "unknown"
-  | "normal"
-  | "warning"
-  | "failure"
-  | "error"
-  | "success";
-export type TeamCityTriState = "true" | "false" | "any";
+export type TeamCityBuildState = string;
+export type TeamCityBuildStatus = string;
+export type TeamCityTestStatus = string;
+export type TeamCityTriState = string;
 
 export interface TeamCityTestOccurrence {
   id: string;
