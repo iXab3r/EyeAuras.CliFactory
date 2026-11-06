@@ -88,3 +88,5 @@ export type {
   CliInvocation,
   TokenValidationContext,
 } from "./types.js";
+
+export { publishFile, saveFile, type FileOptions } from "./profile-file.js";

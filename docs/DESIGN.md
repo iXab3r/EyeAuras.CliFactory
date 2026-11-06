@@ -588,6 +588,14 @@ Staged validation is read-only: detected size, modification-time or change-time 
 The original exclusive file handle remains open through validation and the link decision. Cleanup
 matches the path to a fresh handle snapshot, closes successfully, rechecks, and only then unlinks.
 
+`publishFile({ cwd, name, output?, ... })` exposes the same publisher for user-selected
+paths. `cwd` is the captured absolute invocation directory. With no output, `name` must be a
+safe basename; relative output paths resolve against cwd and absolute paths remain absolute.
+The parent must exist and have a verified link-free directory chain. Private staging is created
+beside the destination, and the exclusive hard-link and identity/cleanup checks are shared with
+profile publication. `saveFile({ cwd, name, output?, content, signal? })` uses this path for generated
+text. These files are not registered with profile download management.
+
 The result is `{ path, bytes, sha256 }` only after verified publication and staging cleanup.
 `ProfileFileError.published` records whether the link completed; `cleanupFailed` records incomplete
 owned-stage cleanup. Core computes those flags. Only static errors explicitly thrown by

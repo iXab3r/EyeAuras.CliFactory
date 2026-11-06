@@ -12,7 +12,7 @@ import {
   unlink,
   type FileHandle,
 } from "node:fs/promises";
-import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { command } from "./command.js";
 import { tableView } from "./view.js";
 import { privateDirectory } from "./private-storage.js";
@@ -95,14 +95,14 @@ async function fileIdentity(path: string): Promise<FileIdentity> {
   return fileIdentityFromStat(path, stat);
 }
 
-async function prepareDirectories(path: string): Promise<PathIdentity[]> {
+async function prepareDirectories(path: string, create = true): Promise<PathIdentity[]> {
   const absolute = resolve(path);
   let current = parse(absolute).root;
   const result = [await directoryIdentity(current)];
   for (const segment of relative(current, absolute).split(sep).filter(Boolean)) {
     current = join(current, segment);
     try {
-      await mkdir(current, { mode: 0o700 });
+      if (create) await mkdir(current, { mode: 0o700 });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }
@@ -145,26 +145,44 @@ function safeBasename(value: string): boolean {
     !/^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[1-9¹²³]|lpt[1-9¹²³])(?:[ .]|$)/i.test(value);
 }
 
-export async function publishProfileFile(
-  options: ProfileFileOptions,
-): Promise<PublishedProfileFile> {
-  const { appDataDirectory, name, maxBytes, signal } = options;
-  if (!isAbsolute(appDataDirectory)) {
-    throw new ProfileFileError("Downloads require an absolute profile AppData directory.");
-  }
-  if (!safeBasename(name)) {
+/** Destination for a user file, resolved against the captured invocation directory. */
+export interface FileOptions extends Omit<ProfileFileOptions, "appDataDirectory"> {
+  cwd: string;
+  output?: string | undefined;
+}
+
+/** Publish without overwriting; the destination parent must already exist. */
+export async function publishFile(options: FileOptions): Promise<PublishedProfileFile> {
+  if (!isAbsolute(options.cwd)) throw new ProfileFileError("The working directory must be absolute.");
+  if (options.output === undefined && !safeBasename(options.name)) {
     throw new ProfileFileError("Download name must be one safe basename without reserved characters.");
   }
+  const destination = resolve(options.cwd, options.output ?? options.name);
+  if (!safeBasename(basename(destination)) || options.output === "") {
+    throw new ProfileFileError("The output must name a safe file.");
+  }
+  return publishAt(options, destination, dirname(destination), false);
+}
+
+/** Publish generated user text using the same exclusive publisher. */
+export function saveFile(options: { cwd: string; name: string; output?: string | undefined; content: string; signal?: AbortSignal | undefined }): Promise<PublishedProfileFile> {
+  const { content, ...target } = options;
+  return publishFile({ ...target, openResponse: async () => new Response(content), inspectResponse() {} });
+}
+
+export async function publishProfileFile(options: ProfileFileOptions): Promise<PublishedProfileFile> {
+  if (!isAbsolute(options.appDataDirectory) || !safeBasename(options.name)) {
+    throw new ProfileFileError("Downloads require an absolute profile directory and safe basename.");
+  }
+  return publishAt(options, join(options.appDataDirectory, "downloads", options.name), join(options.appDataDirectory, "temp"), true);
+}
+
+async function publishAt(options: Omit<ProfileFileOptions, "appDataDirectory">, destination: string, tempDirectory: string, create: boolean): Promise<PublishedProfileFile> {
+  const { maxBytes, signal } = options;
   if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1)) {
     throw new ProfileFileError("Download byte limit must be a positive safe integer.");
   }
-  const profileDirectory = resolve(appDataDirectory);
-  const downloadDirectory = join(profileDirectory, "downloads");
-  const tempDirectory = join(profileDirectory, "temp");
-  const destination = join(downloadDirectory, name);
-  inside(profileDirectory, downloadDirectory);
-  inside(profileDirectory, tempDirectory);
-  inside(downloadDirectory, destination);
+  const downloadDirectory = dirname(destination);
 
   let destinationDirectories: PathIdentity[] = [];
   let stagingDirectories: PathIdentity[] = [];
@@ -190,8 +208,8 @@ export async function publishProfileFile(
     failureMessage =
       "Download directories could not be verified; symlinks, junctions and replacement are " +
       "unsupported; no destination was published.";
-    destinationDirectories = await prepareDirectories(downloadDirectory);
-    stagingDirectories = await prepareDirectories(tempDirectory);
+    destinationDirectories = await prepareDirectories(downloadDirectory, create);
+    stagingDirectories = await prepareDirectories(tempDirectory, create);
     try {
       const existing = await lstat(destination);
       void existing;
