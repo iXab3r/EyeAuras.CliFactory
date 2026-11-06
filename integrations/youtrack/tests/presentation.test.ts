@@ -161,3 +161,33 @@ test("help groups the root commands and every everyday description is short", as
     assert.ok(description.split(" ").length <= 8, `Too long: ${description}`);
   }
 });
+
+
+test("empty update responses name the selected objects", async (t) => {
+  server.use(http.post("*", () => new HttpResponse(null, { status: 204 })));
+  for (const [argv, title] of [
+    [["issues", "update", "DEMO-7", "--body", '{"summary":"Updated"}'], "Updated DEMO-7"],
+    [["article", "update", "KB-A-7", "--body", '{"summary":"Updated"}'], "Updated KB-A-7"],
+    [["sprint", "update", "agile-1", "sprint-2", "--body", '{"name":"Updated"}'], "Updated sprint sprint-2"],
+  ] as const) {
+    const result = await human(t, [...argv]);
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(result.stdout.split("\n")[0], title);
+  }
+});
+
+test("date custom fields render calendar dates while JSON preserves the timestamp", async (t) => {
+  const field = { id: "field-1", name: "Due date", $type: "DateIssueCustomField", value: 1735689600000 };
+  server.use(
+    http.get(`${base}/issues/DEMO-7/customFields`, () => HttpResponse.json([field])),
+    http.get(`${base}/issues/DEMO-7/customFields/field-1`, () => HttpResponse.json(field)),
+  );
+  for (const argv of [["issues", "fields", "list", "DEMO-7"], ["issues", "fields", "get", "DEMO-7", "field-1"]]) {
+    const result = await human(t, argv);
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.match(result.stdout, /2025-01-01/);
+    assert.doesNotMatch(result.stdout, /1735689600000/);
+    const json = await human(t, [...argv, "--json"]);
+    assert.match(json.stdout, /1735689600000/);
+  }
+});

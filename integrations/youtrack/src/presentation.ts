@@ -22,7 +22,8 @@ const count = (value: unknown): number | undefined =>
   typeof value === "number" && Number.isFinite(value) ? value : undefined;
 const instant = (value: unknown): Date | undefined => {
   const millis = count(value);
-  return millis === undefined ? undefined : new Date(millis);
+  const date = millis === undefined ? undefined : new Date(millis);
+  return date && Number.isFinite(date.getTime()) ? date : undefined;
 };
 const day = (value: unknown): string | undefined => instant(value)?.toISOString().slice(0, 10);
 const yes = (value: unknown): string | undefined => (value === true ? "yes" : undefined);
@@ -100,10 +101,10 @@ export const issueRecord = recordView<Item>({
 
 function writtenIssue(verb: string): HumanView {
   return recordView<Item | null>({
-    title: (issue) => (issue ? joined(`${verb} ${key(issue) ?? "issue"}`, text(issue.summary)) : `${verb} the issue.`),
+    title: (issue, context) => joined(`${verb} ${key(issue) ?? (arg(context, "issueID") || "the issue")}`, text(issue?.summary)),
     fields: [{ label: "Updated", value: (issue) => instant(issue?.updated) }],
-    next: (issue) => {
-      const issueID = key(issue);
+    next: (issue, context) => {
+      const issueID = key(issue) ?? arg(context, "issueID");
       return issueID ? [["issues", "get", issueID]] : [];
     },
   });
@@ -234,7 +235,7 @@ export const sprintTable = tableView<Item>({
 export const sprintRecord = recordView<Item | null>({ title: (sprint) => text(sprint?.name), fields: sprintFields });
 export const sprintWritten = (verb: string): HumanView =>
   recordView<Item | null>({
-    title: (sprint) => `${verb} sprint ${text(sprint?.name) ?? ""}`.trim(),
+    title: (sprint, context) => `${verb} sprint ${text(sprint?.name) ?? arg(context, "sprint")}`.trim(),
     fields: sprintFields,
   });
 
@@ -262,7 +263,7 @@ export const articleRecord = recordView<Item | null>({
 
 function writtenArticle(verb: string): HumanView {
   return recordView<Item | null>({
-    title: (article) => (article ? joined(`${verb} ${key(article) ?? "article"}`, text(article.summary)) : `${verb} the article.`),
+    title: (article, context) => joined(`${verb} ${key(article) ?? (arg(context, "article") || "the article")}`, text(article?.summary)),
     fields: [{ label: "Updated", value: (article) => instant(article?.updated) }],
     next: (article) => {
       const articleID = key(article);
@@ -428,9 +429,10 @@ export const fieldTable = tableView<Item>({
 });
 
 /** An issue field value as YouTrack would show it: names, logins, periods or plain text. */
-function fieldValue(value: unknown): string | undefined {
+function fieldValue(value: unknown, type?: string): string | undefined {
+  if (type === "DateIssueCustomField") return day(value);
   if (value === null || value === undefined) return undefined;
-  if (Array.isArray(value)) return value.map(fieldValue).filter(Boolean).join(", ");
+  if (Array.isArray(value)) return value.map((item) => fieldValue(item)).filter(Boolean).join(", ");
   const item = nested(value);
   if (item) return text(item.name) ?? text(item.login) ?? text(item.presentation) ?? firstLine(item.text);
   return String(value);
@@ -438,7 +440,7 @@ function fieldValue(value: unknown): string | undefined {
 export const issueFieldTable = tableView<Item>({
   columns: [
     { header: "FIELD", value: (field) => text(field.name) },
-    { header: "VALUE", value: (field) => fieldValue(field.value), shrink: true },
+    { header: "VALUE", value: (field) => fieldValue(field.value, text(field.$type)), shrink: true },
     id,
   ],
   empty: "No fields.",
@@ -446,7 +448,7 @@ export const issueFieldTable = tableView<Item>({
 });
 export const issueFieldRecord = recordView<Item | null>({
   title: (field, context) => (field
-    ? joined(text(field.name) ?? arg(context, "fieldID"), fieldValue(field.value) ?? "empty")
+    ? joined(text(field.name) ?? arg(context, "fieldID"), fieldValue(field.value, text(field.$type)) ?? "empty")
     : `Set ${arg(context, "fieldID")} on ${arg(context, "issueID")}.`),
   fields: [{ label: "ID", value: (field) => text(field?.id) }],
 });
