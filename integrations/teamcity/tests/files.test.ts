@@ -35,7 +35,19 @@ async function fileRuntime(testContext: test.TestContext, input = "", parent = t
     root,
     runtime,
     appArguments,
-    cli: runtime.createCli(),
+    cli: (() => {
+      const cli = runtime.createCli();
+      const run = cli.run.bind(cli);
+      const execute = cli.execute.bind(cli);
+      cli.run = (argv, invocation) => run(argv, { ...invocation, cwd: root });
+      // execute captures cwd synchronously, before starting asynchronous command work.
+      cli.execute = (argv, signal) => {
+        const previous = process.cwd();
+        try { process.chdir(root); return execute(argv, signal); }
+        finally { process.chdir(previous); }
+      };
+      return cli;
+    })(),
     cleanup: async () => {
       await runtime.dispose();
       assert.equal(await realpath(root), root);
@@ -111,13 +123,13 @@ for (const c of fileCases)
       if (c.bytes) {
         const name = c.argv[c.argv.indexOf("--output") + 1]!;
         assert.deepEqual(result, {
-          path: join(t.appArguments.AppDataDirectory, "downloads", name),
+          path: join(t.root, name),
           bytes: c.bytes.length,
           sha256: createHash("sha256").update(c.bytes).digest("hex"),
           mediaType: c.media,
         });
         assert.deepEqual(new Uint8Array(await readFile(result.path)), c.bytes);
-        assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+        assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
       } else assert.deepEqual(result, c.expected);
       if (c.storedKey)
         assert.equal(
@@ -155,7 +167,7 @@ test("file runtime canonicalizes its owned root through a platform directory ali
       ),
     );
     const result = (await t.cli.execute(download)) as { path: string };
-    assert.equal(result.path, join(t.appArguments.AppDataDirectory, "downloads", "example.bin"));
+    assert.equal(result.path, join(t.root, "example.bin"));
     assert.deepEqual(new Uint8Array(await readFile(result.path)), sourceBytes);
   } finally {
     await t?.cleanup();
@@ -185,8 +197,8 @@ test("whole-file downloads reject HTTP 206 without publishing or retrying partia
       assert.equal(t.runtime.stdout(), "");
       assert.match(t.runtime.stderr(), /no destination was published/);
       assert.equal(calls, 1, "partial downloads must not be retried automatically");
-      assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => !name.startsWith(".download-") && name !== "outside"), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -226,8 +238,8 @@ test("download transport failures keep HTTP status semantics and remove private 
         assert.doesNotMatch(error.message, /private|invalid/);
         return true;
       });
-      assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => !name.startsWith(".download-") && name !== "outside"), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -275,14 +287,13 @@ test("S10 rejects traversal and absolute paths, devices, unsafe areas and missin
       assert.throws(() => remotePath(path));
       await assert.rejects(t.cli.execute([...download.slice(0, 4), path, ...download.slice(5)]));
     }
-    for (const name of ["../other.bin", "C:\\other.bin", "CON", "nul.bin", "file.", "a:b", "/x"]) {
+    for (const name of ["C:\\other.bin", "CON", "nul.bin", "file.", "a:b"]) {
       await assert.rejects(t.cli.execute([...download.slice(0, -1), name]));
     }
     for (const argv of [
       ["jobs", "files", "list", "Build", "--limit", "-1"],
       ["users", "avatar", "download", "3", "--size", "1.5", "--output", "avatar.png"],
       [...download, "--max-bytes", "0"],
-      download.slice(0, 5),
     ])
       await assert.rejects(t.cli.execute(argv));
     assert.equal(calls, 0);
@@ -292,7 +303,7 @@ test("S10 rejects traversal and absolute paths, devices, unsafe areas and missin
 });
 test("S10 existing destinations and publication races never overwrite another file", async (testContext) => {
   const t = await fileRuntime(testContext),
-    dir = join(t.appArguments.AppDataDirectory, "downloads"),
+    dir = t.root,
     path = join(dir, "example.bin");
   let calls = 0;
   try {
@@ -312,7 +323,7 @@ test("S10 existing destinations and publication races never overwrite another fi
     await assert.rejects(t.cli.execute(download), /no destination was published/);
     assert.equal(calls, 1);
     assert.equal(await readFile(path, "utf8"), "synthetic-racing-owner");
-    assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+    assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
   } finally {
     await t.cleanup();
   }
@@ -327,7 +338,7 @@ test("S10 symlink or junction download/temp directories fail closed without touc
       await mkdir(t.appArguments.AppDataDirectory, { recursive: true });
       await symlink(
         outside,
-        join(t.appArguments.AppDataDirectory, name),
+        join(t.root, name),
         process.platform === "win32" ? "junction" : "dir",
       );
       server.use(
@@ -336,7 +347,7 @@ test("S10 symlink or junction download/temp directories fail closed without touc
           return new HttpResponse(sourceBytes as never);
         }),
       );
-      await assert.rejects(t.cli.execute(download), /symlink|junction|declared path/);
+      await assert.rejects(t.cli.execute([...download.slice(0, -1), join(name, "example.bin")]), /symlink|junction|declared path/);
       assert.equal(calls, 0);
       assert.deepEqual(await readdir(outside), []);
     } finally {
@@ -365,8 +376,8 @@ test("S10 size limits apply to actual streams and all failed staging bytes are r
         ),
       );
       await assert.rejects(t.cli.execute([...download, "--max-bytes", "8"]), /Download failed/);
-      assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => !name.startsWith(".download-") && name !== "outside"), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -405,8 +416,8 @@ test("S10 invalid PNG ZIP SVG content/media never becomes a successful file", as
         ),
       );
       await assert.rejects(t.cli.execute(c.argv), /Download failed/);
-      assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => !name.startsWith(".download-") && name !== "outside"), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -457,8 +468,8 @@ test("S10 cancellation during a response discards owned staging and suppresses a
         e.cause instanceof Error,
     );
     assert.ok(pulls >= 2);
-    assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
-    assert.deepEqual(await readdir(join(t.appArguments.AppDataDirectory, "downloads")), []);
+    assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
+    assert.deepEqual((await readdir(t.root)).filter(name => !name.startsWith(".download-") && name !== "outside"), []);
   } finally {
     await t.cleanup();
   }
@@ -491,7 +502,7 @@ test("S10 artifact redirects succeed without forwarding auth to another origin",
   }
 });
 test("S10 persistent RPC keeps downloaded bytes and paths isolated by active profile", async (testContext) => {
-  const commands = [download, [...download, "--profile", "uat"]];
+  const commands = [download, [...download, "--profile", "uat"], [...download.slice(0, -1), "uat.bin", "--profile", "uat"]];
   const input =
     commands
       .map((argv, id) =>
@@ -525,11 +536,12 @@ test("S10 persistent RPC keeps downloaded bytes and paths isolated by active pro
       .split("\n")
       .map((v) => JSON.parse(v));
     assert.equal(calls, 2);
-    assert.notEqual(frames[0].result.path, frames[1].result.path);
+    assert.match(frames[1].error.message, /exists/);
+    assert.notEqual(frames[0].result.path, frames[2].result.path);
     assert.equal(await readFile(frames[0].result.path, "utf8"), "synthetic-default-data");
-    assert.equal(await readFile(frames[1].result.path, "utf8"), "synthetic-uat-data");
+    assert.equal(await readFile(frames[2].result.path, "utf8"), "synthetic-uat-data");
     assert.doesNotMatch(t.runtime.stdout(), /synthetic-(?:default|uat)-data/);
-    assert.ok(frames[1].result.path.startsWith(t.appArguments.WithProfile("uat").AppDataDirectory));
+    assert.equal(frames[2].result.path, join(t.root, "uat.bin"));
   } finally {
     await t.cleanup();
   }
@@ -652,7 +664,7 @@ test("encoded downloads apply only an explicit decoded-byte budget", async (test
       } else {
         await assert.rejects(t.cli.execute(argv));
       }
-      assert.deepEqual(await readdir(t.appArguments.TempDirectory), []);
+      assert.deepEqual((await readdir(t.root)).filter(name => name.startsWith(".download-")), []);
     } finally {
       await t.cleanup();
     }
@@ -673,5 +685,39 @@ test("downloads have no default byte ceiling and accept a caller budget above 64
     }
   } finally {
     await t.cleanup();
+  }
+});
+
+ test("issue86 source downloads default to invocation cwd and accept output paths", async t => {
+  const f = await fileRuntime(t);
+  try {
+    server.use(http.get("*", () => HttpResponse.text("synthetic-source")));
+    await mkdir(join(f.root, "nested"));
+    for (const output of [undefined, "nested/relative.ts", join(f.root, "absolute.ts")]) {
+      const result = await f.runtime.json(f.cli, ["builds", "source", "101", "src/example.ts", ...(output ? ["--output", output] : [])], { cwd: f.root }) as { path: string };
+      assert.equal(result.path, output ? (output.startsWith("/") ? output : join(f.root, output)) : join(f.root, "example.ts"));
+      assert.equal(await readFile(result.path, "utf8"), "synthetic-source");
+    }
+    assert.equal((await f.runtime.run(f.cli, ["builds", "source", "101", "src/example.ts"], { cwd: f.root })).exitCode, 1);
+  } finally { await f.cleanup(); }
+});
+
+test("download resource kinds choose known filenames without an output option", async t => {
+  const cases: [string[], string][] = [
+    [["builds", "artifacts", "download", "7", "docs/example.bin"], "example.bin"],
+    [["builds", "artifacts", "archive", "7", "docs"], "docs.zip"],
+    [["users", "avatar", "download", "3", "--size", "64"], "avatar.png"],
+    [["builds", "icon", "7"], "statusIcon.svg"],
+  ];
+  for (const [argv, name] of cases) {
+    const f = await fileRuntime(t);
+    try {
+      const contract = fileCases.find(c => c.bytes && c.argv.slice(0, argv.length).join(" ") === argv.join(" "))!;
+      assert.ok(contract);
+      server.use(http.get(base + contract.path, () => new HttpResponse(contract.bytes as never, { headers: { "Content-Type": contract.media! } })));
+      const result = await f.runtime.json(f.cli, argv) as { path: string };
+      assert.equal(result.path, join(f.root, name));
+      assert.deepEqual(new Uint8Array(await readFile(result.path)), contract.bytes);
+    } finally { await f.cleanup(); }
   }
 });

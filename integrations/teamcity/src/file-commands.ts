@@ -13,9 +13,9 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   };
   const output = [
     option(
-      "--output <name>",
-      "New file name (not a path) in the selected profile's downloads directory; never overwrites",
-      true,
+      "--output <path>",
+      "Save to a relative or absolute path",
+      false,
     ),
     {
       ...option("--max-bytes <bytes>", "Optional caller-selected download byte budget"),
@@ -23,7 +23,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     },
   ];
   const destination = (o: Record<string, unknown>) => ({
-    output: text(o, "output"),
+    ...(typeof o.output === "string" ? { output: o.output } : {}),
     ...(o.maxBytes === undefined ? {} : { maxBytes: Number(o.maxBytes) }),
   });
   const tree = (name: string, kind: FileTree) =>
@@ -52,7 +52,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
           `${action} <id> <path>`,
           action === "archive"
             ? "Save bounded nonrecursive ZIP; never extract"
-            : "Save actual bytes under active profile",
+            : "Save actual bytes in the working directory",
           async ({ args, options }, context) =>
             (await clientFor(context)).downloadFile(
               kind,
@@ -60,7 +60,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
               text(args, "path"),
               action === "archive",
               Number(options.limit ?? 100),
-              context.appArguments,
+              context.cwd,
               destination(options),
             ),
           {
@@ -80,7 +80,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
           text(args, "id"),
           Number(options.size),
           action === "download-hash" ? text(args, "hash") : undefined,
-          context.appArguments,
+          context.cwd,
           destination(options),
         ),
       {
@@ -105,7 +105,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         (await clientFor(context)).downloadSource(
           args.id,
           args.path,
-          context.appArguments,
+          context.cwd,
           destination(options),
         ),
       { permission: R, options: output, view: savedFileRecord },
@@ -119,7 +119,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
             text(args, "id"),
             action === "aggregate-icon",
             Number(options.limit ?? 100),
-            context.appArguments,
+            context.cwd,
             destination(options),
           ),
         {

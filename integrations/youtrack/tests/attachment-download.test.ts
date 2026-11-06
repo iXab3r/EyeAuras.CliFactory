@@ -62,8 +62,8 @@ test("download uses exact encoded metadata then auth-free binary GET and profile
   const result = await downloadIssueAttachment(connection, issueID, metadata.id, directory);
   assert.deepEqual(result, {
     id: metadata.id,
-    name: "attachment-fixture-fixture.bin",
-    path: join(directory, "downloads", "attachment-fixture-fixture.bin"),
+    name: "fixture.bin",
+    path: join(directory, "fixture.bin"),
     bytes: 4,
     contentType: "application/octet-stream",
   });
@@ -72,7 +72,7 @@ test("download uses exact encoded metadata then auth-free binary GET and profile
     "/track/api/files/file-fixture",
   ]);
   assert.deepEqual(new Uint8Array(await readFile(result.path)), bytes);
-  assert.deepEqual(await readdir(join(directory, "downloads")), [result.name]);
+  assert.deepEqual(await readdir(directory), [result.name]);
   assert.doesNotMatch(JSON.stringify(result), /synthetic|sign=|updated=/);
   if (process.platform !== "win32") {
     assert.equal((await stat(result.path)).mode & 0o777, 0o600);
@@ -97,7 +97,7 @@ test("download supports relative and both documented signature forms without mat
     const directory = await temporary(t);
     const calls = serve(undefined, { ...metadata, url });
     const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory,
-      url.includes("version=2") ? { name: "version2.bin" } : {});
+      url.includes("version=2") ? { output: "version2.bin" } : {});
     assert.equal(result.bytes, 4);
     assert.equal(calls.length, 2);
   }
@@ -123,10 +123,8 @@ test("encoded and provider credential query values are redacted from reflected d
   for (const key of ["%74oken", "X-Amz-Credential", "apiKey", "%73ecretKey"]) {
     const directory = await temporary(t);
     const calls = serve(undefined, { ...metadata, name: "synthetic-private-query", url: `/track/api/files/file?${key}=synthetic-private-query&version=2` });
-    const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
-    assert.equal(result.bytes, 4);
-    assert.equal(calls.length, 2);
-    assert.doesNotMatch(JSON.stringify(result), /synthetic-private-query|%74oken|X-Amz-Credential|apiKey/);
+    await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory), /reflected/);
+    assert.equal(calls.length, 1);
   }
 });
 
@@ -158,8 +156,8 @@ test("download rejects partial and failed responses without returning binary err
       return true;
     });
     assert.equal(calls.length, 2);
-    assert.deepEqual(await readdir(join(directory, "downloads")), []);
-    assert.deepEqual(await readdir(join(directory, "temp")), []);
+    assert.deepEqual(await readdir(directory), []);
+    assert.deepEqual((await readdir(directory)).filter(name => name.startsWith(".download-")), []);
   }
 });
 
@@ -183,35 +181,36 @@ test("download honors explicit filename, ignores Content-Disposition, and handle
   serve(() => new HttpResponse(null, {
     headers: { "content-length": "0", "content-disposition": 'attachment; filename="../../bad.exe"' },
   }));
-  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { name: "chosen.bin" });
+  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { output: "chosen.bin" });
   assert.equal(result.name, "chosen.bin");
   assert.equal(result.bytes, 0);
   assert.equal((await readFile(result.path)).length, 0);
 });
 
-test("download local validation rejects unsafe basenames and invalid limits before any fetch", async (t) => {
+test("download rejects unsafe metadata defaults and invalid limits", async (t) => {
+  for (const name of ["", ".", "..", "../file", "a/b", "a\\b", "CON", "file.", "file ", "a\u0000b"]) {
+    const directory = await temporary(t);
+    const calls = serve(undefined, { ...metadata, name });
+    await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory));
+    assert.equal(calls.length, 1);
+    assert.deepEqual(await readdir(directory), []);
+  }
   const directory = await temporary(t);
   const calls = serve();
-  for (const name of ["", ".", "..", "../file", "a/b", "a\\b", "C:\\file", "/file", "file:stream", "CON", "con.txt", "CON .txt", "CONIN$", "CONOUT$", "LPT1.log", "COM¹", "file.", "file ", "a\u0000b", "a\nb", "a\u202eb"]) {
-    await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { name }), /basename/);
-  }
   for (const maxBytes of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
     await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { maxBytes }), /max-bytes/);
   }
   assert.equal(calls.length, 0);
-  assert.deepEqual(await readdir(directory), []);
 });
 
-test("download sanitizes default metadata name and removes raw or decoded signature reflections", async (t) => {
+test("download rejects unsafe metadata names and signature reflections", async (t) => {
   for (const name of ["../../CON:file?.bin", "synthetic%2Fsignature%0D%0A.bin", "synthetic/signature\r\n.bin"]) {
     const directory = await temporary(t);
     serve(() => new HttpResponse(bytes, { headers: { "content-type": "synthetic%2Fsignature%0D%0A/example" } }), {
       ...metadata, name, url: signedUrl,
     });
-    const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
-    assert.equal(result.path, join(directory, "downloads", result.name));
-    assert.doesNotMatch(result.name, /[/\\:?\r\n]/);
-    assert.doesNotMatch(JSON.stringify(result), /synthetic|signature/);
+    await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory));
+    assert.deepEqual(await readdir(directory), []);
   }
 });
 
@@ -223,8 +222,8 @@ test("download Content-Length and actual streamed byte limits are enforced with 
     }), { headers: contentLength === undefined ? {} : { "content-length": contentLength } }));
     await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { maxBytes: 3 }),
       /limit|Content-Length|length|max-bytes/);
-    assert.deepEqual(await readdir(join(directory, "downloads")), []);
-    assert.deepEqual(await readdir(join(directory, "temp")), []);
+    assert.deepEqual(await readdir(directory), []);
+    assert.deepEqual((await readdir(directory)).filter(name => name.startsWith(".download-")), []);
   }
 });
 
@@ -236,8 +235,8 @@ test("download accepts an exact actual byte limit and rejects truncated Content-
   const incompleteDirectory = await temporary(t);
   serve(() => new HttpResponse(bytes, { headers: { "content-length": "5" } }));
   await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, incompleteDirectory), /length|incomplete/);
-  assert.deepEqual(await readdir(join(incompleteDirectory, "downloads")), []);
-  assert.deepEqual(await readdir(join(incompleteDirectory, "temp")), []);
+  assert.deepEqual(await readdir(incompleteDirectory), []);
+  assert.deepEqual(await readdir(incompleteDirectory), []);
 });
 
 test("download reader failure and external abort remove profile temporary data", async (t) => {
@@ -253,25 +252,25 @@ test("download reader failure and external abort remove profile temporary data",
     })));
     await assert.rejects(downloadIssueAttachment({ ...connection, signal: controller.signal }, "fixture-issue", metadata.id, directory),
       (error: Error) => { assert.doesNotMatch(error.message, /synthetic/); return true; });
-    assert.deepEqual(await readdir(join(directory, "downloads")), []);
-    assert.deepEqual(await readdir(join(directory, "temp")), []);
+    assert.deepEqual(await readdir(directory), []);
+    assert.deepEqual((await readdir(directory)).filter(name => name.startsWith(".download-")), []);
   }
 });
 
 test("download refuses existing destination and directory links without binary IO", async (t) => {
   const directory = await temporary(t);
-  await mkdir(join(directory, "downloads"));
-  const target = join(directory, "downloads", "chosen.bin");
+
+  const target = join(directory, "chosen.bin");
   await writeFile(target, "original");
   let calls = serve();
-  await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { name: "chosen.bin" }), /exists/);
+  await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { output: "chosen.bin" }), /exists/);
   assert.equal(calls.length, 1);
   assert.equal(await readFile(target, "utf8"), "original");
   const linkedDirectory = await temporary(t);
   const outside = await temporary(t);
   await symlink(outside, join(linkedDirectory, "downloads"), process.platform === "win32" ? "junction" : "dir");
   calls = serve();
-  await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, linkedDirectory), /directory|link/);
+  await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, join(linkedDirectory, "downloads")), /directory|link/);
   assert.equal(calls.length, 1);
   assert.deepEqual(await readdir(outside), []);
 });
@@ -279,10 +278,10 @@ test("download refuses existing destination and directory links without binary I
 test("download refuses a linked destination and a linked AppData ancestor", async (t) => {
   const directory = await temporary(t);
   const outside = await temporary(t);
-  await mkdir(join(directory, "downloads"));
-  await symlink(outside, join(directory, "downloads", "chosen.bin"), process.platform === "win32" ? "junction" : "dir");
+
+  await symlink(outside, join(directory, "chosen.bin"), process.platform === "win32" ? "junction" : "dir");
   const calls = serve();
-  await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { name: "chosen.bin" }), /exists/);
+  await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { output: "chosen.bin" }), /exists/);
   await symlink(outside, join(directory, "linked"), process.platform === "win32" ? "junction" : "dir");
   await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, join(directory, "linked", "profile")), /directory|link/);
   assert.equal(calls.length, 2);
@@ -300,17 +299,17 @@ test("two same-name downloads publish exactly once without overwrite or residual
     return new HttpResponse(bytes);
   });
   const results = await Promise.allSettled([
-    downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { name: "chosen.bin" }),
-    downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { name: "chosen.bin" }),
+    downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { output: "chosen.bin" }),
+    downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { output: "chosen.bin" }),
   ]);
   assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
   assert.equal(results.filter((result) => result.status === "rejected").length, 1);
-  assert.deepEqual(new Uint8Array(await readFile(join(directory, "downloads", "chosen.bin"))), bytes);
-  assert.deepEqual(await readdir(join(directory, "downloads")), ["chosen.bin"]);
+  assert.deepEqual(new Uint8Array(await readFile(join(directory, "chosen.bin"))), bytes);
+  assert.deepEqual(await readdir(directory), ["chosen.bin"]);
 });
 
 test("download CLI invalid options fail before onboarding and permission denial precedes filesystem/network", async (t) => {
-  for (const options of [["--name", "../unsafe"], ["--max-bytes", "0"], ["--max-bytes", "2.5"]]) {
+  for (const options of [["--max-bytes", "0"], ["--max-bytes", "2.5"]]) {
     const f = await fixture(t);
     f.secrets.get = async () => { assert.fail("Invalid options reached keyring"); };
     assert.equal(await f.cli.run(["issues", "attachments", "download", "fixture-issue", metadata.id, ...options, "--json"]), 1);
@@ -330,8 +329,8 @@ test("download CLI human and JSON return sanitized domain data beneath the selec
     const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
     serve();
     assert.equal(await f.cli.run(["issues", "attachments", "download", "fixture-issue", metadata.id,
-      "--profile", "dev", "--name", "chosen.bin", "--max-bytes", "4", ...(json ? ["--json"] : [])]), 0);
-    const path = join(f.appArguments.WithProfile("dev").AppDataDirectory, "downloads", "chosen.bin");
+      "--profile", "dev", "--output", "chosen.bin", "--max-bytes", "4", ...(json ? ["--json"] : [])]), 0);
+    const path = join(f.root, "chosen.bin");
     assert.deepEqual(new Uint8Array(await readFile(path)), bytes);
     if (json) {
       assert.equal(JSON.parse(f.stdout()).path, path);
@@ -347,10 +346,10 @@ test("download CLI human and JSON return sanitized domain data beneath the selec
 
 test("download RPC interleaves profile paths, permissions and credentials without crossing profiles", async (t) => {
   const argv = [
-    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "dev", "--name", "chosen.bin"],
-    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "production", "--name", "chosen.bin"],
-    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "dev", "--name", "chosen.bin"],
-    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "production", "--name", "second.bin"],
+    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "dev", "--output", "chosen.bin"],
+    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "production", "--output", "chosen.bin"],
+    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "dev", "--output", "chosen.bin"],
+    ["issues", "attachments", "download", "fixture-issue", metadata.id, "--profile", "production", "--output", "second.bin"],
   ];
   const input = argv.map((argv, id) => JSON.stringify({ jsonrpc: "2.0", id, method: "cli.execute", params: { argv } })).join("\n") + "\n";
   const f = await fixture(t, input);
@@ -372,12 +371,12 @@ test("download RPC interleaves profile paths, permissions and credentials withou
   }));
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
-  assert.equal(replies[0].result.path, join(f.appArguments.WithProfile("dev").AppDataDirectory, "downloads", "chosen.bin"));
-  assert.equal(replies[1].result.path, join(f.appArguments.WithProfile("production").AppDataDirectory, "downloads", "chosen.bin"));
+  assert.equal(replies[0].result.path, join(f.root, "chosen.bin"));
+  assert.match(replies[1].error.message, /exists/);
   assert.equal(replies[2].error.code, -32000);
   assert.match(replies[2].error.message, /exists/);
   assert.equal(replies[3].result.name, "second.bin");
-  assert.deepEqual(calls, ["dev", "dev", "production", "production", "dev", "production", "production"]);
+  assert.deepEqual(calls, ["dev", "dev", "production", "dev", "production", "production"]);
   assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic|sign=/);
 });
 
@@ -404,8 +403,8 @@ test("download strips reflected plain signatures from the filename and content t
   serve(() => new HttpResponse(bytes, { headers: { "content-type": "synthetic-signature/example" } }), {
     ...metadata, name: "synthetic-signature.bin", url: "/track/api/files/file/sign=synthetic-signature",
   });
-  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
-  assert.equal(result.name, "attachment-fixture-redacted.bin");
+  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { output: "chosen.bin" });
+  assert.equal(result.name, "chosen.bin");
   assert.equal(result.contentType, "application/octet-stream");
   assert.doesNotMatch(JSON.stringify(result), /synthetic-signature/);
 });
@@ -423,8 +422,8 @@ test("over-limit download cancels its body reader and leaves no partial data", a
   serve(() => new HttpResponse(bytes));
   await assert.rejects(downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { maxBytes: 3 }), /limit/);
   assert.ok(cancellations > 0);
-  assert.deepEqual(await readdir(join(directory, "downloads")), []);
-  assert.deepEqual(await readdir(join(directory, "temp")), []);
+  assert.deepEqual(await readdir(directory), []);
+  assert.deepEqual((await readdir(directory)).filter(name => name.startsWith(".download-")), []);
 });
 
 test("path signature decoding preserves literal plus while preventing decoded MIME disclosure", async (t) => {
@@ -433,10 +432,10 @@ test("path signature decoding preserves literal plus while preventing decoded MI
   serve(() => new HttpResponse(bytes, { headers: { "content-type": "abc/def+ghi" } }), {
     ...metadata, name: "abc/def+ghi.bin", url: "/track/api/files/file/sign=abc%2Fdef+ghi",
   });
-  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory);
-  assert.equal(result.name, "attachment-fixture-redacted.bin");
+  const result = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, { output: "chosen.bin" });
+  assert.equal(result.name, "chosen.bin");
   assert.equal(result.contentType, "application/octet-stream");
-  assert.equal(result.path, join(directory, "downloads", "attachment-fixture-redacted.bin"));
+  assert.equal(result.path, join(directory, "chosen.bin"));
   // The caller's temporary directory can itself contain a signature fragment.
   assert.doesNotMatch(JSON.stringify({ ...result, path: undefined }), /abc|def|ghi/);
 });
@@ -454,8 +453,8 @@ test("unsupported hard-link publication fails closed and cleans completed tempor
     assert.doesNotMatch(error.message, /synthetic/);
     return true;
   });
-  assert.deepEqual(await readdir(join(directory, "downloads")), []);
-  assert.deepEqual(await readdir(join(directory, "temp")), []);
+  assert.deepEqual(await readdir(directory), []);
+  assert.deepEqual((await readdir(directory)).filter(name => name.startsWith(".download-")), []);
 });
 
 test("attachment encoded wire length remains bounded independently of emitted bytes", async (t) => {
@@ -485,7 +484,7 @@ test("attachment encoded wire length remains bounded independently of emitted by
       },
     }));
     const pending = downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory, {
-      name, maxBytes,
+      output: name, maxBytes,
     });
     if (failure === undefined) {
       const result = await pending;
@@ -494,7 +493,7 @@ test("attachment encoded wire length remains bounded independently of emitted by
     } else {
       await assert.rejects(pending);
     }
-    assert.deepEqual(await readdir(join(directory, "temp")), []);
+    assert.deepEqual((await readdir(directory)).filter(name => name.startsWith(".download-")), []);
   }
 });
 
@@ -514,7 +513,22 @@ test("downloads exceed the former default and accept explicit byte caps above 10
   serve();
   const chosenName = "x".repeat(200) + ".bin";
   const explicit = await downloadIssueAttachment(connection, "fixture-issue", metadata.id, directory,
-    { name: chosenName, maxBytes: 104857601 });
+    { output: chosenName, maxBytes: 104857601 });
   assert.equal(explicit.name, chosenName);
   assert.equal(explicit.bytes, bytes.length);
+});
+
+test("attachment command resolves relative and absolute output against invocation cwd", async t => {
+  const f = await configuredFixture(t, { url: connection.baseUrl, token: connection.token });
+  serve();
+  await mkdir(join(f.root, "nested"));
+  for (const output of [undefined, "nested/relative.bin", join(f.root, "absolute.bin")]) {
+    const result = await f.json(f.cli, ["issues", "attachments", "download", "fixture-issue", metadata.id,
+      ...(output ? ["--output", output] : [])]) as { path: string };
+    assert.equal(result.path, output ? (output.startsWith("/") || /^[A-Za-z]:/.test(output) ? output : join(f.root, output)) : join(f.root, metadata.name));
+    assert.deepEqual(new Uint8Array(await readFile(result.path)), bytes);
+  }
+  const missing = await f.run(f.cli, ["issues", "attachments", "download", "fixture-issue", metadata.id, "--output", "missing/file.bin"]);
+  assert.equal(missing.exitCode, 1);
+  await assert.rejects(stat(join(f.root, "missing")), /ENOENT/);
 });

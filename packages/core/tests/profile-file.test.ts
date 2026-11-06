@@ -22,18 +22,19 @@ import {
   writeFile,
 } from "node:fs/promises";
 import {
-  ProfileFileError,
-  publishProfileFile,
-  type ProfileFileOptions,
+  FilePublicationError,
+  publishFile,
+  type FileOptions,
 } from "../src/index.js";
 
 async function temporary(t: TestContext): Promise<string> {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "profile-file-test-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "file-publication-test-")));
   t.after(async () => {
     assert.equal(await realpath(root), root);
     assert.equal(dirname(root), await realpath(tmpdir()));
     await rm(root, { recursive: true, force: true });
   });
+  await mkdir(join(root, "downloads"));
   return root;
 }
 
@@ -50,10 +51,11 @@ function options(
   root: string,
   name: string,
   response: Response,
-  overrides: Partial<ProfileFileOptions> = {},
-): ProfileFileOptions {
+  overrides: Partial<FileOptions> = {},
+): FileOptions {
   return {
-    appDataDirectory: root,
+    cwd: root,
+    output: join(root, "downloads", name),
     name,
     maxBytes: 1024,
     openResponse: async () => response,
@@ -68,7 +70,7 @@ function assertDisposition(
   pattern?: RegExp,
 ): (error: unknown) => boolean {
   return (error) => {
-    assert.ok(error instanceof ProfileFileError);
+    assert.ok(error instanceof FilePublicationError);
     assert.equal(error.published, published);
     assert.equal(error.cleanupFailed, cleanupFailed);
     if (pattern) assert.match(error.message, pattern);
@@ -86,7 +88,7 @@ test("publishes complete owned bytes with prefix validation, hash and private st
     Uint8Array.of(9),
   ];
   let validated = 0;
-  const saved = await publishProfileFile(options(root, "fixture.bin", stream(chunks, {
+  const saved = await publishFile(options(root, "fixture.bin", stream(chunks, {
     "content-length": "9",
   }), {
     maxBytes: 9,
@@ -105,7 +107,7 @@ test("publishes complete owned bytes with prefix validation, hash and private st
       .digest("hex"),
   });
   assert.deepEqual([...await readFile(saved.path)], [1, 2, 3, 4, 5, 6, 7, 8, 9]);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
+  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
   const stat = await lstat(saved.path);
   assert.equal(stat.isFile(), true);
   assert.equal(stat.isSymbolicLink(), false);
@@ -116,7 +118,7 @@ test("local validation and existing destinations fail before response acquisitio
   const root = await temporary(t);
   let calls = 0;
   const openResponse = async () => { calls++; return new Response(); };
-  for (const [appDataDirectory, name, maxBytes] of [
+  for (const [cwd, name, maxBytes] of [
     ["relative", "fixture.bin", 1],
     [root, "../fixture.bin", 1],
     [root, "folder/fixture.bin", 1],
@@ -126,40 +128,40 @@ test("local validation and existing destinations fail before response acquisitio
     [root, "fixture.bin", 0],
     [root, "fixture.bin", Number.MAX_SAFE_INTEGER + 1],
   ] as const) {
-    await assert.rejects(publishProfileFile({
-      appDataDirectory, name, maxBytes, openResponse, inspectResponse() {},
+    await assert.rejects(publishFile({
+      cwd, name, maxBytes, openResponse, inspectResponse() {},
     }), assertDisposition(false, false));
   }
   await mkdir(join(root, "downloads"), { recursive: true });
   const destination = join(root, "downloads", "fixture.bin");
   await writeFile(destination, "existing");
-  await assert.rejects(publishProfileFile({
-    appDataDirectory: root, name: "fixture.bin", maxBytes: 1,
+  await assert.rejects(publishFile({
+    cwd: root, output: destination, name: "fixture.bin", maxBytes: 1,
     openResponse, inspectResponse() {},
   }), assertDisposition(false, false, /already exists/));
   assert.equal(await readFile(destination, "utf8"), "existing");
   assert.equal(calls, 0);
 });
 
-test("filesystem redirection preserves the configured profile path when directory identities match", async (t) => {
+test("filesystem redirection preserves the configured destination path when directory identities match", async (t) => {
   const root = await temporary(t);
   const profile = join(root, "profile");
   const redirected = join(root, "redirected");
-  await mkdir(profile);
+  await mkdir(join(profile, "downloads"), { recursive: true });
   await symlink(profile, redirected, process.platform === "win32" ? "junction" : "dir");
   const originalRealpath = fs.promises.realpath;
   t.mock.method(fs.promises, "realpath", async (...args: Parameters<typeof originalRealpath>) => {
     const path = String(args[0]);
     if (path === join(profile, "downloads")) return join(redirected, "downloads");
-    if (path === join(profile, "temp")) return join(redirected, "temp");
+    if (path === join(profile, "downloads")) return join(redirected, "downloads");
     return originalRealpath(...args);
   });
   syncBuiltinESMExports();
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
-  const saved = await publishProfileFile(options(profile, "fixture.txt", new Response("owned")));
+  const saved = await publishFile(options(profile, "fixture.txt", new Response("owned")));
   assert.equal(saved.path, join(profile, "downloads", "fixture.txt"));
   assert.equal(await readFile(saved.path, "utf8"), "owned");
-  assert.deepEqual(await readdir(join(profile, "temp")), []);
+  assert.deepEqual((await readdir(join(profile, "downloads"))).filter(name => name.startsWith(".download-")), []);
 });
 
 test("a resolved path identifying another directory fails before response acquisition", async (t) => {
@@ -172,7 +174,7 @@ test("a resolved path identifying another directory fails before response acquis
   syncBuiltinESMExports();
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   let calls = 0;
-  await assert.rejects(publishProfileFile(options(root, "fixture.bin", new Response(), {
+  await assert.rejects(publishFile(options(root, "fixture.bin", new Response(), {
     openResponse: async () => { calls++; return new Response(); },
   })), assertDisposition(false, false, /directories could not be verified/));
   assert.equal(calls, 0);
@@ -180,13 +182,14 @@ test("a resolved path identifying another directory fails before response acquis
 });
 
 test("directory links and pre-acquisition cancellation fail without response or outside writes", async (t) => {
-  for (const directory of ["downloads", "temp"]) {
+  for (const directory of ["downloads"]) {
     const root = await temporary(t);
     const outside = join(root, "outside");
     await mkdir(outside);
+    await rm(join(root, directory), { recursive: true });
     await symlink(outside, join(root, directory), process.platform === "win32" ? "junction" : "dir");
     let calls = 0;
-    await assert.rejects(publishProfileFile(options(root, "fixture.bin", new Response(), {
+    await assert.rejects(publishFile(options(root, "fixture.bin", new Response(), {
       openResponse: async () => { calls++; return new Response(); },
     })), assertDisposition(false, false, /symlinks|junctions/));
     assert.equal(calls, 0);
@@ -196,20 +199,20 @@ test("directory links and pre-acquisition cancellation fail without response or 
   const controller = new AbortController();
   controller.abort(new Error("synthetic-private-abort"));
   let calls = 0;
-  await assert.rejects(publishProfileFile(options(root, "fixture.bin", new Response(), {
+  await assert.rejects(publishFile(options(root, "fixture.bin", new Response(), {
     signal: controller.signal,
     openResponse: async () => { calls++; return new Response(); },
   })), assertDisposition(false, false));
   assert.equal(calls, 0);
 });
 
-test("a linked AppData ancestor fails before response acquisition or outside writes", async (t) => {
+test("a linked destination ancestor fails before response acquisition or outside writes", async (t) => {
   const root = await temporary(t);
   const outside = join(root, "outside");
   await mkdir(outside);
   await symlink(outside, join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
   let calls = 0;
-  await assert.rejects(publishProfileFile(options(
+  await assert.rejects(publishFile(options(
     join(root, "linked", "profile"),
     "fixture.bin",
     new Response(),
@@ -219,12 +222,12 @@ test("a linked AppData ancestor fails before response acquisition or outside wri
   assert.deepEqual(await readdir(outside), []);
 });
 
-test("existing AppData ancestors retain identity and are not permission-mutated", async (t) => {
+test("existing destination ancestors retain identity and are not permission-mutated", async (t) => {
   const root = await temporary(t);
   if (process.platform !== "win32") await chmod(root, 0o751);
   const identity = await lstat(root, { bigint: true });
   const before = (await stat(root)).mode & 0o777;
-  await publishProfileFile(options(join(root, "profile"), "empty.bin", stream([])));
+  await publishFile(options(root, "empty.bin", stream([])));
   const after = await lstat(root, { bigint: true });
   assert.equal(after.isDirectory(), true);
   assert.equal(after.isSymbolicLink(), false);
@@ -238,43 +241,42 @@ test("marked service checks survive only inspect/file validation with clean unpu
   for (const [name, override, pattern] of [
     ["inspect.bin", {
       inspectResponse() {
-        throw new ProfileFileError("Static service status rejection.");
+        throw new FilePublicationError("Static service status rejection.");
       },
     }, /service status/],
     ["inspect-async.bin", {
       async inspectResponse() {
         await Promise.resolve();
-        throw new ProfileFileError("Static asynchronous service status rejection.");
+        throw new FilePublicationError("Static asynchronous service status rejection.");
       },
     }, /asynchronous service status/],
     ["validate.bin", {
       validateFile() {
-        throw new ProfileFileError("Static service format rejection.");
+        throw new FilePublicationError("Static service format rejection.");
       },
     }, /service format/],
   ] as const) {
     await assert.rejects(
-      publishProfileFile(options(root, name, stream([Uint8Array.of(1)]), override)),
+      publishFile(options(root, name, stream([Uint8Array.of(1)]), override)),
       assertDisposition(false, false, pattern),
     );
   }
   for (const [name, override] of [
     ["fetch.bin", {
-      openResponse: async () => { throw new ProfileFileError("synthetic-private-fetch"); },
+      openResponse: async () => { throw new FilePublicationError("synthetic-private-fetch"); },
     }],
     ["stream.bin", {
       openResponse: async () => new Response(new ReadableStream<Uint8Array>({
-        start(controller) { controller.error(new ProfileFileError("synthetic-private-stream")); },
+        start(controller) { controller.error(new FilePublicationError("synthetic-private-stream")); },
       })),
     }],
   ] as const) {
     await assert.rejects(
-      publishProfileFile(options(root, name, new Response(), override)),
+      publishFile(options(root, name, new Response(), override)),
       assertDisposition(false, false, /Download failed/),
     );
   }
-  assert.deepEqual(await readdir(join(root, "downloads")), []);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
+  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
 });
 
 test("declared wire and actual byte limits, truncation and abort clean all staging", async (t) => {
@@ -293,13 +295,12 @@ test("declared wire and actual byte limits, truncation and abort clean all stagi
     ["abort.bin", aborted, 4, controller.signal],
   ] as const) {
     await assert.rejects(
-      publishProfileFile(options(root, name, response, { maxBytes, signal })),
+      publishFile(options(root, name, response, { maxBytes, signal })),
       assertDisposition(false, false, /byte limit|incomplete transfer|cancelled/),
     );
   }
   assert.deepEqual(await readdir(join(root, "downloads")), []);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
-  const encoded = await publishProfileFile(options(root, "encoded.bin", stream([
+  const encoded = await publishFile(options(root, "encoded.bin", stream([
     Uint8Array.of(1),
   ], {
     "content-length": "4",
@@ -311,7 +312,7 @@ test("declared wire and actual byte limits, truncation and abort clean all stagi
 test("directory and staged-file replacement never delete untrusted files", async (t) => {
   const root = await temporary(t);
   const originalDownloads = join(root, "downloads-moved");
-  await assert.rejects(publishProfileFile(options(root, "directory.bin", stream([
+  await assert.rejects(publishFile(options(root, "directory.bin", stream([
     Uint8Array.of(1),
   ]), {
     async openResponse() {
@@ -319,11 +320,11 @@ test("directory and staged-file replacement never delete untrusted files", async
       await mkdir(join(root, "downloads"));
       return stream([Uint8Array.of(1)]);
     },
-  })), assertDisposition(false, false, /directories|replacement/));
-  assert.deepEqual(await readdir(join(root, "temp")), []);
+  })), assertDisposition(false, true, /cleanup failed/));
+  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
 
   let replacement = "";
-  await assert.rejects(publishProfileFile(options(root, "staging.bin", stream([
+  await assert.rejects(publishFile(options(root, "staging.bin", stream([
     Uint8Array.of(1, 2),
   ]), {
     async validateFile(file) {
@@ -338,7 +339,7 @@ test("directory and staged-file replacement never delete untrusted files", async
 test("publication races preserve existing data and exactly one concurrent writer succeeds", async (t) => {
   const root = await temporary(t);
   const destination = join(root, "downloads", "race.bin");
-  await assert.rejects(publishProfileFile(options(root, "race.bin", stream([Uint8Array.of(1)]), {
+  await assert.rejects(publishFile(options(root, "race.bin", stream([Uint8Array.of(1)]), {
     async validateFile() {
       await writeFile(destination, "racing owner", { flag: "wx" });
     },
@@ -346,13 +347,13 @@ test("publication races preserve existing data and exactly one concurrent writer
   assert.equal(await readFile(destination, "utf8"), "racing owner");
   await unlink(destination);
   const results = await Promise.allSettled([
-    publishProfileFile(options(root, "race.bin", stream([Uint8Array.of(1)]))),
-    publishProfileFile(options(root, "race.bin", stream([Uint8Array.of(2)]))),
+    publishFile(options(root, "race.bin", stream([Uint8Array.of(1)]))),
+    publishFile(options(root, "race.bin", stream([Uint8Array.of(2)]))),
   ]);
   assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
   assert.equal(results.filter((result) => result.status === "rejected").length, 1);
   assert.equal((await readFile(destination)).byteLength, 1);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
+  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
 });
 
 test("unsupported links and post-publication cleanup failures report truthful disposition", async (t) => {
@@ -363,7 +364,7 @@ test("unsupported links and post-publication cleanup failures report truthful di
   syncBuiltinESMExports();
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   await assert.rejects(
-    publishProfileFile(options(root, "unsupported.bin", stream([Uint8Array.of(1)]))),
+    publishFile(options(root, "unsupported.bin", stream([Uint8Array.of(1)]))),
     assertDisposition(false, false, /hard links/),
   );
   t.mock.restoreAll();
@@ -379,7 +380,7 @@ test("unsupported links and post-publication cleanup failures report truthful di
   });
   syncBuiltinESMExports();
   await assert.rejects(
-    publishProfileFile(options(root, "retained.bin", stream([Uint8Array.of(3)]))),
+    publishFile(options(root, "retained.bin", stream([Uint8Array.of(3)]))),
     assertDisposition(true, true, /was published.*cleanup failed/),
   );
   assert.deepEqual([...await readFile(join(root, "downloads", "retained.bin"))], [3]);
@@ -405,13 +406,13 @@ test("a staging-handle close failure retains every path for inspection", async (
   syncBuiltinESMExports();
   try {
     await assert.rejects(
-      publishProfileFile(options(root, "close.bin", stream([Uint8Array.of(4)]))),
+      publishFile(options(root, "close.bin", stream([Uint8Array.of(4)]))),
       assertDisposition(true, true, /was published.*cleanup failed/),
     );
     assert.deepEqual([...await readFile(join(root, "downloads", "close.bin"))], [4]);
-    const stages = await readdir(join(root, "temp"));
+    const stages = (await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-"));
     assert.equal(stages.length, 1);
-    assert.deepEqual(await readdir(join(root, "temp", stages[0]!)), ["content"]);
+    assert.deepEqual(await readdir(join(root, "downloads", stages[0]!)), ["content"]);
   } finally {
     await closeOwned?.();
     t.mock.restoreAll();
@@ -431,12 +432,12 @@ test("destination replacement after link is detected and never removed", async (
   syncBuiltinESMExports();
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   await assert.rejects(
-    publishProfileFile(options(root, "replaced.bin", stream([Uint8Array.of(1)]))),
+    publishFile(options(root, "replaced.bin", stream([Uint8Array.of(1)]))),
     assertDisposition(true, false, /identity could not be verified/),
   );
   assert.equal(await readFile(join(root, "downloads", "replaced.bin"), "utf8"),
     "untrusted destination");
-  assert.deepEqual(await readdir(join(root, "temp")), []);
+  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
 });
 test("retries partial filesystem writes until every response byte is staged", async (t) => {
   const root = await temporary(t);
@@ -461,17 +462,17 @@ test("retries partial filesystem writes until every response byte is staged", as
   syncBuiltinESMExports();
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   const expected = Uint8Array.of(1, 2, 3, 4, 5, 6, 7);
-  const result = await publishProfileFile(options(root, "partial.bin", stream([expected])));
+  const result = await publishFile(options(root, "partial.bin", stream([expected])));
   assert.deepEqual(new Uint8Array(await readFile(result.path)), expected);
   assert.equal(result.sha256, createHash("sha256").update(expected).digest("hex"));
 });
 test("publishes a real empty file with the empty SHA-256", async (t) => {
   const root = await temporary(t);
-  const result = await publishProfileFile(options(root, "empty.bin", stream([])));
+  const result = await publishFile(options(root, "empty.bin", stream([])));
   assert.equal(result.bytes, 0);
   assert.equal(result.sha256, createHash("sha256").digest("hex"));
   assert.equal((await readFile(result.path)).byteLength, 0);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
+  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
 });
 
 test("zero-progress filesystem writes fail statically and clean private staging", async (t) => {
@@ -492,17 +493,16 @@ test("zero-progress filesystem writes fail statically and clean private staging"
   syncBuiltinESMExports();
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   await assert.rejects(
-    publishProfileFile(options(root, "zero.bin", stream([Uint8Array.of(1)]))),
+    publishFile(options(root, "zero.bin", stream([Uint8Array.of(1)]))),
     assertDisposition(false, false, /Download failed/),
   );
   assert.deepEqual(await readdir(join(root, "downloads")), []);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
 });
 
 test("abort during asynchronous file validation prevents publication and cleans staging", async (t) => {
   const root = await temporary(t);
   const controller = new AbortController();
-  await assert.rejects(publishProfileFile(options(root, "cancelled.bin", stream([
+  await assert.rejects(publishFile(options(root, "cancelled.bin", stream([
     Uint8Array.of(1),
   ]), {
     signal: controller.signal,
@@ -512,12 +512,11 @@ test("abort during asynchronous file validation prevents publication and cleans 
     },
   })), assertDisposition(false, false, /cancelled.*no destination was published/));
   assert.deepEqual(await readdir(join(root, "downloads")), []);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
 });
 
 test("staged-file validation cannot mutate content in place", async (t) => {
   const root = await temporary(t);
-  await assert.rejects(publishProfileFile(options(root, "mutated.bin", stream([
+  await assert.rejects(publishFile(options(root, "mutated.bin", stream([
     Uint8Array.of(1, 2, 3),
   ]), {
     async validateFile(file) {
@@ -527,7 +526,6 @@ test("staged-file validation cannot mutate content in place", async (t) => {
     },
   })), assertDisposition(false, false, /changed during validation/));
   assert.deepEqual(await readdir(join(root, "downloads")), []);
-  assert.deepEqual(await readdir(join(root, "temp")), []);
 });
 
 test("downloads-directory replacement after link is detected with truthful publication state", async (t) => {
@@ -543,11 +541,11 @@ test("downloads-directory replacement after link is detected with truthful publi
   syncBuiltinESMExports();
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   await assert.rejects(
-    publishProfileFile(options(root, "late.bin", stream([Uint8Array.of(7)]))),
-    assertDisposition(true, false, /identity could not be verified/),
+    publishFile(options(root, "late.bin", stream([Uint8Array.of(7)]))),
+    assertDisposition(true, true, /cleanup failed/),
   );
   assert.deepEqual([...await readFile(join(moved, "late.bin"))], [7]);
   assert.equal(await readFile(join(root, "downloads", "late.bin"), "utf8"),
     "untrusted destination");
-  assert.deepEqual(await readdir(join(root, "temp")), []);
+  assert.deepEqual((await readdir(join(root, "downloads"))).filter(name => name.startsWith(".download-")), []);
 });

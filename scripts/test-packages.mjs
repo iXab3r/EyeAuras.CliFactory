@@ -172,6 +172,54 @@ try {
         assert.equal(profiles[0].default, true);
       });
     `], { cwd: installed });
+    if (registryVersion === undefined) {
+      run(process.execPath, ["--input-type=module", "--eval", `
+        import test from "node:test";
+        import assert from "node:assert/strict";
+        import { mkdir, readFile, access, writeFile } from "node:fs/promises";
+        import { join } from "node:path";
+        import { createCliFixture } from "@eyeauras/cli-factory/testing";
+        import { ${entry.factory} as createApp } from ${JSON.stringify(entry.name)};
+        test("installed downloads use invocation cwd in CLI and RPC", async t => {
+          const teamcity = ${entry.bin === "teamcity-cli"};
+          const fixture = await createCliFixture(t, {
+            applicationId: ${JSON.stringify(entry.bin)},
+            profiles: ["default", "other"].map(name => ({ name, values: { url: "https://service.example.test" }, secrets: { token: "synthetic-package-token" } })),
+          });
+          fixture.runtime.fetch = async (url, init) => {
+            const path = new URL(String(url)).pathname;
+            if (teamcity && path === "/app/rest/builds/id:7/sources/files/fixture.txt") return new Response("synthetic-package-bytes");
+            if (!teamcity && path === "/api/issues/DEMO-1/attachments/7-1") return Response.json({ id: "7-1", name: "fixture.txt", mimeType: "text/plain", url: "/api/files/7-1" });
+            if (!teamcity && path === "/api/files/7-1") {
+              assert.equal(new Headers(init.headers).has("authorization"), false);
+              return new Response("synthetic-package-bytes");
+            }
+            throw new Error("Unexpected offline package request: " + path);
+          };
+          const app = fixture.createApplication(createApp);
+          const argv = teamcity ? ["builds", "source", "7", "fixture.txt"] : ["issues", "attachments", "download", "DEMO-1", "7-1"];
+          const legacy = join(fixture.appArguments.AppDataDirectory, "downloads");
+          await mkdir(legacy, { recursive: true });
+          await writeFile(join(legacy, "old.txt"), "retained");
+          await mkdir(join(fixture.root, "nested"));
+          for (const output of [undefined, "nested/relative.txt", join(fixture.root, "absolute.txt")]) {
+            const result = await fixture.json(app, [...argv, "--profile", "other", ...(output ? ["--output", output] : [])]);
+            assert.equal(result.path, output ? (output.startsWith("/") || /^[A-Za-z]:/.test(output) ? output : join(fixture.root, output)) : join(fixture.root, "fixture.txt"));
+            assert.equal(await readFile(result.path, "utf8"), "synthetic-package-bytes");
+          }
+          const replies = await fixture.rpc(app, [[...argv, "--profile", "default"], [...argv, "--profile", "other", "--output", "rpc.txt"]]);
+          assert.match(replies[0].error.message, /exists/);
+          assert.equal(replies[1].result.path, join(fixture.root, "rpc.txt"));
+          assert.equal(await readFile(join(legacy, "old.txt"), "utf8"), "retained");
+          const missing = await fixture.run(app, [...argv, "--output", "missing/file.txt"]);
+          assert.equal(missing.exitCode, 1);
+          await assert.rejects(access(join(fixture.root, "missing")));
+          const removed = await fixture.run(app, ["downloads", "clean"]);
+          assert.equal(removed.exitCode, 1);
+        });
+      `], { cwd: installed });
+      console.log(`${entry.bin}: installed offline cwd, paths, profile/RPC and legacy retention passed`);
+    }
     const requests = [1, 2].map((id) => JSON.stringify({
       jsonrpc: "2.0", id, method: "cli.execute", params: { argv: ["--help"] },
     })).join("\n") + "\n";

@@ -5,7 +5,7 @@ import {
   command,
   createCli,
   durationParser,
-  ProfileFileError,
+  FilePublicationError,
   recordView,
 } from "../src/index.js";
 import { createCliFixture } from "../src/testing.js";
@@ -74,7 +74,7 @@ async function fixture(t: test.TestContext) {
       command("save", "Fail a download after an interrupt", async (_input, context) => {
         await abortedRequest(context.signal).catch(() => undefined);
         // Its cause stays out of the one-line interrupted report.
-        throw new ProfileFileError(
+        throw new FilePublicationError(
           "Download was not published, and private staging cleanup failed; inspect the profile temp directory.",
           false, true, { cause: new Error("Cancelled after validation.") },
         );

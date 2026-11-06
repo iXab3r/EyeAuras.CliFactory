@@ -42,6 +42,18 @@ function wrapFixture(shared: Awaited<ReturnType<typeof createCliFixture>>) {
   };
   return {
     ...shared, paths, secrets: shared.secretStore,
-    cli: shared.createApplication(createYouTrackCli),
+    cli: (() => {
+      const cli = shared.createApplication(createYouTrackCli);
+      const run = cli.run.bind(cli);
+      const execute = cli.execute.bind(cli);
+      cli.run = (argv, invocation) => run(argv, { ...invocation, cwd: shared.root });
+      // execute captures cwd synchronously, before starting asynchronous command work.
+      cli.execute = (argv, signal) => {
+        const previous = process.cwd();
+        try { process.chdir(shared.root); return execute(argv, signal); }
+        finally { process.chdir(previous); }
+      };
+      return cli;
+    })(),
   };
 }

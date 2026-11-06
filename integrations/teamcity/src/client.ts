@@ -17,7 +17,6 @@ import {
   normalizeBearerToken,
   readResponseBody,
   type ScopedSecrets,
-  type IAppArguments,
 } from "@eyeauras/cli-factory";
 import * as files from "./file-models.js";
 import { saveDownload, type DownloadOptions } from "./downloads.js";
@@ -3760,13 +3759,14 @@ export class TeamCityClient {
       ),
     );
   }
+  /** Save verified bytes without overwriting; cwd is the captured invocation directory. */
   public async downloadFile(
     kind: files.FileTree,
     id: string,
     path: string,
     archive: boolean,
     count: number,
-    app: IAppArguments,
+    cwd: string,
     options: DownloadOptions,
   ) {
     const requestPath =
@@ -3775,13 +3775,14 @@ export class TeamCityClient {
       ...files.fileQuery(kind),
       ...(archive ? { locator: files.fileLocator(count) } : {}),
     };
-    return this.#download(requestPath, query, app, options, archive ? "zip" : "bytes");
+    return this.#download(requestPath, query, cwd, { ...options, name: path.split("/").at(-1)! + (archive ? ".zip" : "") }, archive ? "zip" : "bytes");
   }
+  /** Save verified bytes without overwriting; cwd is the captured invocation directory. */
   public async downloadAvatar(
     id: string,
     size: number,
     hash: string | undefined,
-    app: IAppArguments,
+    cwd: string,
     options: DownloadOptions,
   ) {
     system.userId(id);
@@ -3789,16 +3790,17 @@ export class TeamCityClient {
     return this.#download(
       `/app/rest/avatars/${idPath(id, "User ID")}/${size}/avatar${hash === undefined ? "" : "." + encodeURIComponent(requiredText(hash, "Avatar hash"))}.png`,
       {},
-      app,
-      options,
+      cwd,
+      { ...options, name: "avatar.png" },
       "png",
     );
   }
+  /** Save verified bytes without overwriting; cwd is the captured invocation directory. */
   public async downloadStatusIcon(
     id: string,
     aggregate: boolean,
     count: number,
-    app: IAppArguments,
+    cwd: string,
     options: DownloadOptions,
   ) {
     const locator = aggregate
@@ -3807,15 +3809,16 @@ export class TeamCityClient {
     return this.#download(
       "/app/rest/builds/" + (aggregate ? "aggregated/" : "") + locator + "/statusIcon.svg",
       {},
-      app,
-      options,
+      cwd,
+      { ...options, name: "statusIcon.svg" },
       "svg",
     );
   }
+  /** Save verified bytes without overwriting; cwd is the captured invocation directory. */
   public async downloadSource(
     id: string,
     path: string,
-    app: IAppArguments,
+    cwd: string,
     options: DownloadOptions,
   ) {
     return this.#download(
@@ -3824,8 +3827,8 @@ export class TeamCityClient {
         "/sources/files/" +
         files.remotePath(path),
       {},
-      app,
-      options,
+      cwd,
+      { ...options, name: path.split("/").at(-1)! },
       "bytes",
     );
   }
@@ -3905,13 +3908,13 @@ export class TeamCityClient {
   async #download(
     path: string,
     query: Record<string, string>,
-    app: IAppArguments,
-    options: DownloadOptions,
+    cwd: string,
+    options: DownloadOptions & { name: string },
     format: files.DownloadFormat,
   ) {
     const accept = format === "png" ? "image/png" : format === "svg" ? "image/svg+xml" : "*/*";
     return saveDownload(
-      app,
+      cwd,
       options,
       format,
       () => this.#response("GET", path, query, undefined, accept),

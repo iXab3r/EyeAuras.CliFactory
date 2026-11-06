@@ -212,16 +212,19 @@ when the actual body fits, while decoded overflow still fails. This loopback tes
 credentials or real service. MSW tests in both integrations retain service decoding, status,
 empty/null mutation and privacy contracts, and an unread response clone cannot block cancellation.
 
-## Safe profile-file regressions
+## Safe output-file regressions
 
-Core publication tests use only synthetic temporary AppData. They cover basename/path/device
+Core publication tests use only synthetic temporary output directories. They cover basename/path/device
 preflight before acquisition, directory links and replacement, private stage/file identity,
 complete partial writes, empty and bounded streams, cancellation, validation, no-clobber races,
 unsupported hard links, post-link destination replacement and cleanup failure before/after
 publication. Replacement tests assert that unknown files are retained rather than deleted.
 Integration MSW tests retain 206, Content-Length, stream/cancellation and service format/auth rules.
 Encoded whole-file responses skip encoded length equality; explicit caller budgets still enforce
-emitted-byte overflow. Default requests and downloads have no local byte ceiling. No live download belongs in any tier.
+emitted-byte overflow. Default requests and downloads have no local byte ceiling. No live download
+belongs in any tier. Installed-package offline smokes cover cwd defaults, relative/absolute output,
+profile-independent destinations, persistent RPC collisions, missing parents and retention of old
+profile files.
 
 ## Required evidence
 

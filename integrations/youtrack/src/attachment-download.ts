@@ -1,4 +1,4 @@
-import { diagnosticCause, fetchWithRedirects, ProfileFileError, publishProfileFile } from "@eyeauras/cli-factory";
+import { diagnosticCause, fetchWithRedirects, FilePublicationError, publishFile } from "@eyeauras/cli-factory";
 import {
   encodedID,
   getAttachmentDownloadMetadata,
@@ -7,8 +7,9 @@ import {
   youTrackUrl,
 } from "./client.js";
 
+/** User output path and optional streaming budget; no profile storage ownership. */
 export interface DownloadOptions {
-  name?: string;
+  output?: string;
   maxBytes?: number;
   progress?: (message: string) => void;
 }
@@ -21,7 +22,7 @@ export interface AttachmentDownloadResult {
   contentType: string;
 }
 
-class DownloadError extends ProfileFileError {}
+class DownloadError extends FilePublicationError {}
 
 export function downloadName(value: string): string {
   if (!value || value === "." || value === ".." ||
@@ -94,36 +95,38 @@ function contentType(value: string | null, secrets: string[]): string {
     ? type : "application/octet-stream";
 }
 
+/** Download using captured cwd, metadata basename and optional explicit output path. */
 export async function downloadIssueAttachment(
   connection: Connection,
   issueID: string,
   attachmentID: string,
-  appDataDirectory: string,
+  cwd: string,
   options: DownloadOptions = {},
 ): Promise<AttachmentDownloadResult> {
   const path = `${issuePath(issueID)}/attachments/${encodedID(attachmentID, "attachment ID")}`;
-  return downloadAttachment(connection, path, attachmentID, appDataDirectory, options);
+  return downloadAttachment(connection, path, attachmentID, cwd, options);
 }
 
+/** Download using captured cwd, metadata basename and optional explicit output path. */
 export async function downloadArticleAttachment(
   connection: Connection,
   articleID: string,
   attachmentID: string,
-  appDataDirectory: string,
+  cwd: string,
   options: DownloadOptions = {},
 ): Promise<AttachmentDownloadResult> {
   const path = `api/articles/${encodedID(articleID, "article ID")}/attachments/${encodedID(attachmentID, "attachment ID")}`;
-  return downloadAttachment(connection, path, attachmentID, appDataDirectory, options);
+  return downloadAttachment(connection, path, attachmentID, cwd, options);
 }
 
 async function downloadAttachment(
   connection: Connection,
   attachmentPath: string,
   attachmentID: string,
-  appDataDirectory: string,
+  cwd: string,
   options: DownloadOptions,
 ): Promise<AttachmentDownloadResult> {
-  const requestedName = options.name === undefined ? undefined : downloadName(options.name);
+  const requestedName = options.output;
   const maxBytes = options.maxBytes === undefined ? undefined : downloadLimit(options.maxBytes);
   const diagnosticSecrets = [connection.token];
   try {
@@ -135,17 +138,18 @@ async function downloadAttachment(
     diagnosticSecrets.push(...secrets);
     const id = filenamePart(redact(metadata.id, secrets), "attachment");
     const name = requestedName ??
-      downloadName(`${id}-${filenamePart(redact(metadata.name, secrets), "attachment")}`);
-    if (redact(name, secrets) !== name || redact(appDataDirectory, secrets) !== appDataDirectory) {
+      downloadName(metadata.name);
+    if (redact(name, secrets) !== name || redact(cwd, secrets) !== cwd) {
       throw new DownloadError(
         "The download destination must not contain reflected credentials or signatures.",
       );
     }
     options.progress?.(`Downloading ${name}…`);
     let type = "application/octet-stream";
-    const saved = await publishProfileFile({
-      appDataDirectory,
-      name,
+    const saved = await publishFile({
+      cwd,
+      name: metadata.name,
+      output: requestedName,
       maxBytes,
       signal: connection.signal,
       openResponse: () => fetchWithRedirects(connection.fetch ?? globalThis.fetch, url, {
@@ -171,9 +175,9 @@ async function downloadAttachment(
     });
     return { id, name, path: saved.path, bytes: saved.bytes, contentType: type };
   } catch (error) {
-    if (error instanceof ProfileFileError && error.cause !== undefined) error.cause = diagnosticCause(error.cause, diagnosticSecrets);
-    throw error instanceof ProfileFileError ? error : new DownloadError(
-      "The attachment download failed; check connectivity and the profile's downloads directory.",
+    if (error instanceof FilePublicationError && error.cause !== undefined) error.cause = diagnosticCause(error.cause, diagnosticSecrets);
+    throw error instanceof FilePublicationError ? error : new DownloadError(
+      "The attachment download failed; check connectivity and the output directory.",
       false, false, { cause: diagnosticCause(error, diagnosticSecrets) },
     );
   }

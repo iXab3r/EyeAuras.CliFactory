@@ -58,7 +58,7 @@ test("file conflicts, encoding and unreadable paths fail before requests; denied
     "--description-file", join(f.root, "ok.md"), "--profile", "dev"]), /body must be a JSON object/);
 });
 
-test("article attachment download and export publish profile-owned files that cleanup commands remove", async (t) => {
+test("article attachment download and export use cwd without profile cleanup ownership", async (t) => {
   const f = await configuredFixture(t, { token: "synthetic-download-token" });
   const seen: string[] = [];
   server.use(http.get("*", ({ request }) => {
@@ -76,8 +76,8 @@ test("article attachment download and export publish profile-owned files that cl
   }));
   const download = await f.cli.execute(["article", "attachment", "download", "KB-A-1", "7-1", "--profile", "dev"]) as
     { name: string; path: string; bytes: number };
-  const downloads = join(f.paths.at(-1)!, "downloads");
-  assert.deepEqual([download.name, download.path, download.bytes], ["7-1-diagram.png", join(downloads, "7-1-diagram.png"), 3]);
+  const downloads = f.root;
+  assert.deepEqual([download.name, download.path, download.bytes], ["diagram.png", join(downloads, "diagram.png"), 3]);
   assert.deepEqual(seen.splice(0), [
     "/context/api/articles/KB-A-1/attachments/7-1 Bearer synthetic-download-token",
     "/context/api/files/7-1 no-auth",
@@ -88,9 +88,14 @@ test("article attachment download and export publish profile-owned files that cl
   assert.deepEqual([exported.id, exported.path, exported.redacted], ["KB-A-1", join(downloads, "KB-A-1.md"), true]);
   assert.equal(await readFile(exported.path, "utf8"), "See [redacted]\nLine ü");
   await assert.rejects(f.cli.execute(["article", "export", "KB-A-1", "--profile", "dev"]), /already exists; no overwrite/);
-  await f.cli.execute(["article", "export", "KB-A-1", "--name", "copy.md", "--profile", "dev"]);
-  assert.deepEqual((await f.cli.execute(["downloads", "list", "--profile", "dev"]) as { name: string }[]).map((item) => item.name),
-    ["7-1-diagram.png", "KB-A-1.md", "copy.md"]);
-  assert.deepEqual(await f.cli.execute(["downloads", "delete", "copy.md", "--profile", "dev"]), { deleted: ["copy.md"] });
-  assert.deepEqual(await f.cli.execute(["downloads", "clean", "--profile", "dev"]), { deleted: ["7-1-diagram.png", "KB-A-1.md"] });
+  await f.cli.execute(["article", "export", "KB-A-1", "--output", "copy.md", "--profile", "dev"]);
+  await mkdir(join(f.root, "nested"));
+  for (const output of ["nested/export.md", join(f.root, "absolute.md")]) {
+    const result = await f.json(f.cli, ["article", "export", "KB-A-1", "--output", output]) as { path: string };
+    assert.equal(result.path, output.startsWith("/") || /^[A-Za-z]:/.test(output) ? output : join(f.root, output));
+    assert.equal(await readFile(result.path, "utf8"), "See [redacted]\nLine ü");
+  }
+  await assert.rejects(f.cli.execute(["downloads", "clean"]), /unknown command/i);
+  assert.equal(await readFile(join(downloads, "copy.md"), "utf8"), "See [redacted]\nLine ü");
+
 });

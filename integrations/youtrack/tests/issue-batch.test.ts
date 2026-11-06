@@ -108,7 +108,7 @@ test("continue-on-error separates definite and uncertain failures; failed rows e
     ["incomplete", 2, 2, 1, 0]);
   assert.equal(posts.length, 5);
   const saved = result.failedRows as { path: string };
-  assert.equal(saved.path, join(f.paths.at(-1)!, "downloads", "retry.json"));
+  assert.equal(saved.path, join(f.root, "retry.json"));
   assert.deepEqual(JSON.parse(await readFile(saved.path, "utf8")), [manifest[1], manifest[3]]);
   assert.doesNotMatch(JSON.stringify(result), /synthetic-private|synthetic-token/);
 

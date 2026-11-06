@@ -30,7 +30,7 @@ of `maxBytes` means no local byte ceiling. An explicitly selected budget must be
 integer. Core continues to own response chunks, validate Content-Length syntax and identity-body
 completeness, cancel/release readers, and avoid exposing raw failure causes.
 
-`publishProfileFile` likewise accepts an optional byte budget. YouTrack and TeamCity downloads
+`publishFile` likewise accepts an optional byte budget. YouTrack and TeamCity downloads
 have no default budget; `--max-bytes` opts into a caller-selected budget without a fixed upper cap.
 Identity Content-Length must match completed bytes. Encoded wire length is not decoded size.
 No-clobber publication, private staging, hashes, path/device checks and cleanup ownership remain.

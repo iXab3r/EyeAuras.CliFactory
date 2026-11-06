@@ -1,4 +1,4 @@
-import { saveProfileFile, type PublishedProfileFile } from "@eyeauras/cli-factory";
+import { saveFile, type PublishedFile } from "@eyeauras/cli-factory";
 import {
   encodedID,
   fields,
@@ -32,17 +32,18 @@ export const getArticle = readObjectAt(articlePath, articleDetailFields);
 export async function exportArticle(
   connection: Connection,
   articleID: string,
-  appDataDirectory: string,
-  name?: string,
-): Promise<{ id: string; redacted: boolean } & PublishedProfileFile> {
+  cwd: string,
+  output?: string,
+): Promise<{ id: string; redacted: boolean } & PublishedFile> {
   const article = await getArticle(connection, articleID, { fields: "id,idReadable,content" });
   const id = typeof article.idReadable === "string" ? article.idReadable : article.id;
   if (typeof id !== "string" || !id || (article.content !== null && typeof article.content !== "string")) {
     throw new Error("Invalid article for export from YouTrack.");
   }
-  const saved = await saveProfileFile({
-    appDataDirectory,
-    name: name ?? `${id.replace(/[^a-zA-Z0-9._-]/g, "_")}.md`,
+  const saved = await saveFile({
+    cwd,
+    name: `${id}.md`,
+    output,
     content: article.content ?? "",
     signal: connection.signal,
   });

@@ -3,24 +3,20 @@ import type { BigIntStats } from "node:fs";
 import {
   link,
   lstat,
-  mkdir,
   mkdtemp,
   open,
-  readdir,
   realpath,
   rmdir,
   unlink,
   type FileHandle,
 } from "node:fs/promises";
-import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
-import { command } from "./command.js";
-import { tableView } from "./view.js";
+import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { privateDirectory } from "./private-storage.js";
 import { consumeResponseBody } from "./response-body.js";
 import { CliError, type CliErrorOptions } from "./errors.js";
 
 /** A download or saved-file failure; `published` and `cleanupFailed` say what was left behind. */
-export class ProfileFileError extends CliError {
+export class FilePublicationError extends CliError {
   public constructor(
     message: string,
     public readonly published = false,
@@ -28,30 +24,37 @@ export class ProfileFileError extends CliError {
     options: Pick<CliErrorOptions, "cause" | "next"> = {},
   ) {
     super(message, { code: "download.failed", ...options });
-    this.name = "ProfileFileError";
+    this.name = "FilePublicationError";
   }
 }
 
-export interface PublishedProfileFile {
+/** Verified publication result, returned only after owned staging cleanup succeeds. */
+export interface PublishedFile {
   path: string;
   bytes: number;
   sha256: string;
 }
 
-export interface StagedProfileFile {
+/** Read-only view of private staging passed to the validation callback. */
+export interface StagedFile {
   path: string;
   bytes: number;
   prefix: Uint8Array;
 }
 
-export interface ProfileFileOptions {
-  appDataDirectory: string;
+/** Streaming publication policy; callbacks must not mutate staged bytes or disclose secrets. */
+export interface FileOptions {
+  /** Absolute working directory captured by the command invocation. */
+  cwd: string;
+  /** Explicit destination, resolved against cwd when relative. Parent must exist. */
+  output?: string | undefined;
+  /** Actual resource basename used only when output is omitted. */
   name: string;
   maxBytes?: number | undefined;
   signal?: AbortSignal | undefined;
   openResponse: () => Promise<Response>;
   inspectResponse: (response: Response) => void | Promise<void>;
-  validateFile?: ((file: StagedProfileFile) => void | Promise<void>) | undefined;
+  validateFile?: ((file: StagedFile) => void | Promise<void>) | undefined;
 }
 
 interface PathIdentity {
@@ -78,11 +81,6 @@ function fileIdentityFromStat(path: string, stat: BigIntStats): FileIdentity {
   };
 }
 
-function inside(parent: string, child: string): void {
-  const part = relative(parent, child);
-  if (part === ".." || part.startsWith(".." + sep) || isAbsolute(part)) throw new Error("The path escapes its parent directory.");
-}
-
 async function directoryIdentity(path: string): Promise<PathIdentity> {
   const stat = await lstat(path, { bigint: true });
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("Not a directory, or a symbolic link.");
@@ -101,11 +99,6 @@ async function prepareDirectories(path: string): Promise<PathIdentity[]> {
   const result = [await directoryIdentity(current)];
   for (const segment of relative(current, absolute).split(sep).filter(Boolean)) {
     current = join(current, segment);
-    try {
-      await mkdir(current, { mode: 0o700 });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    }
     result.push(await directoryIdentity(current));
   }
   // Packaged Windows applications can resolve AppData to a different physical spelling.
@@ -145,29 +138,33 @@ function safeBasename(value: string): boolean {
     !/^(?:con|prn|aux|nul|conin\$|conout\$|clock\$|com[1-9¹²³]|lpt[1-9¹²³])(?:[ .]|$)/i.test(value);
 }
 
-export async function publishProfileFile(
-  options: ProfileFileOptions,
-): Promise<PublishedProfileFile> {
-  const { appDataDirectory, name, maxBytes, signal } = options;
-  if (!isAbsolute(appDataDirectory)) {
-    throw new ProfileFileError("Downloads require an absolute profile AppData directory.");
+/** Publish without overwriting; the destination parent must already exist. */
+export async function publishFile(options: FileOptions): Promise<PublishedFile> {
+  if (!isAbsolute(options.cwd)) throw new FilePublicationError("The working directory must be absolute.");
+  if (options.output === undefined && !safeBasename(options.name)) {
+    throw new FilePublicationError("Download name must be one safe basename without reserved characters.");
   }
-  if (!safeBasename(name)) {
-    throw new ProfileFileError("Download name must be one safe basename without reserved characters.");
+  const destination = resolve(options.cwd, options.output ?? options.name);
+  if (!safeBasename(basename(destination)) || options.output === "") {
+    throw new FilePublicationError("The output must name a safe file.");
   }
+  return publishAt(options, destination);
+}
+
+/** Publish generated user text using the same exclusive publisher. */
+export function saveFile(options: { cwd: string; name: string; output?: string | undefined; content: string; signal?: AbortSignal | undefined }): Promise<PublishedFile> {
+  const { content, ...target } = options;
+  return publishFile({ ...target, openResponse: async () => new Response(content), inspectResponse() {} });
+}
+
+async function publishAt(options: FileOptions, destination: string): Promise<PublishedFile> {
+  const { maxBytes, signal } = options;
   if (maxBytes !== undefined && (!Number.isSafeInteger(maxBytes) || maxBytes < 1)) {
-    throw new ProfileFileError("Download byte limit must be a positive safe integer.");
+    throw new FilePublicationError("Download byte limit must be a positive safe integer.");
   }
-  const profileDirectory = resolve(appDataDirectory);
-  const downloadDirectory = join(profileDirectory, "downloads");
-  const tempDirectory = join(profileDirectory, "temp");
-  const destination = join(downloadDirectory, name);
-  inside(profileDirectory, downloadDirectory);
-  inside(profileDirectory, tempDirectory);
-  inside(downloadDirectory, destination);
+  const parentDirectory = dirname(destination);
 
   let destinationDirectories: PathIdentity[] = [];
-  let stagingDirectories: PathIdentity[] = [];
   let stagingDirectory: string | undefined;
   let stagingDirectoryIdentity: PathIdentity | undefined;
   let stagingPath: string | undefined;
@@ -180,7 +177,7 @@ export async function publishProfileFile(
   let failureMessage =
     "Download failed, exceeded its byte limit, was cancelled, or had an incomplete transfer; " +
     "no destination was published.";
-  let result: PublishedProfileFile | undefined;
+  let result: PublishedFile | undefined;
   const hash = createHash("sha256");
   const prefix = new Uint8Array(8);
   let prefixBytes = 0;
@@ -190,8 +187,7 @@ export async function publishProfileFile(
     failureMessage =
       "Download directories could not be verified; symlinks, junctions and replacement are " +
       "unsupported; no destination was published.";
-    destinationDirectories = await prepareDirectories(downloadDirectory);
-    stagingDirectories = await prepareDirectories(tempDirectory);
+    destinationDirectories = await prepareDirectories(parentDirectory);
     try {
       const existing = await lstat(destination);
       void existing;
@@ -201,8 +197,8 @@ export async function publishProfileFile(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    await verifyDirectories([...destinationDirectories, ...stagingDirectories]);
-    stagingDirectory = await mkdtemp(join(tempDirectory, ".download-"));
+    await verifyDirectories(destinationDirectories);
+    stagingDirectory = await mkdtemp(join(parentDirectory, ".download-"));
     stagingDirectoryIdentity = await directoryIdentity(stagingDirectory);
     await privateDirectory(stagingDirectory);
     await verifyIdentity(stagingDirectoryIdentity, "directory");
@@ -221,7 +217,7 @@ export async function publishProfileFile(
     try {
       await options.inspectResponse(response);
     } catch (error) {
-      if (error instanceof ProfileFileError) failureMessage = error.message;
+      if (error instanceof FilePublicationError) failureMessage = error.message;
       throw error;
     }
     const bytes = await consumeResponseBody(response, { maxBytes, signal }, async (chunk) => {
@@ -244,7 +240,7 @@ export async function publishProfileFile(
     failureMessage =
       "Download directories or private staging changed during the transfer; " +
       "no destination was published.";
-    await verifyDirectories([...destinationDirectories, ...stagingDirectories]);
+    await verifyDirectories(destinationDirectories);
     await verifyIdentity(stagingDirectoryIdentity, "directory");
     const completedIdentity = await fileIdentity(stagingIdentity.path);
     if (completedIdentity.dev !== stagingIdentity.dev ||
@@ -262,7 +258,7 @@ export async function publishProfileFile(
           prefix: prefix.subarray(0, prefixBytes),
         });
       } catch (error) {
-        if (error instanceof ProfileFileError) failureMessage = error.message;
+        if (error instanceof FilePublicationError) failureMessage = error.message;
         throw error;
       }
     }
@@ -273,7 +269,7 @@ export async function publishProfileFile(
     failureMessage =
       "Download directories or private staging changed during validation; " +
       "no destination was published.";
-    await verifyDirectories([...destinationDirectories, ...stagingDirectories]);
+    await verifyDirectories(destinationDirectories);
     await verifyIdentity(stagingDirectoryIdentity, "directory");
     await verifyFileSnapshot(stagingIdentity);
     if (signal?.aborted) {
@@ -289,15 +285,15 @@ export async function publishProfileFile(
           "Download destination already exists; no overwrite; no destination was published.";
       } else {
         failureMessage =
-          "Download could not be published exclusively; the profile filesystem must support hard links.";
+          "Download could not be published exclusively; the destination filesystem must support hard links.";
       }
       throw error;
     }
     published = true;
     failureMessage =
       "Download was published, but its destination identity could not be verified; " +
-      "inspect the profile downloads directory.";
-    await verifyDirectories([...destinationDirectories, ...stagingDirectories]);
+      "inspect the destination directory.";
+    await verifyDirectories(destinationDirectories);
     await verifyIdentity(stagingDirectoryIdentity, "directory");
     await verifyIdentity(stagingIdentity, "file");
     const publishedIdentity = await fileIdentity(destination);
@@ -336,7 +332,7 @@ export async function publishProfileFile(
     if (stagingDirectory && cleanupAllowed) {
       try {
         if (!stagingDirectoryIdentity) throw new Error("No staging directory identity.");
-        await verifyDirectories(stagingDirectories);
+        await verifyDirectories(destinationDirectories);
         await verifyIdentity(stagingDirectoryIdentity, "directory");
         if (stagingPath && stagingIdentity) {
           try {
@@ -349,7 +345,7 @@ export async function publishProfileFile(
         } else if (stagingPath) {
           throw new Error("The staged file identity is unknown.");
         }
-        await verifyDirectories(stagingDirectories);
+        await verifyDirectories(destinationDirectories);
         await verifyIdentity(stagingDirectoryIdentity, "directory");
         await rmdir(stagingDirectory);
       } catch (cause) {
@@ -361,85 +357,15 @@ export async function publishProfileFile(
 
   const cause = failures.length > 1 ? new AggregateError(failures, "Download and cleanup failures.") : failures[0];
   if (cleanupFailed) {
-    throw new ProfileFileError(
+    throw new FilePublicationError(
       published
-        ? "Download was published, but private staging cleanup failed; inspect the profile temp directory."
-        : "Download was not published, and private staging cleanup failed; inspect the profile temp directory.",
+        ? "Download was published, but private staging cleanup failed; inspect the destination directory for .download-* staging."
+        : "Download was not published, and private staging cleanup failed; inspect the destination directory for .download-* staging.",
       published,
       true,
       { cause },
     );
   }
-  if (!result) throw new ProfileFileError(failureMessage, published, false, { cause });
+  if (!result) throw new FilePublicationError(failureMessage, published, false, { cause });
   return result;
 }
-
-/** Publish generated text with the same private staging and no-overwrite rules as a download. */
-export function saveProfileFile(options: {
-  appDataDirectory: string;
-  name: string;
-  content: string;
-  signal?: AbortSignal | undefined;
-}): Promise<PublishedProfileFile> {
-  const { content, ...target } = options;
-  return publishProfileFile({ ...target, openResponse: async () => new Response(content), inspectResponse() {} });
-}
-
-async function savedFiles(appDataDirectory: string) {
-  try {
-    if (!isAbsolute(appDataDirectory)) throw new Error("The profile AppData directory is not absolute.");
-    const directory = join(resolve(appDataDirectory), "downloads");
-    const directories = await prepareDirectories(directory);
-    const files: { name: string; path: string; bytes: number; modified: string }[] = [];
-    for (const name of (await readdir(directory)).sort()) {
-      const path = join(directory, name);
-      const stat = await lstat(path);
-      if (stat.isFile()) files.push({ name, path, bytes: stat.size, modified: stat.mtime.toISOString() });
-    }
-    return { directories, files };
-  } catch (cause) {
-    throw new ProfileFileError("Profile downloads could not be read; symlinks, junctions and replacement are unsupported.", false, false, { cause });
-  }
-}
-
-/** Delete regular files directly inside downloads; links, directories and other profiles are never touched. */
-async function deleteSavedFiles(appDataDirectory: string, name?: string): Promise<{ deleted: string[] }> {
-  const { directories, files } = await savedFiles(appDataDirectory);
-  const selected = files.filter((file) => name === undefined || file.name === name);
-  if (name !== undefined && !selected.length) {
-    throw new ProfileFileError("No saved file has that name.", false, false, { next: [["downloads", "list"]] });
-  }
-  const deleted: string[] = [];
-  try {
-    for (const file of selected) {
-      await verifyDirectories(directories);
-      await unlink(file.path);
-      deleted.push(file.name);
-    }
-  } catch (cause) {
-    throw new ProfileFileError(`Deleted ${deleted.length} saved files, then deletion failed.`, false, false, {
-      cause, next: [["downloads", "list"]],
-    });
-  }
-  return { deleted };
-}
-
-/** Local built-ins for files saved by publishProfileFile/saveProfileFile in the selected profile. */
-export const downloadCommands = command("downloads", "List or delete files saved in this profile's downloads directory", [
-  command("list", "List saved files without reading them", async (_input, context) =>
-    (await savedFiles(context.appArguments.AppDataDirectory)).files, {
-    view: tableView<{ name: string; path: string; bytes: number; modified: string }>({
-      columns: [
-        { header: "NAME", value: (file) => file.name },
-        { header: "SIZE", value: (file) => file.bytes, format: "bytes" },
-        { header: "MODIFIED", value: (file) => new Date(file.modified), format: "age" },
-        { header: "PATH", value: (file) => file.path, shrink: true },
-      ],
-      empty: "No saved files.",
-    }),
-  }),
-  command("delete <name>", "Delete one saved file", ({ args }, context) =>
-    deleteSavedFiles(context.appArguments.AppDataDirectory, args.name)),
-  command("clean", "Delete every saved file", (_input, context) =>
-    deleteSavedFiles(context.appArguments.AppDataDirectory)),
-], { group: "Configuration" });

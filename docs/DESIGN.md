@@ -135,7 +135,7 @@ Help presentation comes from the same declaration. A node may name a help `group
 appear under that heading, with groups and their members in declaration order. A node or the CLI
 definition may list `examples`: invocations without the CLI name, which Core prefixes and shows
 after that help. A bare group shows exactly its `--help` text, examples included. Root help lists
-service commands first. Core's local profile, auth, permission and download commands follow under
+service commands first. Core's local profile, auth and permission commands follow under
 `Configuration`. A parser error prints one error line and that command's one-line usage with a
 `--help` hint, never its complete help. A stray word after a group is an unknown command, with
 Commander's suggestion. One exception remains: Commander's `help <name>` for an unknown name
@@ -431,8 +431,9 @@ Profile identity is part of the secret key. Switching from `uat` to `production`
 the other profile's credential accidentally.
 
 Profile identity also owns a current-user application-data root. Configuration, logs, temporary
-files, caches, downloaded data, and other profile-specific files derive from that root. A profile
-must never construct a path from the current working directory or the executable directory.
+files, caches, and other profile-specific files derive from that root. User-requested downloads and
+exports use the invocation working directory or explicit output path. Profile-owned state must never
+construct a path from the current working directory or the executable directory.
 
 ### Permission gates are profile-specific safety policy
 
@@ -574,46 +575,47 @@ No retries occur.
 TeamCity text/JSON/XML and YouTrack JSON have no fixed response-size caps. TeamCity's specialized
 64 KiB discard loop only optimizes disposal of unwanted content and never rejects or truncates
 returned data. TeamCity retains Buffer UTF-8 decoding including BOM; YouTrack removes the initial
-BOM with TextDecoder. Downloads use `publishProfileFile` with a safe basename, active profile AppData,
-raw-response acquisition, required status/media inspection and optional staged validation. A byte
-budget is optional and comes only from the caller. Core awaits both
-callbacks at their respective gates. It preflights
-`downloads` and `temp` before acquisition, streams to a new private random directory under
-`AppDataDirectory/temp`, and publishes under `AppDataDirectory/downloads` with an exclusive hard
-link. It snapshots/rechecks directory and file identities, writes complete chunks, syncs before
-publication, verifies the published inode and never falls back to rename/copy or overwrites.
-Directory ownership is verified by filesystem identity rather than path spelling, allowing Windows
-packaged AppData redirection while rejecting links in the configured chain and mismatched targets.
-Staged validation is read-only: detected size, modification-time or change-time mutations are rejected.
-The original exclusive file handle remains open through validation and the link decision. Cleanup
-matches the path to a fresh handle snapshot, closes successfully, rechecks, and only then unlinks.
+BOM with TextDecoder. Downloads use `publishFile({ cwd, name, output?, ... })` with the
+absolute working directory captured once per invocation (also shared by commands in an RPC session).
+Without `output`, the integration supplies the actual metadata filename or known command resource
+name. Core rejects unsafe or ambiguous basenames, including traversal, reserved devices and controls;
+no filename sanitization invents a different resource name. Relative `output` paths resolve against
+cwd; absolute paths are used as supplied. The destination parent must already exist.
+
+Core verifies the link-free parent chain before acquisition, stages bytes in a fresh private
+`.download-*` directory beside the destination, and publishes with an exclusive hard link.
+It snapshots/rechecks directory and file identities, writes complete chunks, syncs before publication,
+verifies the published inode and never falls back to rename/copy or overwrites. Directory identity
+rather than spelling governs verification. Validation callbacks are read-only: detected size,
+modification-time or change-time mutations are rejected. The exclusive handle remains open through
+validation and publication. Cleanup matches the path to a fresh handle snapshot, closes successfully,
+rechecks, and only then unlinks. Optional byte budgets come from the caller; response inspection and
+file validation callbacks are awaited.
 
 The result is `{ path, bytes, sha256 }` only after verified publication and staging cleanup.
-`ProfileFileError.published` records whether the link completed; `cleanupFailed` records incomplete
+`FilePublicationError.published` records whether the link completed; `cleanupFailed` records incomplete
 owned-stage cleanup. Core computes those flags. Only static errors explicitly thrown by
-`inspectResponse` or `validateFile` as `ProfileFileError` retain their message after clean
+`inspectResponse` or `validateFile` as `FilePublicationError` retain their message after clean
 unpublished cleanup. Fetch, stream, filesystem and abort errors are wrapped with contextual diagnostics
 and preserved, redacted causes. A cleanup error takes precedence while retaining the original failure
-and distinguishes unpublished from already-published data. Cleanup verifies the private temp
+and distinguishes unpublished from already-published data. Cleanup verifies the destination parent
 chain and staged-file identity before unlinking; it never
 follows a replacement or deletes an unknown destination.
 
 Endpoints, authentication, status/media checks, whole-file 206 rejection, compressed wire
 Content-Length bounds, filename conventions, service limits, file signatures and result DTOs remain
 integration-owned. `privateDirectory` is applied only to the newly created staging directory, never
-AppData ancestors or the downloads directory. The hard-linked file retains its private file access.
-These path checks protect current-user AppData and detectable replacement; no path-based Node API can
+existing destination ancestors. The hard-linked file retains its private file access.
+These path checks protect the selected destination and detectable replacement; no path-based Node API can
 eliminate every same-user replacement race after the last check, including exotic in-place mutation
 with forged metadata. There is no retry, resume, opening, execution or extraction.
 
-`saveProfileFile({ appDataDirectory, name, content, signal? })` publishes integration-generated
-text (exports, result manifests) through this same staging and no-overwrite path. Core's
-`downloadCommands` is an opt-in `builtins` group for integrations that save files:
-`downloads list`, `downloads delete <name>` and `downloads clean` list or remove only regular files
-directly inside the selected profile's `downloads` directory, rechecking the directory chain
-before each unlink. Like other built-ins they are local, ungated and need no configured service;
-they never follow links or touch subdirectories, staging, other profiles or remote data.
-TeamCity and YouTrack opt in.
+`saveFile({ cwd, name, output?, content, signal? })` publishes generated text (exports and
+result manifests) through the same publisher. Profile configuration, credentials, browser state
+and internal caches remain profile-owned. User outputs are not tracked by download management.
+The former profile-file publisher and `downloads list/delete/clean` commands are removed. Existing
+AppData downloads are left untouched; users may copy or remove them explicitly. There is no silent
+migration or cleanup of old files.
 
 ## Runtime shape
 

@@ -1,6 +1,5 @@
 import { command } from "@eyeauras/cli-factory";
 import { articlesExtraChildren } from "./article-extras-commands.js";
-import { downloadName } from "./attachment-download.js";
 import { pagedRead, projectedBodyUpdate, projectedRead, readCommand } from "./cli-support.js";
 import {
   addArticleComment,
@@ -38,10 +37,10 @@ export const articlesRootCommands = [
       async (connection, { args, options }, context) => exportArticle(
         connection,
         args.article,
-        context.appArguments.AppDataDirectory,
-        typeof options.name === "string" ? options.name : undefined,
+        context.cwd,
+        typeof options.output === "string" ? options.output : undefined,
       ),
-      [{ flags: "--name <basename>", description: "File name (default: <idReadable>.md)", parse: downloadName }],
+      [{ flags: "--output <path>", description: "Save to a relative or absolute path (default: <idReadable>.md)" }],
     )),
     projectedBodyUpdate("create", "Create an article", createArticle, "content", createdArticle),
     projectedBodyUpdate("update <article>", "Update the summary or content", updateArticle, "content", updatedArticle),
@@ -58,7 +57,7 @@ export const articlesRootCommands = [
       ),
     ]),
   ], {
-    examples: ["article list --top 20", "article get KB-A-7", "article export KB-A-7 --name onboarding.md"],
+    examples: ["article list --top 20", "article get KB-A-7", "article export KB-A-7 --output onboarding.md"],
   }),
 ];
 

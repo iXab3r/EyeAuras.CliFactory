@@ -623,15 +623,15 @@ For files, keep filename, URL/auth, status/media, compressed wire-length, format
 the integration, then give Core ownership of the raw response and local publication:
 
 ```ts
-const saved = await publishProfileFile({
-  appDataDirectory: context.appArguments.AppDataDirectory,
+const saved = await publishFile({
+  cwd: context.cwd,
   name,
   maxBytes,
   signal: context.signal,
   openResponse: () => fetch(url, { signal: context.signal }),
   inspectResponse(response) {
     if (!response.ok || response.status === 206) {
-      throw new ProfileFileError("Download failed or was partial.");
+      throw new FilePublicationError("Download failed or was partial.");
     }
   },
   validateFile: ({ path, prefix }) => validateNativeFile(path, prefix),
@@ -640,7 +640,7 @@ return { ...saved, contentType };
 ```
 
 Both callbacks may be asynchronous and are awaited before Core continues past their gate. Callers
-must use static, non-sensitive `ProfileFileError` messages in the two callbacks. Errors
+must use static, non-sensitive `FilePublicationError` messages in the two callbacks. Errors
 from response acquisition, streaming, filesystem operations and abort reasons are sanitized.
 Core computes `published` and `cleanupFailed`; do not construct those flags in callbacks.
 Successful publication returns the real path, byte count and SHA-256 only after complete writes,
@@ -651,18 +651,17 @@ Core retains its exclusive staging handle through validation and publication, th
 identity-checked path cleanup; a close failure retains staging for inspection.
 
 The integration still validates its own basename convention. Optional byte budgets are caller-selected. Core also rejects path,
-device and unsafe cross-platform basename forms. Staging is in a private fresh directory under the
-active profile's `temp`; the destination is under `downloads`. Never call `privateDirectory` on
+device and unsafe cross-platform basename forms. Staging is in a private fresh directory beside the output file. The parent must exist. Never call `privateDirectory` on
 user-selected or AppData ancestor directories. TeamCity and YouTrack are the two consumers;
 TeamCity retains PNG/ZIP/SVG validation and hashes in its DTO, while YouTrack retains signed-URL,
 no-bearer download and sanitized metadata rules. Credentials remain in Core's platform secret store; Windows stores only DPAPI ciphertext files.
 Measure helper/security costs at every authoring checkpoint.
 
 For text your command generates (an export, a result manifest), call
-`saveProfileFile({ appDataDirectory, name, content, signal })` instead of writing files yourself:
-it uses the same staging and no-overwrite publication. If the CLI saves files, add
-`builtins: [downloadCommands]` to its definition so users can run `downloads list`,
-`downloads delete <name>` and `downloads clean` for the selected profile.
+`saveFile({ cwd: context.cwd, name, output, content, signal })` instead of writing files yourself.
+It uses the same staging and no-overwrite publisher. Downloads and exports default to the captured
+invocation directory; optional `--output <path>` resolves relative paths against that directory.
+Do not register arbitrary user outputs for profile cleanup. Existing profile downloads are untouched.
 
 ## Ready-for-review checklist
 

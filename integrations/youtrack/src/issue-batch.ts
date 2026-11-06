@@ -1,4 +1,4 @@
-import { saveProfileFile } from "@eyeauras/cli-factory";
+import { saveFile } from "@eyeauras/cli-factory";
 import { parse } from "csv-parse/sync";
 import { encodedID, mutate, mutationBody, type Connection, type YouTrackObject, type YouTrackValue } from "./client.js";
 import { issueRequest, issueWrite, issueWriteFields, type IssueWrite } from "./issue-fields.js";
@@ -87,7 +87,7 @@ export async function applyIssueBatch(
   connection: Connection,
   rows: readonly BatchRow[],
   options: {
-    appDataDirectory: string;
+    cwd: string;
     continueOnError?: boolean;
     failedRows?: string;
     /** One human-only line per failed row and every ten rows. */
@@ -125,9 +125,10 @@ export async function applyIssueBatch(
   if (options.failedRows !== undefined && resubmit.length) {
     try {
       failedRows = {
-        ...await saveProfileFile({
-          appDataDirectory: options.appDataDirectory,
-          name: options.failedRows,
+        ...await saveFile({
+          cwd: options.cwd,
+          name: "failed-rows.json",
+          output: options.failedRows,
           content: `${JSON.stringify(resubmit.map((row) => row.source), null, 2)}\n`,
           signal: connection.signal,
         }),
