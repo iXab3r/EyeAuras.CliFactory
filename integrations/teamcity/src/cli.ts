@@ -1,7 +1,6 @@
 import {
   command,
   createCli,
-  downloadCommands,
   helpLayout,
   integerParser,
   Permission,
@@ -156,7 +155,6 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         }).currentUser();
       },
     }),
-    builtins: [downloadCommands],
     commands: helpLayout([
       ["Everyday", ["builds", "jobs", "projects", "queue", "agents"]],
       ["Triage", ["changes", "investigations", "mutes", "tests", "problems"]],

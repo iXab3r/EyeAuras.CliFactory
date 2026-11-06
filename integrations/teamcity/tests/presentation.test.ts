@@ -214,7 +214,7 @@ test("artifact listings and saved files read clearly without changing their JSON
   ) as { path: string };
   assert.equal(
     saved.stdout,
-    "Saved in the selected profile's downloads directory\n" +
+    "Saved file\n" +
       `Path:        ${json.path.replace(/app-2\.zip$/, "app.zip")}\n` +
       `Size:        ${bytes.length} bytes\n` +
       "SHA-256:     88f55cee374b166f1db9f308afa7e58141a8a50161cd7020fe53ce3980321cc3\n" +
@@ -223,7 +223,7 @@ test("artifact listings and saved files read clearly without changing their JSON
 
   runtime.resetOutput();
   assert.equal(await cli.run(["builds", "artifacts", "download", "--help"]), 0);
-  assert.match(runtime.stdout(), /New file name \(not a path\) in the selected profile's\s+downloads directory/);
+  assert.match(runtime.stdout(), /Output path relative to the working directory; never\s+overwrites/);
 });
 
 test("build tests and problems read as tables with flags and completeness; JSON is unchanged", async (t) => {

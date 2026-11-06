@@ -5,12 +5,12 @@ export { tokenAuth } from "./auth.js";
 export { validateArgv } from "./argv.js";
 export { visitResources } from "./resources.js";
 export { privateDirectory, privateEndpoint } from "./private-storage.js";
-export { downloadCommands, ProfileFileError, publishProfileFile, saveProfileFile } from "./profile-file.js";
+export { FilePublicationError, publishFile, saveFile } from "./file-publication.js";
 export type {
-  ProfileFileOptions,
-  PublishedProfileFile,
-  StagedProfileFile,
-} from "./profile-file.js";
+  FileOptions,
+  PublishedFile,
+  StagedFile,
+} from "./file-publication.js";
 export { AppArguments } from "./app-arguments.js";
 export { createCli } from "./cli.js";
 export { streamResult } from "./stream-result.js";
@@ -88,5 +88,3 @@ export type {
   CliInvocation,
   TokenValidationContext,
 } from "./types.js";
-
-export { publishFile, saveFile, type FileOptions } from "./profile-file.js";

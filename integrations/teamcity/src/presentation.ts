@@ -265,7 +265,7 @@ interface SavedFile {
 }
 
 export const savedFileRecord = recordView<SavedFile>({
-  title: () => "Saved in the selected profile's downloads directory",
+  title: () => "Saved file",
   fields: [
     { label: "Path", value: (file) => file.path },
     { label: "Size", value: (file) => `${file.bytes} bytes` },

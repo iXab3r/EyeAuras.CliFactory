@@ -350,7 +350,7 @@ grants permissions.
 
 ```powershell
 npm run youtrack -- issues attachments download DEMO-1 1-1 --profile youtrack-dev
-npm run youtrack -- issues attachments download DEMO-1 1-1 --name report.txt --max-bytes 1048576 --profile youtrack-dev
+npm run youtrack -- issues attachments download DEMO-1 1-1 --output report.txt --max-bytes 1048576 --profile youtrack-dev
 npm run youtrack -- article attachment download KB-A-1 7-1 --profile youtrack-dev
 ```
 
@@ -360,31 +360,30 @@ HTTP(S) URLs may use an external/CDN origin or another native file path; userinf
 controls are rejected at the transport boundary. Signatures stay in memory and never
 appear in metadata output, errors or the download result.
 
-Files go beneath the selected profile's `AppDataDirectory/downloads`. `--name` must be a safe
-single basename; the default prefixes the sanitized attachment name with its ID. Existing
-filenames are never overwritten. Downloads have no default byte ceiling. Optional `--max-bytes`
-accepts a positive safe integer and enforces the caller-selected bound while streaming and against
-Content-Length. Filename lengths are left to the filesystem. Core stages bytes in a fresh
-private directory under this profile's `temp`, then hard-links only the complete identity-checked
-file into `downloads`. Partial files are removed when their identities remain trusted. Output
+Files default to the invocation working directory using the metadata filename. Unsafe or ambiguous
+default filenames are rejected. `--output <path>` chooses a relative path against that working
+directory or an absolute path. The parent must exist. Existing files and symlinks are never overwritten,
+regardless of the selected profile. Downloads have no default byte ceiling; optional `--max-bytes`
+bounds streamed bytes and Content-Length. Core stages bytes in a fresh private `.download-*` directory
+beside the output file, then hard-links only the complete identity-checked file into place. Partial files are removed when their identities remain trusted. Output
 contains only sanitized ID/name, local path, byte count and content type.
 No binary data is printed. Publication uses an exclusive hard link; unsupported filesystems
 fail without a copy/rename fallback. Existing links or junctions in the directory chain and detectable directory/staged/destination
 replacement are rejected. Unknown replacement files are never removed. This protects
-current-user-owned AppData; it cannot prevent every malicious same-account replacement after the
+the output destination; it cannot prevent every malicious same-account replacement after the
 last identity check. Errors report whether publication occurred and whether private staging cleanup
 failed, without raw filesystem/service details. The local proof never invokes download or upload.
 
-`article export <article> [--name <basename>]` (ReadOnly) saves the article content, with signed
-URLs scrubbed like console output, as `downloads/<idReadable>.md` through the same no-overwrite
+`article export <article> [--output <path>]` (ReadOnly) saves the article content, with signed
+URLs scrubbed like console output, as `<idReadable>.md` in the invocation working directory through the same no-overwrite
 publication. Edit it and send it back with `article update <article> --body '{}' --content-file <path>`.
 The result's `redacted: true` means the file contains `[redacted]` placeholders where console-output
 scrubbing removed text (signed or credential-bearing URLs, undecodable URL-like text or the token);
 sending it back unchanged would replace that text in YouTrack, so restore it first or edit that
 article elsewhere.
-The local `downloads list`, `downloads delete <name>` and `downloads clean` built-ins (ungated, no
-network) show or remove saved files: only regular files directly in the selected profile's
-`downloads` directory, never links, subdirectories, staging or other profiles.
+The former `--name` option and `downloads list/delete/clean` commands are removed. Existing files
+in profile AppData are left untouched; move or delete them explicitly if desired. New user outputs
+are not owned by profile cleanup.
 
 ## Issue batches
 
@@ -405,8 +404,8 @@ rollback or compensation; a batch is not atomic. It stops at the first unsuccess
 (rejected before the write or with HTTP 4xx: not applied), `uncertain` (connectivity, 5xx or an
 invalid response: it may have been applied) or `unattempted`; the overall `status` is `completed`
 or `incomplete`, with counts. The command itself succeeds (exit code 0) once rows ran, so callers
-must check `status`. `--failed-rows <name>.json` saves the `failed` and `unattempted` rows
-as a manifest under `downloads` for deliberate resubmission; `uncertain` rows are left out and must
+must check `status`. `--failed-rows <path.json>` saves the `failed` and `unattempted` rows
+as a manifest at the requested path relative to the invocation working directory for deliberate resubmission; `uncertain` rows are left out and must
 be checked in YouTrack first. A save failure is reported in `failedRows.error` without hiding row results.
 
 ## Compared with `yt` 0.22.2

@@ -5,9 +5,7 @@ import test from "node:test";
 import {
   command,
   createCli,
-  downloadCommands,
   recordView,
-  saveProfileFile,
   tableView,
 } from "../src/index.js";
 import { createCliFixture } from "../src/testing.js";
@@ -163,23 +161,6 @@ test("a view that does not match its result falls back to generic output, never 
   assert.match(result.stdout, /^id\s+name\s+state\s+started\n-+ .*\n101\s.*\n1234567890\s+Short/);
 });
 
-test("Core's downloads list is a table of saved files for the selected profile", async (t) => {
-  const f = await createCliFixture(t, { applicationId: "files-cli", profiles: [{ name: "default" }] });
-  await saveProfileFile({
-    appDataDirectory: f.appArguments.AppDataDirectory, name: "report.txt", content: "synthetic",
-  });
-  const app = f.createApplication((runtime) => createCli({
-    name: "files-cli", description: "Files fixture", commands: [], builtins: [downloadCommands], runtime,
-  }));
-  const listed = await f.run(app, ["downloads", "list"]);
-  assert.equal(listed.exitCode, 0, listed.stderr);
-  const [header, row, ...rest] = listed.stdout.split("\n");
-  assert.match(header ?? "", /^NAME\s+SIZE\s+MODIFIED\s+PATH$/);
-  assert.match(row ?? "", /^report\.txt\s+9 B\s+\d+s\s+/);
-  // Redirected output is never shortened, whatever characters the temporary path contains.
-  assert.ok(row?.endsWith(join(f.appArguments.AppDataDirectory, "downloads", "report.txt")), row);
-  assert.deepEqual(rest, [""]);
-});
 
 test("help groups siblings in declaration order, adds examples and keeps local commands last", async (t) => {
   const f = await createCliFixture(t, { applicationId: "help-cli" });

@@ -1,7 +1,6 @@
 import {
   command,
   createCli,
-  downloadCommands,
   helpLayout,
   integerParser,
   Permission,
@@ -31,7 +30,7 @@ import {
   readTextFile,
   updateCommand,
 } from "./cli-support.js";
-import { downloadLimit, downloadName } from "./attachment-download.js";
+import { downloadLimit } from "./attachment-download.js";
 import { applyIssueBatch, manifestRows } from "./issue-batch.js";
 import { createIssue, updateIssue } from "./issue-fields.js";
 import { contextRootCommands, contextIssueChildren, contextCommentChildren } from "./issue-context-commands.js";
@@ -116,7 +115,6 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
         signal,
       }),
     }),
-    builtins: [downloadCommands],
     commands: helpLayout(rootLayout, [
       ...contextRootCommands,
       ...timeRootCommands,
@@ -201,7 +199,7 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
             "apply",
             "Apply manifest rows in order",
             async (connection, { options }, context) => applyIssueBatch(connection, await manifest(options), {
-              appDataDirectory: context.appArguments.AppDataDirectory,
+              cwd: context.cwd,
               continueOnError: options.continueOnError === true,
               progress: context.progress,
               ...(typeof options.failedRows === "string" ? { failedRows: options.failedRows } : {}),
@@ -210,9 +208,8 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
               manifestOption,
               { flags: "--continue-on-error", description: "Keep going after a failed row" },
               {
-                flags: "--failed-rows <name>",
-                description: "Save failed rows as a .json manifest",
-                parse: downloadName,
+                flags: "--failed-rows <path>",
+                description: "Save failed rows as a .json manifest relative to the working directory",
               },
             ],
           )),

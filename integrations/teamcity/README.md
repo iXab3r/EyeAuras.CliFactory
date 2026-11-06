@@ -602,26 +602,25 @@ teamcity-cli builds source 12345 src/example.ts --output example.ts --profile ua
 teamcity-cli users avatar download 123 --size 64 --output avatar.png --profile uat --json
 ```
 
-Downloads require a new basename and save only below
-`AppArguments.AppDataDirectory/downloads`, using Core's shared identity-checked private staging
-under `TempDirectory`. Result is
+Downloads default to the invocation working directory. Files and source use the final resource
+path component, archives append `.zip`, avatars use `avatar.png`, and status icons use `statusIcon.svg`.
+Unsafe or ambiguous default names are rejected. Optional `--output <path>` resolves relative paths
+against the invocation directory and uses absolute paths as supplied. The parent must exist.
+Core stages beside the destination in a private `.download-*` directory. Result is
 `{path,bytes,sha256,mediaType}` for an actual retained file. Downloads have no default byte limit.
 An optional `--max-bytes` sets a caller-selected budget with no tool-imposed upper ceiling. HTTP206 partial responses are
 rejected without publication or automatic retry; downloads do not support ranges/resume.
-No overwrite, redirect,
-symlink/junction escape, automatic opening, execution or extraction. Atomic no-clobber publication
-requires same-profile hard-link support; unsupported filesystems fail closed. PNG/ZIP/SVG types
+No overwrite, symlink/junction escape, automatic opening, execution or extraction. Atomic no-clobber publication
+requires destination-filesystem hard-link support; unsupported filesystems fail closed. PNG/ZIP/SVG types
 and signatures are validated; SVG/icon success says nothing about the build's success.
 The fresh staging directory and file use private POSIX modes/current-user ACLs; the published hard
-link retains the file protection. Core never changes AppData ancestor/download-directory ACLs and
+link retains the file protection. Core never changes existing destination directory ACLs and
 does not repair a user data root deliberately made public. Detectable directory/staged/destination
 replacement is rejected without deleting unknown files. A same-user process can still race after
 the final identity check. Data can be sensitive:
-do not publish downloads or turn them into fixtures without explicit sanitization. File cleanup
-follows profile AppData semantics; it is not permission to silently erase existing user data.
-The local, ungated `downloads list`, `downloads delete <name>` and `downloads clean` built-ins
-inspect or explicitly remove saved files: only regular files directly in the selected profile's
-`downloads` directory, never links, subdirectories, staging or other profiles.
+do not publish downloads or turn them into fixtures without explicit sanitization. Existing files
+in profile AppData remain untouched. The former `downloads list/delete/clean`
+commands are removed; arbitrary output paths are not registered for profile cleanup.
 
 `settings-path` on jobs/projects/VCS roots and `builds artifacts-path` return a typed absolute
 **SERVER** path. They neither download XML nor read that path on the local machine.
@@ -723,7 +722,7 @@ Some commands print a compact view instead of every field:
 - Downloads print the full local path, byte count and SHA-256 of the saved file.
 
 In a terminal, `builds list` fits its width by shortening only BRANCH, `builds problems` only
-DESCRIPTION, and Core's `downloads list` only its PATH. Build and job IDs, test names and file
+DESCRIPTION. Build and job IDs, test names and file
 names are never cut; an impossible fit wraps. Redirected output is not shortened. `--json` and
 JSON-RPC return the same complete data as before.
 
