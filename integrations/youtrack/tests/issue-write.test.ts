@@ -111,8 +111,8 @@ test("invalid JSON and known field types fail locally; server resolves selectors
     { project: { id: "0-1" }, summary: 1 },
     { project: { id: "0-1" }, summary: "S", customFields: {} },
     { project: { id: "0-1" }, summary: "S", customFields: [{ ...field, $type: 1 }] },
-  ]) await assert.rejects(createIssue(local, body), /YouTrack/);
-  await assert.rejects(updateIssue(local, "DEMO-1", { customFields: [{ ...field, value: [] }] }), /YouTrack/);
+  ]) await assert.rejects(createIssue(local, body), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
+  await assert.rejects(updateIssue(local, "DEMO-1", { customFields: [{ ...field, value: [] }] }), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
 
   const cases: [Record<string, unknown>, unknown, RegExp][] = [
     [{}, { project: { shortName: "DEMO" }, summary: "S" }, /HTTP 400/],

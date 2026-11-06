@@ -55,7 +55,7 @@ function queryBody(options: AssistOptions): YouTrackObject {
       options.caret > 2_147_483_647
     )
   ) {
-    throw new Error("YouTrack caret must be a signed 32-bit integer.");
+    throw new Error("The caret must be a signed 32-bit integer.");
   }
   return {
     query,
@@ -76,7 +76,7 @@ function suggestionsResult(
       )
     )
   ) {
-    throw new Error("YouTrack returned invalid suggestions.");
+    throw new Error("Invalid suggestions from YouTrack.");
   }
   return value;
 }
@@ -153,7 +153,7 @@ export async function countIssues(
       value.count < -1
     )
   ) {
-    throw new Error("YouTrack returned an invalid issue count.");
+    throw new Error("Invalid issue count from YouTrack.");
   }
   return value;
 }

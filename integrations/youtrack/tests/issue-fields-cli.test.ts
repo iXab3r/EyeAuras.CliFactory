@@ -114,7 +114,7 @@ test("field RPC survives a profile denial and remote rejection with isolated URL
   assert.match(replies[0].error.message, /Permission 'Update' is disabled/);
   assert.equal(replies[1].result, null);
   assert.equal(replies[2].error.code, -32000);
-  assert.equal(replies[2].error.message, "YouTrack request failed (HTTP 403).");
+  assert.equal(replies[2].error.message, "YouTrack answered HTTP 403.");
   assert.deepEqual(replies[3].result, []);
   assert.deepEqual(calls, ["POST dev.example.com", "GET production.example.com", "GET dev.example.com"]);
   // Readiness and handler contexts follow admission; denied requests create neither.

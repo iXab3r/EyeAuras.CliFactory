@@ -1,5 +1,6 @@
 import { inspect } from "node:util";
 import type { Writable } from "node:stream";
+import type { CommandInput } from "./types.js";
 import { renderView, type HumanView } from "./view.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -106,11 +107,15 @@ export function formatHuman(value: unknown): string {
   if (typeof value === "string") {
     return value;
   }
+  if (Array.isArray(value) && value.length === 0) {
+    return "No results.";
+  }
   if (Array.isArray(value) && value.every(isRecord)) {
-    if (value.length === 0) {
-      return "No results.";
-    }
     return table(value);
+  }
+  // Names and identifiers read as a list, one per line.
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    return value.join("\n");
   }
   // A selection prints rows, its scalar summary, then labeled nested details.
   // `null` is spelled out: an unknown value is information, unlike an empty cell.
@@ -145,7 +150,13 @@ export function writeResult(
   output: Writable,
   value: unknown,
   json: boolean,
-  presentation?: { view: HumanView; cliName: string; profile?: string; defaultProfile?: string },
+  presentation?: {
+    view: HumanView;
+    cliName: string;
+    profile?: string;
+    defaultProfile?: string;
+    input?: CommandInput;
+  },
 ): void {
   const width = terminalWidth(output);
   const viewed = json || !presentation
@@ -154,6 +165,7 @@ export function writeResult(
         cliName: presentation.cliName,
         ...(presentation.profile === undefined ? {} : { profile: presentation.profile }),
         ...(presentation.defaultProfile === undefined ? {} : { defaultProfile: presentation.defaultProfile }),
+        ...(presentation.input === undefined ? {} : { input: presentation.input }),
         now: Date.now(),
         ...(width === undefined ? {} : { width }),
       });

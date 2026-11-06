@@ -359,7 +359,7 @@ export function createCli(definition: CliDefinition): CliApplication {
           progress: execution.render && globals.json !== true
             ? (message: string) => void execution.io.error.write(`${message}\n`) : () => undefined,
         };
-        const presentation = view && { view, cliName: definition.name };
+        const presentation = view && { view, cliName: definition.name, input: commandInput };
         try {
           result = await runLocal(commandInput, context);
           if (isStreamResult(result)) {
@@ -413,7 +413,9 @@ export function createCli(definition: CliDefinition): CliApplication {
             profile = await ensureConfigured(profile, globals, ownsExclusive);
           const context = contextFor(profile, execution, execution.render && globals.json !== true);
           context.signal.throwIfAborted();
-          const presentation = view && { view, cliName: definition.name, profile: profile.name, defaultProfile };
+          const presentation = view && {
+            view, cliName: definition.name, profile: profile.name, defaultProfile, input: commandInput,
+          };
           try {
             result = await handler(commandInput, context);
             if (isStreamResult(result)) {

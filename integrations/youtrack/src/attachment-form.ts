@@ -11,7 +11,7 @@ export async function attachmentForm(filePath: string): Promise<FormData> {
     }
     file = await fs.openAsBlob(filePath);
   } catch {
-    throw new Error("YouTrack upload requires a readable regular file.");
+    throw new Error("The upload requires a readable regular file.");
   }
   const form = new FormData();
   form.append("upload1", file, basename(filePath));

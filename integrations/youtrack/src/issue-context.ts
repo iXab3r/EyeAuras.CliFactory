@@ -34,7 +34,7 @@ export function activityCategories(value: string): string {
 
 function activityQuery(options: ActivityOptions): Record<string, string> {
   if (options.reverse !== undefined && typeof options.reverse !== "boolean") {
-    throw new Error("YouTrack reverse must be boolean.");
+    throw new Error("--reverse must be boolean.");
   }
   return {
     fields: fields(options, activityFields),
@@ -55,7 +55,7 @@ async function activityPage(
     ["activities", "beforeCursor", "afterCursor", "hasBefore", "hasAfter", "reverse"]
       .some((key) => !Object.hasOwn(result, key))
   ) {
-    throw new Error("YouTrack returned an invalid activity page.");
+    throw new Error("Invalid activity page from YouTrack.");
   }
   if (
     result.activities !== undefined &&
@@ -63,16 +63,16 @@ async function activityPage(
       (item) => item === null || typeof item !== "object" || Array.isArray(item),
     ))
   ) {
-    throw new Error("YouTrack returned an invalid activity page.");
+    throw new Error("Invalid activity page from YouTrack.");
   }
   for (const key of ["beforeCursor", "afterCursor"]) {
     if (result[key] !== undefined && typeof result[key] !== "string") {
-      throw new Error("YouTrack returned an invalid activity page.");
+      throw new Error("Invalid activity page from YouTrack.");
     }
   }
   for (const key of ["hasBefore", "hasAfter", "reverse"]) {
     if (result[key] !== undefined && typeof result[key] !== "boolean") {
-      throw new Error("YouTrack returned an invalid activity page.");
+      throw new Error("Invalid activity page from YouTrack.");
     }
   }
   return result;

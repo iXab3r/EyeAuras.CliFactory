@@ -100,7 +100,7 @@ test("bundle RPC isolates profile URLs, tokens, permissions and AppData and surv
   assert.deepEqual(replies.map((reply) => reply.id), [0, 1, 2, 3]);
   assert.deepEqual(replies[0].result, []);
   assert.equal(replies[1].error.code, -32000);
-  assert.equal(replies[1].error.message, "YouTrack request failed (HTTP 403).");
+  assert.equal(replies[1].error.message, "YouTrack answered HTTP 403.");
   assert.match(replies[2].error.message, /Permission 'ReadOnly' is disabled/);
   assert.deepEqual(replies[3].result, { id: "fixture-value", description: "[redacted]", startDate: null });
   assert.deepEqual(calls, [
@@ -125,15 +125,15 @@ test("bundle ordinary JSON errors stay on stderr with one failed request and no 
   assert.equal(await f.cli.run(["bundle", "build", "get", "fixture-bundle", "--profile", "dev", "--json"]), 1);
   assert.equal(calls, 1);
   assert.equal(f.stdout(), "");
-  assert.match(f.stderr(), /YouTrack request failed \(HTTP 403\)/);
+  assert.match(f.stderr(), /YouTrack answered HTTP 403/);
   assert.doesNotMatch(f.stderr(), /synthetic-|private-response/);
 });
 
-test("version value help states the startDate availability without accessing profile credentials", async (t) => {
+test("version value help lists its commands without accessing profile credentials", async (t) => {
   const f = await fixture(t);
   f.secrets.get = async () => { assert.fail("Help reached secrets"); };
   assert.equal(await f.cli.run(["bundle", "version", "value", "--help"]), 0);
-  assert.match(f.stdout(), /startDate requires YouTrack 2023\.1\+/);
+  assert.match(f.stdout(), /\nInspect version values\n/);
   assert.match(f.stdout(), /list/);
   assert.match(f.stdout(), /get/);
   assert.equal(f.stderr(), "");

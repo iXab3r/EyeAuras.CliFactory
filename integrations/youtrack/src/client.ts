@@ -1,4 +1,4 @@
-import { CliError, diagnosticCause, fetchWithRedirects, readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
+import { CliError, HttpError, diagnosticCause, fetchWithRedirects, readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
 
 export interface YouTrackUser {
   id: string;
@@ -15,7 +15,7 @@ export interface Connection {
 export const youTrackUrlHelp = "YouTrack server URL, such as https://youtrack.example.test or https://example.test/youtrack";
 
 export function youTrackUrl(value: unknown): string {
-  const message = "YouTrack URL must be http(s)://host[:port][/context], without credentials, a query or a fragment.";
+  const message = "The URL must be http(s)://host[:port][/context], without credentials, a query or a fragment.";
   const url = parseServerUrl(value, message);
   return url.href;
 }
@@ -35,6 +35,7 @@ export interface IssueSearchOptions extends PageOptions {
   query?: string;
   /** Read every page; fail instead of returning more issues. */
   maxResults?: number;
+  progress?: (message: string) => void;
   /** Fail when this command's decoded response bytes exceed the budget. */
   maxBytes?: number;
 }
@@ -47,13 +48,13 @@ const commentFields = "id,text,author(id,login),created,updated";
 
 export function requiredText(value: string, label: string): string {
   if (typeof value !== "string") {
-    throw new Error(`YouTrack ${label} must be text.`);
+    throw new Error(`The ${label} must be text.`);
   }
   return value;
 }
 export function inputFilePath(value: string): string {
   if (typeof value !== "string" || value.length === 0 || value.includes("\0"))
-    throw new Error("YouTrack file path must identify a file without NUL characters.");
+    throw new Error("The file path must identify a file without NUL characters.");
   return value;
 }
 
@@ -65,24 +66,24 @@ export function page(options: PageOptions, defaults: string): Record<string, str
   const top = options.top === undefined ? 50 : options.top;
   const skip = options.skip === undefined ? 0 : options.skip;
   if (!Number.isSafeInteger(top) || top < 0) {
-    throw new Error("YouTrack top must be a nonnegative safe integer.");
+    throw new Error("--top must be a nonnegative safe integer.");
   }
   if (!Number.isSafeInteger(skip) || skip < 0) {
-    throw new Error("YouTrack skip must be a nonnegative safe integer.");
+    throw new Error("--skip must be a nonnegative integer.");
   }
   return { fields: fields(options, defaults), $top: String(top), $skip: String(skip) };
 }
 
 export function encodedID(id: string, label = "ID"): string {
   requiredText(id, label);
-  if (id.length === 0) throw new Error(`YouTrack ${label} must identify one path segment.`);
+  if (id.length === 0) throw new Error(`The ${label} must identify one path segment.`);
   if (id === "." || id === "..") {
-    throw new Error(`YouTrack ${label} must not be a dot path segment.`);
+    throw new Error(`The ${label} must not be a dot path segment.`);
   }
   try {
     return encodeURIComponent(id);
   } catch {
-    throw new Error(`YouTrack ${label} must contain valid Unicode text.`);
+    throw new Error(`The ${label} must contain valid Unicode text.`);
   }
 }
 
@@ -137,7 +138,7 @@ function scrub(value: YouTrackValue, token: string): YouTrackValue {
 }
 function object(value: YouTrackValue): YouTrackObject {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("YouTrack returned an invalid object response.");
+    throw new Error("Invalid object response from YouTrack.");
   }
   return value;
 }
@@ -174,7 +175,7 @@ async function request(
       ...(connection.signal === undefined ? {} : { signal: connection.signal }),
     });
   } catch (cause) {
-    throw new CliError("YouTrack request failed; check connectivity, TLS and the configured URL.", {
+    throw new CliError("Could not reach YouTrack; check the URL, connectivity and TLS.", {
       code: "request.failed", cause: diagnosticCause(cause, [token]),
     });
   }
@@ -193,9 +194,7 @@ async function request(
       }
     }
     // The status lets batch callers separate a definite rejection from an uncertain write.
-    throw Object.assign(new Error(`YouTrack request failed (HTTP ${response.status}).${retry}`), {
-      status: response.status,
-    });
+    throw new HttpError(response.status, `YouTrack answered HTTP ${response.status}.${retry}`);
   }
   let text: string;
   try {
@@ -208,8 +207,8 @@ async function request(
     text = new TextDecoder().decode(bytes);
   } catch (cause) {
     throw new Error(options.budget === undefined
-      ? "YouTrack response stream failed or was cancelled."
-      : "YouTrack response stream failed, exceeded --max-bytes, or was cancelled.",
+      ? "The response stream failed or was cancelled."
+      : "The response stream failed, exceeded --max-bytes, or was cancelled.",
     { cause: diagnosticCause(cause, [token]) });
   }
   let value: YouTrackValue;
@@ -219,12 +218,12 @@ async function request(
     }
     value = JSON.parse(text) as YouTrackValue;
   } catch (cause) {
-    throw new Error(`YouTrack returned an invalid ${responseName} response.`, {
+    throw new Error(`Invalid ${responseName} response from YouTrack.`, {
       cause: diagnosticCause(cause, [token], "Invalid JSON syntax."),
     });
   }
   if (options.allowEmpty && value === null) {
-    throw new Error("YouTrack returned an invalid mutation response.");
+    throw new Error("Invalid mutation response from YouTrack.");
   }
   return value;
 }
@@ -263,7 +262,7 @@ export async function getAttachmentDownloadMetadata(
     (mimeType !== null && typeof mimeType !== "string") ||
     [id, name, mimeType, url].some((item) => typeof item === "string" && item.includes(token))
   ) {
-    throw new Error("YouTrack returned invalid attachment download metadata or no download URL.");
+    throw new Error("Invalid attachment download metadata from YouTrack, or no download URL.");
   }
   return { id, name, mimeType, url };
 }
@@ -276,10 +275,10 @@ export async function readCollection(
 ): Promise<YouTrackObject[]> {
   const value = scrub(await request(connection, path, query, "JSON", { budget }), connection.token.trim());
   if (!Array.isArray(value)) {
-    throw new Error("YouTrack returned an invalid collection response.");
+    throw new Error("Invalid collection response from YouTrack.");
   }
   if (value.length > Number(query.$top)) {
-    throw new Error("YouTrack returned more items than the requested top limit.");
+    throw new Error("More items than the requested page size came back from YouTrack.");
   }
   return value.map(object);
 }
@@ -292,8 +291,9 @@ export async function readPages(
   connection: Connection,
   path: string,
   query: Record<string, string>,
-  { top, skip, maxResults = Infinity, budget }: {
+  { top, skip, maxResults = Infinity, budget, progress }: {
     top: number; skip: number; maxResults?: number; budget?: ByteBudget | undefined;
+    progress?: ((message: string) => void) | undefined;
   },
 ): Promise<YouTrackObject[]> {
   const items: YouTrackObject[] = [];
@@ -307,12 +307,13 @@ export async function readPages(
       if (typeof item.id === "string") ids.add(item.id);
     }
     if (items.length > maxResults) {
-      throw new Error("YouTrack selection exceeds --max-results; narrow the query or raise the budget.");
+      throw new Error("The selection exceeds --max-results; narrow the query or raise the limit.");
     }
     if (page.length < size) return items;
     if (items.length === before) {
-      throw new Error("YouTrack repeated a full page; paging stopped without a complete selection.");
+      throw new Error("A full page repeated; paging stopped without a complete selection.");
     }
+    progress?.(`Read ${items.length} so far; reading the next page.`);
     offset += size;
   }
 }
@@ -333,7 +334,7 @@ function resourceArguments<Options extends object>(values: unknown[]): {
     ? (items.pop() ?? {}) as Options
     : {} as Options;
   if (items.some((item) => typeof item !== "string")) {
-    throw new Error("YouTrack resource arguments must be text.");
+    throw new Error("Resource arguments must be text.");
   }
   return { pathArguments: items as string[], options };
 }
@@ -390,7 +391,7 @@ export async function currentUser(connection: Connection): Promise<YouTrackUser>
     !("login" in value) || typeof value.login !== "string" ||
     scrubText(value.id, token) !== value.id || scrubText(value.login, token) !== value.login
   ) {
-    throw new Error("YouTrack returned an invalid identity response.");
+    throw new Error("Invalid identity response from YouTrack.");
   }
   return { id: value.id, login: value.login };
 }
@@ -408,7 +409,7 @@ export const listProjects = readCollectionAt("api/admin/projects", "id,name,shor
 
 function positiveBudget(value: number, label: string): number {
   if (!Number.isSafeInteger(value) || value < 1) {
-    throw new Error(`YouTrack ${label} must be a positive safe integer.`);
+    throw new Error(`--${label} must be a positive integer.`);
   }
   return value;
 }
@@ -431,6 +432,7 @@ export async function listIssues(
       skip: Number(query.$skip),
       maxResults: positiveBudget(options.maxResults, "max-results"),
       budget,
+      progress: options.progress,
     });
 }
 
@@ -443,7 +445,7 @@ export const listComments = readCollectionAt(
 export function mutationBody(value: unknown): YouTrackObject {
   if (value === null || typeof value !== "object" || Array.isArray(value) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
-    throw new Error("YouTrack body must be a JSON object.");
+    throw new Error("The body must be a JSON object.");
   }
   const ancestors = new Set<object>();
   function validate(item: unknown): void {
@@ -451,7 +453,7 @@ export function mutationBody(value: unknown): YouTrackObject {
     if (typeof item === "number" && Number.isFinite(item)) return;
     if (typeof item !== "object" || ancestors.has(item) ||
         (!Array.isArray(item) && ![Object.prototype, null].includes(Object.getPrototypeOf(item)))) {
-      throw new Error("YouTrack body must contain JSON values.");
+      throw new Error("The body must contain JSON values.");
     }
     ancestors.add(item);
     for (const child of Array.isArray(item) ? item : Object.values(item)) validate(child);
@@ -463,14 +465,14 @@ export function mutationBody(value: unknown): YouTrackObject {
 
 export function narrative(value: unknown, label: string): string {
   if (typeof value !== "string") {
-    throw new Error(`YouTrack ${label} must be text.`);
+    throw new Error(`The ${label} must be text.`);
   }
   return value;
 }
 
 export function nullableText(value: unknown, label: string): string | null {
   if (value !== null && typeof value !== "string") {
-    throw new Error(`YouTrack ${label} must be text or null.`);
+    throw new Error(`The ${label} must be text or null.`);
   }
   return value;
 }
@@ -505,7 +507,7 @@ export async function uploadObjectCollection(
     return null;
   }
   if (!Array.isArray(value)) {
-    throw new Error("YouTrack returned an invalid upload collection response.");
+    throw new Error("Invalid upload collection response from YouTrack.");
   }
   return value.map((item) => object(scrub(item, connection.token.trim())));
 }

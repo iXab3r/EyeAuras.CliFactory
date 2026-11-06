@@ -47,7 +47,7 @@ export const getWorkItem = readObjectAt(
 
 function timestamp(value: unknown, name: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error(`YouTrack ${name} must be a safe integer timestamp in milliseconds.`);
+    throw new Error(`The ${name} must be a safe integer timestamp in milliseconds.`);
   }
   return value;
 }
@@ -58,7 +58,7 @@ function reference(value: unknown, name: string): YouTrackObject | null {
   }
   const body = mutationBody(value);
   if (typeof body.id !== "string") {
-    throw new Error(`YouTrack ${name}.id must be text.`);
+    throw new Error(`The ${name}.id must be text.`);
   }
   return { ...body, id: requiredText(body.id, `${name}.id`) };
 }
@@ -66,7 +66,7 @@ function reference(value: unknown, name: string): YouTrackObject | null {
 function duration(value: unknown, creating: boolean): YouTrackObject {
   const body = mutationBody(value);
   if (creating && !Object.hasOwn(body, "minutes") && !Object.hasOwn(body, "presentation")) {
-    throw new Error("YouTrack duration requires minutes or presentation.");
+    throw new Error("duration requires minutes or presentation.");
   }
   const result: YouTrackObject = { ...body };
   if (Object.hasOwn(body, "minutes")) {
@@ -76,13 +76,13 @@ function duration(value: unknown, creating: boolean): YouTrackObject {
       body.minutes < -2_147_483_648 ||
       body.minutes > 2_147_483_647
     ) {
-      throw new Error("YouTrack duration.minutes must be a signed 32-bit integer.");
+      throw new Error("The duration.minutes must be a signed 32-bit integer.");
     }
     result.minutes = body.minutes;
   }
   if (Object.hasOwn(body, "presentation")) {
     if (typeof body.presentation !== "string") {
-      throw new Error("YouTrack duration.presentation must be text.");
+      throw new Error("The duration.presentation must be text.");
     }
     result.presentation = requiredText(body.presentation, "duration.presentation");
   }
@@ -92,7 +92,7 @@ function duration(value: unknown, creating: boolean): YouTrackObject {
 function workItemBody(input: unknown, creating: boolean): YouTrackObject {
   const body = mutationBody(input);
   if (creating && !Object.hasOwn(body, "duration")) {
-    throw new Error("YouTrack work-item creation requires duration.minutes or duration.presentation.");
+    throw new Error("A new work item requires duration.minutes or duration.presentation.");
   }
   const result: YouTrackObject = { ...body };
   if (Object.hasOwn(body, "duration")) {

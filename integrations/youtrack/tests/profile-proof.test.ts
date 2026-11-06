@@ -135,7 +135,7 @@ test("every denied read fails while only uncalled dependencies skip and no error
       const index = commandIndex(argv);
       called.push(index);
       if (index === denied) {
-        throw Object.assign(new Error("YouTrack request failed (HTTP 403). synthetic-private-token"), {
+        throw Object.assign(new Error("YouTrack answered HTTP 403. synthetic-private-token"), {
           stderr: "https://private.example.com/private?token=synthetic-token",
           stdout: "synthetic-private-payload",
         });

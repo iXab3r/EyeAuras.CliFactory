@@ -25,7 +25,7 @@ for (const endpoint of ["http://example.test", "https://example.test", "http://e
     }
     for (const value of [" ", "not-a-url", "https://", "https://example.test?fictional-private", "https://fictional:private@example.test"]) {
       assert.throws(() => youTrackUrl(value), (error: Error) => {
-        assert.match(error.message, /YouTrack URL must be http\(s\):\/\/host/);
+        assert.match(error.message, /The URL must be http\(s\):\/\/host/);
         assert.doesNotMatch(error.message, /fictional-private|fictional:private/);
         return true;
       });

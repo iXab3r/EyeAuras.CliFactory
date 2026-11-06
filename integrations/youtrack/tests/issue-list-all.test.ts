@@ -60,13 +60,13 @@ test("budgets and later-page failures fail the whole selection without partial o
   await assert.rejects(listIssues(connection, { maxBytes: 20 }), /exceeded --max-bytes/);
   assert.equal((await listIssues(connection, { top: 2, maxResults: 10, maxBytes: 1000 })).length, 5);
   requests = serve(issues(5), (index) => index === 1 ? new HttpResponse("synthetic-private", { status: 500 }) : undefined);
-  await assert.rejects(listIssues(connection, { top: 2, maxResults: 10 }), /^Error: YouTrack request failed \(HTTP 500\)\.$/);
+  await assert.rejects(listIssues(connection, { top: 2, maxResults: 10 }), /^HttpError: YouTrack answered HTTP 500\.$/);
   assert.equal(requests.length, 2);
   requests = serve(issues(2), () => HttpResponse.json(issues(2)));
-  await assert.rejects(listIssues(connection, { top: 2, maxResults: 10 }), /repeated a full page/);
+  await assert.rejects(listIssues(connection, { top: 2, maxResults: 10 }), /A full page repeated/);
   assert.equal(requests.length, 2);
   for (const options of [{ maxResults: 0 }, { maxResults: 1.5 }, { maxBytes: 0 }]) {
-    await assert.rejects(listIssues({ ...connection, fetch: () => assert.fail("fetch") }, options), /positive safe integer/);
+    await assert.rejects(listIssues({ ...connection, fetch: () => assert.fail("fetch") }, options), /positive integer/);
   }
 });
 
@@ -84,10 +84,10 @@ test("CLI --all requires --max-results and returns the same JSON array over CLI 
   const f = await configuredFixture(t);
   const requests = serve(issues(3));
   for (const argv of [["issues", "list", "--all"], ["issues", "list", "--max-results", "5"]]) {
-    await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /--all and --max-results must be used together/);
+    await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /--all and --max-results go together/);
   }
   await assert.rejects(f.cli.execute(["issues", "list", "--all", "--max-results", "0", "--profile", "dev"]),
-    /max-results must be a positive safe decimal integer/);
+    /max-results must be a positive integer/);
   assert.equal(requests.length, 0);
   const argv = ["issues", "list", "--all", "--max-results", "5", "--top", "2", "--fields", "id,summary", "--profile", "dev"];
   assert.deepEqual(await f.json(f.cli, argv), issues(3));

@@ -54,7 +54,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
   const entity = /^(Single|Multi)(Enum|Build|Version|Owned|Group|User)IssueCustomField$/.exec(type);
   if (entity?.[1] === "Multi") {
     if (!Array.isArray(value)) {
-      throw new Error("YouTrack multi-value field requires an array; use [] to clear it.");
+      throw new Error("A multi-value field requires an array; use [] to clear it.");
     }
     return value.map((item) => reference(item, entity[2] === "User"));
   }
@@ -74,12 +74,12 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
       if (typeof value === "string" || (typeof value === "number" && Number.isFinite(value))) {
         return value;
       }
-      throw new Error("YouTrack simple field requires text, a finite number or null.");
+      throw new Error("A simple field requires text, a finite number or null.");
     case "DateIssueCustomField":
       if (typeof value === "number" && Number.isSafeInteger(value)) {
         return value;
       }
-      throw new Error("YouTrack date field requires a safe integer timestamp in milliseconds or null.");
+      throw new Error("A date field requires a timestamp in milliseconds or null.");
     case "PeriodIssueCustomField": {
       const body = mutationBody(value);
       const result: YouTrackObject = { ...body };
@@ -88,7 +88,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
           typeof body.minutes !== "number" || !Number.isSafeInteger(body.minutes) ||
           body.minutes < -2_147_483_648 || body.minutes > 2_147_483_647
         ) {
-          throw new Error("YouTrack period minutes must be a signed 32-bit integer.");
+          throw new Error("The period minutes must be a signed 32-bit integer.");
         }
         result.minutes = body.minutes;
       }
@@ -100,7 +100,7 @@ function fieldValue(type: string, value: unknown): YouTrackValue {
     default: {
       const body = mutationBody(value);
       if (Object.hasOwn(body, "text") && body.text !== null && typeof body.text !== "string") {
-        throw new Error("YouTrack text field requires text or null.");
+        throw new Error("A text field requires text or null.");
       }
       return body;
     }
@@ -150,7 +150,7 @@ export function issueWrite(input: unknown, create: boolean): IssueWrite {
   if (Object.hasOwn(body, "description")) write.body.description = nullableText(body.description, "description");
   if (Object.hasOwn(body, "customFields")) {
     if (!Array.isArray(body.customFields)) {
-      throw new Error("YouTrack customFields must be an array.");
+      throw new Error("The customFields must be an array.");
     }
     const customFields: YouTrackObject[] = body.customFields.map((item: unknown) => {
       const entry = mutationBody(item);
