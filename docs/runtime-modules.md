@@ -149,6 +149,14 @@ runs; custom loaders, bundlers and dependency mutation during hashing are unsupp
 build compatibility, not a tamper-proof signature. Stable applicationId still selects the owner;
 a changed build cannot create a parallel owner, and status/stop do not require a valid manifest.
 
+Installed-package verification reads the same full package/dependency bytes on every bootstrap.
+The filesystem traversal is synchronous to avoid per-file promise/thread-pool scheduling;
+there is no cache, mtime-only shortcut or dependency exclusion. This blocks the calling process's
+event loop until verification finishes, including JavaScript cancellation callbacks, before
+application work is admitted. Large packages and slow filesystems still pay the full read cost.
+The public build helpers retain their Promise-based API and rejection behavior. This optimization
+applies to the external package manifest path, not ordinary non-hosted integration executables.
+
 The IPC package packs runtime JS/types, generated proto and MIT license. Registry publication is
 separate authorization. Prepared IPC and consumer tarballs can be installed together before a
 registry release; do not bundle or copy Factory source/build helpers into the consumer. Run
