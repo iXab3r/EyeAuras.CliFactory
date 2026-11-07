@@ -180,3 +180,34 @@ test("candidate token validation failure keeps cause and leaves profile unconfig
   assert.doesNotMatch(result.stderr, /synthetic-candidate-token/);
   assert.equal((await fixture.profileStore.get()).values.url, undefined);
 });
+
+test("known values match percent hex case only and retain literal regex semantics", () => {
+  for (const value of ["Ab:/é", "A.*[x]+?($)^|\\", "broken%ZZ\ud800"]) {
+    let encoded = value;
+    try { encoded = encodeURIComponent(value); } catch {}
+    const mixed = encoded.replace(/%[0-9A-F]{2}/g, part => part[0]! + part[1]!.toLowerCase() + part[2]);
+    for (const spelling of [value, encoded, mixed, encoded.replace(/%[0-9A-F]{2}/g, part => part.toLowerCase())]) {
+      assert.equal(diagnosticCause(new Error(spelling), [value]).message, "[redacted]");
+    }
+  }
+  assert.equal(diagnosticCause(new Error("ab%3a%2fé"), ["Ab:/é"]).message, "ab%3a%2fé");
+  assert.equal(diagnosticCause(new Error("Axxx"), ["A.*"]).message, "Axxx");
+});
+
+test("control escaping survives later known values and repeated diagnostic copies", () => {
+  for (const control of ["\0", "\x1b", "\r", "\x7f", "\x85", "\x9b"]) {
+    const secret = "Synthetic" + control + "Resource";
+    const leaf = Object.assign(new Error("failed " + secret + control), { name: "Native" + control, code: "ECONNRESET" + control });
+    leaf.stack = leaf.name + ": " + leaf.message + "\n\tat source (" + secret + ":12:3)" + control;
+    const first = diagnosticCause(new AggregateError([leaf], "group" + control));
+    const second = diagnosticCause(first, [secret]);
+    const output = JSON.stringify(machineError(second, { verbose: true }));
+    assert.doesNotMatch(output, /Synthetic|Resource/);
+    assert.match(output, /ECONNRESET/);
+    assert.match((second as AggregateError).errors[0].stack, /\n\tat source/);
+    assert.equal(JSON.stringify(machineError(diagnosticCause(second, [secret]), { verbose: true })), output);
+    for (const field of [first.message, (first as AggregateError).errors[0].name, (first as AggregateError).errors[0].code]) {
+      assert.doesNotMatch(field, /[\x00-\x1f\x7f-\x9f]/);
+    }
+  }
+});
