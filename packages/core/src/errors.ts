@@ -24,16 +24,32 @@ export function rememberSecret(value: string | undefined): void {
   }
 }
 
+function escapeControls(text: string): string {
+  return text.replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g,
+    character => "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"));
+}
+
+function knownValuePattern(value: string): RegExp {
+  return new RegExp(value.replace(/%[0-9a-fA-F]{2}|[.*+?^${}()|[\]\\]/g, part =>
+    part.startsWith("%")
+      ? part.replace(/[a-fA-F]/g, hex => "[" + hex.toLowerCase() + hex.toUpperCase() + "]")
+      : "\\" + part), "g");
+}
+
 function redact(text: string, secrets: readonly string[] = []): string {
   const values = [...(diagnosticSecrets.getStore() ?? []), ...secrets].filter(Boolean);
   for (const value of values.sort((a, b) => b.length - a.length)) {
     let encoded = value;
     try { encoded = encodeURIComponent(value); } catch { /* Ill-formed Unicode is still redacted literally. */ }
     for (const spelling of new Set([value, value.trim(), encoded, JSON.stringify(value).slice(1, -1)])) {
-      if (spelling) text = text.replaceAll(spelling, "[redacted]");
+      if (spelling) {
+        for (const representation of new Set([spelling, escapeControls(spelling)])) {
+          text = text.replace(knownValuePattern(representation), "[redacted]");
+        }
+      }
     }
   }
-  return text
+  return escapeControls(text
     .replace(/https?:\/\/[^\s<>"']+/gi, raw => {
       try {
         const url = new URL(raw);
@@ -50,7 +66,7 @@ function redact(text: string, secrets: readonly string[] = []): string {
     })
     .replace(/\b((?:set-)?cookie\s*[:=]\s*)[^\r\n]*/gi, "$1[redacted]")
     .replace(/\b(Bearer|Basic)\s+[^\s,;"']+/gi, "$1 [redacted]")
-    .replace(/((?:password|passwd|token|secret|api[-_]?key|authorization|cookie|signature)\s*[=:]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/gi, "$1[redacted]");
+    .replace(/((?:password|passwd|token|secret|api[-_]?key|authorization|cookie|signature)\s*[=:]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/gi, "$1[redacted]"));
 }
 
 /** Copy only diagnostic fields; never retain arbitrary payloads attached to native errors. */
@@ -122,10 +138,11 @@ export class CliError extends Error {
 
   /**
    * An untyped failure: keeps the original type name, frames and cause instead of nesting the
-   * error under itself. An aggregate is nested so its independent failures survive.
+   * error under itself. An aggregate or native coded error is nested so its independent failures or native code survive.
    */
   public static from(error: Error): CliError {
-    if (error instanceof AggregateError) return new CliError(error.message, { code: "error", cause: error });
+    error = diagnosticCause(error);
+    if (error instanceof AggregateError || (error as NodeJS.ErrnoException).code !== undefined) return new CliError(error.message, { code: "error", cause: error });
     const wrapped = new CliError(error.message, {
       code: "error",
       ...(error.cause === undefined ? {} : { cause: error.cause }),
