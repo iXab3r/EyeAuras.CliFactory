@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { Readable, Writable } from "node:stream";
+import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { CliError, command, createCli, localCommand, streamResult } from "../src/index.js";
 import { createCliFixture } from "../src/testing.js";
@@ -209,5 +210,30 @@ for (const diagnostic of [false, true]) {
     await closed;
     assert.equal(stalled.listenerCount("error"), 0);
     assert.equal(stalled.listenerCount("close"), 0);
+  });
+}
+
+for (const cleanupFails of [false, true]) {
+  test(`native abortable producer on RPC disconnect; cleanup failure=${cleanupFails}`, { timeout: 5000 }, async t => {
+    const f = await createCliFixture(t, { applicationId: "output-cli" });
+    const pending = deferred();
+    let cleaned = false;
+    const app = f.createApplication(runtime => createCli({ name: "output-cli", description: "Fixture", runtime,
+      commands: [localCommand("items", "List items", () => streamResult(async function* (signal) {
+        try { yield 1; pending.resolve(); await delay(60_000, undefined, { signal }); }
+        finally { cleaned = true; if (cleanupFails) throw new Error("Synthetic native producer cleanup failed."); }
+      }))],
+    }));
+    const output = new Writable({ write(_chunk, _encoding, done) { done(); } });
+    const input = Readable.from([JSON.stringify({ jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["items"] } }) + "\n"]);
+    const running = f.run(app, ["--json-rpc"], { output, input });
+    await pending.promise;
+    output.destroy(nativeError("EPIPE"));
+    const result = await running;
+    assert.equal(result.exitCode, cleanupFails ? 1 : 141);
+    assert.equal(cleaned, true);
+    if (cleanupFails) assert.match(result.stderr, /Stream consumption and cleanup failed/);
+    else assert.equal(result.stderr, "");
+    assert.equal(output.listenerCount("error"), 0);
   });
 }

@@ -56,9 +56,13 @@ export async function consumeStreamResult(
     failure = error;
     // A producer's finally can replace the abort reason while next() is pending.
     const reason: unknown = disconnected.signal.reason;
-    if (reason instanceof CliError && reason.code === "output.brokenPipe"
-      && !(error instanceof CliError && error.code === "output.brokenPipe")) {
-      failure = new AggregateError([reason, error], "Stream consumption and cleanup failed.");
+    if (reason instanceof CliError && reason.code === "output.brokenPipe") {
+      if (error instanceof Error && error.name === "AbortError" && error.cause === reason) {
+        // Native abortable operations wrap their supplied reason; this is normal cancellation.
+        failure = reason;
+      } else if (!(error instanceof CliError && error.code === "output.brokenPipe")) {
+        failure = new AggregateError([reason, error], "Stream consumption and cleanup failed.");
+      }
     }
     // Abort in-flight service work before asking the iterator to release its resources.
     disconnected.abort(error);
