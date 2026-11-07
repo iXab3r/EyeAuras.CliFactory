@@ -93,9 +93,9 @@ export async function readPages<T>(
     nextStart: nextStart !== null && nextStart > start ? nextStart : null,
   });
   advanceOffset(start, limit);
-  let result = page(null, null);
-  let first = true;
-  await traversePages<Continuation>({ start }, async (position) => {
+  const initial: Continuation = { start };
+  let position = initial;
+  return traversePages(async () => {
     const take = Math.min(limit - items.length, pageSize);
     let response: Awaited<ReturnType<typeof read>>;
     try {
@@ -105,32 +105,30 @@ export async function readPages<T>(
       }
     } catch (error) {
       // A stopped read reports the stop, not an incomplete list.
-      if (first || signal?.aborted === true) throw error;
+      if (position === initial || signal?.aborted === true) throw error;
       // Items already read are kept, and the list is never presented as complete.
       throw new CliError("Reading more results failed; the list is incomplete.", {
         code: "list.incomplete", cause: error, result: page(null, position.start),
       });
     }
-    first = false;
     for (const item of response.items.slice(0, take)) items.push(item);
     const reached = advanceOffset(position.start, Math.min(response.items.length, take));
     if (response.items.length > take) {
       // The extra item proves that more exist; continue right after the kept items.
-      if (items.length >= limit) { result = page(true, reached); return; }
-      return { ...position, start: reached };
+      if (items.length >= limit) return page(true, reached);
+      position = { ...position, start: reached };
+      return;
     }
     const next = continuation(response.nextHref);
     // Without a continuation, a page shorter than requested proves the end.
     if (next === undefined) {
       const ended = response.nextHref === undefined || response.nextHref === null || response.nextHref === "";
-      result = page(ended ? false : null, ended ? null : reached);
-      return;
+      return page(ended ? false : null, ended ? null : reached);
     }
     const lookupLimit = next.lookupLimit ?? position.lookupLimit;
     const advances = next.start === reached &&
       (reached > position.start || (lookupLimit ?? 0) > (position.lookupLimit ?? 0));
-    if (!advances || items.length >= limit) { result = page(null, reached); return; }
-    return lookupLimit === undefined ? { start: reached } : { start: reached, lookupLimit };
+    if (!advances || items.length >= limit) return page(null, reached);
+    position = lookupLimit === undefined ? { start: reached } : { start: reached, lookupLimit };
   }, signal);
-  return result;
 }

@@ -574,13 +574,16 @@ browser clients use the optional Playwright owner. Tests replace the actual HTTP
 
 ### Finite page traversal
 
-Core exports `traversePages(initial, visit, signal?)` and `advanceOffset(start, count)`.
-The former visits service-owned positions sequentially until the callback returns `undefined`,
-checking cancellation before and after every awaited visit, including the final one. It does
-not retry or impose a request/time/content ceiling. The latter checks nonnegative safe-integer
-addition before returning an offset. There is no shared page DTO, mode registry or HTTP adapter.
-Each integration retains accumulation, identity, budgets, ordering, end evidence and errors.
-The callback must either advance its service position or stop; adapters prove progress locally.
+Core exports `traversePages(visit, signal?)` and `advanceOffset(start, count)`.
+The former repeats a service-owned page step until it returns a defined final result, which
+is returned directly to its caller. `undefined` requests another step; empty arrays, `null`,
+`false` and zero are final results. Cancellation is checked before and after every awaited step,
+including the final one. No retry or request/time/content ceiling is imposed. The latter checks
+nonnegative safe-integer addition before returning an offset. There is no shared page DTO,
+mode registry or HTTP adapter. Each integration retains its service position, accumulation,
+identity, budgets, ordering, end evidence and errors. A continued step must advance its local
+service position; adapters prove progress locally. Validate every generated request window
+before dispatch, including requests after the first page.
 
 TeamCity retains `--limit 100 --start 0`: limit bounds retained rows across wire requests.
 Its adapter requests one lookahead row, retains `lookupLimit` across sparse continuations, and

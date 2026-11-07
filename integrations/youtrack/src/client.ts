@@ -323,12 +323,14 @@ export async function readPages(
   advanceOffset(start, 0);
   const items: YouTrackObject[] = [];
   const ids = new Set<string>();
-  await traversePages(start, async (offset) => {
+  let offset = start;
+  return traversePages(async () => {
     // Add a proof row only when representable; at MAX_SAFE_INTEGER probe separately.
     const remaining = maxResults - items.length;
     const size = Math.min(pageSize, remaining === Number.MAX_SAFE_INTEGER ? remaining : remaining + 1);
+    advanceOffset(offset, size);
     const rows = await readCollection(connection, path, { ...query, $top: String(size), $skip: String(offset) }, budget);
-    if (rows.length === 0) return;
+    if (rows.length === 0) return items;
     const before = items.length;
     for (const item of rows) {
       if (typeof item.id !== "string" || !ids.has(item.id)) items.push(item);
@@ -341,9 +343,8 @@ export async function readPages(
       throw new Error("A page repeated; paging stopped without a complete selection.");
     }
     progress?.(`Read ${items.length} so far; reading the next page.`);
-    return advanceOffset(offset, rows.length);
+    offset = advanceOffset(offset, rows.length);
   }, connection.signal);
-  return items;
 }
 
 type ResourcePath = string | ((...arguments_: never[]) => string);

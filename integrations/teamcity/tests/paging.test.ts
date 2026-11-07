@@ -148,6 +148,21 @@ test("a failed later page keeps the items read so far; a failed first page is th
   assert.equal(stopped.requests.length, 0);
 });
 
+test("a failed same-offset lookup-limit continuation remains a later-page failure", async () => {
+  const failure = new Error("synthetic sparse continuation failure");
+  const pages = scripted([{ items: [], next: "start:0,count:4,lookupLimit:10000" }, failure]);
+  await assert.rejects(readPages(3, 0, pages.read), error => {
+    assert.ok(error instanceof CliError);
+    assert.equal(error.code, "list.incomplete");
+    assert.ok(error.cause instanceof Error);
+    assert.equal(error.cause.message, failure.message);
+    assert.equal(error.cause.stack, failure.stack);
+    assert.deepEqual(error.result, { count: 0, items: [], hasMore: null, nextStart: null });
+    return true;
+  });
+  assert.equal(pages.requests.length, 2);
+});
+
 test("builds list reads across a lookup-limit continuation and reports completeness", async (t) => {
   const locators: string[] = [];
   server.use(http.get("https://teamcity.test/app/rest/builds", ({ request }) => {

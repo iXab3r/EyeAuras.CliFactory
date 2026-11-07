@@ -589,19 +589,22 @@ For a finite multi-request operation, reuse Core's sequential traversal and chec
 
 ```ts
 const items: Release[] = [];
-await traversePages(start, async offset => {
+let offset = start;
+const result = await traversePages(async () => {
+  advanceOffset(offset, pageSize); // Validate each request window before dispatch.
   const rows = await readReleasePage(connection, { start: offset, pageSize });
-  if (rows.length === 0) return; // Only if this service documents empty-page termination.
+  if (rows.length === 0) return items; // Only if this service documents empty-page termination.
   for (const row of rows) items.push(row);
   if (items.length > maxResults) throw new Error("The selection exceeds --max-results.");
-  return advanceOffset(offset, rows.length);
+  offset = advanceOffset(offset, rows.length);
 }, connection.signal);
 ```
 
 Import `traversePages` and `advanceOffset` from Core. Validate caller options before acquiring a
-connection where possible, and inside direct-library clients too. The callback must advance its
-service position or stop. For link/cursor services prove progress using their actual continuation
-contract; never dispatch an arbitrary credential-bearing link or split opaque cursor pages.
+connection where possible, and inside direct-library clients too. Keep the service position local;
+the callback returns `undefined` to continue or the final result to stop. A continued step must
+advance its service position. For link/cursor services prove progress using their actual
+continuation contract; never dispatch an arbitrary credential-bearing link or split opaque cursor pages.
 Do not infer end from a short page without evidence, add default ceilings/retries, or make list
 commands discover write targets. Give complete selection an explicit caller result budget and
 fail without partial success on overflow, unknown end or page failure. Keep native cursor commands

@@ -73,6 +73,39 @@ test("the maximum safe result budget never generates an unsafe proof-row count",
   assert.deepEqual(sizes, [String(Number.MAX_SAFE_INTEGER)]);
 });
 
+test("every generated complete-selection window must be safe before dispatch", async t => {
+  const f = await configuredFixture(t);
+  const start = Number.MAX_SAFE_INTEGER - 2;
+  const requests: { start: string | null; size: string | null }[] = [];
+  server.use(http.get("*/context/api/issues", ({ request }) => {
+    const query = new URL(request.url).searchParams;
+    requests.push({ start: query.get("$skip"), size: query.get("$top") });
+    return HttpResponse.json(query.get("$skip") === String(start)
+      ? [{ id: "synthetic-first" }, { id: "synthetic-second" }]
+      : []);
+  }));
+  const argv = ["issues", "list", "--all", "--max-results", "10", "--page-size", "2", "--start", String(start)];
+  const rejectsWithoutRows = (error: unknown) => {
+    assert.match((error as Error).message, /safe integer/);
+    assert.equal((error as { result?: unknown }).result, undefined);
+    return true;
+  };
+  await assert.rejects(listIssues({ baseUrl: "https://youtrack.example.test/context", token: "synthetic-token" }, {
+    start, pageSize: 2, maxResults: 10,
+  }), rejectsWithoutRows);
+  await assert.rejects(f.cli.execute(argv), rejectsWithoutRows);
+  const result = await f.run(f.cli, [...argv, "--json"]);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /safe integer/);
+  const [reply] = await f.rpc(f.cli, [argv]) as { error: { message: string; data: { result?: unknown } } }[];
+  assert.match(reply!.error.message, /safe integer/);
+  assert.equal(reply!.error.data.result, undefined);
+  // Each invocation has a valid first window and an invalid second candidate. The mock would
+  // return empty for that candidate, so dispatching it would incorrectly claim completion.
+  assert.deepEqual(requests, Array.from({ length: 4 }, () => ({ start: String(start), size: "2" })));
+});
+
 test("complete-selection failures return no successful rows in JSON, execute or RPC", async t => {
   const f = await configuredFixture(t);
   let calls = 0;

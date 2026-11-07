@@ -7,21 +7,15 @@ export function advanceOffset(start: number, count: number): number {
   return start + count;
 }
 
-/**
- * Visit service-owned positions sequentially until the adapter returns undefined.
- * The adapter owns progress/end evidence, result accumulation and budgets. It must either
- * advance its position or stop; no HTTP, DTO, identity or completeness rule is inferred here.
- * Cancellation is checked around every visit, including the final one. No retry occurs.
- */
-export async function traversePages<Position>(
-  initial: Position,
-  visit: (position: Position) => Promise<Position | undefined>,
+/** Repeat a service-owned page step until it returns a result; check cancellation around each step. */
+export async function traversePages<Result>(
+  visit: () => Promise<Result | undefined>,
   signal?: AbortSignal,
-): Promise<void> {
-  let position: Position | undefined = initial;
-  while (position !== undefined) {
+): Promise<Result> {
+  while (true) {
     signal?.throwIfAborted();
-    position = await visit(position);
+    const result = await visit();
     signal?.throwIfAborted();
+    if (result !== undefined) return result;
   }
 }
