@@ -1,6 +1,6 @@
 // An explicit registry-install check, separate from the offline service test suite.
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join, relative } from "node:path";
@@ -60,6 +60,26 @@ function command(name, argv, input) {
   return windows
     ? run(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", `${name}.cmd ${argv.join(" ")}`], { input })
     : run(join(bins, name), argv, { input });
+}
+
+async function closedReader(name, argv, input = "") {
+  const child = windows
+    ? spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", `${name}.cmd ${argv.join(" ")}`], { cwd: working, env: environment })
+    : spawn(join(bins, name), argv, { cwd: working, env: environment });
+  let stderr = "";
+  child.stderr.setEncoding("utf8").on("data", chunk => { stderr += chunk; });
+  const timer = setTimeout(() => child.kill(), 10_000);
+  try {
+    const completed = new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", (code, signal) => resolve({ code, signal }));
+    });
+    // Close before the installed executable starts writing, independently of help size.
+    child.stdout.destroy();
+    child.stdin.end(input);
+    assert.deepEqual(await completed, { code: 141, signal: null }, `${name}: closed-reader exit`);
+    assert.equal(stderr, "", `${name}: closed-reader diagnostics`);
+  } finally { clearTimeout(timer); }
 }
 
 try {
@@ -156,6 +176,23 @@ try {
     const help = command(entry.bin, ["--help"]);
     assert.ok(help.includes(`Usage: ${entry.bin}`));
     assert.equal(command(entry.bin, ["--version"]).trim(), manifest.version);
+    if (registryVersion === undefined) {
+      await closedReader(entry.bin, ["--help"]);
+      await closedReader(entry.bin, ["--json-rpc"], JSON.stringify({
+        jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["--help"] },
+      }) + "\n");
+      if (!windows) {
+        const pipeline = spawnSync("bash", ["-o", "pipefail", "-c", `${entry.bin} --help | head -n 1`], {
+          cwd: working, env: environment, encoding: "utf8", timeout: 10_000,
+        });
+        assert.equal(pipeline.error, undefined);
+        assert.equal(pipeline.signal, null);
+        assert.ok([0, 141].includes(pipeline.status));
+        assert.match(pipeline.stdout, new RegExp(`^Usage: ${entry.bin}`));
+        assert.equal(pipeline.stderr, "");
+      }
+      console.log(`${entry.bin}: installed closed-reader help/RPC and shell pipeline passed`);
+    }
     // Root/help output is intentionally human text even with --json. Exercise a real
     // JSON leaf through installed exports with synthetic AppData, never the user's profile.
     run(process.execPath, ["--input-type=module", "--eval", `

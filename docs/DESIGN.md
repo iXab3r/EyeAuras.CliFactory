@@ -212,6 +212,22 @@ writes diagnostics to stderr.
 This separation is the basis for future output formats. A new format must be implemented once in
 the runner, not once per command.
 
+Core awaits output write callbacks for help/version, human and JSON results, NDJSON items,
+diagnostics and JSON-RPC frames, including writes below the stream's high-water mark. The exported
+`writeResult` returns `Promise<void>` and callers must await it. Commander text is captured during
+parsing and written through the same boundary afterward. No process-global error handler is installed.
+
+When a stdout write fails with native `EPIPE`, ordinary CLI and JSON-RPC `run` return **141**
+(the shell convention for SIGPIPE) without a diagnostic. A small write may finish before the reader
+closes, in which case success remains 0. This policy applies only to failures observed at the output
+boundary; a handler or service error with the same native code remains an ordinary failure.
+Other output errors retain diagnostics; a failed diagnostic write rejects `run` rather than being
+silenced. Interrupts retain exit 130. Output disconnect still aborts lazy producers and awaits iterator
+cleanup; an additional cleanup failure retains both causes and exits 1. Standalone entry
+points continue to dispose application resources in `finally`, without forced process termination.
+Cancellation can return before a pending write completes; that write retains its error listener
+until its callback succeeds or the stream emits error/close. Caller-owned streams stay open.
+
 `streamResult<T>((signal: AbortSignal) => AsyncIterable<T>)` opts a handler into a lazy finite
 sequence of domain items. The factory callback must acquire resources only when called, pass its
 supplied signal to pending work, and release resources in `finally`. Construct signal-bound clients

@@ -3,6 +3,7 @@ import { AppArguments } from "./app-arguments.js";
 import { canPrompt } from "./auth.js";
 import { runJsonRpc } from "./json-rpc.js";
 import { writeResult } from "./output.js";
+import { writeOutput } from "./output-write.js";
 import { consumeStreamResult, isStreamResult } from "./stream-result.js";
 import {
   resolvePermissionCategories,
@@ -275,7 +276,6 @@ export function createCli(definition: CliDefinition): CliApplication {
     program.configureOutput({
       writeOut: (text) => {
         capturedOutput += text;
-        if (execution.render) output.write(text);
       },
       // Parser errors become the thrown message, so every caller reports them exactly once.
       writeErr: (text) => {
@@ -371,10 +371,10 @@ export function createCli(definition: CliDefinition): CliApplication {
           const failure = interrupted instanceof Error && !(interrupted instanceof CliError)
             ? CliError.from(interrupted) : interrupted;
           if (execution.render && !execution.streamedJson && failure instanceof CliError && failure.result !== undefined)
-            writeResult(output, failure.result, globals.json === true, presentation);
+            await writeResult(output, failure.result, globals.json === true, presentation);
           throw failure;
         }
-        if (execution.render && !execution.streamedJson) writeResult(output, result, globals.json === true, presentation);
+        if (execution.render && !execution.streamedJson) await writeResult(output, result, globals.json === true, presentation, execution.signal);
         return;
       }
       if (!handler) {
@@ -426,11 +426,11 @@ export function createCli(definition: CliDefinition): CliApplication {
             const failure = afterInterrupt(caught, execution.interrupt);
             // A failed outcome still shows its data; `run` reports the reason and exit code.
             if (execution.render && !execution.streamedJson && failure instanceof CliError && failure.result !== undefined)
-              writeResult(output, failure.result, globals.json === true, presentation);
+              await writeResult(output, failure.result, globals.json === true, presentation);
             throw failure;
           }
           if (execution.render && !execution.streamedJson) {
-            writeResult(output, result, globals.json === true, presentation);
+            await writeResult(output, result, globals.json === true, presentation, execution.signal);
           }
         } catch (caught) {
           const interrupted = afterInterrupt(caught, execution.interrupt);
@@ -564,7 +564,7 @@ export function createCli(definition: CliDefinition): CliApplication {
                 authOptions: {},
                 interactive: true,
               });
-              writeResult(output, result, false);
+              await writeResult(output, result, false, undefined, execution.signal);
               return;
             }
           }
@@ -580,6 +580,7 @@ export function createCli(definition: CliDefinition): CliApplication {
     } catch (error_) {
       if (error_ instanceof CommanderError) {
         if (error_.exitCode === 0) {
+          if (execution.render) await writeOutput(output, capturedOutput, execution.signal);
           return execution.render
             ? undefined
             : { help: capturedOutput.trimEnd() };
@@ -593,6 +594,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       throw error_;
     }
 
+    if (execution.render && capturedOutput) await writeOutput(output, capturedOutput, execution.signal);
     return result;
   };
 
@@ -617,11 +619,11 @@ export function createCli(definition: CliDefinition): CliApplication {
    * The one place a CLI failure is reported: a JSON envelope, or the explanation with one line of
    * technical cause and follow-ups. `--verbose` adds the complete chain with frames.
    */
-  const report = (error: unknown, argv: readonly string[], stream: CliIo["error"], streamedJson = false): number => {
+  const report = async (error: unknown, argv: readonly string[], stream: CliIo["error"], streamedJson = false): Promise<number> => {
     const verbose = globalFlagRequested(argv, "--verbose");
     const failure = machineError(error, { verbose });
     if (globalFlagRequested(argv, "--json")) {
-      stream.write(`${JSON.stringify({ error: {
+      await writeOutput(stream, `${JSON.stringify({ error: {
         ...failure,
         ...(streamedJson && error instanceof CliError && error.result !== undefined ? { result: error.result } : {}),
       } })}\n`);
@@ -637,7 +639,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       if (next.length) lines.push("Next:", ...next.map((line) => `  ${line}`));
     }
     if (!verbose && failure.code === "error") lines.push("Re-run with --verbose for the full diagnostic.");
-    stream.write(`${lines.join("\n")}\n${verbose && failure.code !== "usage" ? diagnosticText(failure) : ""}`);
+    await writeOutput(stream, `${lines.join("\n")}\n${verbose && failure.code !== "usage" ? diagnosticText(failure) : ""}`);
     return failure.exitCode;
   };
 
@@ -698,7 +700,9 @@ export function createCli(definition: CliDefinition): CliApplication {
           return 0;
         });
       } catch (error) {
-        return report(afterInterrupt(error, invocation.signal), argv, execution.io.error, execution.streamedJson);
+        const failure = afterInterrupt(error, invocation.signal);
+        if (failure instanceof CliError && failure.code === "output.brokenPipe" && failure.exitCode === 141) return 141;
+        return report(failure, argv, execution.io.error, execution.streamedJson);
       }
     },
     execute(argv, signal): Promise<unknown> {

@@ -146,7 +146,7 @@ test("closing a blocked RPC output does not leave the invocation waiting for dra
   });
   await started;
   out.destroy();
-  await assert.rejects(running, /aborted/i);
+  await assert.rejects(running, /closed/i);
   assert.equal(out.listenerCount("drain"), 0);
   assert.equal(out.listenerCount("close"), 0);
 });

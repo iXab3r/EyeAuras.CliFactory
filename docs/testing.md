@@ -175,6 +175,13 @@ Transport tests run on real local named pipes/Unix sockets, not TCP substitutes.
 
 ## Cross-tool redirect and diagnostic contract
 
+Core's deterministic output subprocess fixture waits for its parent to close the reader before
+writing help/version, human/JSON results, NDJSON and RPC. It asserts exit 141, quiet stderr and
+resource/iterator cleanup. Write-boundary tests cover small asynchronous EIO failures, handler EPIPE,
+cleanup failures and cancellation followed by late EPIPE without process-global listeners.
+Installed-package checks close the stdout reader of both sibling executables for help and RPC;
+on Unix they also exercise `--help | head -n 1` with `pipefail`.
+
 The [shared policy](DESIGN.md#cross-tool-redirect-and-diagnostic-policy) is exercised offline.
 Preserve evidence for these behaviors; tests must not endorse blanket redirect refusal or
 destroyed causes:

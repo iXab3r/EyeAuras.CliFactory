@@ -1,3 +1,4 @@
+import { writeOutput } from "./output-write.js";
 import { inspect } from "node:util";
 import type { Writable } from "node:stream";
 import type { CommandInput } from "./types.js";
@@ -146,7 +147,7 @@ export function terminalWidth(output: Writable): number | undefined {
     : undefined;
 }
 
-export function writeResult(
+export async function writeResult(
   output: Writable,
   value: unknown,
   json: boolean,
@@ -157,7 +158,8 @@ export function writeResult(
     defaultProfile?: string;
     input?: CommandInput;
   },
-): void {
+  signal?: AbortSignal,
+): Promise<void> {
   const width = terminalWidth(output);
   const viewed = json || !presentation
     ? undefined
@@ -171,6 +173,6 @@ export function writeResult(
       });
   const rendered = json ? JSON.stringify(value ?? null) : viewed ?? formatHuman(value);
   if (rendered.length > 0) {
-    output.write(`${rendered}\n`);
+    await writeOutput(output, `${rendered}\n`, signal);
   }
 }
