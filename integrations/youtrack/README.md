@@ -403,8 +403,18 @@ rollback or compensation; a batch is not atomic. It stops at the first unsuccess
 `--continue-on-error` is given. Each row reports `completed` (with the write result), `failed`
 (rejected before the write or with HTTP 4xx: not applied), `uncertain` (connectivity, 5xx or an
 invalid response: it may have been applied) or `unattempted`; the overall `status` is `completed`
-or `incomplete`, with counts. The command itself succeeds (exit code 0) once rows ran, so callers
-must check `status`. `--failed-rows <path.json>` saves the `failed` and `unattempted` rows
+or `incomplete`, with counts. Only a fully completed batch succeeds (exit code 0). Any `failed`,
+`uncertain` or `unattempted` row fails the command with `batch.incomplete` (exit code 1).
+The full summary, counts, rows and `failedRows` metadata stay available: ordinary CLI prints the
+summary on stdout and the reason on stderr; `--json` prints the summary on stdout and one machine-error
+line on stderr; JSON-RPC carries `error.data.code` and `error.data.result`; `execute` rejects with
+a `CliError` carrying `.result`.
+
+This is a breaking change: scripts that previously relied on exit 0 plus `status: incomplete`
+must now handle the failure path and read the same summary from the appropriate surface.
+See the [unreleased notes](../../CHANGELOG.md#unreleased).
+
+`--failed-rows <path.json>` saves the `failed` and `unattempted` rows
 as a manifest at the requested path relative to the invocation working directory for deliberate resubmission; `uncertain` rows are left out and must
 be checked in YouTrack first. A save failure is reported in `failedRows.error` without hiding row results.
 
