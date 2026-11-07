@@ -1,12 +1,12 @@
 import {
   encodedID,
   page,
-  readCollection,
+  readPage,
   readCollectionAt,
   readObjectAt,
   type Connection,
   type PageOptions,
-  type YouTrackObject,
+  type YouTrackPage,
 } from "./client.js";
 
 export interface MemberOptions extends PageOptions {
@@ -31,9 +31,9 @@ export async function listGroupMembers(
   connection: Connection,
   groupID: string,
   options: MemberOptions = {},
-): Promise<YouTrackObject[]> {
+): Promise<YouTrackPage> {
   const members = options.direct === true ? "ownUsers" : "users";
-  return readCollection(connection, `${groupPath(groupID)}/${members}`, page(options, userFields));
+  return readPage(connection, `${groupPath(groupID)}/${members}`, page(options, userFields));
 }
 
 export const listSubgroups = readCollectionAt(
@@ -50,7 +50,7 @@ export async function listProjectTeamUsers(
   connection: Connection,
   projectID: string,
   options: MemberOptions = {},
-): Promise<YouTrackObject[]> {
+): Promise<YouTrackPage> {
   const members = options.direct === true ? "ownUsers" : "users";
-  return readCollection(connection, `${teamPath(projectID)}/${members}`, page(options, userFields));
+  return readPage(connection, `${teamPath(projectID)}/${members}`, page(options, userFields));
 }

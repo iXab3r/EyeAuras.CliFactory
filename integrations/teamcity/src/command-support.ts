@@ -8,7 +8,7 @@ import {
 } from "@eyeauras/cli-factory";
 import type { TeamCityClient } from "./client.js";
 import type { PlainProperty } from "./authoring-models.js";
-import { requiredText } from "./locator.js";
+import { normalizePage, requiredText } from "./locator.js";
 
 export const integerValue = integerParser({
   min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER, signed: true,
@@ -73,5 +73,16 @@ export type ClientLeaf = TargetCommand<TeamCityClient>;
 export function clientLeaf(
   clientFor: (context: CommandContext) => Promise<TeamCityClient>,
 ): ClientLeaf {
-  return targetCommands(clientFor).command;
+  const leaf = targetCommands(clientFor).command;
+  return (syntax, description, permission, run, options) => {
+    const definition = leaf(syntax, description, permission, run, options);
+    if (!options?.some(option => option.flags.startsWith("--start "))) return definition;
+    return { ...definition, additionalPermissions: ({ options }) => {
+      normalizePage({
+        ...(typeof options.limit === "number" ? { limit: options.limit } : {}),
+        ...(typeof options.start === "number" ? { start: options.start } : {}),
+      });
+      return [];
+    } };
+  };
 }

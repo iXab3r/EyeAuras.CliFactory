@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -146,7 +147,7 @@ test("human and JSON identity commands render the same minimal domain value", as
 });
 
 const readCommands = [
-  { argv: ["project", "list", "--fields", "id", "--top", "3", "--skip", "2"], path: "/api/admin/projects", array: true, query: { $top: "3", $skip: "2" } },
+  { argv: ["project", "list", "--fields", "id", "--page-size", "3", "--start", "2"], path: "/api/admin/projects", array: true, query: { $top: "3", $skip: "2" } },
   { argv: ["issues", "list", "--fields", "id", "--query", "project: DEMO"], path: "/api/issues", array: true, query: { $top: "50", $skip: "0", query: "project: DEMO" } },
   { argv: ["issues", "get", "DEMO-1", "--fields", "id"], path: "/api/issues/DEMO-1", array: false, query: {} },
   { argv: ["issues", "comments", "list", "DEMO-1", "--fields", "id"], path: "/api/issues/DEMO-1/comments", array: true, query: { $top: "50", $skip: "0" } },
@@ -169,7 +170,7 @@ test("every read declaration renders the actual HTTP result as human and JSON ou
         return HttpResponse.json(result);
       }));
       assert.equal(await f.cli.run([...row.argv, "--profile", "dev", ...(json ? ["--json"] : [])]), 0);
-      if (json) assert.deepEqual(JSON.parse(f.stdout()), result);
+      if (json) assert.deepEqual(JSON.parse(f.stdout()), pageResult(result, Number(row.query.$skip ?? 0)));
       else assert.match(f.stdout(), /fixture-id/);
       assert.equal(f.stderr(), "");
       assert.equal(calls, 1);
@@ -192,8 +193,8 @@ test("new read input validation runs before HTTP through the real declaration", 
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));
   for (const argv of [
-    ["project", "list", "--top", "-1"], ["issues", "list", "--skip", "-1"],
-    ["issues", "list", "--skip", ""], ["issues", "get", "."],
+    ["project", "list", "--page-size", "-1"], ["issues", "list", "--start", "-1"],
+    ["issues", "list", "--start", ""], ["issues", "get", "."],
     ["issues", "comments", "list", ".."],
   ]) await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   assert.equal(calls, 0);
@@ -223,7 +224,7 @@ test("all read leaves share profile-isolated URLs, credentials and AppData in pe
   f.paths.length = 0;
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
-  assert.deepEqual(replies.map((reply) => reply.result), readCommands.map((row) => row.array ? [{ id: "fixture-id" }] : { id: "fixture-id" }));
+  assert.deepEqual(replies.map((reply) => reply.result), readCommands.map((row) => pageResult(row.array ? [{ id: "fixture-id" }] : { id: "fixture-id" }, Number(row.query.$skip ?? 0))));
   // Readiness and handler contexts follow admission; denied requests create neither.
   assert.deepEqual(f.paths, selectedProfiles.map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));
   assert.equal(calls, readCommands.length);

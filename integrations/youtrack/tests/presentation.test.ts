@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -25,35 +26,35 @@ async function human(t: Parameters<typeof configuredFixture>[0], argv: string[],
   return { exitCode, stdout: f.stdout(), stderr: f.stderr(), f };
 }
 
-test("issue lists are tables that continue with --skip only when the page came back full", async (t) => {
+test("issue lists are tables that keep completeness unknown for full and short pages", async (t) => {
   server.use(http.get(`${base}/issues`, ({ request }) =>
     HttpResponse.json(new URL(request.url).searchParams.get("$top") === "3" ? [issue(1), issue(2), issue(3)] : [issue(1)])));
-  const full = await human(t, ["issues", "list", "--top", "3"]);
+  const full = await human(t, ["issues", "list", "--page-size", "3"]);
   assert.equal(
     full.stdout,
     "ISSUE   SUMMARY  PROJECT  STATE     UPDATED\n" +
       "DEMO-1  Issue 1  DEMO     open      1h\n" +
       "DEMO-2  Issue 2  DEMO     open      2h\n" +
       "DEMO-3  Issue 3  DEMO     resolved  3h\n" +
-      "\nMore results: --skip 3\n",
+      "\nMore results may exist: --start 3\n",
   );
   assert.doesNotMatch(full.stdout, /\$type|\{"|17\d{11}/, "Human output shows no metadata, JSON or epoch numbers.");
   const short = await human(t, ["issues", "list"]);
-  assert.doesNotMatch(short.stdout, /More results/);
+  assert.match(short.stdout, /More results may exist: --start 1/);
   assert.equal(short.stderr, "");
   // JSON is the unchanged domain value.
   const json = await human(t, ["issues", "list", "--json"]);
-  assert.deepEqual(JSON.parse(json.stdout), [issue(1)]);
+  assert.deepEqual(JSON.parse(json.stdout), pageResult([issue(1)]));
 });
 
-test("a zero-size page has no continuation footer", async (t) => {
+test("a zero-size page has unknown completeness without a resumable offset", async (t) => {
   server.use(http.get(`${base}/issues`, ({ request }) => {
     assert.equal(new URL(request.url).searchParams.get("$top"), "0");
     return HttpResponse.json([]);
   }));
-  const result = await human(t, ["issues", "list", "--top", "0"]);
+  const result = await human(t, ["issues", "list", "--page-size", "0"]);
   assert.equal(result.exitCode, 0);
-  assert.equal(result.stdout, "No issues found.\n");
+  assert.equal(result.stdout, "No issues found.\n\nMore results may exist.\n");
 });
 
 test("an issue record names the object, wraps the description and suggests the next command", async (t) => {
@@ -128,23 +129,23 @@ test("lists, counts and reference tables read as names, not JSON", async (t) => 
     http.get(`${base}/admin/projects`, () => HttpResponse.json([{ $type: "Project", id: "0-1", name: "Demo project", shortName: "DEMO" }])),
     http.get(`${base}/users/me`, () => HttpResponse.json({ id: "1-1", login: "me" })),
   );
-  assert.equal((await human(t, ["issues", "tags", "list", "DEMO-7"])).stdout, "urgent (6-1)\nbackend (6-2)\n");
-  assert.equal((await human(t, ["issues", "links", "list", "DEMO-7"])).stdout, "relates to (1s)\ndepends on (3t)\n");
+  assert.equal((await human(t, ["issues", "tags", "list", "DEMO-7"])).stdout, "urgent (6-1)\nbackend (6-2)\n\nMore results may exist: --start 2\n");
+  assert.equal((await human(t, ["issues", "links", "list", "DEMO-7"])).stdout, "relates to (1s)\ndepends on (3t)\n\nMore results may exist: --start 2\n");
   assert.equal((await human(t, ["issues", "count", "--query", "project: DEMO"])).stdout, '42 issues match "project: DEMO".\n');
-  assert.equal((await human(t, ["project", "list"])).stdout, "ID   KEY   NAME\n0-1  DEMO  Demo project\n");
+  assert.equal((await human(t, ["project", "list"])).stdout, "ID   KEY   NAME\n0-1  DEMO  Demo project\n\nMore results may exist: --start 1\n");
   assert.equal((await human(t, ["user", "me"])).stdout, "me\nID:  1-1\n");
 });
 
 test("reading every page reports progress to a person only", async (t) => {
   server.use(http.get(`${base}/issues`, ({ request }) => {
-    const skip = Number(new URL(request.url).searchParams.get("$skip"));
-    return HttpResponse.json(skip >= 4 ? [issue(5)] : [issue(skip + 1), issue(skip + 2)]);
+    const start = Number(new URL(request.url).searchParams.get("$skip"));
+    return HttpResponse.json(start >= 5 ? [] : start >= 4 ? [issue(5)] : [issue(start + 1), issue(start + 2)]);
   }));
-  const all = await human(t, ["issues", "list", "--all", "--max-results", "10", "--top", "2"]);
-  assert.equal(all.stderr, "Read 2 so far; reading the next page.\nRead 4 so far; reading the next page.\n");
+  const all = await human(t, ["issues", "list", "--all", "--max-results", "10", "--page-size", "2"]);
+  assert.equal(all.stderr, "Read 2 so far; reading the next page.\nRead 4 so far; reading the next page.\nRead 5 so far; reading the next page.\n");
   assert.match(all.stdout, /DEMO-5/);
   assert.doesNotMatch(all.stdout, /More results/);
-  assert.equal((await human(t, ["issues", "list", "--all", "--max-results", "10", "--top", "2", "--json"])).stderr, "");
+  assert.equal((await human(t, ["issues", "list", "--all", "--max-results", "10", "--page-size", "2", "--json"])).stderr, "");
 });
 
 test("help groups the root commands and every everyday description is short", async (t) => {

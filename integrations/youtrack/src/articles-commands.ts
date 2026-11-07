@@ -57,7 +57,7 @@ export const articlesRootCommands = [
       ),
     ]),
   ], {
-    examples: ["article list --top 20", "article get KB-A-7", "article export KB-A-7 --output onboarding.md"],
+    examples: ["article list --page-size 20", "article get KB-A-7", "article export KB-A-7 --output onboarding.md"],
   }),
 ];
 

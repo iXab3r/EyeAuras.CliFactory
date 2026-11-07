@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -28,7 +29,7 @@ test("project, issue and comment collections use their exact defaults in one bou
       assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
       return HttpResponse.json([]);
     }));
-    assert.deepEqual(await row.run(), []);
+    assert.deepEqual(await row.run(), pageResult([]));
     assert.equal(calls, 1);
   }
 });
@@ -44,8 +45,8 @@ test("issue search preserves exact query and explicit projection/page values", a
     return HttpResponse.json([{ summary: null, customFields: [{ name: "State", value: null }] }]);
   }));
   assert.deepEqual(await listIssues(connection, {
-    query: queryText, fields: "summary,customFields(name,value(name))", top: 3, skip: 7,
-  }), [{ summary: null, customFields: [{ name: "State", value: null }] }]);
+    query: queryText, fields: "summary,customFields(name,value(name))", pageSize: 3, start: 7,
+  }), pageResult([{ summary: null, customFields: [{ name: "State", value: null }] }], 7));
 });
 
 test("detail and comment paths encode one opaque ID segment without losing context", async () => {
@@ -64,7 +65,7 @@ test("detail and comment paths encode one opaque ID segment without losing conte
     return HttpResponse.json(expected);
   }));
   assert.deepEqual(await getIssue(connection, id), expected);
-  assert.deepEqual(await listComments(connection, id, { fields: "text,author" }), [{ text: null, author: null }]);
+  assert.deepEqual(await listComments(connection, id, { fields: "text,author" }), pageResult([{ text: null, author: null }]));
 });
 
 test("user projection remains source-shaped and default identity remains minimal", async () => {
@@ -103,10 +104,10 @@ test("signed/credential URLs and known tokens are scrubbed recursively from expl
 test("local invalid paging, fields, query and traversal IDs fail before fetch", async () => {
   const fetch: typeof globalThis.fetch = async () => { assert.fail("Invalid input reached fetch"); };
   const local = { ...connection, fetch };
-  for (const top of [-1, Number.MAX_SAFE_INTEGER + 1, 1.5, NaN])
-    await assert.rejects(listIssues(local, { top }), /top must/);
-  for (const skip of [-1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1])
-    await assert.rejects(listProjects(local, { skip }), /skip must/);
+  for (const pageSize of [-1, Number.MAX_SAFE_INTEGER + 1, 1.5, NaN])
+    await assert.rejects(listIssues(local, { pageSize }), /page-size must/);
+  for (const start of [-1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1])
+    await assert.rejects(listProjects(local, { start }), /start must/);
   for (const fields of [null, 1] as unknown as string[])
     await assert.rejects(readUser(local, { fields }), /fields must/);
   await assert.rejects(listIssues(local, { query: 1 as unknown as string }), /query must/);
@@ -161,9 +162,9 @@ test("literal encoded dot IDs stay one encoded segment and redaction covers keys
 test("collection reads reject a server page larger than the requested bound", async () => {
   server.use(http.get("*", () => HttpResponse.json([{ id: "1-1" }, { id: "1-2" }])));
   for (const run of [
-    () => listProjects(connection, { top: 1 }),
-    () => listIssues(connection, { top: 1 }),
-    () => listComments(connection, "DEMO-1", { top: 1 }),
+    () => listProjects(connection, { pageSize: 1 }),
+    () => listIssues(connection, { pageSize: 1 }),
+    () => listComments(connection, "DEMO-1", { pageSize: 1 }),
   ]) await assert.rejects(run(), /More items than the requested page size/);
 });
 

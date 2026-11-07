@@ -2,7 +2,7 @@ import {
   getBuildBundle, getBuildValue, getOwnedBundle, getOwnedValue, getVersionBundle, getVersionValue,
   listBuildBundles, listBuildValues, listOwnedBundles, listOwnedValues, listVersionBundles, listVersionValues,
 } from "../src/bundle-values.js";
-import type { Connection, PageOptions, YouTrackObject } from "../src/client.js";
+import type { Connection, PageOptions, YouTrackObject, YouTrackPage } from "../src/client.js";
 
 export const bundleID = "fixture /?#%é";
 export const elementID = "choice /?#%é";
@@ -19,7 +19,7 @@ interface BundleCase {
   path: string;
   fields: string;
   collection: boolean;
-  run: (connection: Connection, options?: PageOptions) => Promise<YouTrackObject | YouTrackObject[]>;
+  run: (connection: Connection, options?: PageOptions) => Promise<YouTrackObject | YouTrackPage>;
 }
 export const bundleCases: BundleCase[] = [
   {

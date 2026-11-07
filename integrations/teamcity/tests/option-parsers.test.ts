@@ -16,7 +16,7 @@ test("TeamCity paging preserves defaults, leading zeros, signed zero and safe of
   const locators = [
     // One extra item proves whether more exist; a request keeps at most 1000 plus that one.
     "archived:false,start:0,count:101", "archived:false,start:0,count:2",
-    "archived:false,start:9007199254740991,count:101", "archived:false,start:3,count:2", "archived:false,start:0,count:1001",
+    "archived:false,start:9007199254740891,count:101", "archived:false,start:3,count:2", "archived:false,start:0,count:1001",
   ];
   let calls = 0;
   server.use(http.get("https://teamcity.test/app/rest/projects", ({ request }) => {
@@ -25,7 +25,7 @@ test("TeamCity paging preserves defaults, leading zeros, signed zero and safe of
   }));
   for (const options of [
     [], ["--limit", "001", "--start", "-0"],
-    ["--limit", "100", "--start", "9007199254740991"], ["--limit", "1", "--start", "0003"], ["--limit", "1001"],
+    ["--limit", "100", "--start", "9007199254740891"], ["--limit", "1", "--start", "0003"], ["--limit", "1001"],
   ]) {
     assert.deepEqual(
       await cli.execute(["projects", "list", ...options]),

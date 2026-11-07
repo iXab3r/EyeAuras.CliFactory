@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
@@ -81,7 +82,7 @@ test("seven time metadata reads send exact paths, default fields and one bounded
       assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
       return HttpResponse.json(row.value);
     }));
-    assert.deepEqual(await row.run(connection), row.value);
+    assert.deepEqual(await row.run(connection), pageResult(row.value));
     assert.equal(calls, 1);
   }
 });
@@ -94,7 +95,7 @@ test("time metadata explicit projections retain sparse and nullable values and r
       return HttpResponse.json(row.list ? [value] : value);
     }));
     const expected = { id: "[redacted]", custom: { url: "[redacted]" }, estimate: null };
-    assert.deepEqual(await row.run(connection, { fields: "id,custom(url),estimate" }), row.list ? [expected] : expected);
+    assert.deepEqual(await row.run(connection, { fields: "id,custom(url),estimate" }), pageResult(row.list ? [expected] : expected));
   }
 });
 
@@ -106,9 +107,9 @@ test("both work-item-type collections support empty pages and reject oversized o
       assert.equal(query.get("$skip"), "7");
       return HttpResponse.json([]);
     }));
-    assert.deepEqual(await row.run(connection, { top: 1, skip: 7 }), []);
+    assert.deepEqual(await row.run(connection, { pageSize: 1, start: 7 }), pageResult([], 7));
     server.use(http.get("*", () => HttpResponse.json([itemType, itemType])));
-    await assert.rejects(row.run(connection, { top: 1 }), /More items than the requested page size/);
+    await assert.rejects(row.run(connection, { pageSize: 1 }), /More items than the requested page size/);
     server.use(http.get("*", () => HttpResponse.json([null])));
     await assert.rejects(row.run(connection), /Invalid object response/);
   }
@@ -144,7 +145,7 @@ test("time metadata IDs, blank fields and invalid paging fail before fetch", asy
   }
   for (const row of rows) await assert.rejects(row.run(local, { fields: null as unknown as string }), /fields must be text/);
   for (const row of rows.filter((row) => row.list)) {
-    for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
+    for (const options of [{ pageSize: -1 }, { pageSize: Number.MAX_SAFE_INTEGER + 1 }, { pageSize: NaN }, { start: -1 }, { start: Number.MAX_SAFE_INTEGER + 1 }]) {
       await assert.rejects(row.run(local, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     }
   }
@@ -166,9 +167,9 @@ test("actual CLI executes every time metadata leaf in human and JSON modes", asy
         return HttpResponse.json(row.list ? [{ id: "fixture-result" }] : { id: "fixture-result" });
       }));
       const argv = [...row.argv, "--profile", "dev", "--fields", "id",
-        ...(row.list ? ["--top", "2", "--skip", "3"] : []), ...(json ? ["--json"] : [])];
+        ...(row.list ? ["--page-size", "2", "--start", "3"] : []), ...(json ? ["--json"] : [])];
       assert.equal(await f.cli.run(argv), 0);
-      if (json) assert.deepEqual(JSON.parse(f.stdout()), row.list ? [{ id: "fixture-result" }] : { id: "fixture-result" });
+      if (json) assert.deepEqual(JSON.parse(f.stdout()), pageResult(row.list ? [{ id: "fixture-result" }] : { id: "fixture-result" }, 3));
       else assert.match(f.stdout(), /fixture-result/);
       assert.equal(f.stderr(), "");
       assert.equal(calls, 1);
@@ -184,7 +185,7 @@ test("all seven time metadata leaves enforce ReadOnly before networking and reje
   for (const row of rows) {
     await assert.rejects(f.cli.execute([...row.argv, "--profile", "dev"]), /Permission 'ReadOnly' is disabled/);
     await assert.rejects(f.cli.execute([...row.argv, "--query", "name: Fixture", "--profile", "dev"]), /unknown option/);
-    if (!row.list) await assert.rejects(f.cli.execute([...row.argv, "--top", "1", "--profile", "dev"]), /unknown option/);
+    if (!row.list) await assert.rejects(f.cli.execute([...row.argv, "--page-size", "1", "--profile", "dev"]), /unknown option/);
   }
   assert.equal(calls, 0);
 });

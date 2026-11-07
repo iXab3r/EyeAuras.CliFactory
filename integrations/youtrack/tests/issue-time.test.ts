@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -43,7 +44,7 @@ test("five work-time reads preserve context, encoded IDs, finite defaults and bo
       assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
       return HttpResponse.json(row.list ? [{ id: "fixture-work", author: null }] : { id: "fixture-work", type: null });
     }));
-    assert.deepEqual(await row.run(), row.list ? [{ id: "fixture-work", author: null }] : { id: "fixture-work", type: null });
+    assert.deepEqual(await row.run(), pageResult(row.list ? [{ id: "fixture-work", author: null }] : { id: "fixture-work", type: null }));
     assert.equal(calls, 1);
   }
 });
@@ -56,7 +57,7 @@ test("all work-time reads honor sparse explicit fields and scrub nested credenti
       return HttpResponse.json(row.list ? [value] : value);
     }));
     const value = { text: "[redacted]", issue: { url: "[redacted]" } };
-    assert.deepEqual(await row.run({ fields: "text,issue(url)" }), row.list ? [value] : value);
+    assert.deepEqual(await row.run({ fields: "text,issue(url)" }), pageResult(row.list ? [value] : value));
   }
 });
 
@@ -68,9 +69,9 @@ test("work-item pages are one request, support empty pages and reject over-sized
       assert.equal(query.get("$skip"), "3");
       return HttpResponse.json([]);
     }));
-    assert.deepEqual(await row.run({ top: 1, skip: 3 }), []);
+    assert.deepEqual(await row.run({ pageSize: 1, start: 3 }), pageResult([], 3));
     server.use(http.get("*", () => HttpResponse.json([{ id: "one" }, { id: "two" }])));
-    await assert.rejects(row.run({ top: 1 }), /More items than the requested page size/);
+    await assert.rejects(row.run({ pageSize: 1 }), /More items than the requested page size/);
   }
 });
 
@@ -100,7 +101,7 @@ test("invalid work-time IDs and paging fail before networking", async () => {
     await assert.rejects(getIssueWorkItem(local, "DEMO-1", id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(getWorkItem(local, id), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
-  for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: NaN }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: 1 as unknown as string }]) {
+  for (const options of [{ pageSize: -1 }, { pageSize: Number.MAX_SAFE_INTEGER + 1 }, { pageSize: NaN }, { start: -1 }, { start: Number.MAX_SAFE_INTEGER + 1 }, { fields: 1 as unknown as string }]) {
     await assert.rejects(listIssueWorkItems(local, "DEMO-1", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(listWorkItems(local, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
@@ -115,7 +116,7 @@ test("global work-item query is encoded once and remains absent from issue-local
     assert.equal(url.searchParams.size, 4);
     return HttpResponse.json([]);
   }));
-  assert.deepEqual(await listWorkItems(connection, { query, top: 2 }), []);
+  assert.deepEqual(await listWorkItems(connection, { query, pageSize: 2 }), pageResult([]));
   const local = { ...connection, fetch: (async () => { assert.fail("Invalid query reached fetch"); }) as typeof globalThis.fetch };
   for (const query of [null, 1] as unknown as string[]) await assert.rejects(listWorkItems(local, { query }), /query must be text/);
 });
@@ -181,8 +182,7 @@ test("work-time mutations support sparse fields, empty success and safe redacted
       assert.equal(new URL(request.url).searchParams.get("fields"), "text,issue(url)");
       return HttpResponse.json({ text: "synthetic-token", issue: { url: "/api/files/fixture?sign=synthetic-signature" } });
     }));
-    assert.deepEqual(await row.run(body, { fields: "text,issue(url)" }),
-      { text: "[redacted]", issue: { url: "[redacted]" } });
+    assert.deepEqual(await row.run(body, { fields: "text,issue(url)" }), { text: "[redacted]", issue: { url: "[redacted]" } });
   }
 });
 

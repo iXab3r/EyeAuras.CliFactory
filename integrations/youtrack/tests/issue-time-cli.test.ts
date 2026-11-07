@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { assertHttpRequest, trackRequests, assertPermissionDenied, assertCliOutput } from "@eyeauras/cli-factory/testing";
 import { join } from "node:path";
@@ -50,8 +51,8 @@ test("actual work-time CLI exposes five reads with fields, pagination and human/
     });
     server.use(http.all("*", ({ request }) => requests.handle(request)));
     await assertCliOutput(f, f.cli,
-      [...row.argv, "--profile", "dev", "--fields", "id", ...(row.list ? ["--top", "2", "--skip", "3"] : [])],
-      result, /fixture-work/, requests);
+      [...row.argv, "--profile", "dev", "--fields", "id", ...(row.list ? ["--page-size", "2", "--start", "3"] : [])],
+      pageResult(result, 3), /fixture-work/, requests);
   }
 });
 
@@ -109,7 +110,7 @@ test("global work-items list passes its documented query unchanged through CLI",
     assert.equal(url.searchParams.get("$top"), "1");
     return HttpResponse.json([]);
   }));
-  assert.deepEqual(await f.cli.execute(["work-items", "list", "--query", query, "--top", "1", "--profile", "dev"]), []);
+  assert.deepEqual(await f.cli.execute(["work-items", "list", "--query", query, "--page-size", "1", "--profile", "dev"]), pageResult([]));
 });
 
 test("work-time RPC isolates profiles, recovers after body and remote errors, and emits no secrets", async (t) => {

@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -22,13 +23,13 @@ const reads = [
   { path: projectPath, fields: "id,name,shortName,description,archived", collection: false,
     run: () => getProject(connection, projectID), projected: () => getProject(connection, projectID, { fields: "id" }) },
   { path: `${projectPath}/customFields`, fields: projectFields, collection: true,
-    run: () => listProjectFields(connection, projectID), projected: () => listProjectFields(connection, projectID, { fields: "id", top: 3, skip: 7 }) },
+    run: () => listProjectFields(connection, projectID), projected: () => listProjectFields(connection, projectID, { fields: "id", pageSize: 3, start: 7 }) },
   { path: `${projectPath}/customFields/${encodeURIComponent(fieldID)}`, fields: projectFields, collection: false,
     run: () => getProjectField(connection, projectID, fieldID), projected: () => getProjectField(connection, projectID, fieldID, { fields: "id" }) },
   { path: "/context/api/users", fields: "id,login,fullName", collection: true,
-    run: () => listUsers(connection), projected: () => listUsers(connection, { fields: "id", top: 3, skip: 7 }) },
+    run: () => listUsers(connection), projected: () => listUsers(connection, { fields: "id", pageSize: 3, start: 7 }) },
   { path: `${issuePath}/customFields`, fields: issueFields, collection: true,
-    run: () => listIssueFields(connection, projectID), projected: () => listIssueFields(connection, projectID, { fields: "id", top: 3, skip: 7 }) },
+    run: () => listIssueFields(connection, projectID), projected: () => listIssueFields(connection, projectID, { fields: "id", pageSize: 3, start: 7 }) },
   { path: `${issuePath}/customFields/${encodeURIComponent(fieldID)}`, fields: issueFields, collection: false,
     run: () => getIssueField(connection, projectID, fieldID), projected: () => getIssueField(connection, projectID, fieldID, { fields: "id" }) },
 ];
@@ -48,15 +49,15 @@ for (const row of reads) test(`field context GET ${row.path} preserves paths, pr
     return HttpResponse.json(row.collection ? [{ id: "fixture-id", value: null }] : { id: "fixture-id", value: null });
   }));
   const expected = row.collection ? [{ id: "fixture-id", value: null }] : { id: "fixture-id", value: null };
-  assert.deepEqual(await row.run(), expected);
-  assert.deepEqual(await row.projected(), expected);
+  assert.deepEqual(await row.run(), pageResult(expected));
+  assert.deepEqual(await row.projected(), pageResult(expected, 7));
   assert.equal(calls, 2);
 });
 
 test("field projections preserve polymorphic values and explicitly requested state-machine events", async () => {
   const values = [null, "plain", 0, 1.5, { id: "fixture-value" }, [], [{ id: "fixture-value" }], { text: "line one\nline two" }];
   server.use(http.get("*", () => HttpResponse.json(values.map((value) => ({ value })))));
-  assert.deepEqual(await listIssueFields(connection, "DEMO-1"), values.map((value) => ({ value })));
+  assert.deepEqual(await listIssueFields(connection, "DEMO-1"), pageResult(values.map((value) => ({ value }))));
   const fields = "id,$type,possibleEvents(id,presentation)";
   server.use(http.get("*", ({ request }) => {
     assert.equal(new URL(request.url).searchParams.get("fields"), fields);
@@ -74,7 +75,7 @@ test("field reads reject remote errors and invalid shapes and redact nested cred
     server.use(http.get("*", () => HttpResponse.json(row.collection ? {} : [])));
     await assert.rejects(row.run(), /Invalid .*response/);
     server.use(http.get("*", () => HttpResponse.json(row.collection ? [] : {})));
-    assert.deepEqual(await row.run(), row.collection ? [] : {});
+    assert.deepEqual(await row.run(), pageResult(row.collection ? [] : {}));
   }
   server.use(http.get("*", () => HttpResponse.json({ value: { text: "synthetic-token", url: "/files/a?sign=synthetic-signature" } })));
   assert.deepEqual(await getIssueField(connection, "DEMO-1", "fixture-field"), { value: { text: "[redacted]", url: "[redacted]" } });
@@ -163,8 +164,8 @@ test("invalid field payloads and IDs fail locally without secret-bearing diagnos
     await assert.rejects(getIssueField(local, "DEMO-1", id), /must/);
     await assert.rejects(setIssueField(local, "DEMO-1", id, { $type: "SimpleIssueCustomField", value: null }), /must/);
   }
-  await assert.rejects(listUsers(local, { top: Number.MAX_SAFE_INTEGER + 1 }), /must/);
-  await assert.rejects(listProjectFields(local, "DEMO", { skip: -1 }), /must/);
+  await assert.rejects(listUsers(local, { pageSize: Number.MAX_SAFE_INTEGER + 1 }), /must/);
+  await assert.rejects(listProjectFields(local, "DEMO", { start: -1 }), /must/);
   await assert.rejects(listIssueFields(local, "DEMO-1", { fields: null as unknown as string }), /must/);
   assert.equal(calls, 0);
 });

@@ -43,8 +43,12 @@ function hasId(value: unknown): value is { id: string } {
     value.id.length <= 256 && !value.id.startsWith("-") && !/[\u0000-\u001f\u007f]/.test(value.id);
 }
 
-function isCollection(value: unknown): value is { id: string }[] {
-  return Array.isArray(value) && value.length <= 3 && value.every(hasId);
+function isCollection(value: unknown): value is { count: number; items: { id: string }[] } {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const page = value as Record<string, unknown>;
+  return Array.isArray(page.items) && page.items.length <= 3 && page.items.every(hasId) &&
+    page.count === page.items.length && [true, false, null].includes(page.hasMore as boolean | null) &&
+    (page.nextStart === null || (Number.isSafeInteger(page.nextStart) && Number(page.nextStart) > 0));
 }
 
 export async function runProfileProof(
@@ -69,7 +73,7 @@ export async function runProfileProof(
     try {
       const value: unknown = JSON.parse(await execute({ argv: [...command, ...commonArgs] }));
       if (valid(value)) {
-        rows.push({ endpoint, status: "PASS", count: Array.isArray(value) ? value.length : 1 });
+        rows.push({ endpoint, status: "PASS", count: isCollection(value) ? value.count : 1 });
         return value;
       }
     } catch {
@@ -81,13 +85,13 @@ export async function runProfileProof(
 
   await read("GET /api/users/me", ["user", "me"], (value) =>
     hasId(value) && "login" in value && typeof value.login === "string" && value.login.trim().length > 0);
-  const page = ["--top", "3", "--skip", "0", "--fields", "id"];
-  const projects = await read("GET /api/admin/projects", ["project", "list", "--top", "3", "--skip", "0"],
-    (value) => isCollection(value) && value.every((project) =>
+  const page = ["--page-size", "3", "--start", "0", "--fields", "id"];
+  const projects = await read("GET /api/admin/projects", ["project", "list", "--page-size", "3", "--start", "0"],
+    (value) => isCollection(value) && value.items.every((project) =>
       "name" in project && typeof project.name === "string" &&
       "shortName" in project && typeof project.shortName === "string"));
   const issues = await read("GET /api/issues", ["issues", "list", ...page], isCollection);
-  const issueId = isCollection(issues) ? issues[0]?.id : undefined;
+  const issueId = isCollection(issues) ? issues.items[0]?.id : undefined;
   if (issueId !== undefined) {
     await read("GET /api/issues/{issueID}", ["issues", "get", issueId, "--fields", "id"],
       (value) => hasId(value) && value.id === issueId);
@@ -99,7 +103,7 @@ export async function runProfileProof(
       { endpoint: "GET /api/issues/{issueID}/comments", status: "SKIP", count: 0 },
     );
   }
-  const projectId = isCollection(projects) ? projects[0]?.id : undefined;
+  const projectId = isCollection(projects) ? projects.items[0]?.id : undefined;
   if (projectId !== undefined) {
     await read("GET /api/admin/projects/{projectID}", ["project", "get", projectId, "--fields", "id"],
       (value) => hasId(value) && value.id === projectId);

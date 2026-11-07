@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -67,7 +68,7 @@ test("five article-extra reads send finite projections, bounded pages and no fol
       const result = { id: "fixture", url: "/api/files/fixture?sign=synthetic-signature" };
       return HttpResponse.json(item.list ? [result] : result);
     }));
-    assert.deepEqual(await item.run(), item.list ? [{ id: "fixture", url: "[redacted]" }] : { id: "fixture", url: "[redacted]" });
+    assert.deepEqual(await item.run(), pageResult(item.list ? [{ id: "fixture", url: "[redacted]" }] : { id: "fixture", url: "[redacted]" }));
   }
   assert.equal(calls, 5);
 });
@@ -99,8 +100,8 @@ test("article-extra collection projections and caller page limits are exact", as
     assert.equal(url.searchParams.get("$skip"), "7");
     return HttpResponse.json([]);
   }));
-  assert.deepEqual(await listArticleAttachments(connection, "fixture-parent", { fields: "id", top: 2, skip: 7 }), []);
-  assert.deepEqual(await listChildArticles(connection, "fixture-parent", { fields: "id", top: 2, skip: 7 }), []);
+  assert.deepEqual(await listArticleAttachments(connection, "fixture-parent", { fields: "id", pageSize: 2, start: 7 }), pageResult([], 7));
+  assert.deepEqual(await listChildArticles(connection, "fixture-parent", { fields: "id", pageSize: 2, start: 7 }), pageResult([], 7));
 });
 
 test("only the parent relation accepts actual JSON null; failures and malformed results stay errors", async () => {
@@ -131,12 +132,12 @@ test("extra reads reject invalid IDs/pages and malformed or oversized collection
   await assert.rejects(getChildArticle(connection, "fixture-parent", "."), /dot path/);
   await assert.rejects(getArticleAttachment(connection, "fixture-parent", ".."), /dot path/);
   await assert.rejects(getParentArticle(connection, "."), /dot path/);
-  await assert.rejects(listChildArticles(connection, "fixture-parent", { top: -1 }), /top/);
-  await assert.rejects(listArticleAttachments(connection, "fixture-parent", { skip: -1 }), /skip/);
+  await assert.rejects(listChildArticles(connection, "fixture-parent", { pageSize: -1 }), /page-size/);
+  await assert.rejects(listArticleAttachments(connection, "fixture-parent", { start: -1 }), /start/);
   assert.equal(calls, 0);
   await assert.rejects(listArticleAttachments(connection, "fixture-parent"), /Invalid collection/);
   server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-  await assert.rejects(listChildArticles(connection, "fixture-parent", { top: 1 }), /page size/);
+  await assert.rejects(listChildArticles(connection, "fixture-parent", { pageSize: 1 }), /page size/);
 });
 
 test("article upload sends one native multipart file with exact bytes, basename, projection and auth", async (t) => {
@@ -259,9 +260,9 @@ test("actual CLI mounts the six article-extra REST leaves with read/write fields
     return HttpResponse.json(list || index === 5 ? [{ id: "fixture" }] : { id: "fixture" });
   }));
   for (const [index, command] of reads.entries()) {
-    const page = index === 0 || index === 2 ? ["--top", "2", "--skip", "4"] : [];
+    const page = index === 0 || index === 2 ? ["--page-size", "2", "--start", "4"] : [];
     const result = await f.cli.execute([...command, ...page, "--fields", "id", "--profile", "dev"]);
-    assert.deepEqual(result, index === 0 || index === 2 ? [{ id: "fixture" }] : { id: "fixture" });
+    assert.deepEqual(result, pageResult(index === 0 || index === 2 ? [{ id: "fixture" }] : { id: "fixture" }, 4));
   }
   assert.deepEqual(await f.cli.execute(["article", "attachment", "upload", "fixture-parent", "--file", f.file, "--fields", "id", "--profile", "dev"]), [{ id: "fixture" }]);
   assert.equal(calls, 6);

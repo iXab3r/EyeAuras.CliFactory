@@ -40,29 +40,43 @@ The foundational read projections are:
 
 REST reads support explicit `--fields <projection>`. Projection results retain the server's
 field names, `$type` and nullable values; authentication always validates fixed `id,login`.
-Offset collections use `--top 50 --skip 0` by default; top is a nonnegative safe integer and skip a nonnegative safe integer.
+Offset collections use `--page-size 50 --start 0` by default. Page size requests rows per HTTP
+page; start is the zero-based raw offset. Both must be nonnegative safe integers, with a safe sum.
 Paging accepts unsigned decimal digits, including leading zeros; signs (including `-0`), whitespace,
 fractions, exponents and unsafe integers reject. Invalid syntax, range and overflow now fail before
 onboarding or credential access on CLI, execute and RPC. The static errors are
-`--top must be a nonnegative safe decimal integer.` and
-`--skip must be a nonnegative integer.`; they never include the supplied input.
+`--page-size must be a nonnegative safe decimal integer.` and
+`--start must be a nonnegative integer.`; they never include the supplied input.
 Directly callable service methods retain their own range validation.
-Each collection command makes one request, and rejects an oversized server page. Multi-page reads
+All 47 offset lists return `{count,items,hasMore,nextStart}` across library, CLI, execute and RPC.
+Each ordinary list makes one request without lookahead and rejects an oversized server page.
+Nonempty pages have `hasMore:null`, including short pages: a server cap is not end evidence.
+Continue at `nextStart`, which advances by actual returned rows. A positive-size empty page has
+`hasMore:false`; a zero-size request has unknown completeness and no next offset. Multi-page reads
 happen only for the explicit `issues list --all` described below. Issue writes send selectors
 directly to the API without nested discovery requests. Issue IDs are encoded as opaque path segments, including readable IDs such as `DEMO-1`.
 
-`issues list --all --max-results <n>` reads every page (`--top` is the page size, `--skip` the start)
+`issues list --all --max-results <n>` reads every page (`--page-size` is the page size, `--start` the start)
 with the same query and projection. Success means the selection is complete: the result is the
-same JSON array in server order, with repeated `id`s removed. More than `n` issues, responses over
+page envelope with `hasMore:false` and `nextStart:null`, in server order with repeated string `id`s
+removed. Rows without IDs are preserved. Reading continues by raw rows to an empty page, even
+after a short page. A duplicate-only nonempty page fails instead of claiming completeness.
+More than `n` issues, responses over
 the optional `--max-bytes <n>` (total decoded bytes; also valid without `--all`) or any failed page
 fail the whole command without partial output or retries. `--all` and `--max-results` require each
-other. Offset paging is not a snapshot: concurrent changes can still omit issues.
+other; complete mode requires a positive page size. Offset paging is not a snapshot: concurrent
+changes can still omit issues. Activity cursor commands keep their native objects and direction.
+
+Breaking change: replace former `--top`/`--skip` flags and library `top`/`skip` options with
+`--page-size`/`--start` and `pageSize`/`start`. Consume list rows from `items`, including for
+complete issue selection. There are no old aliases or array-returning modes. Profiles and
+credentials need no reconfiguration and existing user files are untouched.
 
 ```powershell
-npm run youtrack -- project list --top 3 --profile youtrack-dev
+npm run youtrack -- project list --page-size 3 --profile youtrack-dev
 npm run youtrack -- issues list --query "project: DEMO #Unresolved" --profile youtrack-dev
 npm run youtrack -- issues get DEMO-1 --fields "id,summary,description" --profile youtrack-dev
-npm run youtrack -- issues comments list DEMO-1 --top 3 --profile youtrack-dev
+npm run youtrack -- issues comments list DEMO-1 --page-size 3 --profile youtrack-dev
 ```
 
 Handlers return domain values for human, `--json` and persistent `--json-rpc` output.
@@ -81,8 +95,9 @@ from Core's formats: lists such as `issues list`, `project list`, `article list`
 comments list` are tables (`ISSUE  SUMMARY  PROJECT  STATE  UPDATED`), `issues get` and
 `article get` are records with a description or content section and a `Next:` command, tags and
 link groups are one line each, and a mutation names the object it changed (`Created DEMO-99 · New
-issue`, `Removed tag 6-1 from DEMO-7.`). A table ends with `More results: --skip <n>` only when
-the page came back full. Long work prints one progress line per page (`issues list --all`), per
+issue`, `Removed tag 6-1 from DEMO-7.`). An offset list with unknown completeness says
+`More results may exist`, with `--start <n>` when continuation is representable.
+Long work prints one progress line per page (`issues list --all`), per
 failed batch row and at the start of a download on stderr, never under `--json`. An explicit
 `--fields` projection prints the generic `key: value` shape, so you see exactly the fields you
 asked for. Root help groups the commands into Everyday, Reference and Configuration, with examples.
@@ -299,7 +314,7 @@ read endpoints, so at this stage the tree had 98 service leaves for 100 operatio
 | Boards and sprints | `agile list/get`, `sprint list/get/create/update` | 6 |
 | Articles | `article list/get/create/update`, `article comment list/get/add/update`, `project article list` | 9 |
 
-Every new read supports `--fields`. Offset lists retain one-page `--top`/`--skip` behavior;
+Every new read supports `--fields`. Offset lists retain one-page `--page-size`/`--start` behavior;
 details and settings reads have no paging flags. Bundle defaults omit nested values and members:
 use the matching paginated child command. Archived enum/state values are preserved; state
 `isResolved` is a resolution classification, not a list of workflow transition events.
@@ -398,7 +413,7 @@ columns fail as a whole; malformed rows fail with the row number. Additional JSO
 are forwarded as native issue fields. Either way nothing
 is written. The API resolves native selectors inside each row's single write.
 
-Apply runs rows in order, one request per write plus exact selector reads, without retries,
+Apply runs rows in order, one request per write without selector-discovery reads or retries,
 rollback or compensation; a batch is not atomic. It stops at the first unsuccessful row unless
 `--continue-on-error` is given. Each row reports `completed` (with the write result), `failed`
 (rejected before the write or with HTTP 4xx: not applied), `uncertain` (connectivity, 5xx or an
