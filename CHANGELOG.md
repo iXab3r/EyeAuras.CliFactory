@@ -9,7 +9,8 @@
 - Diagnostics redact known values across mixed-case percent escapes and later copies, and visibly
   escape terminal controls while retaining useful native codes, causes and stack locations.
 - TeamCity improves help, build summaries and artifact browsing, including safer artifact follow-ups.
-- Installed-package verification avoids redundant workspace builds and honors temporary directories.
+- Installed-package verification reduces filesystem scheduling overhead; external IPC fixtures honor
+  the configured temporary directory.
 
 ### Breaking changes
 
