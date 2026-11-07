@@ -28,12 +28,13 @@ export { durationParser, integerParser, jsonParser } from "./option-parsers.js";
 export { CliError, HttpError, diagnosticCause } from "./errors.js";
 export type { CliErrorOptions } from "./errors.js";
 export { formatHuman, writeResult } from "./output.js";
-export { listView, offsetFooter, recordView, tableView } from "./view.js";
+export { listView, moreResults, offsetFooter, recordView, tableView, treeView } from "./view.js";
 export type {
   HumanView,
   ListViewSpec,
   RecordViewSpec,
   TableViewSpec,
+  TreeViewSpec,
   ViewColumn,
   ViewContext,
   ViewField,

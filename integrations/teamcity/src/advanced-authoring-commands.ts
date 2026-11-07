@@ -1,3 +1,4 @@
+import { stringList, withView } from "./presentation.js";
 import { command, Permission, type OptionDefinition } from "@eyeauras/cli-factory";
 import { text, optionalText, option, propertyOption, type ClientLeaf } from "./command-support.js";
 import type { PlainProperty } from "./authoring-models.js";
@@ -22,7 +23,7 @@ export function createAdvancedAuthoringCommands(
               : "dependency-id";
     return command(
       "fields",
-      kind === "steps" ? "Inspect/set name or disabled" : "Inspect/set disabled only",
+      kind === "steps" ? "Manage name and disabled settings" : "Manage disabled settings",
       [
         leaf(
           `show <job-id> <${arg}> <field>`,
@@ -33,7 +34,7 @@ export function createAdvancedAuthoringCommands(
         ),
         leaf(
           `set <job-id> <${arg}> <field> <value>`,
-          "Set a setting; disabled requires true/false",
+          "Set a rule setting",
           Permission.Update,
           (c, { args }) =>
             c.setEntitySetting(
@@ -49,7 +50,7 @@ export function createAdvancedAuthoringCommands(
   }
   function pluginParameters(kind: "steps" | "features") {
     const arg = kind === "steps" ? "step-id" : "feature-id";
-    return command("parameters", "Manage non-secret plugin parameters; values are redacted", [
+    return command("parameters", "Manage plugin parameters", [
       leaf(
         `list <job-id> <${arg}>`,
         "List redacted property metadata",
@@ -58,14 +59,14 @@ export function createAdvancedAuthoringCommands(
       ),
       leaf(
         `show <job-id> <${arg}> <name>`,
-        "Check a property exists; do not expose its value",
+        "Check property existence",
         Permission.ReadOnly,
         (c, { args }) =>
           c.getPluginParameter(kind, text(args, "job-id"), text(args, arg), text(args, "name")),
       ),
       leaf(
         `replace <job-id> <${arg}>`,
-        "Replace ALL parameters; omitted properties are removed",
+        "Replace all plugin parameters",
         Permission.Update,
         (c, { args, options }) =>
           c.replacePluginParameters(
@@ -78,7 +79,7 @@ export function createAdvancedAuthoringCommands(
       ),
       leaf(
         `set <job-id> <${arg}> <name> <value>`,
-        "Set one non-secret property",
+        "Set a plugin property",
         Permission.Update,
         (c, { args }) =>
           c.setPluginParameter(
@@ -95,24 +96,24 @@ export function createAdvancedAuthoringCommands(
     const requirement = kind === "agent-requirements";
     const arg = requirement ? "requirement-id" : "dependency-id";
     const options = [
-      option("--disabled", "Disable this rule (default: false)"),
+      option("--disabled", "Disable this rule"),
       ...(requirement
         ? [
-            option("--type <type>", "Requirement type, such as equals or exists", true),
-            option("--parameter <name>", "Non-secret agent parameter name", true),
-            option("--value <value>", "Requirement value"),
+            option("--type <type>", "Set the requirement type", true),
+            option("--parameter <name>", "Select an agent parameter", true),
+            option("--value <value>", "Set the requirement value"),
           ]
         : [
-            option("--source <job-id>", "Upstream build configuration ID", true),
-            option("--rules <rules>", "Artifact path rules", true),
+            option("--source <job-id>", "Select an upstream job", true),
+            option("--rules <rules>", "Set artifact path rules", true),
             option(
               "--revision <revision-name>",
-              "TeamCity revision rule, e.g. lastSuccessful",
+              "Set the revision rule",
               true,
             ),
-            option("--revision-value <value>", "Revision-specific value"),
-            option("--branch <branch>", "Source branch"),
-            option("--clean", "Clean destination directory"),
+            option("--revision-value <value>", "Set the revision value"),
+            option("--branch <branch>", "Select the source branch"),
+            option("--clean", "Clean the destination directory"),
           ]),
     ];
     const input = (values: Record<string, unknown>): RuleInput =>
@@ -134,7 +135,7 @@ export function createAdvancedAuthoringCommands(
             clean: values.clean === true,
             disabled: values.disabled === true,
           };
-    return command(kind, "Manage job rules without exposing property values", [
+    return command(kind, "Manage job rules", [
       bulk.replaceAll(kind),
       entityFields(kind),
       leaf("list <job-id>", "List rules in server order", Permission.ReadOnly, (c, { args }) =>
@@ -155,7 +156,7 @@ export function createAdvancedAuthoringCommands(
       ),
       leaf(
         `replace <job-id> <${arg}>`,
-        "Full replacement; omitted settings are NOT preserved",
+        "Replace all rule settings",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceRule(text(args, "job-id"), text(args, arg), input(options)),
@@ -163,14 +164,14 @@ export function createAdvancedAuthoringCommands(
       ),
       leaf(
         `delete <job-id> <${arg}>`,
-        "Remove a rule, not the upstream resource",
+        "Remove a job rule",
         Permission.Update,
         (c, { args }) => c.deleteRule(kind, text(args, "job-id"), text(args, arg)),
       ),
     ]);
   }
-  const featureOptions = [option("--type <type>", "Project feature type", true), propertyOption];
-  const features = command("features", "Manage project features; changes are active immediately", [
+  const featureOptions = [option("--type <type>", "Set the project feature type", true), propertyOption];
+  const features = command("features", "Manage project features", [
     bulk.replaceAll("projectFeatures"),
     leaf("list <project-id>", "List redacted features", Permission.ReadOnly, (c, { args }) =>
       c.listProjectFeatures(args["project-id"]),
@@ -195,7 +196,7 @@ export function createAdvancedAuthoringCommands(
     ),
     leaf(
       "replace <project-id> <feature-id>",
-      "Full replacement; omitted properties are removed",
+      "Replace all feature properties",
       Permission.Update,
       (c, { args, options }) =>
         c.replaceProjectFeature(
@@ -227,9 +228,9 @@ export function createAdvancedAuthoringCommands(
           args["template-id"],
           text(options, "name"),
         ),
-      [option("--name <name>", "Template display name", true)],
+      [option("--name <name>", "Set the template name", true)],
     ),
-    command("default", "Manage the default template; never delete the template itself", [
+    command("default", "Manage the default template", [
       leaf(
         "show <project-id>",
         "Show the effective default template",
@@ -242,11 +243,11 @@ export function createAdvancedAuthoringCommands(
         Permission.Update,
         (c, { args, options }) =>
           c.setDefaultTemplate(args["project-id"], text(options, "template")),
-        [option("--template <template-id>", "Existing template ID", true)],
+        [option("--template <template-id>", "Select an existing template", true)],
       ),
       leaf(
         "clear <project-id>",
-        "Remove the own default; inherited defaults may remain",
+        "Remove the project default template",
         Permission.Update,
         (c, { args }) => c.clearDefaultTemplate(args["project-id"]),
       ),
@@ -290,7 +291,7 @@ export function createAdvancedAuthoringCommands(
       ),
       leaf(
         "branches <job-id>",
-        "List one bounded page of branches",
+        "List branches",
         Permission.ReadOnly,
         (c, { args, options }) =>
           c.listJobBranches(args["job-id"], {
@@ -299,12 +300,12 @@ export function createAdvancedAuthoringCommands(
           }),
         pageOptions,
       ),
-      leaf(
+      withView(stringList, leaf(
         "tags <job-id>",
         "List tags used by this job's builds",
         Permission.ReadOnly,
         (c, { args }) => c.listJobTags(args["job-id"]),
-      ),
+      )),
     ],
   };
 }

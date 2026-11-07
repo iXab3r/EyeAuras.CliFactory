@@ -366,7 +366,7 @@ test("S6 persistent RPC keeps profile auth/gates and generated help isolated", a
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
-  assert.match(frames[0].result.help, /not atomic/);
+  assert.match(frames[0].result.help, /Replace an investigation/);
   assert.match(frames[1].error.message, /Permission 'Update'/);
   assert.equal(frames[2].result.errorCount, 0);
   assert.equal(frames[3].result.id, "9223372036854775807");

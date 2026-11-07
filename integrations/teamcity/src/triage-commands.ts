@@ -1,3 +1,4 @@
+import { stringList, withView } from "./presentation.js";
 import {
   CliError,
   command,
@@ -55,13 +56,13 @@ export function createTriageCommands(
   });
   const ids = (options: Record<string, unknown>) => ((options.build ?? []) as string[]).map(Number);
   const batchIds = repeatOption("--build <id>", "Repeat build IDs", true);
-  const comment = option("--comment <text>", "Non-secret comment", true);
+  const comment = option("--comment <text>", "Attach a comment", true);
   const message = option("--text <text>", "Supply build log text", true);
-  const item = jsonOption("--item <json>", "Strict typed input; see integration guide");
-  const items = jsonOption("--item <json>", "Repeat strict typed items", true);
-  const target = jsonOption("--target <json>", "One typed job/test/problem target");
+  const item = jsonOption("--item <json>", "Supply an input object");
+  const items = jsonOption("--item <json>", "Supply an item; repeat for more", true);
+  const target = jsonOption("--target <json>", "Select a job, test or problem target");
   const builds = [
-    command("batch", "Operate on an explicit bounded set; partial failures remain visible", [
+    command("batch", "Operate on selected builds", [
       leaf(
         "status",
         "Read aggregate status",
@@ -78,14 +79,14 @@ export function createTriageCommands(
       ),
       leaf(
         "cancel",
-        "Cancel selected builds, never requeue",
+        "Cancel selected builds",
         Permission.Update,
         (c, { options }) => partial(c.cancelBuildBatch(ids(options), text(options, "comment"))),
         [batchIds, comment],
       ),
       leaf(
         "delete",
-        "Delete selected builds/history/artifacts",
+        "Delete selected builds and history",
         Permission.Update,
         (c, { options }) => partial(c.deleteBuildBatch(ids(options))),
         [batchIds],
@@ -112,7 +113,7 @@ export function createTriageCommands(
         Permission.Update,
         (c, { options }) =>
           partial(c.pinBuildBatch(ids(options), booleanText(text(options, "status")) === "true")),
-        [batchIds, option("--status <boolean>", "true or false", true)],
+        [batchIds, option("--status <boolean>", "Set true or false", true)],
       ),
       command(
         "tags",
@@ -120,7 +121,7 @@ export function createTriageCommands(
         (["add", "remove"] as const).map((action) =>
           leaf(
             action,
-            "Change explicit public tags",
+            "Change public tags",
             Permission.Update,
             (c, { options }) =>
               partial(c.tagBuildBatch(ids(options), options.tag as string[], action === "remove")),
@@ -137,13 +138,13 @@ export function createTriageCommands(
     ),
     leaf(
       "reset-finish-cache <id>",
-      "Invalidate final-parameter cache, not durable values",
+      "Reset the final-parameter cache",
       Permission.Update,
       (c, { args }) => c.resetBuildFinishCache(num(args, "id")),
     ),
     leaf(
       "finish <id>",
-      "Request finish; returned timestamp is not completion proof",
+      "Request build completion",
       Permission.Update,
       (c, { args }) => c.finishBuild(num(args, "id")),
     ),
@@ -156,7 +157,7 @@ export function createTriageCommands(
     command("log", "Append plain build log text", [
       leaf(
         "append <id>",
-        "Append text; rejects TeamCity service messages",
+        "Append build log text",
         Permission.Update,
         (c, { args, options }) => c.appendBuildLog(num(args, "id"), text(options, "text")),
         [message],
@@ -165,13 +166,13 @@ export function createTriageCommands(
     command("problem-occurrences", "Inspect or report build problems", [
       leaf(
         "list <id>",
-        "List native unpaged problem occurrences",
+        "List problem occurrences",
         Permission.ReadOnly,
         (c, { args }) => c.listBuildOccurrences(num(args, "id"), "problem"),
       ),
       leaf(
         "add <id>",
-        "Report a build problem using plain description",
+        "Report a build problem",
         Permission.Update,
         (c, { args, options }) => c.addBuildProblem(num(args, "id"), text(options, "text")),
         [message],
@@ -179,20 +180,20 @@ export function createTriageCommands(
     ]),
     leaf(
       "related-issues <id>",
-      "Read related issue IDs, not URLs",
+      "Read related issue IDs",
       Permission.ReadOnly,
       (c, { args }) => c.getBuildRelatedIssues(num(args, "id")),
     ),
     leaf(
       "start-agentless <id>",
-      "Start a queued build without an agent; not resume",
+      "Start an agentless build",
       Permission.Update,
       (c, { args, options }) => c.startAgentlessBuild(num(args, "id"), text(options, "requestor")),
-      [option("--requestor <text>", "Non-secret requestor label", true)],
+      [option("--requestor <text>", "Set the requestor label", true)],
     ),
     leaf(
       "set-status <id> <status>",
-      "Set SUCCESS/FAILURE and report failure count",
+      "Set SUCCESS or FAILURE",
       Permission.Update,
       (c, { args, options }) =>
         statusPartial(c.setBuildStatus(num(args, "id"), args.status, text(options, "comment"))),
@@ -200,11 +201,11 @@ export function createTriageCommands(
     ),
     leaf(
       "test-occurrences <id>",
-      "List native unpaged test occurrences",
+      "List test occurrences",
       Permission.ReadOnly,
       (c, { args }) => c.listBuildOccurrences(num(args, "id"), "test"),
     ),
-    command("vcs-labels", "Inspect labels or label one external VCS root", [
+    command("vcs-labels", "Inspect and create VCS labels", [
       leaf(
         "list <id>",
         "Read labels with individual statuses",
@@ -213,7 +214,7 @@ export function createTriageCommands(
       ),
       leaf(
         "add <id>",
-        "Create external VCS label; HTTP success can contain failed labels",
+        "Create a VCS label",
         Permission.Update,
         (c, { args, options }) =>
           labelsPartial(c.addBuildVcsLabel(
@@ -222,22 +223,22 @@ export function createTriageCommands(
             text(options, "rootInstance"),
           )),
         [
-          option("--label <text>", "Label", true),
-          option("--root-instance <id>", "One VCS root instance", true),
+          option("--label <text>", "Set the label", true),
+          option("--root-instance <id>", "Select a VCS root instance", true),
         ],
       ),
     ]),
     ...(["output-parameters", "resulting-properties"] as const).map((kind) =>
-      command(kind, "Runtime parameter names only; no values", [
-        leaf(
+      command(kind, "Inspect runtime parameter names", [
+        withView(stringList, leaf(
           "list <id>",
-          "List names, not values or type specifications",
+          "List parameter names",
           Permission.ReadOnly,
           (c, { args }) => c.listBuildRuntimeParameterNames(num(args, "id"), kind),
-        ),
+        )),
         leaf(
           "exists <id> <name>",
-          "Probe endpoint and discard response; 404 remains an error",
+          "Check parameter existence",
           Permission.ReadOnly,
           (c, { args }) => c.checkBuildRuntimeParameter(num(args, "id"), kind, args.name),
         ),
@@ -251,7 +252,7 @@ export function createTriageCommands(
     leaf("first-builds <id>", "Read first containing builds", Permission.ReadOnly, (c, { args }) =>
       c.getChangeFirstBuilds(num(args, "id")),
     ),
-    leaf("issues <id>", "Read issue IDs only", Permission.ReadOnly, (c, { args }) =>
+    leaf("issues <id>", "Read issue IDs", Permission.ReadOnly, (c, { args }) =>
       c.getChangeIssues(num(args, "id")),
     ),
     leaf(
@@ -262,7 +263,7 @@ export function createTriageCommands(
     ),
     leaf(
       "root-instance <id>",
-      "Read root instance identity, no properties",
+      "Read root instance identity",
       Permission.ReadOnly,
       (c, { args }) => c.getChangeRootInstance(num(args, "id")),
     ),
@@ -272,73 +273,73 @@ export function createTriageCommands(
       Permission.ReadOnly,
       (c, { args }) => c.getChangeField(num(args, "id"), args.field),
     ),
-    leaf("attributes <id>", "Read attribute names only", Permission.ReadOnly, (c, { args }) =>
+    withView(stringList, leaf("attributes <id>", "Read attribute names only", Permission.ReadOnly, (c, { args }) =>
       c.listChangeAttributeNames(num(args, "id")),
-    ),
+    )),
   ];
-  const investigations = command("investigations", "Assign typed job/test/problem investigations", [
+  const investigations = command("investigations", "Assign job, test or problem investigations", [
     leaf(
       "list",
-      "Read a bounded page",
+      "List results",
       Permission.ReadOnly,
       (c, { options }) => c.listInvestigations(page(options)),
       pageOptions,
     ),
     leaf(
       "create",
-      "Create one typed investigation",
+      "Create an investigation",
       Permission.Update,
       (c, { options }) => c.createInvestigation(options.item),
       [item],
     ),
     leaf(
       "create-many",
-      "Create an explicit bounded batch",
+      "Create selected items",
       Permission.Update,
       (c, { options }) => c.createInvestigations(options.item as unknown[]),
       [items],
     ),
     leaf(
       "show",
-      "Read one typed target",
+      "Read one investigation target",
       Permission.ReadOnly,
       (c, { options }) => c.getInvestigation(options.target),
       [target],
     ),
     leaf(
       "replace",
-      "Server removes then creates: not atomic; never retries",
+      "Replace an investigation",
       Permission.Update,
       (c, { options }) => c.createInvestigation(options.item, true),
       [item],
     ),
     leaf(
       "delete",
-      "Delete one typed target investigation",
+      "Delete an investigation",
       Permission.Update,
       (c, { options }) => c.deleteInvestigation(options.target),
       [target],
     ),
   ]);
-  const mutes = command("mutes", "Mute explicit tests/problems within one scope", [
+  const mutes = command("mutes", "Mute tests or problems within a scope", [
     ...muteCommands,
     leaf(
       "list",
-      "Read a bounded page",
+      "List results",
       Permission.ReadOnly,
       (c, { options }) => c.listMutes(page(options)),
       pageOptions,
     ),
     leaf(
       "create",
-      "Create one typed mute",
+      "Create a mute",
       Permission.Update,
       (c, { options }) => c.createMute(options.item),
       [item],
     ),
     leaf(
       "create-many",
-      "Create an explicit bounded batch",
+      "Create selected items",
       Permission.Update,
       (c, { options }) => c.createMutes(options.item as unknown[]),
       [items],
@@ -348,7 +349,7 @@ export function createTriageCommands(
     ),
     leaf(
       "delete <id>",
-      "Unmute with optional plain comment",
+      "Unmute with an optional comment",
       Permission.Update,
       (c, { args, options }) =>
         c.deleteMute(
@@ -362,14 +363,14 @@ export function createTriageCommands(
     command(kind + "s", "Inspect identities and build occurrences", [
       leaf(
         "list",
-        "Read one bounded page",
+        "List results",
         Permission.ReadOnly,
         (c, { options }) => c.listTriageEntities(kind, page(options)),
         pageOptions,
       ),
       leaf(
         "show <id>",
-        "Read one string identity, preserving long IDs",
+        "Read one identity",
         Permission.ReadOnly,
         (c, { args }) => c.getTriageEntity(kind, args.id),
       ),
@@ -379,7 +380,7 @@ export function createTriageCommands(
         Permission.ReadOnly,
         (c, { args, options }) =>
           c.getTriageOccurrence(kind, args.id, num(options, "build")),
-        [option("--build <id>", "Build ID", true)],
+        [option("--build <id>", "Select a build", true)],
       ),
     ]),
   );

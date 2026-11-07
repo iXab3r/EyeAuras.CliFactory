@@ -7,7 +7,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   const leaf = clientLeaf(clientFor),
     R = Permission.ReadOnly;
   const count = {
-    ...option("--limit <count>", "Maximum files; no recursive traversal"),
+    ...option("--limit <count>", "Limit returned files"),
     defaultValue: 100,
     parse: integerValue,
   };
@@ -18,7 +18,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
       false,
     ),
     {
-      ...option("--max-bytes <bytes>", "Optional caller-selected download byte budget"),
+      ...option("--max-bytes <bytes>", "Limit downloaded bytes"),
       parse: integerValue,
     },
   ];
@@ -27,10 +27,10 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     ...(o.maxBytes === undefined ? {} : { maxBytes: Number(o.maxBytes) }),
   });
   const tree = (name: string, kind: FileTree) =>
-    command(name, "Literal relative paths; files may contain private data", [
+    command(name, "Browse and save files", [
       withView(fileTable, leaf(
         "list <id>",
-        "List root files, not recursively",
+        "List root files",
         R,
         (c, { args, options }) =>
           c.listFiles(kind, args.id, undefined, Number(options.limit)),
@@ -38,21 +38,21 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
       )),
       withView(fileTable, leaf(
         "children <id> <path>",
-        "List immediate children at a relative path",
+        "List directory children",
         R,
         (c, { args, options }) =>
           c.listFiles(kind, args.id, args.path, Number(options.limit)),
         [count],
       )),
-      leaf("metadata <id> <path>", "Read one file metadata object", R, (c, { args }) =>
+      leaf("metadata <id> <path>", "Read file metadata", R, (c, { args }) =>
         c.getFileMetadata(kind, args.id, args.path),
       ),
       ...(["download", "archive"] as const).map((action) =>
         command(
           `${action} <id> <path>`,
           action === "archive"
-            ? "Save bounded nonrecursive ZIP; never extract"
-            : "Save actual bytes in the working directory",
+            ? "Save a directory as ZIP"
+            : "Save a file",
           async ({ args, options }, context) =>
             (await clientFor(context)).downloadFile(
               kind,
@@ -74,7 +74,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
   const avatar = ["download", "download-hash"].map((action) =>
     command(
       `${action} <id>${action === "download-hash" ? " <hash>" : ""}`,
-      "Save current PNG avatar; stale hash returns404",
+      "Save a PNG avatar",
       async ({ args, options }, context) =>
         (await clientFor(context)).downloadAvatar(
           text(args, "id"),
@@ -85,7 +85,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         ),
       {
         permission: R,
-        options: [...output, { ...option("--size <pixels>", "PNG size in pixels"), defaultValue: 64, parse: integerValue }],
+        options: [...output, { ...option("--size <pixels>", "Set image size in pixels"), defaultValue: 64, parse: integerValue }],
         view: savedFileRecord,
       },
     ),
@@ -94,7 +94,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     tree("artifacts", "builds"),
     leaf(
       "artifacts-path <id>",
-      "Read absolute SERVER directory path; do not open locally",
+      "Read the server artifact directory path",
       R,
       (c, { args }) => c.getArtifactsPath(args.id),
     ),
@@ -113,7 +113,7 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
     ...(["icon", "aggregate-icon"] as const).map((action) =>
       command(
         `${action} <id>`,
-        "Save SVG without rendering; HTTP success does not imply build success",
+        "Save a build status SVG",
         async ({ args, options }, context) =>
           (await clientFor(context)).downloadStatusIcon(
             text(args, "id"),
@@ -141,20 +141,20 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         ),
       {
         permission: "Credentials",
-        options: [option("--store-as <alias>", "Unused input-secret alias", true)],
+        options: [option("--store-as <alias>", "Choose a new input-secret alias", true)],
       },
     ),
   ];
   const settings = (kind: "projects" | "jobs" | "roots") =>
     leaf(
       "settings-path <id>",
-      "Read absolute SERVER configuration path, not file contents",
+      "Read the server configuration path",
       R,
       (c, { args }) => c.getSettingsPath(kind, args.id),
     );
   const projects = [
     settings("projects"),
-    command("secure", "Project secure references; these are NOT REST access tokens", [
+    command("secure", "Manage project secure references", [
       command(
         "create-reference <id>",
         "Save a reference from an input-secret alias",
@@ -168,14 +168,14 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         {
           permission: "Credentials",
           options: [
-            option("--value-secret <alias>", "Input-secret source", true),
-            option("--store-as <alias>", "Unused secure-reference alias", true),
+            option("--value-secret <alias>", "Select an input-secret source", true),
+            option("--store-as <alias>", "Choose a new secure-reference alias", true),
           ],
         },
       ),
       command(
         "resolve <id>",
-        "Resolve secret reference into a new input-secret alias; never print",
+        "Resolve a secure reference into secret storage",
         async ({ args, options }, context) =>
           (await clientFor(context)).resolveSecureReference(
             args.id,
@@ -186,14 +186,14 @@ export function createFileCommands(clientFor: (c: CommandContext) => Promise<Tea
         {
           permission: "Credentials",
           options: [
-            option("--reference <alias>", "Secure-reference source", true),
-            option("--store-as <alias>", "Unused input-secret destination", true),
+            option("--reference <alias>", "Select a secure-reference alias", true),
+            option("--store-as <alias>", "Choose a new input-secret destination", true),
           ],
         },
       ),
       command(
         "forget-reference <alias>",
-        "Delete only a local secure-reference entry, not remote value",
+        "Forget a local secure reference",
         async ({ args }, context) => {
           const alias = args.alias;
           try {

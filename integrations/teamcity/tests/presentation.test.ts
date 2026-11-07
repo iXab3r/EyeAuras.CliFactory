@@ -136,7 +136,7 @@ test("builds list reads at 120 and 80 columns without cutting IDs while JSON kee
     await runtime.json(cli, ["builds", "list"]),
     { count: 2, items: [typical, running], hasMore: false, nextStart: null },
   );
-  assert.match(redirected.stdout, /\n\nShown: 1\. More results: no\.\n$/);
+  assert.doesNotMatch(redirected.stdout, /More results|Shown:/);
 });
 
 test("builds show summarizes one build and suggests safe profile-bound next commands", async (t) => {
@@ -184,8 +184,8 @@ test("artifact listings and saved files read clearly without changing their JSON
       HttpResponse.json({
         count: 2,
         file: [
-          { name: "dist", modificationTime: "20260926T100405+0000" },
-          { name: "app.zip", size: 1_572_864, modificationTime: "20260926T100405+0000" },
+          { name: "dist", children: {}, modificationTime: "20260926T100405+0000" },
+          { name: "app.zip", children: {}, content: { href: "synthetic-private-href" }, size: 1_572_864, modificationTime: "20260926T100405+0000" },
         ],
       })),
     http.get("https://teamcity.test/app/rest/builds/id:101/artifacts/files/app.zip", () =>
@@ -196,12 +196,16 @@ test("artifact listings and saved files read clearly without changing their JSON
 
   const listed = await runtime.run(cli, ["builds", "artifacts", "list", "101"]);
   assert.equal(listed.exitCode, 0, listed.stderr);
-  assert.match(listed.stdout, /^NAME\s+SIZE\s+MODIFIED\ndist\s+\S+\napp\.zip\s+1\.5 MiB\s+\S+\n$/);
+  assert.match(listed.stdout, /^NAME\s+SIZE\s+MODIFIED\ndist\/\s+\S+\napp\.zip \(archive\)\s+1\.5 MiB\s+\S+\n/);
+  assert.match(listed.stdout, /teamcity-cli builds artifacts children 101 dist/);
+  assert.match(listed.stdout, /teamcity-cli builds artifacts download 101 app.zip --output app.zip/);
+  assert.doesNotMatch(listed.stdout, /href|synthetic-private|More results|Shown:/);
   assert.deepEqual(await runtime.json(cli, ["builds", "artifacts", "list", "101"]), {
     count: 2,
+    hasMore: false,
     items: [
-      { name: "dist", modificationTime: "20260926T100405+0000" },
-      { name: "app.zip", size: 1_572_864, modificationTime: "20260926T100405+0000" },
+      { name: "dist", directory: true, archive: false, modificationTime: "20260926T100405+0000" },
+      { name: "app.zip", directory: false, archive: true, size: 1_572_864, modificationTime: "20260926T100405+0000" },
     ],
   });
 
@@ -254,7 +258,7 @@ test("build tests and problems read as tables with flags and completeness; JSON 
     "STATUS   FLAGS  DURATION  TEST\n" +
       "FAILURE  new    1s        Demo.Suite.charges_card\n" +
       "FAILURE  muted  1m 05s    Demo.Suite.refunds\n\n" +
-      "Shown: 2. More results: yes; continue with --start 2.\n",
+      "More results: --start 2\n",
   );
   assert.deepEqual(
     await runtime.json(cli, ["builds", "tests", "101", "--status", "failure", "--limit", "2"]),
@@ -265,7 +269,111 @@ test("build tests and problems read as tables with flags and completeness; JSON 
   assert.equal(problems.exitCode, 0, problems.stderr);
   assert.equal(
     problems.stdout,
-    "TYPE          FLAGS  DESCRIPTION\nTC_EXIT_CODE  new    Process exited with code 1\n\n" +
-      "Shown: 1. More results: no.\n",
+    "TYPE          FLAGS  DESCRIPTION\nTC_EXIT_CODE  new    Process exited with code 1\n",
   );
+});
+
+test("everyday control views render selected fields and empty collections", async t => {
+  let empty = false;
+  server.use(
+    http.get("https://teamcity.test/app/rest/projects", () => HttpResponse.json({ project: empty ? [] : [
+      { id: "Child", name: "Child project", parentProjectId: "Parent", archived: false },
+      { id: "Parent", name: "Parent project", archived: false },
+      { id: "Selected", name: "Selected project", parentProjectId: "Outside", archived: false },
+    ] })),
+    http.get("https://teamcity.test/app/rest/buildTypes", () => HttpResponse.json({ buildType: empty ? [] : [
+      { id: "Demo_Tests", name: "Tests", projectId: "Parent", paused: false, settings: { private: "omit" } },
+    ] })),
+    http.get("https://teamcity.test/app/rest/agents", () => HttpResponse.json({ agent: empty ? [] : [
+      { id: 7, name: "fixture-agent", connected: true, enabled: false, authorized: true, metadata: { private: "omit" } },
+    ] })),
+    http.get("https://teamcity.test/app/rest/buildQueue", () => HttpResponse.json({ build: empty ? [] : [
+      { id: 101, buildTypeId: "Demo_Tests", state: "queued", waitReason: "waiting", nested: { private: "omit" } },
+    ] })),
+    http.post("https://teamcity.test/app/rest/builds/id:101", () => HttpResponse.json(failed)),
+    http.post("https://teamcity.test/app/rest/buildQueue/id:101", () => HttpResponse.json(failed)),
+  );
+  const runtime = await createTestRuntime(t, { profiles: [{ name: "default", url: "https://teamcity.test",
+    permissions: ["ReadOnly", "Update"] }] });
+  const cli = runtime.createCli();
+  const projects = await runtime.run(cli, ["projects", "list"]);
+  assert.equal(projects.exitCode, 0, projects.stderr);
+  assert.match(projects.stdout, /^Parent · Parent project\n  Child · Child project\nSelected · Selected project\n$/);
+  for (const [branch, header, name] of [
+    ["jobs", /^JOB\s+NAME\s+PROJECT\s+PAUSED/m, "Demo_Tests"],
+    ["agents", /^AGENT\s+NAME\s+CONNECTED\s+ENABLED\s+AUTHORIZED/m, "fixture-agent"],
+    ["queue", /^BUILD\s+JOB\s+BRANCH\s+STATE\s+RESULT\s+AGE/m, "Demo_Tests"],
+  ] as const) {
+    const result = await runtime.run(cli, [branch, "list"]);
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.match(result.stdout, header);
+    assert.ok(result.stdout.includes(name));
+    assert.doesNotMatch(result.stdout, /private|omit|\{|More results|Shown:/);
+  }
+  for (const branch of ["builds", "queue"]) {
+    const result = await runtime.run(cli, [branch, "cancel", "101"]);
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.match(result.stdout, /^Build 101/);
+    assert.doesNotMatch(result.stdout, /canceledInfo|\{/);
+    assert.deepEqual(await runtime.json(cli, [branch, "cancel", "101"]), failed);
+  }
+  empty = true;
+  for (const branch of ["projects", "jobs", "agents", "queue"]) {
+    const result = await runtime.run(cli, [branch, "list"]);
+    assert.equal(result.exitCode, 0, result.stderr);
+    assert.match(result.stdout, /^No (projects|jobs|agents|builds) found\.\n$/);
+  }
+});
+
+test("string collections use one line per item and readable empty output", async t => {
+  let names = ["first-name", "second-name"];
+  server.use(http.get("https://teamcity.test/app/rest/*", ({ request }) => {
+    const path = new URL(request.url).pathname;
+    if (path.endsWith("/tags") || path.endsWith("/buildTags")) return HttpResponse.json({ tag: names.map(name => ({ name })) });
+    return HttpResponse.json({ [path.endsWith("/attributes") ? "entry" : "property"]: names.map(name => ({ name })) });
+  }));
+  const runtime = await createTestRuntime(t);
+  const cli = runtime.createCli();
+  const commands = [["jobs", "tags", "Demo_Tests"], ["builds", "tags", "list", "101"],
+    ["changes", "attributes", "101"], ["users", "properties", "list", "3"],
+    ["builds", "output-parameters", "list", "101"]];
+  for (const argv of commands) {
+    const result = await runtime.run(cli, argv);
+    assert.equal(result.exitCode, 0, `${argv.join(" ")}: ${result.stderr}`);
+    assert.equal(result.stdout, "first-name\nsecond-name\n");
+    assert.deepEqual(await runtime.json(cli, argv), names);
+  }
+  names = [];
+  for (const argv of commands) assert.equal((await runtime.run(cli, argv)).stdout, "No names found.\n");
+});
+
+
+test("artifact hints omit option-like paths and output names while retaining listed data", async (t) => {
+  const file = [
+    { name: "-directory", children: {} },
+    { name: "--help", content: {} },
+    { name: "-report.txt", content: {} },
+    { name: "safe.txt", content: {} },
+  ];
+  server.use(http.get("https://teamcity.test/app/rest/builds/id:101/artifacts", () =>
+    HttpResponse.json({ count: file.length, file })));
+  const runtime = await createTestRuntime(t);
+  const cli = runtime.createCli();
+  const listed = await runtime.run(cli, ["builds", "artifacts", "list", "101"]);
+  assert.equal(listed.exitCode, 0, listed.stderr);
+  assert.match(listed.stdout, /-directory\//);
+  assert.match(listed.stdout, /--help/);
+  assert.match(listed.stdout, /-report\.txt/);
+  const hints = listed.stdout.split("Next:")[1] ?? "";
+  assert.match(hints, /download 101 safe.txt --output safe.txt/);
+  assert.doesNotMatch(hints, /-directory|--help|-report/);
+  server.use(http.get("https://teamcity.test/app/rest/builds/id:101/artifacts/dir", () =>
+    HttpResponse.json({ count: file.length, file })));
+  const nested = await runtime.run(cli, ["builds", "artifacts", "children", "101", "dir"]);
+  assert.equal(nested.exitCode, 0, nested.stderr);
+  const nestedHints = nested.stdout.split("Next:")[1] ?? "";
+  assert.match(nestedHints, /children 101 dir\/-directory/);
+  assert.doesNotMatch(nestedHints, /--output -(?:-help|report)/);
+  const json = await runtime.json(cli, ["builds", "artifacts", "list", "101"]) as { items: { name: string }[] };
+  assert.deepEqual(json.items.map(item => item.name), file.map(item => item.name));
 });

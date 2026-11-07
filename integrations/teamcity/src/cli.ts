@@ -6,6 +6,7 @@ import {
   Permission,
   tokenAuth,
   type CliApplication,
+  type CliDefinition,
   type CliRuntime,
   type CommandContext,
   type OptionDefinition,
@@ -23,7 +24,7 @@ import { createInfrastructureCommands } from "./infrastructure-commands.js";
 import { createSystemCommands } from "./system-commands.js";
 import { createFileCommands } from "./file-commands.js";
 import { clientLeaf, integerValue } from "./command-support.js";
-import { buildTable, problemTable, testTable, withView } from "./presentation.js";
+import { projectTree, jobTable, agentTable, buildRecord, buildTable, problemTable, testTable, withView } from "./presentation.js";
 import { createBuildFlowCommands } from "./build-flow.js";
 import type {
   TeamCityBuildState,
@@ -35,7 +36,7 @@ import type {
 const pageOptions: readonly OptionDefinition[] = [
   {
     flags: "--limit <count>",
-    description: "Maximum results to return",
+    description: "Limit returned results",
     defaultValue: 100,
     parse: integerParser({
       min: 0, max: Number.MAX_SAFE_INTEGER, signed: true,
@@ -44,7 +45,7 @@ const pageOptions: readonly OptionDefinition[] = [
   },
   {
     flags: "--start <offset>",
-    description: "Zero-based result offset",
+    description: "Skip results by offset",
     defaultValue: 0,
     parse: integerParser({
       min: 0, max: Number.MAX_SAFE_INTEGER, signed: true,
@@ -91,6 +92,11 @@ function pageValues(options: Record<string, unknown>): { limit?: number; start?:
 }
 
 export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
+  return createCli(teamCityDefinition(runtime));
+}
+
+/** The declarations shared by terminal, JSON and RPC execution. */
+export function teamCityDefinition(runtime?: CliRuntime): CliDefinition {
   const leaf = clientLeaf(client);
   const bulk = createBulkConfigurationCommands(client, pageOptions);
   const authoring = createAuthoringCommands(client, pageOptions, bulk);
@@ -101,9 +107,9 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
   const infrastructure = createInfrastructureCommands(client, pageOptions, files.instances);
   const operators = createOperatorCommands(client, pageOptions, bulk, triage, system.pools);
   const flow = createBuildFlowCommands(client);
-  return createCli({
+  return {
     name: "teamcity-cli",
-    description: "AI-friendly access to TeamCity",
+    description: "Work with TeamCity",
     examples: [
       "builds list --job Demo_Tests --branch main --limit 20",
       "builds show --job Demo_Tests --branch main --latest",
@@ -144,7 +150,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
     },
     auth: tokenAuth({
       env: "TEAMCITY_TOKEN",
-      tokenSource: "Create/copy an access token in TeamCity My Settings & Tools > Access Tokens.",
+      tokenSource: "TeamCity: My Settings & Tools > Access Tokens.",
       required: (profile) => profile.values.guest !== true,
       async validate({ profile, token, fetch, signal }) {
         return new TeamCityClient({
@@ -166,13 +172,13 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...files.server,
         leaf(
           "status",
-          "Show TeamCity version, role, and clock information",
+          "Show server version, role and clock",
           Permission.ReadOnly,
           (c) => c.getServerStatus(),
         ),
       ]),
       command("projects", "Work with TeamCity projects", helpLayout([["Everyday", ["list", "show"]]], [
-        leaf(
+        withView(projectTree, leaf(
           "list",
           "List projects",
           Permission.ReadOnly,
@@ -189,7 +195,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             { flags: "--include-archived", description: "Include archived projects" },
             ...pageOptions,
           ],
-        ),
+        )),
         leaf(
           "show <id>",
           "Show one project",
@@ -204,7 +210,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       command("jobs", "Work with TeamCity build configurations", helpLayout([
         ["Everyday", ["list", "show", "run"]],
       ], [
-        leaf(
+        withView(jobTable, leaf(
           "list",
           "List jobs",
           Permission.ReadOnly,
@@ -219,7 +225,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             { flags: "--project <id>", description: "Limit jobs to a TeamCity project" },
             ...pageOptions,
           ],
-        ),
+        )),
         leaf(
           "show <id>",
           "Show one job",
@@ -248,7 +254,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ...files.builds,
         withView(buildTable, leaf(
           "list",
-          "List queued, running and finished builds; all branches unless --branch",
+          "List queued, running and finished builds",
           Permission.ReadOnly,
           (c, { options }) => {
             const job = stringOption(options, "job");
@@ -271,11 +277,11 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             { flags: "--branch <name>", description: "Limit builds to one branch name" },
             {
               flags: "--state <state>",
-              description: "queued, running, finished, or any",
+              description: "Select queued, running, finished or any (default)",
             },
             {
               flags: "--status <status>",
-              description: "SUCCESS, FAILURE, or UNKNOWN",
+              description: "Select SUCCESS, FAILURE or UNKNOWN",
             },
             ...pageOptions,
           ],
@@ -297,7 +303,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           [
             {
               flags: "--status <status>",
-              description: "failure, success, error, warning, normal or unknown",
+              description: "Select failure, success, error, warning, normal or unknown",
             },
             ...pageOptions,
           ],
@@ -318,7 +324,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             c.listBuildChanges(integerValue(args.id), pageValues(options)),
           pageOptions,
         ),
-        leaf(
+        withView(buildRecord, leaf(
           "cancel <id>",
           "Cancel a running build",
           Permission.Update,
@@ -329,7 +335,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             });
           },
           [{ flags: "--comment <text>", description: "Explain the cancellation" }],
-        ),
+        )),
       ], "Evidence"), {
         examples: [
           "builds list --job Demo_Tests --branch main --limit 20",
@@ -343,7 +349,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ["Everyday", ["list", "show", "cancel"]],
       ], [
         ...operators.queue,
-        leaf(
+        withView(buildTable, leaf(
           "list",
           "List queued builds",
           Permission.ReadOnly,
@@ -361,8 +367,8 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             { flags: "--project <id>", description: "Limit queued builds to one project" },
             ...pageOptions,
           ],
-        ),
-        leaf(
+        )),
+        withView(buildRecord, leaf(
           "cancel <id>",
           "Cancel a queued build",
           Permission.Update,
@@ -373,13 +379,13 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
             });
           },
           [{ flags: "--comment <text>", description: "Explain the cancellation" }],
-        ),
+        )),
       ], "Control")),
       command("agents", "Inspect TeamCity build agents", helpLayout([
         ["Everyday", ["list", "show"]],
       ], [
         ...operators.agents,
-        leaf(
+        withView(agentTable, leaf(
           "list",
           "List build agents",
           Permission.ReadOnly,
@@ -397,19 +403,19 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
           [
             {
               flags: "--connected <value>",
-              description: "true, false, or any",
+              description: "Select true, false or any",
             },
             {
               flags: "--enabled <value>",
-              description: "true, false, or any",
+              description: "Select true, false or any",
             },
             {
               flags: "--authorized <value>",
-              description: "true, false, or any",
+              description: "Select true, false or any",
             },
             ...pageOptions,
           ],
-        ),
+        )),
         leaf(
           "show <id>",
           "Show one build agent",
@@ -418,7 +424,7 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
         ),
       ], "Control")),
       command("vcs", "Inspect and configure version control", [
-        command("roots", "VCS root identities and configuration", [
+        command("roots", "Inspect VCS roots", [
           ...authoring.roots,
           ...files.roots,
           ...infrastructure.roots,
@@ -434,5 +440,5 @@ export function createTeamCityCli(runtime?: CliRuntime): CliApplication {
       ...system.roots,
     ], "Administration"),
     ...(runtime === undefined ? {} : { runtime }),
-  });
+  };
 }

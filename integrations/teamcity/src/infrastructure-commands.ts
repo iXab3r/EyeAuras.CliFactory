@@ -30,14 +30,14 @@ export function createInfrastructureCommands(
     limit: Number(options.limit),
     start: Number(options.start),
   });
-  const confirm = option("--confirm", "Confirm the described destructive/external effect", true);
+  const confirm = option("--confirm", "Confirm the operation", true);
   const imageOptions = [
-    option("--cloud-profile <id>", "Remote cloud profile ID, not a CLI profile", true),
-    option("--image <id>", "Provider image ID within that cloud profile", true),
+    option("--cloud-profile <id>", "Select a remote cloud profile", true),
+    option("--image <id>", "Select a cloud image", true),
   ];
   const instanceOptions = [
     ...imageOptions,
-    option("--instance <id>", "Provider instance ID within the image", true),
+    option("--instance <id>", "Select a cloud instance", true),
   ];
   const image = (options: Record<string, unknown>): CloudImageId => ({
     profile: text(options, "cloudProfile"),
@@ -50,7 +50,7 @@ export function createInfrastructureCommands(
   const cloudLists = (kind: "profiles" | "images" | "instances") =>
     leaf(
       "list",
-      "Read one bounded page without network addresses",
+      "List cloud resources",
       Permission.ReadOnly,
       (c, { options }) =>
         c.listCloud(
@@ -61,20 +61,20 @@ export function createInfrastructureCommands(
         ),
       [
         ...pageOptions,
-        option("--project <id>", "One project scope"),
+        option("--project <id>", "Select a project scope"),
         ...(kind === "profiles"
           ? []
-          : [option("--cloud-profile <id>", "One remote cloud profile")]),
+          : [option("--cloud-profile <id>", "Select a remote cloud profile")]),
       ],
     );
-  const cloud = command("cloud", "Inspect/manage remote cloud capacity; actions can incur cost", [
-    command("profiles", "Remote cloud configuration profiles, not CLI connections", [
+  const cloud = command("cloud", "Manage remote cloud capacity", [
+    command("profiles", "Inspect remote cloud profiles", [
       cloudLists("profiles"),
       leaf("show <id>", "Show cloud profile metadata", Permission.ReadOnly, (c, { args }) =>
         c.getCloudProfile(args.id),
       ),
     ]),
-    command("images", "Images inside explicit remote cloud profiles", [
+    command("images", "Inspect cloud images", [
       cloudLists("images"),
       leaf(
         "show",
@@ -84,7 +84,7 @@ export function createInfrastructureCommands(
         imageOptions,
       ),
     ]),
-    command("instances", "Request lifecycle changes; ACK is not final state", [
+    command("instances", "Manage cloud instances", [
       cloudLists("instances"),
       leaf(
         "show",
@@ -95,7 +95,7 @@ export function createInfrastructureCommands(
       ),
       leaf(
         "start",
-        "Request a new instance from an image; may incur cost",
+        "Start a cloud instance",
         Permission.Update,
         (c, { options }) => c.startCloudInstance(image(options)),
         imageOptions,
@@ -105,7 +105,7 @@ export function createInfrastructureCommands(
           action,
           action === "stop"
             ? "Schedule stop when free"
-            : "Immediately force termination, including running work",
+            : "Force instance termination",
           Permission.Update,
           (c, { options }) => c.stopCloudInstance(instance(options), action),
           [...instanceOptions, ...(action === "stop" ? [] : [confirm])],
@@ -116,7 +116,7 @@ export function createInfrastructureCommands(
   const roots = [
     leaf(
       "create <id>",
-      "Create an anonymous Git root; no credential-bearing URL",
+      "Create an anonymous Git root",
       Permission.Update,
       (c, { args, options }) =>
         c.createAnonymousGitRoot(
@@ -127,28 +127,28 @@ export function createInfrastructureCommands(
           text(options, "branch"),
         ),
       [
-        option("--name <text>", "Name", true),
-        option("--project <id>", "Owner project", true),
+        option("--name <text>", "Set the name", true),
+        option("--project <id>", "Select the owner project", true),
         option("--url <url>", "Set the Git repository URL", true),
-        option("--branch <ref>", "Git branch ref", true),
+        option("--branch <ref>", "Set the Git branch ref", true),
       ],
     ),
     leaf(
       "delete <id>",
-      "Delete root configuration, not a Git repository",
+      "Delete a VCS root configuration",
       Permission.Update,
       (c, { args }) => c.deleteVcsRoot(args.id),
     ),
-    leaf("instances <id>", "Read native unpaged instances", Permission.ReadOnly, (c, { args }) =>
+    leaf("instances <id>", "List VCS root instances", Permission.ReadOnly, (c, { args }) =>
       c.getVcsRootInstances(args.id),
     ),
-    command("properties", "Full-map replacements can break attached builds", [
-      leaf("list <id>", "List names only", Permission.ReadOnly, (c, { args }) =>
+    command("properties", "Manage VCS root properties", [
+      leaf("list <id>", "List property names", Permission.ReadOnly, (c, { args }) =>
         c.listVcsRootPropertyNames(args.id),
       ),
       leaf(
         "replace <id>",
-        "Replace all properties; omitted entries are removed",
+        "Replace all VCS root properties",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceVcsRootProperties(args.id, (options.property ?? []) as PlainProperty[]),
@@ -156,20 +156,20 @@ export function createInfrastructureCommands(
       ),
       leaf(
         "clear <id>",
-        "Delete every property, including connection settings",
+        "Delete all VCS root properties",
         Permission.Update,
         (c, { args }) => c.clearVcsRootProperties(args.id),
         [confirm],
       ),
       leaf(
         "exists <id> <name>",
-        "Probe and discard private value",
+        "Check property existence",
         Permission.ReadOnly,
         (c, { args }) => c.checkVcsRootProperty(args.id, args.name),
       ),
       leaf(
         "set <id> <name> <value>",
-        "Set a non-secret property, discard echo",
+        "Set a VCS root property",
         Permission.Update,
         (c, { args }) =>
           c.setVcsRootProperty(args.id, args.name, args.value),
@@ -194,36 +194,36 @@ export function createInfrastructureCommands(
     ...instanceCommands,
     leaf(
       "list",
-      "Read one bounded page",
+      "List results",
       Permission.ReadOnly,
       (c, { options }) => c.listVcsInstances(page(options), optional(options, "root")),
-      [...pageOptions, option("--root <id>", "One VCS root filter")],
+      [...pageOptions, option("--root <id>", "Select a VCS root")],
     ),
     leaf(
       "check-changes <id>",
-      "Schedule a check for exactly one instance as user requestor",
+      "Request a VCS change check",
       Permission.Update,
       (c, { args }) => c.checkVcsInstanceChanges(args.id),
     ),
     leaf(
       "notify-commit <id>",
-      "Notify exactly one instance; scheduled only on HTTP202",
+      "Notify a VCS root instance",
       Permission.Update,
       (c, { args }) => c.notifyVcsCommit(args.id),
     ),
     leaf("show <id>", "Read identity/polling metadata", Permission.ReadOnly, (c, { args }) =>
       c.getVcsInstance(args.id),
     ),
-    leaf("properties <id>", "Read names only", Permission.ReadOnly, (c, { args }) =>
+    leaf("properties <id>", "List parameter names", Permission.ReadOnly, (c, { args }) =>
       c.listVcsInstancePropertyNames(args.id),
     ),
-    command("state", "Stored branch/revision map; not the remote Git repository", [
+    command("state", "Manage saved branch revisions", [
       leaf("show <id>", "Read branch/revision entries", Permission.ReadOnly, (c, { args }) =>
         c.getVcsRepositoryState(args.id),
       ),
       leaf(
         "replace <id>",
-        "Replace all entries; absent revisions clear",
+        "Replace all saved branch revisions",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceVcsRepositoryState(
@@ -234,13 +234,13 @@ export function createInfrastructureCommands(
           {
             ...propertyOption,
             flags: "--revision <branch=revision>",
-            description: "Repeat explicit branch/revision pairs",
+            description: "Supply branch and revision pairs; repeat",
           },
         ],
       ),
       leaf(
         "reset <id>",
-        "Reset saved detection state, not Git branches",
+        "Reset saved detection state",
         Permission.Update,
         (c, { args }) => c.resetVcsRepositoryState(args.id),
         [confirm],
@@ -274,13 +274,13 @@ export function createInfrastructureCommands(
       ),
     ]),
   ]);
-  const versioned = command("versioned-settings", "Project configuration synchronized with VCS", [
+  const versioned = command("versioned-settings", "Manage versioned project settings", [
     leaf("affected <id>", "Read affected project identities", Permission.ReadOnly, (c, { args }) =>
       c.getVersionedAffectedProjects(args.id),
     ),
     leaf(
       "check-changes <id>",
-      "Request settings check, not completion",
+      "Request a settings check",
       Permission.Update,
       (c, { args }) => c.checkVersionedSettings(args.id),
     ),
@@ -291,7 +291,7 @@ export function createInfrastructureCommands(
       (c, { args }) => c.commitVersionedSettings(args.id),
       [confirm],
     ),
-    command("config", "Full replacements with secure values always outside VCS", [
+    command("config", "Manage versioned settings configuration", [
       leaf("show <id>", "Read project configuration", Permission.ReadOnly, (c, { args }) =>
         c.getVersionedConfig(args.id),
       ),
@@ -303,12 +303,12 @@ export function createInfrastructureCommands(
       ),
       leaf(
         "replace <id>",
-        "Replace typed configuration; omitted fields use documented defaults",
+        "Replace versioned settings configuration",
         Permission.Update,
         (c, { args, options }) => c.replaceVersionedConfig(args.id, options.item),
-        [jsonOption("--item <json>", "Strict VersionedSettingsConfig input, never raw HTTP")],
+        [jsonOption("--item <json>", "Supply versioned settings configuration")],
       ),
-      command("fields", "Typed config fields, not arbitrary build parameters", [
+      command("fields", "Manage versioned settings fields", [
         leaf(
           "get <id> <field>",
           "Read a configuration field",
@@ -324,23 +324,23 @@ export function createInfrastructureCommands(
         ),
         leaf(
           "reset <id> <field>",
-          "Attempt vcsRootId reset; server can fail after mutation; no retry",
+          "Reset the versioned VCS root",
           Permission.Update,
           (c, { args }) => c.resetVersionedConfigField(args.id, args.field),
           [confirm],
         ),
       ]),
     ]),
-    command("context", "Non-secret DSL context parameters", [
+    command("context", "Manage DSL context parameters", [
       leaf(
         "list <id>",
-        "Read names and presence, never values",
+        "List DSL context parameter names",
         Permission.ReadOnly,
         (c, { args }) => c.listVersionedContext(args.id),
       ),
       leaf(
         "replace <id>",
-        "Replace complete context map; no properties clears",
+        "Replace all DSL context parameters",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceVersionedContext(args.id, (options.property ?? []) as PlainProperty[]),
@@ -349,21 +349,21 @@ export function createInfrastructureCommands(
     ]),
     leaf(
       "load <id>",
-      "Overwrite current configuration from VCS, including affected projects",
+      "Load current configuration from VCS",
       Permission.Update,
       (c, { args }) => c.loadVersionedSettings(args.id),
       [confirm],
     ),
     leaf(
       "status <id>",
-      "Read state without diagnostic messages/files",
+      "Read synchronization state",
       Permission.ReadOnly,
       (c, { args }) => c.getVersionedStatus(args.id),
     ),
-    command("tokens", "Versioned secure-value mappings, not user access tokens", [
+    command("tokens", "Manage versioned secure-value mappings", [
       leaf(
         "list <id>",
-        "Read mapping names only",
+        "List secure-value mapping names",
         Permission.ReadOnly,
         (c, { args, options }) =>
           c.listVersionedTokenNames(args.id, optional(options, "status")),
@@ -383,7 +383,7 @@ export function createInfrastructureCommands(
           options: [
             repeatOption(
               "--mapping <remote-name=alias>",
-              "Repeat remote mapping name and local input-secret alias",
+              "Supply mapping names and input-secret aliases; repeat",
               true,
             ),
           ],
@@ -391,25 +391,25 @@ export function createInfrastructureCommands(
       ),
       leaf(
         "delete <id>",
-        "Delete explicitly named unused mappings; keep local inputs",
+        "Delete unused secure-value mappings",
         "Credentials",
         (c, { args, options }) =>
           c.deleteVersionedTokens(args.id, options.name as string[]),
-        [repeatOption("--name <name>", "Repeat remote mapping names", true)],
+        [repeatOption("--name <name>", "Select remote mappings; repeat for more", true)],
       ),
     ]),
   ]);
   const server = [
     leaf(
       "rest-version",
-      "Read REST plugin version, not local CLI version",
+      "Read the REST plugin version",
       Permission.ReadOnly,
       (c) => c.getRestVersion(),
     ),
   ];
   const credentials = command(
     "credentials",
-    "Explicit profile-scoped inputs; values never printed",
+    "Manage profile secret inputs",
     [
       command(
         "import <alias>",
@@ -419,13 +419,13 @@ export function createInfrastructureCommands(
         {
           permission: "Credentials",
           options: [
-            option("--env <variable>", "Name of the environment variable, never its value", true),
+            option("--env <variable>", "Select the environment variable name", true),
           ],
         },
       ),
       command(
         "forget <alias>",
-        "Remove only an owned input-secret; never revoke remotely",
+        "Forget a local secret input",
         async ({ args }, context) => forgetInputSecret(context.secrets, args.alias),
         { permission: "Credentials" },
       ),

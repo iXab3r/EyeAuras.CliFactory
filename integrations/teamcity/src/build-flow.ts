@@ -3,6 +3,7 @@ import {
   CliError,
   command,
   durationParser,
+  diagnosticCause,
   HttpError,
   Permission,
   type CommandContext,
@@ -71,8 +72,7 @@ const defaultInterval = 5_000;
 const waitOptions: readonly OptionDefinition[] = [
   {
     flags: "--timeout <duration>",
-    description: "Stop waiting after this long, such as 30s, 10m or 1h (default 10m); " +
-      "the build keeps running",
+    description: "Set the wait timeout (default 10m)",
     parse: durationParser({
       min: 1_000, max: 24 * 3_600_000,
       errorMessage: "Timeout must be a duration from 1s to 24h, such as 10m.",
@@ -80,7 +80,7 @@ const waitOptions: readonly OptionDefinition[] = [
   },
   {
     flags: "--interval <duration>",
-    description: "Time between status reads (default 5s)",
+    description: "Set status read interval (default 5s)",
     parse: durationParser({
       min: 1_000, max: 10 * 60_000,
       errorMessage: "Interval must be a duration from 1s to 10m, such as 5s.",
@@ -162,7 +162,7 @@ async function observe(
     }
     if (deadline.aborted) {
       throw new CliError(
-        `Build ${id} did not finish in time; it continues on the server and was not canceled.`,
+        `Build ${id} did not finish in time; it continues on the server.`,
         { code: "wait.timeout", exitCode: 124, next: resume,
           ...(last === undefined ? {} : { result: shape(last, "timedOut") }) },
       );
@@ -186,7 +186,7 @@ async function observe(
     }
     last = build;
     const state = describe(build);
-    if (state !== reported) context.progress(`Build ${id}: ${state}`);
+    if (build.state !== "finished" && state !== reported) context.progress(`Build ${id}: ${state}`);
     reported = state;
     const outcome = buildOutcome(build);
     if (outcome === "succeeded") return shape(build, outcome);
@@ -251,7 +251,7 @@ function failedTest(value: TeamCityFailedTest): DiagnosisTest {
 export function createBuildFlowCommands(clientFor: ClientFor) {
   const show = withView(buildRecord, command(
     "show [build-id]",
-    "Show one build by ID, or the latest finished build of a job with --job and --latest",
+    "Show a build by ID or latest selector",
     async ({ args, options }, context) => {
       const id = optionalString(args, "build-id");
       const job = optionalString(options, "job");
@@ -274,14 +274,14 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
     {
       permission: Permission.ReadOnly,
       options: [
-        { flags: "--job <id>", description: "With --latest: the job whose builds to search" },
+        { flags: "--job <id>", description: "Select a job for --latest" },
         {
           flags: "--branch <name>",
-          description: "With --latest: one branch; all branches when omitted",
+          description: "Select a branch for --latest",
         },
         {
           flags: "--latest",
-          description: "Select the newest finished, non-personal build of --job, whatever its result",
+          description: "Select the newest finished build of --job",
         },
       ],
     },
@@ -289,7 +289,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
 
   const wait = withView(followedRecord, command(
     "wait <build-id>",
-    "Wait for a build to finish; exits 1 unless it succeeded and 124 when time runs out",
+    "Wait for a build to finish",
     async ({ args, options }, context) => {
       const id = integerValue(args["build-id"]);
       return follow(await commandClient(clientFor, context), context, id, pause(options),
@@ -300,7 +300,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
 
   const diagnose = withView(diagnosisRecord, command(
     "diagnose <build-id>",
-    `Summarize a build: state, up to ${problemLimit} problems and ${testLimit} failed tests; no logs`,
+    "Summarize build problems and failed tests",
     async ({ args }, context) => {
       const id = integerValue(args["build-id"]);
       const client = await clientFor(context);
@@ -329,7 +329,7 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
 
   const run = withView(followedRecord, command(
     "run <job-id>",
-    "Queue one build; --wait follows it to its result",
+    "Queue a build",
     async ({ args, options }, context) => {
       const job = args["job-id"];
       const properties = (options.param ?? []) as PlainProperty[];
@@ -353,10 +353,11 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
         // The job-wide check stays even with a branch, which a person's view may have to omit.
         const check = ["builds", "list", "--job", job];
         throw new CliError(
-          "The queue request's outcome is unknown; check for a new build before running it again.",
+          "The queue request's outcome is unknown.",
           {
             code: "run.unknownOutcome",
-            cause: error,
+            // Keep the chain and frames while stating uncertainty only once.
+            cause: diagnosticCause(error, [], error.message.replace("; remote outcome is unknown", "")),
             next: [
               ...(branch === undefined ? [] : [[...check, "--branch", branch, "--state", "any"]]),
               [...check, "--state", "any"],
@@ -366,7 +367,9 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
       }
       if (options.wait !== true) return { accepted: true, build: queued };
       return follow(session, context, queued.id, pause(options), (build, outcome) => ({
-        accepted: true, build, ...(outcome === undefined ? {} : { outcome }),
+        accepted: true,
+        build: { ...build, ...(queued.parameterNames === undefined ? {} : { parameterNames: queued.parameterNames }) },
+        ...(outcome === undefined ? {} : { outcome }),
       }), queued);
     },
     {
@@ -374,15 +377,15 @@ export function createBuildFlowCommands(clientFor: ClientFor) {
       options: [
         {
           flags: "--branch <name>",
-          description: "Branch to build; the job's default branch when omitted",
+          description: "Select the build branch",
         },
         { flags: "--comment <text>", description: "Attach a queue comment" },
         { flags: "--clean-sources", description: "Clear this build's entire checkout before fetching" },
         pairOption(
           "--param",
-          "One-off parameter for this build only, such as env.MODE=test; repeat; never secrets",
+          "Set a one-off parameter; repeat for more",
         ),
-        { flags: "--wait", description: "Wait for the result; exits 1 unless it succeeded" },
+        { flags: "--wait", description: "Wait for the build result" },
         ...waitOptions,
       ],
     },

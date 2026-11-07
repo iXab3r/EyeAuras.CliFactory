@@ -159,7 +159,7 @@ test("builds list reads across a lookup-limit continuation and reports completen
   const result = await runtime.run(cli, ["builds", "list", "--limit", "2", "--status", "SUCCESS"]);
   assert.equal(result.exitCode, 0, result.stderr);
   assert.match(result.stdout, /^BUILD\s+JOB\s+BRANCH\s+STATE\s+RESULT\s+AGE\n9\s+finished\s+SUCCESS/);
-  assert.match(result.stdout, /\n\nShown: 1\. More results: no\.\n$/);
+  assert.doesNotMatch(result.stdout, /More results|Shown:/);
   assert.deepEqual(locators, [
     "defaultFilter:false,branch:default:any,status:SUCCESS,start:0,count:3",
     "defaultFilter:false,branch:default:any,status:SUCCESS,start:0,count:3,lookupLimit:10000",

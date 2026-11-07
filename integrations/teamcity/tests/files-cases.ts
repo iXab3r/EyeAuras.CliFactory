@@ -25,6 +25,12 @@ const ff = "name,size,modificationTime",
   lf = `count,file(${ff})`;
 const locator = "count:100,recursive:false,hidden:false,browseArchives:false";
 function tree(prefix: string[], path: string, query: Record<string, string> = {}): FileCase[] {
+  const artifact = prefix[0] === "builds";
+  const listingQuery = { ...query,
+    locator: artifact ? "count:101,recursive:false,hidden:false,browseArchives:true" : locator,
+    fields: artifact ? `count,file(${ff},children($none),content($none))` : lf };
+  const expectedList = { count: 1, items: [artifact ? { ...file, directory: false, archive: false } : file],
+    ...(artifact ? { hasMore: false } : {}) };
   return [
     {
       method: "GET",
@@ -40,9 +46,9 @@ function tree(prefix: string[], path: string, query: Record<string, string> = {}
               ? "8"
               : "Build",
       ],
-      query: { ...query, locator, fields: lf },
+      query: listingQuery,
       response: { count: 1, file: [file] },
-      expected: { count: 1, items: [file] },
+      expected: expectedList,
     },
     {
       method: "GET",
@@ -122,9 +128,9 @@ function tree(prefix: string[], path: string, query: Record<string, string> = {}
               : "Build",
         "docs",
       ],
-      query: { ...query, locator, fields: lf },
+      query: listingQuery,
       response: { count: 1, file: [file] },
-      expected: { count: 1, items: [file] },
+      expected: expectedList,
     },
   ];
 }

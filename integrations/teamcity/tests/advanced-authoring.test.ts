@@ -297,7 +297,7 @@ test("S3 JSON-RPC keeps two profiles isolated and resumes after validation and p
     .split("\n")
     .map((line) => JSON.parse(line));
   assert.equal(frames.length, 5);
-  assert.match(frames[0].result.help, /NOT preserved/);
+  assert.match(frames[0].result.help, /Replace all rule settings/);
   assert.match(frames[1].error.message, /required option/);
   assert.match(frames[2].error.message, /Permission 'Update'/);
   assert.deepEqual(frames[3].result, { id: "Template" });

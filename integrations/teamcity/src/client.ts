@@ -244,7 +244,7 @@ function queuedBuild(contents: string): TeamCityBuild | undefined {
     value = JSON.parse(contents);
   } catch (cause) {
     throw new TeamCityUnknownOutcomeError(
-      "TeamCity returned invalid JSON after the queue request; the build may still have been queued.",
+      "TeamCity returned invalid JSON after the queue request.",
       diagnosticCause(cause, [], "Invalid JSON syntax."),
     );
   }
@@ -574,7 +574,7 @@ export class TeamCityClient {
       contents = await this.#request(
         "POST",
         "/app/rest/buildQueue",
-        { fields: buildFields },
+        { fields: `${buildFields}${options.properties?.length ? ",properties(property(name))" : ""}` },
         {
           buildType: { id: jobId },
           ...(options.cleanSources === undefined
@@ -598,17 +598,24 @@ export class TeamCityClient {
     } catch (error) {
       if (!(error instanceof HttpError) || error.status < 500) throw error;
       throw new TeamCityUnknownOutcomeError(
-        `TeamCity failed with HTTP ${error.status}; the build may still have been queued.`,
+        error.message,
         error,
       );
     }
     const build = queuedBuild(contents);
     if (build === undefined) {
       throw new TeamCityUnknownOutcomeError(
-        "TeamCity accepted the request without a readable build; it may have been queued.",
+        "TeamCity returned no readable build ID.",
       );
     }
-    return build;
+    // The server can return extra fields: retain no parameter values even then.
+    const { properties, ...summary } = build as TeamCityBuild & { properties?: { property?: { name?: unknown }[] } };
+    if (!options.properties?.length) return summary;
+    const requested = new Set(options.properties.map(property => property.name));
+    const returned = Array.isArray(properties?.property) ? properties.property : [];
+    const parameterNames = [...new Set(returned
+      .map(property => property?.name).filter((name): name is string => typeof name === "string" && requested.has(name)))];
+    return { ...summary, parameterNames };
   }
 
   public cancelBuild(id: number, options: CancelBuildOptions = {}): Promise<TeamCityBuild> {
@@ -3742,13 +3749,23 @@ export class TeamCityClient {
     count: number,
   ) {
     const suffix = path === undefined ? "" : "/" + files.remotePath(path);
-    return files.safeFiles(
+    if (kind !== "builds") return files.safeFiles(
       await this.#requestJson("GET", files.treePath(kind, id) + suffix, {
-        ...files.fileQuery(kind),
-        locator: files.fileLocator(count),
+        ...files.fileQuery(kind), locator: files.fileLocator(count),
         fields: `count,file(${files.fileFields})`,
       }),
     );
+    files.fileLocator(count); // Validate before adding the one-item lookahead.
+    const requested = Math.min(count + 1, Number.MAX_SAFE_INTEGER);
+    const raw = triage.object(await this.#requestJson("GET", files.treePath(kind, id) + suffix, {
+      ...files.fileQuery(kind), locator: files.fileLocator(requested, true),
+      fields: `count,file(${files.artifactFileFields})`,
+    }));
+    const entries = (raw.file === undefined ? [] : raw.file) as unknown[];
+    if (!Array.isArray(entries)) throw new Error("Invalid file collection.");
+    const items = entries.slice(0, count).map(files.safeArtifactFile);
+    return { count: items.length, items,
+      hasMore: entries.length > count ? true : entries.length < requested ? false : null };
   }
   public async getFileMetadata(kind: files.FileTree, id: string, path: string) {
     return files.safeFile(
