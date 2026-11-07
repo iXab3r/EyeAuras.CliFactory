@@ -84,7 +84,7 @@ test("a batch apply prints its summary and one line per row, and reports failure
     { action: "create", project: { shortName: "DEMO" }, summary: "Second" },
     { action: "create", project: { shortName: "DEMO" }, summary: "Third" },
   ]));
-  assert.equal(await f.cli.run(["issues", "batch", "apply", "--file", manifest, "--profile", "dev"]), 0);
+  assert.equal(await f.cli.run(["issues", "batch", "apply", "--file", manifest, "--profile", "dev"]), 1);
   assert.equal(
     f.stdout(),
     "Batch incomplete: 1 of 3 rows completed.\n" +
@@ -95,7 +95,7 @@ test("a batch apply prints its summary and one line per row, and reports failure
       "  2  failed  YouTrack answered HTTP 400.\n" +
       "  3  unattempted\n",
   );
-  assert.equal(f.stderr(), "Row 2: failed (YouTrack answered HTTP 400.)\n");
+  assert.equal(f.stderr(), "Row 2: failed (YouTrack answered HTTP 400.)\nNot every row completed.\n");
   assert.doesNotMatch(f.stdout() + f.stderr(), /synthetic-private-body/);
 });
 

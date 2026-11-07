@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
+import { CliError } from "@eyeauras/cli-factory";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { manifestRows } from "../src/issue-batch.js";
@@ -78,11 +80,23 @@ function script(statuses: readonly number[]) {
   return posts;
 }
 
+async function incomplete(operation: Promise<unknown>) {
+  let result: unknown;
+  await assert.rejects(operation, (error: unknown) => {
+    assert.ok(error instanceof CliError);
+    assert.equal(error.code, "batch.incomplete");
+    assert.equal(error.exitCode, 1);
+    result = error.result;
+    return true;
+  });
+  return result as Record<string, unknown>;
+}
+
 test("apply stops at the first unsuccessful row by default and never retries", async (t) => {
   const { f, path } = await fixtureWithManifest(t, "rows.json", JSON.stringify(rows));
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
   const posts = script([200, 400]);
-  assert.deepEqual(await f.cli.execute(["issues", "batch", "apply", "--file", path, "--profile", "dev"]), {
+  assert.deepEqual(await incomplete(f.cli.execute(["issues", "batch", "apply", "--file", path, "--profile", "dev"])), {
     status: "incomplete", completed: 1, failed: 1, uncertain: 0, unattempted: 1,
     rows: [
       { row: 1, status: "completed", result: { id: "2-1" } },
@@ -99,9 +113,9 @@ test("continue-on-error separates definite and uncertain failures; failed rows e
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
   const posts = script([200, 409, 503, 404, 200]);
   server.use(http.get("*/api/admin/projects/NOPE", () => new HttpResponse(null, { status: 404 })));
-  const result = await f.cli.execute([
+  const result = await incomplete(f.cli.execute([
     "issues", "batch", "apply", "--file", path, "--continue-on-error", "--failed-rows", "retry.json", "--profile", "dev",
-  ]) as Record<string, unknown>;
+  ]));
   assert.deepEqual((result.rows as { status: string }[]).map((row) => row.status),
     ["completed", "failed", "uncertain", "failed", "completed"]);
   assert.deepEqual([result.status, result.completed, result.failed, result.uncertain, result.unattempted],
@@ -113,11 +127,105 @@ test("continue-on-error separates definite and uncertain failures; failed rows e
   assert.doesNotMatch(JSON.stringify(result), /synthetic-private|synthetic-token/);
 
   script([400]);
-  const again = await f.cli.execute([
+  const again = await incomplete(f.cli.execute([
     "issues", "batch", "apply", "--file", path, "--failed-rows", "retry.json", "--profile", "dev",
-  ]) as Record<string, unknown>;
+  ]));
   assert.match(String((again.failedRows as { error: string }).error), /already exists/);
   await assert.rejects(f.cli.execute([
     "issues", "batch", "apply", "--file", path, "--failed-rows", "retry.txt", "--profile", "dev",
   ]), /must end with \.json/);
 });
+
+for (const scenario of ["stop", "continue", "uncertain"] as const) {
+  for (const mode of ["human", "json", "rpc", "execute"] as const) {
+    test(`${scenario}: incomplete batch fails through ${mode} and preserves row results and saved failed rows`, async (t) => {
+      const { f, path } = await fixtureWithManifest(t, "rows.json", JSON.stringify(rows));
+      await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
+      const continuing = scenario === "continue";
+      const uncertain = scenario === "uncertain";
+      const posts = script(uncertain ? [503] : continuing ? [200, 400, 200] : [200, 400]);
+      const resubmit = uncertain ? rows.slice(1) : continuing ? [rows[1]] : rows.slice(1);
+      const content = `${JSON.stringify(resubmit, null, 2)}\n`;
+      const savedPath = join(f.root, "retry.json");
+      const expected = {
+        status: "incomplete", completed: uncertain ? 0 : continuing ? 2 : 1,
+        failed: uncertain ? 0 : 1, uncertain: uncertain ? 1 : 0,
+        unattempted: uncertain ? 2 : continuing ? 0 : 1,
+        rows: uncertain ? [
+          { row: 1, status: "uncertain", error: "YouTrack answered HTTP 503." },
+          { row: 2, status: "unattempted" },
+          { row: 3, status: "unattempted" },
+        ] : [
+          { row: 1, status: "completed", result: { id: "2-1" } },
+          { row: 2, status: "failed", error: "YouTrack answered HTTP 400." },
+          continuing ? { row: 3, status: "completed", result: { id: "2-3" } } : { row: 3, status: "unattempted" },
+        ],
+        failedRows: { path: savedPath, bytes: Buffer.byteLength(content), sha256: createHash("sha256").update(content).digest("hex") },
+      };
+      const argv = ["issues", "batch", "apply", "--file", path, "--failed-rows", "retry.json", "--profile", "dev",
+        ...(continuing ? ["--continue-on-error"] : [])];
+      if (mode === "execute") {
+        assert.deepEqual(await incomplete(f.cli.execute(argv)), expected);
+        assert.equal(f.stdout() + f.stderr(), "");
+      } else if (mode === "rpc") {
+        const [reply] = await f.rpc(f.cli, [argv]) as { result?: unknown; error: { code: number; message: string; data: Record<string, unknown> } }[];
+        assert.equal(reply!.result, undefined);
+        assert.equal(reply!.error.code, -32000);
+        assert.equal(reply!.error.data.code, "batch.incomplete");
+        assert.equal(reply!.error.data.exitCode, 1);
+        assert.equal(reply!.error.data.profile, "dev");
+        assert.deepEqual(reply!.error.data.result, expected);
+      } else {
+        const shown = await f.run(f.cli, [...argv, ...(mode === "json" ? ["--json"] : [])]);
+        assert.equal(shown.exitCode, 1);
+        if (mode === "json") {
+          assert.deepEqual(JSON.parse(shown.stdout), expected);
+          assert.equal(shown.stderr.trim().split("\n").length, 1);
+          const { error } = JSON.parse(shown.stderr);
+          assert.equal(error.code, "batch.incomplete");
+          assert.equal(error.exitCode, 1);
+          assert.equal(error.profile, "dev");
+          assert.match(error.message, /Not every row completed/);
+        } else {
+          assert.match(shown.stdout, new RegExp(`Batch incomplete: ${expected.completed} of 3 rows completed`));
+          assert.ok(shown.stdout.includes(savedPath));
+          for (const row of expected.rows) assert.match(shown.stdout, new RegExp(`${row.row}  ${row.status}`));
+          assert.match(shown.stderr, /Not every row completed/);
+          if (uncertain) assert.match(shown.stderr, /Check uncertain rows in YouTrack before resubmitting/);
+        }
+        assert.doesNotMatch(shown.stdout + shown.stderr, /synthetic-private|synthetic-token/);
+      }
+      assert.equal(await readFile(savedPath, "utf8"), content);
+      assert.equal(posts.length, uncertain ? 1 : continuing ? 3 : 2, "No writes are retried or sent after stopping.");
+    });
+  }
+}
+
+for (const mode of ["human", "json", "rpc", "execute"] as const) {
+  test(`completed batch succeeds through ${mode}`, async (t) => {
+    const { f, path } = await fixtureWithManifest(t, "rows.json", JSON.stringify(rows));
+    await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);
+    const posts = script([200, 200, 200]);
+    const argv = ["issues", "batch", "apply", "--file", path, "--failed-rows", "retry.json", "--profile", "dev"];
+    const expected = {
+      status: "completed", completed: 3, failed: 0, uncertain: 0, unattempted: 0,
+      rows: [1, 2, 3].map((row) => ({ row, status: "completed", result: { id: `2-${row}` } })),
+      failedRows: null,
+    };
+    if (mode === "execute") {
+      assert.deepEqual(await f.cli.execute(argv), expected);
+    } else if (mode === "rpc") {
+      const [reply] = await f.rpc(f.cli, [argv]) as { result: unknown; error?: unknown }[];
+      assert.equal(reply!.error, undefined);
+      assert.deepEqual(reply!.result, expected);
+    } else {
+      const shown = await f.run(f.cli, [...argv, ...(mode === "json" ? ["--json"] : [])]);
+      assert.equal(shown.exitCode, 0);
+      assert.equal(shown.stderr, "");
+      if (mode === "json") assert.deepEqual(JSON.parse(shown.stdout), expected);
+      else assert.match(shown.stdout, /Batch completed: 3 of 3 rows completed/);
+    }
+    assert.equal(posts.length, 3);
+    await assert.rejects(readFile(join(f.root, "retry.json")), { code: "ENOENT" });
+  });
+}
