@@ -1,4 +1,4 @@
-import { addAbortListener } from "node:events";
+import { writeOutput, outputFailure } from "./output-write.js";
 import type { Writable } from "node:stream";
 import { CliError } from "./errors.js";
 
@@ -21,30 +21,6 @@ export function isStreamResult(value: unknown): value is StreamResult<unknown> {
   return value !== null && typeof value === "object" && producer in value;
 }
 
-/** Cancellation releases the command while a pending caller-owned write keeps its error listener. */
-function writeLine(output: Writable, line: string, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    signal.throwIfAborted();
-    const closed = () => finish(new Error("Command output closed."));
-    const finish = (error?: Error | null) => {
-      output.off("close", closed).off("error", finish);
-      aborted[Symbol.dispose]();
-      if (error) reject(error); else resolve();
-    };
-    const aborted = addAbortListener(signal, () => reject(signal.reason));
-    output.once("close", closed).once("error", finish);
-    try {
-      output.write(line, error => {
-        // Node emits error after a failed callback. Keep ownership until that event, even if
-        // cancellation already returned control to the command. A successful callback drains it.
-        if (!error) finish();
-      });
-    } catch (error) {
-      finish(error instanceof Error ? error : new Error("Command output write failed."));
-    }
-  });
-}
-
 /** Internal runner boundary: consume before leaving command admission and diagnostic lifetime. */
 export async function consumeStreamResult(
   value: StreamResult<unknown>, signal: AbortSignal, output: Writable, ndjson: boolean,
@@ -52,7 +28,7 @@ export async function consumeStreamResult(
   const disconnected = new AbortController();
   const ownedSignal = AbortSignal.any([signal, disconnected.signal]);
   const closed = () => disconnected.abort(new Error("Command output closed."));
-  const failed = (error: Error) => disconnected.abort(error);
+  const failed = (error: Error) => disconnected.abort(outputFailure(error));
   output.on("close", closed);
   output.on("finish", closed);
   output.on("error", failed);
@@ -72,18 +48,28 @@ export async function consumeStreamResult(
       if (ndjson) {
         const json = JSON.stringify(item.value ?? null);
         if (json === undefined) throw new Error("Stream item cannot be represented as JSON.");
-        await writeLine(output, `${json}\n`, ownedSignal);
+        await writeOutput(output, `${json}\n`, ownedSignal);
       } else items!.push(item.value);
     }
   } catch (error) {
     didFail = true;
     failure = error;
+    // A producer's finally can replace the abort reason while next() is pending.
+    const reason: unknown = disconnected.signal.reason;
+    if (reason instanceof CliError && reason.code === "output.brokenPipe") {
+      if (error instanceof Error && error.name === "AbortError" && error.cause === reason) {
+        // Native abortable operations wrap their supplied reason; this is normal cancellation.
+        failure = reason;
+      } else if (!(error instanceof CliError && error.code === "output.brokenPipe")) {
+        failure = new AggregateError([reason, error], "Stream consumption and cleanup failed.");
+      }
+    }
     // Abort in-flight service work before asking the iterator to release its resources.
     disconnected.abort(error);
     try { await iterator?.return?.(); }
     catch (cleanup) {
       const cause = new AggregateError([error, cleanup], "Stream consumption and cleanup failed.");
-      failure = error instanceof CliError
+      failure = error instanceof CliError && error.code !== "output.brokenPipe"
         ? new CliError(error.message, { code: error.code, exitCode: error.exitCode, result: error.result, next: error.next, cause })
         : cause;
     }

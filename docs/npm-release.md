@@ -175,6 +175,8 @@ JSON-RPC help requests. They also import each installed integration and exercise
 listing through Core's temporary fixture, and verify that dependencies do not resolve through
 workspace links. Executable help reads no profiles or credentials; the JSON check uses synthetic
 AppData and memory secrets. Root/help output remains human text even when `--json` is supplied.
+Checkout package checks also close each installed executable's stdout reader before help/RPC
+output and assert quiet exit 141; Unix checks include `--help | head -n 1` with `pipefail`.
 On Windows, installed Core also encrypts, reloads and deletes a synthetic DPAPI credential under
 an injected temporary AppData root, proving the packaged native dependency works without a keyring.
 Packing suppresses the `prepack` build hooks because `Verify` has just built the whole workspace.

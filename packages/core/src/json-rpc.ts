@@ -1,4 +1,4 @@
-import { once } from "node:events";
+import { failedCommandOutput, writeOutput } from "./output-write.js";
 import { requestLines } from "./lines.js";
 import { globalFlagRequested, validateArgv } from "./argv.js";
 import { CliError, machineError } from "./errors.js";
@@ -41,22 +41,7 @@ async function response(
   value: unknown,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (output.destroyed || output.writableEnded)
-    throw new Error("JSON-RPC output is closed.");
-  const closed = new AbortController();
-  const onClose = () =>
-    closed.abort(new Error("JSON-RPC output closed while writing."));
-  output.once("close", onClose);
-  try {
-    if (!output.write(`${JSON.stringify(value)}\n`))
-      await once(output, "drain", {
-        signal: signal
-          ? AbortSignal.any([signal, closed.signal])
-          : closed.signal,
-      });
-  } finally {
-    output.off("close", onClose);
-  }
+  await writeOutput(output, `${JSON.stringify(value)}\n`, signal);
 }
 
 function errorResponse(
@@ -160,9 +145,12 @@ export async function runJsonRpc(options: {
     try {
       result = await options.execute(params.argv);
     } catch (error) {
+      // Preserve a command/cleanup failure when the disconnected transport cannot report it.
+      if (options.output.destroyed || options.output.writableEnded) throw error;
       if (expectsResponse) {
         const { message, data } = errorData(error, params.argv);
-        await errorResponse(options.output, request.id, -32000, message, options.signal, data);
+        try { await errorResponse(options.output, request.id, -32000, message, options.signal, data); }
+        catch (writeError) { throw failedCommandOutput(error, writeError); }
       }
       continue;
     }
