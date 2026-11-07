@@ -427,7 +427,7 @@ a `CliError` carrying `.result`.
 
 This is a breaking change: scripts that previously relied on exit 0 plus `status: incomplete`
 must now handle the failure path and read the same summary from the appropriate surface.
-See the [unreleased notes](../../CHANGELOG.md#unreleased).
+See the [0.6.1 release notes](../../CHANGELOG.md#061).
 
 `--failed-rows <path.json>` saves the `failed` and `unattempted` rows
 as a manifest at the requested path relative to the invocation working directory for deliberate resubmission; `uncertain` rows are left out and must
