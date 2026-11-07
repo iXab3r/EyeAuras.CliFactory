@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+## 0.7.0
+
+### Breaking changes
+
+- YouTrack offset lists use `--page-size`/`--start` instead of `--top`/`--skip`.
+  Library options likewise use `pageSize`/`start`. Lists now return
+  `{ count, items, hasMore, nextStart }`; read rows from `items` rather than the result itself.
+  `hasMore: null` means completeness is unknown. Native activity cursor commands retain their
+  existing flags and result objects. See the [migration guide](integrations/youtrack/README.md).
+
+### Fixed
+
+- Complete YouTrack issue selections validate every generated page window before dispatch,
+  advance by actual returned rows and reject incomplete or over-budget selections.
+- TeamCity pagination preserves sparse continuation and partial-failure causes, rejects malformed
+  page responses and checks offset arithmetic. Both integrations honor cancellation between pages.
+
+### Added
+
+- Core exports `advanceOffset` for checked pagination arithmetic without imposing content ceilings.
+
 ## 0.6.1
 
 ### Fixed
