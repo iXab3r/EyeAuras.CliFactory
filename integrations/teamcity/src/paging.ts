@@ -1,4 +1,4 @@
-import { advanceOffset, CliError, traversePages } from "@eyeauras/cli-factory";
+import { advanceOffset, CliError } from "@eyeauras/cli-factory";
 
 /** One bounded selection from a TeamCity collection and what is known about the rest of it. */
 export interface TeamCityPage<T> {
@@ -95,11 +95,13 @@ export async function readPages<T>(
   advanceOffset(start, limit);
   const initial: Continuation = { start };
   let position = initial;
-  return traversePages(async () => {
+  while (true) {
+    signal?.throwIfAborted();
     const take = Math.min(limit - items.length, pageSize);
     let response: Awaited<ReturnType<typeof read>>;
     try {
       response = await read({ ...position, count: take + 1 });
+      signal?.throwIfAborted();
       if (response.items.length > take + 1) {
         throw new Error("More items than the requested page size came back from TeamCity.");
       }
@@ -117,7 +119,7 @@ export async function readPages<T>(
       // The extra item proves that more exist; continue right after the kept items.
       if (items.length >= limit) return page(true, reached);
       position = { ...position, start: reached };
-      return;
+      continue;
     }
     const next = continuation(response.nextHref);
     // Without a continuation, a page shorter than requested proves the end.
@@ -130,5 +132,5 @@ export async function readPages<T>(
       (reached > position.start || (lookupLimit ?? 0) > (position.lookupLimit ?? 0));
     if (!advances || items.length >= limit) return page(null, reached);
     position = lookupLimit === undefined ? { start: reached } : { start: reached, lookupLimit };
-  }, signal);
+  }
 }

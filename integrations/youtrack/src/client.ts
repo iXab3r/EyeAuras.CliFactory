@@ -1,4 +1,4 @@
-import { advanceOffset, traversePages, CliError, HttpError, diagnosticCause, fetchWithRedirects, readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
+import { advanceOffset, CliError, HttpError, diagnosticCause, fetchWithRedirects, readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
 
 export interface YouTrackUser {
   id: string;
@@ -324,12 +324,14 @@ export async function readPages(
   const items: YouTrackObject[] = [];
   const ids = new Set<string>();
   let offset = start;
-  return traversePages(async () => {
+  while (true) {
+    connection.signal?.throwIfAborted();
     // Add a proof row only when representable; at MAX_SAFE_INTEGER probe separately.
     const remaining = maxResults - items.length;
     const size = Math.min(pageSize, remaining === Number.MAX_SAFE_INTEGER ? remaining : remaining + 1);
     advanceOffset(offset, size);
     const rows = await readCollection(connection, path, { ...query, $top: String(size), $skip: String(offset) }, budget);
+    connection.signal?.throwIfAborted();
     if (rows.length === 0) return items;
     const before = items.length;
     for (const item of rows) {
@@ -344,7 +346,7 @@ export async function readPages(
     }
     progress?.(`Read ${items.length} so far; reading the next page.`);
     offset = advanceOffset(offset, rows.length);
-  }, connection.signal);
+  }
 }
 
 type ResourcePath = string | ((...arguments_: never[]) => string);

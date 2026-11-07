@@ -585,26 +585,30 @@ See [the testing guide](testing.md#shared-offline-cli-fixture) for invocation an
 Keep the endpoint, query encoding, DTOs and proof of completion in the integration.
 Use one local collection adapter so each command author declares only its path, projection and
 service options. TeamCity's `#list` and YouTrack's `readCollectionAt` are the two working examples.
-For a finite multi-request operation, reuse Core's sequential traversal and checked offset addition:
+For a finite multi-request operation, use an ordinary service loop and Core's checked offset addition:
 
 ```ts
 const items: Release[] = [];
 let offset = start;
-const result = await traversePages(async () => {
+while (true) {
+  connection.signal?.throwIfAborted();
   advanceOffset(offset, pageSize); // Validate each request window before dispatch.
   const rows = await readReleasePage(connection, { start: offset, pageSize });
+  connection.signal?.throwIfAborted();
   if (rows.length === 0) return items; // Only if this service documents empty-page termination.
   for (const row of rows) items.push(row);
   if (items.length > maxResults) throw new Error("The selection exceeds --max-results.");
   offset = advanceOffset(offset, rows.length);
-}, connection.signal);
+}
 ```
 
-Import `traversePages` and `advanceOffset` from Core. Validate caller options before acquiring a
-connection where possible, and inside direct-library clients too. Keep the service position local;
-the callback returns `undefined` to continue or the final result to stop. A continued step must
-advance its service position. For link/cursor services prove progress using their actual
-continuation contract; never dispatch an arbitrary credential-bearing link or split opaque cursor pages.
+Import `advanceOffset` from Core. Validate caller options before acquiring a connection where
+possible, and inside direct-library clients too. Keep the service position and loop local; check
+cancellation before and after every awaited page step, including the final one, and pass the same
+signal to each request. A continued step must advance its service position. Put these rules in
+one local collection adapter so endpoint authors reuse its defaults and checks. For link/cursor
+services prove progress using their actual continuation contract; never dispatch an arbitrary
+credential-bearing link or split opaque cursor pages.
 Do not infer end from a short page without evidence, add default ceilings/retries, or make list
 commands discover write targets. Give complete selection an explicit caller result budget and
 fail without partial success on overflow, unknown end or page failure. Keep native cursor commands

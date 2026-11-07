@@ -6,16 +6,3 @@ export function advanceOffset(start: number, count: number): number {
   }
   return start + count;
 }
-
-/** Repeat a service-owned page step until it returns a result; check cancellation around each step. */
-export async function traversePages<Result>(
-  visit: () => Promise<Result | undefined>,
-  signal?: AbortSignal,
-): Promise<Result> {
-  while (true) {
-    signal?.throwIfAborted();
-    const result = await visit();
-    signal?.throwIfAborted();
-    if (result !== undefined) return result;
-  }
-}

@@ -81,6 +81,21 @@ test("cancellation stops paging before another request", async () => {
   assert.equal(requests.length, 1);
 });
 
+test("cancellation before the first read or between decoded pages prevents the next request", async () => {
+  const reason = new Error("synthetic stop");
+  const requests = serve(issues(5));
+  await assert.rejects(listIssues({ ...connection, signal: AbortSignal.abort(reason) }, {
+    pageSize: 2, maxResults: 10,
+  }), error => error === reason);
+  assert.equal(requests.length, 0);
+
+  const controller = new AbortController();
+  await assert.rejects(listIssues({ ...connection, signal: controller.signal }, {
+    pageSize: 2, maxResults: 10, progress: () => controller.abort(reason),
+  }), error => error === reason);
+  assert.equal(requests.length, 1);
+});
+
 test("server caps do not prove completion; raw rows advance even after deduplication", async () => {
   const requests = serve(issues(5), (_index, _top, start) => HttpResponse.json(issues(5).slice(start, start + 1)));
   assert.deepEqual(await listIssues(connection, { pageSize: 50, maxResults: 5 }), completeResult(issues(5)));

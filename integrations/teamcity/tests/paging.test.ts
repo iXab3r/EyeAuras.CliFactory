@@ -163,6 +163,30 @@ test("a failed same-offset lookup-limit continuation remains a later-page failur
   assert.equal(pages.requests.length, 2);
 });
 
+test("cancellation after a page read rejects continuation and final pages without incomplete results", async () => {
+  const reason = new Error("synthetic stop");
+  for (const afterSparsePage of [false, true]) {
+    for (const response of [
+      { items: [], nextHref: undefined },
+      { items: [1], nextHref: undefined },
+      { items: [], nextHref: href("start:0,lookupLimit:15000") },
+      { items: [1, 2, 3, 4], nextHref: undefined },
+    ]) {
+      const controller = new AbortController();
+      let calls = 0;
+      await assert.rejects(readPages(3, 0, async () => {
+        calls++;
+        if (afterSparsePage && calls === 1) {
+          return { items: [], nextHref: href("start:0,lookupLimit:10000") };
+        }
+        controller.abort(reason);
+        return response;
+      }, controller.signal), error => error === reason);
+      assert.equal(calls, afterSparsePage ? 2 : 1);
+    }
+  }
+});
+
 test("builds list reads across a lookup-limit continuation and reports completeness", async (t) => {
   const locators: string[] = [];
   server.use(http.get("https://teamcity.test/app/rest/builds", ({ request }) => {

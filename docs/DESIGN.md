@@ -216,8 +216,8 @@ the runner, not once per command.
 sequence of domain items. The factory callback must acquire resources only when called, pass its
 supplied signal to pending work, and release resources in `finally`. Construct signal-bound clients
 inside that callback; a client bound only to the original handler signal cannot observe output
-disconnect. Service paging/cleanup and result budgets remain integration-owned; finite traversal
-may use the shared sequential mechanism described below.
+disconnect. Service paging/cleanup, cancellation between page reads and result budgets remain
+integration-owned; offset arithmetic may use the shared mechanism described below.
 
 Ordinary CLI `--json` emits one unchanged JSON item per NDJSON line, awaiting each output write
 before requesting another item. An empty sequence emits no lines. Human CLI, `execute` (including
@@ -574,16 +574,18 @@ browser clients use the optional Playwright owner. Tests replace the actual HTTP
 
 ### Finite page traversal
 
-Core exports `traversePages(visit, signal?)` and `advanceOffset(start, count)`.
-The former repeats a service-owned page step until it returns a defined final result, which
-is returned directly to its caller. `undefined` requests another step; empty arrays, `null`,
-`false` and zero are final results. Cancellation is checked before and after every awaited step,
-including the final one. No retry or request/time/content ceiling is imposed. The latter checks
-nonnegative safe-integer addition before returning an offset. There is no shared page DTO,
-mode registry or HTTP adapter. Each integration retains its service position, accumulation,
-identity, budgets, ordering, end evidence and errors. A continued step must advance its local
-service position; adapters prove progress locally. Validate every generated request window
-before dispatch, including requests after the first page.
+Core exports `advanceOffset(start, count)` for nonnegative safe-integer addition without a local
+content ceiling. Both integrations use it to validate caller windows, generated request windows
+before dispatch (including later pages), and offset advancement. This removes duplicate arithmetic
+validation from their collection adapters without introducing a traversal callback convention.
+There is no shared traversal API, page DTO, mode registry or HTTP adapter.
+
+Each integration uses an ordinary service loop, checks cancellation before and after every awaited
+page step (including the final one), and passes the same invocation signal to requests. It owns
+position, accumulation, identity, budgets, ordering, end evidence and errors; every continued step
+must make progress under the service's continuation contract. No retry or default request, time or
+content ceiling is imposed. Command authors reuse their integration's collection adapter instead
+of copying its loop or safety checks into each endpoint declaration.
 
 TeamCity retains `--limit 100 --start 0`: limit bounds retained rows across wire requests.
 Its adapter requests one lookahead row, retains `lookupLimit` across sparse continuations, and
@@ -1051,8 +1053,8 @@ Owns process execution and pipeline composition. It remains independently testab
 
 - A code generator before two real integrations demonstrate repeated authoring work.
 - A plugin runtime or dependency-injection container.
-- A universal service DTO, pagination model, or HTTP client wrapper. The finite sequential
-  traversal mechanism above deliberately leaves those service contracts local.
+- A universal service DTO, pagination model, traversal API or HTTP client wrapper. Shared checked
+  offset arithmetic leaves those service contracts and ordinary page loops local.
 - A plaintext or silently degraded secret store.
 - Portable or executable-relative application data.
 - Treating local permission gates as a replacement for remote authorization or human policy.
