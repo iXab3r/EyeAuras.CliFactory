@@ -337,3 +337,8 @@ waiters, large queues and the application's no-restart policy. Packaged tests in
 identities and stderr-only artifact paths through both ordinary CLI and tunneled JSON-RPC.
 Test cleanup stops its own host/runtime before deleting its own synthetic AppData and videos.
 Never enable video in the fixed real-service proof or turn raw recordings into fixtures.
+
+Diagnostic redaction regressions must vary each percent hex digit independently while retaining
+ordinary-letter case and regex literal semantics, including malformed Unicode. Copy control-bearing
+causes before supplying known values, then copy again to prove late redaction and stable escaping.
+Check native execute fields and human/JSON/RPC normal and verbose output retain useful codes/frames.

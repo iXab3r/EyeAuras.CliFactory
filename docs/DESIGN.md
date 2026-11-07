@@ -81,7 +81,7 @@ error printers. A failure is short by default and complete on request:
 
 A plain `Error` thrown by a handler becomes an untyped `CliError` that keeps the original type
 name, message, frames and cause; it is never nested under itself, so no headline prints twice.
-An aggregate is nested as the cause so its related failures survive. A wrapper that
+An aggregate or native coded error is nested as the cause so its related failures or native code survive. A wrapper that
 states its reason in the sentence (`Token validation failed: <reason>`) renders as one line, because
 a cause whose text the message already contains is not repeated. Keep native cause codes distinct
 from the wrapper's stable CLI code. Serialize errors explicitly; plain `JSON.stringify(Error)` does
@@ -91,6 +91,10 @@ on stderr; RPC uses its error envelope.
 
 **Redact sensitive content, not the entire cause.** Credentials, cookies, authorization values
 and secret-bearing URL components must never appear in messages, stacks or nested diagnostics.
+Known-value matching treats percent-triplet hex letters equivalently across case, while ordinary
+characters remain case-sensitive and literal. C0/C1 terminal controls are visibly escaped as
+\uXXXX; LF and TAB retain diagnostic layout. Later copies also match these escaped known values,
+so early transport/body/publication copying does not prevent subsequent redaction.
 Do not dump arbitrary request/response objects, bodies or environment variables. Preserve useful
 types, codes and stack locations when redacting sensitive text. Apply the same rules to every
 output surface; retaining diagnostics does not authorize publishing private data in GitHub or

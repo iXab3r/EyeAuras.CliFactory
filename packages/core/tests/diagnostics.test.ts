@@ -211,3 +211,77 @@ test("control escaping survives later known values and repeated diagnostic copie
     }
   }
 });
+
+test("native command failures keep safe names, codes and frames across every boundary", async t => {
+  const fixture = await createCliFixture(t, { applicationId: "safe-native" });
+  const app = fixture.createApplication(runtime => createCli({
+    name: "safe-native", description: "Diagnostic fixture", runtime,
+    commands: [command("read", "Read", async () => {
+      rememberSecret("Synthetic:/é");
+      const error = Object.assign(new Error("failed Synthetic%3a%2F%c3%A9\x1b[31m"), {
+        name: "Native\x85", code: "ECONNRESET\x9b",
+      });
+      error.stack = error.name + ": " + error.message + "\n\tat useful (source.ts:12:3)\x1b";
+      throw error;
+    })],
+  }));
+  for (const verbose of [false, true]) {
+    for (const json of [false, true]) {
+      const output = await fixture.run(app, ["read", ...(verbose ? ["--verbose"] : []), ...(json ? ["--json"] : [])]);
+      const text = json ? JSON.stringify(JSON.parse(output.stderr)) : output.stderr;
+      assert.doesNotMatch(text, /Synthetic|[\x1b\x85\x9b]/);
+      assert.match(text, /failed/);
+      if (verbose) assert.match(text, /useful/);
+      if (json) assert.match(text, /ECONNRESET/);
+    }
+    const replies = await fixture.rpc(app, [["read", ...(verbose ? ["--verbose"] : [])]]);
+    const text = JSON.stringify(replies);
+    assert.doesNotMatch(text, /Synthetic|[\x1b\x85\x9b]/);
+    assert.match(text, /ECONNRESET/);
+    if (verbose) assert.match(text, /useful/);
+  }
+  await assert.rejects(app.execute(["read"]), error => {
+    assert.ok(error instanceof Error && error.cause instanceof Error);
+    assert.doesNotMatch(error.name + error.stack + error.cause.name, /Synthetic|[\x1b\x85\x9b]/);
+    assert.match(error.cause.stack ?? "", /useful/);
+    return true;
+  });
+});
+
+test("transport and body pre-copies allow late control-bearing resource redaction", async () => {
+  const { fetchWithRedirects } = await import("../src/http.js");
+  const { readResponseBody } = await import("../src/response-body.js");
+  const resource = "Synthetic\x9bResource";
+  const fail = () => Object.assign(new Error("failed " + resource), { code: "ECONNRESET" });
+  for (const operation of [
+    () => fetchWithRedirects(async () => { throw fail(); }, "https://example.test/api"),
+    () => readResponseBody(new Response(new ReadableStream({ start(controller) { controller.error(fail()); } }))),
+  ]) {
+    await assert.rejects(operation(), error => {
+      const safe = JSON.stringify(machineError(diagnosticCause(error, [resource]), { verbose: true }));
+      assert.doesNotMatch(safe, /Synthetic|Resource/);
+      assert.match(safe, /ECONNRESET/);
+      assert.match(safe, /diagnostics.test/);
+      return true;
+    });
+  }
+});
+
+test("publication pre-copy retains late redaction and outcome flags", async t => {
+  const { publishFile } = await import("../src/file-publication.js");
+  const { mkdtemp, rm, realpath } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const cwd = await realpath(await mkdtemp(join(tmpdir(), "diagnostic-publication-")));
+  t.after(() => rm(cwd, { recursive: true, force: true }));
+  const resource = "Synthetic\x85Resource";
+  await assert.rejects(publishFile({ cwd, name: "file.txt", inspectResponse() {}, openResponse: async () => new Response(new ReadableStream({
+    start(controller) { controller.error(Object.assign(new Error(resource), { code: "ECONNRESET" })); },
+  })) }), error => {
+    const safe = JSON.stringify(machineError(diagnosticCause(error, [resource]), { verbose: true }));
+    assert.doesNotMatch(safe, /Synthetic|Resource/);
+    assert.match(safe, /ECONNRESET/);
+    assert.equal((error as { published: boolean }).published, false);
+    return true;
+  });
+});
