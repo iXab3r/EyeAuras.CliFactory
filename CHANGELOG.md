@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.6.1
+
+### Fixed
+
+- Diagnostics redact known values across mixed-case percent escapes and later copies, and visibly
+  escape terminal controls while retaining useful native codes, causes and stack locations.
+- TeamCity improves help, build summaries and artifact browsing, including safer artifact follow-ups.
+- Installed-package verification avoids redundant workspace builds and honors temporary directories.
+
 ### Breaking changes
 
 - YouTrack `issues batch apply` now fails with `batch.incomplete` when any row is `failed`,
