@@ -221,6 +221,8 @@ When a stdout write fails with native `EPIPE`, ordinary CLI and JSON-RPC `run` r
 (the shell convention for SIGPIPE) without a diagnostic. A small write may finish before the reader
 closes, in which case success remains 0. This policy applies only to failures observed at the output
 boundary; a handler or service error with the same native code remains an ordinary failure.
+If writing an already-failed command's result fails too, preserve the original command failure and
+both causes; its result moves to the JSON stderr envelope because stdout could not carry it.
 Other output errors retain diagnostics; a failed diagnostic write rejects `run` rather than being
 silenced. Interrupts retain exit 130. Output disconnect still aborts lazy producers and awaits iterator
 cleanup; an additional cleanup failure retains both causes and exits 1. Standalone entry

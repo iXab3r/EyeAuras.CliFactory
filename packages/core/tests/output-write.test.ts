@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
-import { CliError, createCli, localCommand, streamResult } from "../src/index.js";
+import { CliError, command, createCli, localCommand, streamResult } from "../src/index.js";
 import { createCliFixture } from "../src/testing.js";
+import { runJsonRpc } from "../src/json-rpc.js";
 
 function deferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -125,3 +126,55 @@ test("an interrupted failed outcome retains its result and diagnostic code", asy
   assert.deepEqual(JSON.parse(result.stdout), { outcome: "interrupted" });
   assert.equal(JSON.parse(result.stderr).error.code, "operation.interrupted");
 });
+
+for (const declare of [localCommand, command]) for (const code of ["EPIPE", "EIO"]) {
+  test(`${declare.name}: a failed result write (${code}) preserves the handler failure`, async t => {
+    const f = await createCliFixture(t, { applicationId: "output-cli", profiles: [{ name: "default" }] });
+    const app = f.createApplication(runtime => createCli({ name: "output-cli", description: "Fixture", runtime,
+      commands: [declare("fail", "Fail the command", () => {
+        throw new CliError("Synthetic handler failed.", { code: "handler.failure", result: { outcome: "failed" }, next: [["--help"]] });
+      })],
+    }));
+    const output = new Writable({ write(_chunk, _encoding, done) { done(nativeError(code)); } });
+    const result = await f.run(app, ["fail", "--json"], { output });
+    assert.equal(result.exitCode, 1);
+    const failure = JSON.parse(result.stderr).error;
+    assert.equal(failure.code, "handler.failure");
+    assert.equal(failure.message, "Synthetic handler failed.");
+    assert.deepEqual(failure.result, { outcome: "failed" });
+    assert.deepEqual(failure.next, [declare === command ? ["--help", "--profile", "default"] : ["--help"]]);
+    assert.equal(failure.cause.name, "AggregateError");
+    assert.match(JSON.stringify(failure.cause), new RegExp(code));
+    assert.equal(output.listenerCount("error"), 0);
+  });
+}
+
+for (const code of ["EPIPE", "EIO"]) {
+  test(`an RPC error-frame write (${code}) preserves the handler failure`, async t => {
+    const f = await createCliFixture(t, { applicationId: "output-cli" });
+    const app = f.createApplication(runtime => createCli({ name: "output-cli", description: "Fixture", runtime,
+      commands: [localCommand("fail", "Fail the command", () => {
+        throw new CliError("Synthetic RPC handler failed.", { code: "handler.failure" });
+      })],
+    }));
+    const output = new Writable({ write(_chunk, _encoding, done) { done(nativeError(code)); } });
+    const input = Readable.from([JSON.stringify({ jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["fail"] } }) + "\n"]);
+    const result = await f.run(app, ["--json-rpc"], { output, input });
+    assert.equal(result.exitCode, 1);
+    assert.match(result.stderr, /Synthetic RPC handler failed/);
+    assert.match(result.stderr, /response could not be written/);
+    assert.equal(output.listenerCount("error"), 0);
+    await assert.rejects(runJsonRpc({
+      input: Readable.from([JSON.stringify({ jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["fail"] } }) + "\n"]),
+      output: new Writable({ write(_chunk, _encoding, done) { done(nativeError(code)); } }),
+      execute: async () => { throw new CliError("Synthetic RPC handler failed.", { code: "handler.failure" }); },
+    }), (error: unknown) => {
+      assert.ok(error instanceof CliError);
+      assert.equal(error.code, "handler.failure");
+      assert.ok(error.cause instanceof AggregateError);
+      const writeFailure = error.cause.errors[1];
+      assert.equal((code === "EPIPE" ? writeFailure.cause : writeFailure).code, code);
+      return true;
+    });
+  });
+}

@@ -1,4 +1,4 @@
-import { writeOutput } from "./output-write.js";
+import { failedCommandOutput, writeOutput } from "./output-write.js";
 import { requestLines } from "./lines.js";
 import { globalFlagRequested, validateArgv } from "./argv.js";
 import { CliError, machineError } from "./errors.js";
@@ -149,7 +149,8 @@ export async function runJsonRpc(options: {
       if (options.output.destroyed || options.output.writableEnded) throw error;
       if (expectsResponse) {
         const { message, data } = errorData(error, params.argv);
-        await errorResponse(options.output, request.id, -32000, message, options.signal, data);
+        try { await errorResponse(options.output, request.id, -32000, message, options.signal, data); }
+        catch (writeError) { throw failedCommandOutput(error, writeError); }
       }
       continue;
     }

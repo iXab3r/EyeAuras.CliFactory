@@ -9,6 +9,18 @@ export function outputFailure(error: Error): Error {
     : error;
 }
 
+/** A failed response write must not replace an already-known command failure. */
+export function failedCommandOutput(error: unknown, writeError: unknown): Error {
+  const cause = new AggregateError([error, writeError], "The command failed and its response could not be written.");
+  if (!(error instanceof CliError)) return cause;
+  const failure = new CliError(error.message, {
+    code: error.code, exitCode: error.exitCode, result: error.result, next: error.next, cause,
+  });
+  failure.profile = error.profile;
+  failure.defaultProfile = error.defaultProfile;
+  return failure;
+}
+
 /** Await the callback even below the high-water mark; retain ownership of late write errors. */
 export function writeOutput(output: Writable, text: string, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
