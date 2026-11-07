@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -47,7 +48,7 @@ test("attachment list sends one bounded native GET with default metadata project
     assert.equal(request.headers.get("authorization"), "Bearer " + connection.token);
     return HttpResponse.json([metadata]);
   }));
-  assert.deepEqual(await listIssueAttachments(connection, "fixture-issue"), [metadata]);
+  assert.deepEqual(await listIssueAttachments(connection, "fixture-issue"), pageResult([metadata]));
   assert.equal(calls, 1);
 });
 
@@ -80,7 +81,7 @@ test("attachment list honors sparse projection and exact caller pagination", asy
     assert.equal(url.searchParams.get("$skip"), "7");
     return HttpResponse.json([{}]);
   }));
-  assert.deepEqual(await listIssueAttachments(connection, "fixture-issue", { fields: "id", top: 2, skip: 7 }), [{}]);
+  assert.deepEqual(await listIssueAttachments(connection, "fixture-issue", { fields: "id", pageSize: 2, start: 7 }), pageResult([{}], 7));
 });
 
 test("attachment read validation rejects invalid IDs/pages and malformed shapes", async () => {
@@ -88,13 +89,13 @@ test("attachment read validation rejects invalid IDs/pages and malformed shapes"
   server.use(http.get("*", () => { calls++; return HttpResponse.json({}); }));
   await assert.rejects(getIssueAttachment(connection, "..", "fixture-attachment"), /dot path/);
   await assert.rejects(getIssueAttachment(connection, "fixture-issue", "."), /dot path/);
-  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { top: -1 }), /top/);
-  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { skip: -1 }), /skip/);
+  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { pageSize: -1 }), /page-size/);
+  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { start: -1 }), /start/);
   await assert.rejects(getIssueAttachment(connection, "fixture-issue", "fixture-attachment", { fields: 1 as unknown as string }), /fields/);
   assert.equal(calls, 0);
   await assert.rejects(listIssueAttachments(connection, "fixture-issue"), /Invalid collection/);
   server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { top: 1 }), /page size/);
+  await assert.rejects(listIssueAttachments(connection, "fixture-issue", { pageSize: 1 }), /page size/);
   await assert.rejects(getIssueAttachment(connection, "fixture-issue", "fixture-attachment"), /Invalid object/);
 });
 
@@ -196,8 +197,8 @@ test("attachment CLI shares read JSON/human commands and gated upload JSON resul
       return HttpResponse.json([metadata]);
     }),
   );
-  assert.equal(await f.cli.run(["issues", "attachments", "list", "fixture-issue", "--top", "2", "--skip", "3", "--fields", "id", "--profile", "dev", "--json"]), 0);
-  assert.deepEqual(JSON.parse(f.stdout()), [{ id: metadata.id }]);
+  assert.equal(await f.cli.run(["issues", "attachments", "list", "fixture-issue", "--page-size", "2", "--start", "3", "--fields", "id", "--profile", "dev", "--json"]), 0);
+  assert.deepEqual(JSON.parse(f.stdout()), pageResult([{ id: metadata.id }], 3));
   assert.equal(await f.cli.run(["issues", "attachments", "get", "fixture-issue", "fixture-attachment", "--profile", "dev"]), 0);
   assert.match(f.stdout(), /fixture.bin/);
   await f.cli.execute(["permissions", "grant", "Update", "--profile", "dev"]);

@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
@@ -28,10 +29,10 @@ for (const row of bundleCases) test(`bundle CLI ${row.argv.join(" ")} binds its 
       return HttpResponse.json(result);
     }));
     assert.equal(await f.cli.run([
-      ...row.argv, "--fields", "id", ...(row.collection ? ["--top", "2", "--skip", "3"] : []),
+      ...row.argv, "--fields", "id", ...(row.collection ? ["--page-size", "2", "--start", "3"] : []),
       "--profile", "dev", ...(json ? ["--json"] : []),
     ]), 0);
-    if (json) assert.deepEqual(JSON.parse(f.stdout()), result);
+    if (json) assert.deepEqual(JSON.parse(f.stdout()), pageResult(result, 3));
     else assert.match(f.stdout(), /fixture-result/);
     assert.equal(f.stderr(), "");
     assert.equal(calls, 1);
@@ -59,10 +60,10 @@ test("bundle CLI rejects unsupported filters, detail pagination and malformed pa
       await assert.rejects(f.cli.execute([...row.argv, flag, "--profile", "dev"]), /unknown option/);
     }
     if (row.collection) {
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /decimal integer/);
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "9007199254740992", "--profile", "dev"]), /nonnegative safe decimal integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--page-size", "1e2", "--profile", "dev"]), /decimal integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--page-size", "9007199254740992", "--profile", "dev"]), /nonnegative safe decimal integer/);
     } else {
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "2", "--profile", "dev"]), /unknown option/);
+      await assert.rejects(f.cli.execute([...row.argv, "--page-size", "2", "--profile", "dev"]), /unknown option/);
     }
   }
   assert.equal(calls, 0);
@@ -98,7 +99,7 @@ test("bundle RPC isolates profile URLs, tokens, permissions and AppData and surv
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(replies.map((reply) => reply.id), [0, 1, 2, 3]);
-  assert.deepEqual(replies[0].result, []);
+  assert.deepEqual(replies[0].result, pageResult([]));
   assert.equal(replies[1].error.code, -32000);
   assert.equal(replies[1].error.message, "YouTrack answered HTTP 403.");
   assert.match(replies[2].error.message, /Permission 'ReadOnly' is disabled/);

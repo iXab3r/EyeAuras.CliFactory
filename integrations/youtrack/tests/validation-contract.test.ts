@@ -51,7 +51,7 @@ for (const row of cases) {
   });
 }
 
-test("empty projections, queries, zero top and escaped ID controls reach the API unchanged", async t => {
+test("empty projections, queries, zero page size and escaped ID controls reach the API unchanged", async t => {
   const f = await configuredFixture(t, { url: "https://youtrack.example.com/admin/context" });
   const requests = trackRequests(t, 2, request => {
     const url = new URL(request.url);
@@ -65,7 +65,7 @@ test("empty projections, queries, zero top and escaped ID controls reach the API
     return HttpResponse.json({ id: "opaque\nid" });
   });
   server.use(http.get("*", ({ request }) => requests.handle(request)));
-  await f.cli.execute(["issues", "list", "--query", "", "--fields", "", "--top", "0"]);
+  await f.cli.execute(["issues", "list", "--query", "", "--fields", "", "--page-size", "0"]);
   await f.cli.execute(["issues", "get", "opaque\nid"]);
 });
 

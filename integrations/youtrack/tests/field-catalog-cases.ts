@@ -11,7 +11,7 @@ import {
   listStateBundles,
   listStateValues,
 } from "../src/field-catalog.js";
-import type { Connection, PageOptions, YouTrackObject } from "../src/client.js";
+import type { Connection, PageOptions, YouTrackObject, YouTrackPage } from "../src/client.js";
 
 export const catalogID = "fixture /?#%é";
 export const valueID = "choice /?#%é";
@@ -25,7 +25,7 @@ interface CatalogCase {
   path: string;
   fields: string;
   collection: boolean;
-  run: (connection: Connection, options?: PageOptions) => Promise<YouTrackObject | YouTrackObject[]>;
+  run: (connection: Connection, options?: PageOptions) => Promise<YouTrackObject | YouTrackPage>;
 }
 export const catalogCases: CatalogCase[] = [
   {

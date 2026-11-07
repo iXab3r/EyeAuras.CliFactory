@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -84,17 +85,17 @@ for (const row of reads) {
       return HttpResponse.json(row.list ? [value] : value);
     });
     server.use(http.get("*", ({ request }) => requests.handle(request)));
-    assert.deepEqual(await row.run({}), row.list ? [value] : value);
+    assert.deepEqual(await row.run({}), pageResult(row.list ? [value] : value));
     expectedFields = "id,linkType(id),summary";
     expectedTop = "2";
     expectedSkip = "3";
-    assert.deepEqual(await row.run({ fields: expectedFields, top: 2, skip: 3 }), row.list ? [value] : value);
+    assert.deepEqual(await row.run({ fields: expectedFields, pageSize: 2, start: 3 }), pageResult(row.list ? [value] : value, 3));
     requests.verify();
     if (row.list) {
       server.use(http.get("*", () => HttpResponse.json([])));
-      assert.deepEqual(await row.run({}), []);
+      assert.deepEqual(await row.run({}), pageResult([]));
       server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-      await assert.rejects(row.run({ top: 1 }), /page size/);
+      await assert.rejects(row.run({ pageSize: 1 }), /page size/);
     }
   });
 }
@@ -195,7 +196,7 @@ test("real CLI declares all twelve relations routes and gates each write before 
       assert.equal(new URL(request.url).pathname, row.path);
       return HttpResponse.json(row.list ? [{ id: "fixture" }] : { id: "fixture" });
     }));
-    assert.deepEqual(await f.cli.execute([...row.argv, "--profile", "dev"]), row.list ? [{ id: "fixture" }] : { id: "fixture" });
+    assert.deepEqual(await f.cli.execute([...row.argv, "--profile", "dev"]), pageResult(row.list ? [{ id: "fixture" }] : { id: "fixture" }));
   }
   assert.equal(calls, 12);
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
@@ -213,7 +214,7 @@ test("relations JSON/human/RPC use real declarations and preserve profile isolat
   }));
   const json = await fixture(t);
   assert.equal(await json.cli.run(["tags", "list", "--profile", "dev", "--json"]), 0);
-  assert.deepEqual(JSON.parse(json.stdout()), [{ id: "fixture-tag", name: "Fixture label" }]);
+  assert.deepEqual(JSON.parse(json.stdout()), pageResult([{ id: "fixture-tag", name: "Fixture label" }]));
   const human = await fixture(t);
   assert.equal(await human.cli.run(["tags", "list", "--profile", "other"]), 0);
   assert.match(human.stdout(), /Fixture label/);
@@ -225,7 +226,7 @@ test("relations JSON/human/RPC use real declarations and preserve profile isolat
   const rpc = await fixture(t, input);
   assert.equal(await rpc.cli.run(["--json-rpc"]), 0);
   const responses = rpc.stdout().trim().split("\n").map((line) => JSON.parse(line));
-  assert.deepEqual(responses[0].result, [{ id: "fixture-tag", name: "Fixture label" }]);
+  assert.deepEqual(responses[0].result, pageResult([{ id: "fixture-tag", name: "Fixture label" }]));
   assert.equal(responses[1].error.code, -32000);
   assert.match(responses[1].error.message, /Permission 'Update' is disabled/);
   assert.deepEqual(responses[2].result, responses[0].result);

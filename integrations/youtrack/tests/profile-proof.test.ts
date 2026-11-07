@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatProfileProof, runProfileProof } from "../integration-tests/profile-proof.js";
@@ -57,29 +58,29 @@ const endpoints = [
 ];
 const commands: readonly string[][] = [
   ["user", "me"],
-  ["project", "list", "--top", "3", "--skip", "0"],
-  ["issues", "list", "--top", "3", "--skip", "0", "--fields", "id"],
+  ["project", "list", "--page-size", "3", "--start", "0"],
+  ["issues", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
   ["issues", "get", "fixture-issue-id", "--fields", "id"],
-  ["issues", "comments", "list", "fixture-issue-id", "--top", "3", "--skip", "0", "--fields", "id"],
+  ["issues", "comments", "list", "fixture-issue-id", "--page-size", "3", "--start", "0", "--fields", "id"],
   ["project", "get", "fixture-project-id", "--fields", "id"],
-  ["project", "field", "list", "fixture-project-id", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["user", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["issues", "fields", "list", "fixture-issue-id", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["issues", "attachments", "list", "fixture-issue-id", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["issues", "tags", "list", "fixture-issue-id", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["issues", "links", "list", "fixture-issue-id", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["issues", "work-items", "list", "fixture-issue-id", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["field", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["bundle", "user", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["group", "list", "--top", "3", "--skip", "0", "--fields", "id"],
+  ["project", "field", "list", "fixture-project-id", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["user", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["issues", "fields", "list", "fixture-issue-id", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["issues", "attachments", "list", "fixture-issue-id", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["issues", "tags", "list", "fixture-issue-id", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["issues", "links", "list", "fixture-issue-id", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["issues", "work-items", "list", "fixture-issue-id", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["field", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["bundle", "user", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["group", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
   ["project", "team", "get", "fixture-project-id", "--fields", "id"],
   ["project", "time-tracking", "get", "fixture-project-id", "--fields", "id"],
-  ["work-item-type", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["agile", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["article", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["bundle", "build", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["bundle", "owned", "list", "--top", "3", "--skip", "0", "--fields", "id"],
-  ["bundle", "version", "list", "--top", "3", "--skip", "0", "--fields", "id"],
+  ["work-item-type", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["agile", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["article", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["bundle", "build", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["bundle", "owned", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
+  ["bundle", "version", "list", "--page-size", "3", "--start", "0", "--fields", "id"],
 ];
 
 function commandIndex(argv: readonly string[]): number {
@@ -97,7 +98,7 @@ test("proof executes exactly twenty-four bounded ReadOnly commands with one expl
   let calls = 0;
   const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
     assert.deepEqual(argv, [...commands[calls]!, ...profileArgs, "--json"]);
-    return JSON.stringify(responses[calls++]);
+    return JSON.stringify(pageResult(responses[calls++]));
   });
   assert.equal(calls, 24);
   assert.deepEqual(result, {
@@ -114,7 +115,7 @@ test("proof accepts empty pages and skips only reads depending on empty projects
   const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
     const index = commandIndex(argv);
     called.push(index);
-    return JSON.stringify(index === 0 ? responses[0] : []);
+    return JSON.stringify(index === 0 ? responses[0] : pageResult([]));
   });
   assert.deepEqual(called, [0, 1, 2, 7, 13, 14, 15, 18, 19, 20, 21, 22, 23]);
   assert.equal(result.passed, true);
@@ -140,7 +141,7 @@ test("every denied read fails while only uncalled dependencies skip and no error
           stdout: "synthetic-private-payload",
         });
       }
-      return JSON.stringify(responses[index]);
+      return JSON.stringify(pageResult(responses[index]));
     });
     const skipped = dependentRows(denied);
     assert.deepEqual(called, commands.map((_, index) => index).filter((index) => !skipped.includes(index)));
@@ -162,7 +163,7 @@ test("each collection rejects malformed, unsafe or overlarge responses without l
       const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
         const index = commandIndex(argv);
         called.push(index);
-        return index === position ? invalid : JSON.stringify(responses[index]);
+        return index === position ? invalid : JSON.stringify(pageResult(responses[index]));
       });
       const skipped = dependentRows(position);
       assert.equal(called.length, 24 - skipped.length);
@@ -190,7 +191,7 @@ test("identity, project defaults and selected details require their expected res
   ] as const) {
     const result = await runProfileProof(profileArgs, {}, async ({ argv }) => {
       const index = commandIndex(argv);
-      return JSON.stringify(index === position ? value : responses[index]);
+      return JSON.stringify(index === position ? value : pageResult(responses[index]));
     });
     assert.equal(result.passed, false);
     assert.equal(result.rows[position]?.status, "FAIL");
@@ -202,7 +203,7 @@ test("proof refuses CI and every URL/token/arbitrary command argument before inv
   for (const name of ["CI", "GITHUB_ACTIONS", "TF_BUILD", "TEAMCITY_VERSION", "JENKINS_URL", "BUILDKITE", "ci"])
     await assert.rejects(runProfileProof(profileArgs, { [name]: "true" }, neverInvoke), /refuses CI/);
   for (const argv of [[], ["--profile"], ["--profile", "../dev"], ["--profile", "profiles.json"],
-    ["--profile", "--json"], ["--profile", "dev", "--top", "10"],
+    ["--profile", "--json"], ["--profile", "dev", "--page-size", "10"],
     ["--profile", "dev", "--url", "https://example.com"], ["--profile", "dev", "--token", "synthetic"],
     ["--profile", "dev", "issues", "create"]]) {
     await assert.rejects(runProfileProof(argv, {}, neverInvoke), /Usage:/);

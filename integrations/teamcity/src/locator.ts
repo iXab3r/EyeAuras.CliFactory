@@ -1,5 +1,5 @@
 import type { TeamCityPageOptions } from "./models.js";
-import { integerParser } from "@eyeauras/cli-factory";
+import { advanceOffset, integerParser } from "@eyeauras/cli-factory";
 
 export const defaultPageLimit = 100;
 
@@ -24,6 +24,7 @@ export function normalizePage(options: TeamCityPageOptions = {}): {
   if (start < 0) {
     throw new Error("TeamCity page start must be non-negative.");
   }
+  advanceOffset(start, limit);
   return { limit, start };
 }
 

@@ -142,7 +142,9 @@ still share one child process and both response envelopes and service results mu
 
 `npm run test:integration --workspace @eyeauras/youtrack-cli -- --profile <name>` runs the existing
 24 fixed ReadOnly rows. Service projections, ID validation, bounded pages and dependent skips stay
-in the integration. It uses the same 30-second/64-KiB process bounds and removes `YOUTRACK_TOKEN`
+in the integration. Offset proof reads use `--page-size`/`--start` and validate page envelopes,
+including count/items agreement and continuation types; selected IDs come from `items`.
+It uses the same 30-second/64-KiB process bounds and removes `YOUTRACK_TOKEN`
 regardless of casing. Failed/denied reads remain failures; empty prerequisite lists skip only their
 dependent reads. The proof neither prints service payloads nor expands its inventory dynamically.
 

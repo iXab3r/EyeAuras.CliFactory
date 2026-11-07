@@ -48,10 +48,11 @@ caps typed/bulk items, roles, restrictions, tags, keys, mutes, backup modules, d
 or page sizes. Default page sizes remain convenient defaults and do not limit an explicit request.
 Pagination happens only when a command asks for it explicitly, and there is no recursive
 discovery or command replay. The YouTrack `issues list --all` requires a caller-selected
-`--max-results` budget (optional `--max-bytes`) and fails rather than truncating. A YouTrack field
-`name` selector reads the project's or issue's complete field list page by page (cancellable,
-without a budget: the list is finite service metadata); `project.shortName` reads one project, and
-exact IDs add no requests. Batch manifests have no row-count ceiling.
+`--max-results` budget (optional `--max-bytes`) and fails rather than truncating. It advances by
+actual raw rows to an empty page; short pages alone do not establish completion. All 47 offset
+lists use `--page-size`/`--start` and a local page envelope; native activity cursors remain separate.
+YouTrack writes send field `name`, `project.shortName` and ID selectors directly to the service
+without catalog scans or selector-discovery requests. Batch manifests have no row-count ceiling.
 
 TeamCity's extra text/path/XML/cron/identifier lengths, avatar pixel maximum and debug-token TTL
 maximum have been removed. Profile, category and AppData-name length checks are removed while

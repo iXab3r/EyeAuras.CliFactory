@@ -216,7 +216,8 @@ the runner, not once per command.
 sequence of domain items. The factory callback must acquire resources only when called, pass its
 supplied signal to pending work, and release resources in `finally`. Construct signal-bound clients
 inside that callback; a client bound only to the original handler signal cannot observe output
-disconnect. Paging, result budgets and service-specific cleanup remain integration-owned.
+disconnect. Service paging/cleanup and result budgets remain integration-owned; finite traversal
+may use the shared sequential mechanism described below.
 
 Ordinary CLI `--json` emits one unchanged JSON item per NDJSON line, awaiting each output write
 before requesting another item. An empty sequence emits no lines. Human CLI, `execute` (including
@@ -292,7 +293,7 @@ title can say `Removed tag 7 from DEMO-12` for a `null` result and a footer can 
 that continues a page. A view may decline an invocation through `when(context)`: an explicit
 field projection such as YouTrack's `--fields` then prints the generic shape, so a person sees
 exactly what they asked for. A table, list or tree prints one footer line only when there is more to
-read (`More results: --skip 50`, from `offsetFooter` for offset pages) and nothing when the
+read (`More results: --start 50`, from `offsetFooter` for offset pages) and nothing when the
 selection is complete. Timestamps print as `age` in tables and as ISO instants in records;
 calendar dates such as a sprint's start print as `YYYY-MM-DD`; sizes use binary units; service
 metadata such as `$type`, epoch numbers and nested JSON never appear in a view. Without a view,
@@ -570,6 +571,51 @@ notifications and long-running subscriptions are **planned** and will build on t
 The core package knows nothing about TeamCity resources. Integrations own endpoint paths, DTOs,
 pagination rules, browser selectors, and service terminology. HTTP clients depend on `fetch`;
 browser clients use the optional Playwright owner. Tests replace the actual HTTP/browser boundary.
+
+### Finite page traversal
+
+Core exports `traversePages(initial, visit, signal?)` and `advanceOffset(start, count)`.
+The former visits service-owned positions sequentially until the callback returns `undefined`,
+checking cancellation before and after every awaited visit, including the final one. It does
+not retry or impose a request/time/content ceiling. The latter checks nonnegative safe-integer
+addition before returning an offset. There is no shared page DTO, mode registry or HTTP adapter.
+Each integration retains accumulation, identity, budgets, ordering, end evidence and errors.
+The callback must either advance its service position or stop; adapters prove progress locally.
+
+TeamCity retains `--limit 100 --start 0`: limit bounds retained rows across wire requests.
+Its adapter requests one lookahead row, retains `lookupLimit` across sparse continuations, and
+reads only numeric dimensions from `nextHref`; it never dispatches that URL. Missing continuation
+after a short wire page proves the end. Malformed/nonprogressing continuation means unknown.
+A later read failure throws `list.incomplete` with the previously read page and preserved cause;
+cancellation remains cancellation. File lists, native scoped collections, diagnosis and scoped
+page mutations retain their specialized contracts. No unpaged response implies a complete target set.
+
+All 47 YouTrack offset lists use `--page-size 50 --start 0` and return the integration-local
+`{count,items,hasMore,nextStart}` in library, CLI, execute and RPC calls. Ordinary reads make one
+request without lookahead. A nonempty page, even a short one, has `hasMore:null`; `nextStart`
+advances by raw rows. A positive-size empty page confirms the end. A zero-size request supplies
+no end evidence and has no continuation. Do not infer a total or completeness from fullness.
+`issues list --all` requires `--max-results`, a positive page size and optionally `--max-bytes`;
+there is no default ceiling. It advances by raw rows to an empty page, deduplicates present string
+IDs and preserves rows without IDs. Duplicate-only nonempty pages fail for lack of progress.
+Budget overflow, unsafe arithmetic or any page failure rejects the entire complete selection
+without a partial result. Offset paging supplies no snapshot guarantee under concurrent changes.
+The two native activity cursor commands preserve direction, opaque cursors and projected native
+metadata; no automatic feed traversal or conversion to offsets is provided.
+
+Paging validation composes the existing local admission hook before connection/auth resolution;
+direct clients retain validation. Profile endpoint and credentials stay invocation-local across
+requests. Pagination performs only reads. Explicit batch writers gain no discovery requests or
+automatic list-to-write pipeline. A future complete-query target producer must reject unknown,
+continued or failed selections before writing.
+
+Evidence: [YouTrack pagination](https://www.jetbrains.com/help/youtrack/devportal/api-concept-pagination.html)
+(4 November 2026) documents offsets and activity direction but no short-page end guarantee.
+Continuing to an empty page is the local conservative offset rule.
+[TeamCity locators](https://www.jetbrains.com/help/teamcity/rest/locators.html) (2026.2 reference)
+and JetBrains' [PagerDataImpl](https://github.com/JetBrains/teamcity-rest/blob/fc730e618ccd4b57dbbaf03425bb79a9580d19d2/rest-api/src/jetbrains/buildServer/server/rest/model/PagerDataImpl.java)
+establish short-page termination and same-start lookup-limit expansion when no rows were served.
+These references do not certify every native collection or a deployed server version.
 
 Core's `readResponseBody(response, { signal, maxBytes? })` consumes one response into owned bytes
 without choosing HTTP status, media, UTF-8 decoding or JSON semantics. There is no default byte
@@ -1002,7 +1048,8 @@ Owns process execution and pipeline composition. It remains independently testab
 
 - A code generator before two real integrations demonstrate repeated authoring work.
 - A plugin runtime or dependency-injection container.
-- A universal service DTO, pagination model, or HTTP client wrapper.
+- A universal service DTO, pagination model, or HTTP client wrapper. The finite sequential
+  traversal mechanism above deliberately leaves those service contracts local.
 - A plaintext or silently degraded secret store.
 - Portable or executable-relative application data.
 - Treating local permission gates as a replacement for remote authorization or human policy.

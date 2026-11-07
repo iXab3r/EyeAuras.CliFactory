@@ -1,4 +1,5 @@
 export { readResponseBody } from "./response-body.js";
+export { advanceOffset, traversePages } from "./pagination.js";
 export { fetchWithRedirects } from "./http.js";
 export { parseServerUrl, normalizeBearerToken } from "./input-normalization.js";
 export { tokenAuth } from "./auth.js";

@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
@@ -93,8 +94,8 @@ for (const row of rows) {
       });
       return HttpResponse.json(explicit ? (row.collection ? [{ id: "fixture-only" }] : { id: "fixture-only" }) : row.result);
     }));
-    assert.deepEqual(await row.run(), row.result);
-    assert.deepEqual(await row.run({ fields: "id", top: 3, skip: 7 }), row.collection ? [{ id: "fixture-only" }] : { id: "fixture-only" });
+    assert.deepEqual(await row.run(), pageResult(row.result));
+    assert.deepEqual(await row.run({ fields: "id", pageSize: 3, start: 7 }), pageResult(row.collection ? [{ id: "fixture-only" }] : { id: "fixture-only" }, 7));
     assert.equal(calls, 2);
   });
 }
@@ -113,9 +114,9 @@ test("membership routes preserve aggregate, direct-account and attached-group se
     assert.ok(path.endsWith("/groups"));
     return HttpResponse.json([group]);
   }));
-  assert.deepEqual(await listUserBundleMembers(connection, bundleID), [directUser, inheritedUser]);
-  assert.deepEqual(await listUserBundleIndividuals(connection, bundleID), [directUser]);
-  assert.deepEqual(await listUserBundleGroups(connection, bundleID), [group]);
+  assert.deepEqual(await listUserBundleMembers(connection, bundleID), pageResult([directUser, inheritedUser]));
+  assert.deepEqual(await listUserBundleIndividuals(connection, bundleID), pageResult([directUser]));
+  assert.deepEqual(await listUserBundleGroups(connection, bundleID), pageResult([group]));
   assert.deepEqual(seen, ["aggregatedUsers", "individuals", "groups"].map((suffix) => `/context${bundlePath}/${suffix}`));
 });
 
@@ -142,9 +143,9 @@ test("all eight reads reject remote errors and malformed response shapes without
     await assert.rejects(row.run(), /^Error: Invalid JSON response from YouTrack\.$/);
     if (row.collection) {
       server.use(http.get("*", () => HttpResponse.json([])));
-      assert.deepEqual(await row.run(), []);
+      assert.deepEqual(await row.run(), pageResult([]));
       server.use(http.get("*", () => HttpResponse.json([{ id: "one" }, { id: "two" }])));
-      await assert.rejects(row.run({ top: 1 }), /More items than the requested page size/);
+      await assert.rejects(row.run({ pageSize: 1 }), /More items than the requested page size/);
     }
   }
 });
@@ -172,8 +173,8 @@ test("directory inputs reject invalid IDs, projections and paging before native 
   for (const row of rows) {
     await assert.rejects(row.run({ fields: null as unknown as string }), /fields must be text/);
     if (row.collection) {
-      for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
-        await assert.rejects(row.run(options), /--(top|skip) must/);
+      for (const options of [{ pageSize: -1 }, { pageSize: Number.MAX_SAFE_INTEGER + 1 }, { pageSize: 1.5 }, { start: -1 }, { start: Number.MAX_SAFE_INTEGER + 1 }]) {
+        await assert.rejects(row.run(options), /--(page-size|start) must/);
       }
     }
   }
@@ -213,10 +214,10 @@ test("all eight real CLI declarations return matching human and JSON output with
         }
         return HttpResponse.json(row.result);
       }));
-      const args = [...row.argv, ...(row.collection ? ["--top", "3", "--skip", "7"] : []), "--profile", "dev"];
+      const args = [...row.argv, ...(row.collection ? ["--page-size", "3", "--start", "7"] : []), "--profile", "dev"];
       assert.equal(await f.cli.run([...args, ...(json ? ["--json"] : [])]), 0);
       if (json) {
-        assert.deepEqual(JSON.parse(f.stdout()), row.result);
+        assert.deepEqual(JSON.parse(f.stdout()), pageResult(row.result, 7));
       } else {
         assert.match(f.stdout(), /Fixture/);
       }
@@ -267,7 +268,7 @@ test("directory RPC interleaves all eight reads across isolated profiles and sur
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.equal(replies[0].error.code, -32000);
   assert.match(replies[0].error.message, /ReadOnly/);
-  assert.deepEqual(replies.slice(1).map((reply) => reply.result), rows.map((row) => row.result));
+  assert.deepEqual(replies.slice(1).map((reply) => reply.result), rows.map((row) => pageResult(row.result)));
   // Readiness and handler contexts follow admission; denied requests create neither.
   assert.deepEqual(f.paths, frames.filter(({ profile }) => profile !== "locked").map(({ profile }) => join(f.appArguments.RoamingAppDataDirectory, profile)).flatMap((path) => [path, path]));
   assert.equal(f.stderr(), "");

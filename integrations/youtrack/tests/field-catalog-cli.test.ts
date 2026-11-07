@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { assertHttpRequest, trackRequests, assertPermissionDenied, assertCliOutput, assertSafeCliFailure } from "@eyeauras/cli-factory/testing";
 import { join } from "node:path";
@@ -26,9 +27,9 @@ for (const row of catalogCases) test(`catalog CLI ${row.argv.join(" ")} binds it
   });
   server.use(http.all("*", ({ request }) => requests.handle(request)));
   await assertCliOutput(f, f.cli, [
-    ...row.argv, "--fields", "id", ...(row.collection ? ["--top", "2", "--skip", "3"] : []),
+    ...row.argv, "--fields", "id", ...(row.collection ? ["--page-size", "2", "--start", "3"] : []),
     "--profile", "dev",
-  ], result, /fixture-result/, requests);
+  ], pageResult(result, 3), /fixture-result/, requests);
 });
 
 test("every catalog leaf requires ReadOnly even when Update is enabled", async (t) => {
@@ -50,10 +51,10 @@ test("catalog CLI rejects unsupported filters, detail pagination and malformed p
       await assert.rejects(f.cli.execute([...row.argv, flag, "--profile", "dev"]), /unknown option/);
     }
     if (row.collection) {
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "1e2", "--profile", "dev"]), /decimal integer/);
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "9007199254740992", "--profile", "dev"]), /nonnegative safe decimal integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--page-size", "1e2", "--profile", "dev"]), /decimal integer/);
+      await assert.rejects(f.cli.execute([...row.argv, "--page-size", "9007199254740992", "--profile", "dev"]), /nonnegative safe decimal integer/);
     } else {
-      await assert.rejects(f.cli.execute([...row.argv, "--top", "2", "--profile", "dev"]), /unknown option/);
+      await assert.rejects(f.cli.execute([...row.argv, "--page-size", "2", "--profile", "dev"]), /unknown option/);
     }
   }
   assert.equal(calls, 0);
@@ -91,7 +92,7 @@ test("catalog RPC isolates profile URLs, tokens, permissions and AppData and sur
   assert.equal(await f.cli.run(["--json-rpc"]), 0);
   const replies = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(replies.map((reply) => reply.id), [0, 1, 2, 3]);
-  assert.deepEqual(replies[0].result, []);
+  assert.deepEqual(replies[0].result, pageResult([]));
   assert.equal(replies[1].error.code, -32000);
   assert.equal(replies[1].error.message, "YouTrack answered HTTP 403.");
   assert.match(replies[2].error.message, /Permission 'ReadOnly' is disabled/);

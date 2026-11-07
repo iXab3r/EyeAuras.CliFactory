@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { after, afterEach, before, test, type TestContext } from "node:test";
@@ -48,7 +49,7 @@ for (const row of reads) test(`context CLI ${row.argv.slice(0, 3).join(" ")} pre
     return HttpResponse.json(row.result);
   }));
   assert.equal(await f.cli.run([...row.argv, "--profile", "dev", "--json"]), 0);
-  assert.deepEqual(JSON.parse(f.stdout()), row.result);
+  assert.deepEqual(JSON.parse(f.stdout()), pageResult(row.result, 0));
   assert.equal(calls, 1);
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   await assert.rejects(f.cli.execute([...row.argv, "--profile", "dev"]), /Permission 'ReadOnly' is disabled/);
@@ -70,7 +71,7 @@ test("activity cursor filters round-trip exactly, preserve metadata and never fe
     "--fields", "beforeCursor,afterCursor,hasBefore,hasAfter,reverse,activities(id)", "--profile", "dev"];
   assert.deepEqual(await f.cli.execute(argv), envelope);
   assert.equal(calls, 1);
-  for (const extra of [["--top", "1"], ["--skip", "0"], ["--page-size", "1"], ["--start", "1"], ["--end", "2"], ["--author", "me"], ["--activity-id", "fixture"], ["--issue-query", "test"]])
+  for (const extra of [["--page-size", "1"], ["--start", "0"], ["--page-size", "1"], ["--start", "1"], ["--end", "2"], ["--author", "me"], ["--activity-id", "fixture"], ["--issue-query", "test"]])
     await assert.rejects(f.cli.execute([...argv, ...extra]), /unknown option/);
   await assert.rejects(f.cli.execute(["issues", "activity", "page", "fixture-issue", "--categories", "CommentsCategory", "--issue-query", "test", "--profile", "dev"]), /unknown option/);
   assert.equal(calls, 1);
@@ -96,6 +97,35 @@ test("activity pages accept empty and sparse projections but reject invalid enve
   assert.deepEqual(await getActivitiesPage(connection, { categories: "CommentsCategory", fields: "id" }), { id: "fixture-page" });
 });
 
+test("native cursors preserve before/after navigation in either direction, even on empty pages", async t => {
+  const f = await fixture(t);
+  let calls = 0;
+  for (const issue of [false, true]) {
+    for (const reverse of [false, true]) {
+      for (const cursor of [envelope.beforeCursor, envelope.afterCursor]) {
+        const value = { ...envelope, reverse, activities: [] };
+        const path = issue ? "/issues/fixture-issue/activitiesPage" : "/activitiesPage";
+        server.use(http.get(endpoint + path, ({ request }) => {
+          calls++;
+          const query = new URL(request.url).searchParams;
+          assert.equal(query.get("cursor"), cursor);
+          assert.equal(query.get("reverse"), reverse ? "true" : null);
+          assert.equal(query.get("categories"), "CommentsCategory");
+          assert.equal(query.has("$skip"), false);
+          return HttpResponse.json(value);
+        }));
+        const argv = [...(issue ? ["issues", "activity", "page", "fixture-issue"] : ["activities", "page"]),
+          "--categories", "CommentsCategory", "--cursor", cursor, ...(reverse ? ["--reverse"] : []), "--profile", "dev"];
+        const before = calls;
+        assert.deepEqual(await f.cli.execute(argv), value);
+        const [reply] = await f.rpc(f.cli, [argv]) as { result: unknown }[];
+        assert.deepEqual(reply!.result, value);
+        assert.equal(calls, before + 2);
+      }
+    }
+  }
+});
+
 test("context collection paging and opaque child IDs preserve the configured context path", async (t) => {
   const f = await fixture(t);
   const seen: string[] = [];
@@ -110,7 +140,7 @@ test("context collection paging and opaque child IDs preserve the configured con
     return HttpResponse.json({ id: "fixture-item" });
   }));
   for (const resource of ["sprints", "vcs-changes"])
-    assert.deepEqual(await f.cli.execute(["issues", resource, "list", "fixture/issue?", "--top", "2", "--skip", "3", "--fields", "id", "--profile", "dev"]), []);
+    assert.deepEqual(await f.cli.execute(["issues", resource, "list", "fixture/issue?", "--page-size", "2", "--start", "3", "--fields", "id", "--profile", "dev"]), pageResult([]));
   for (const resource of ["comments", "vcs-changes"])
     assert.deepEqual(await f.cli.execute(["issues", resource, "get", "fixture/issue?", "%2e/#", "--fields", "id", "--profile", "dev"]), { id: "fixture-item" });
   assert.deepEqual(seen, ["/track/api/issues/fixture%2Fissue%3F/sprints", "/track/api/issues/fixture%2Fissue%3F/vcsChanges", "/track/api/issues/fixture%2Fissue%3F/comments/%252e%2F%23", "/track/api/issues/fixture%2Fissue%3F/vcsChanges/%252e%2F%23"]);

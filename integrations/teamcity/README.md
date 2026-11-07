@@ -121,14 +121,14 @@ Every collection command with `--limit <count>` and `--start <offset>` returns a
 **What the fields mean.**
 - `hasMore: false` only when TeamCity confirmed the end.
 - `hasMore: null` means not established: the continuation was not followed,
-  or a full page came without a continuation.
+  or its continuation metadata was malformed.
 - `nextStart` is the `--start` value that continues after the items returned. It is `null` when
   there is none, including when nothing was read: `--start` cannot carry a `lookupLimit`. Paging
   on while `nextStart` is not `null` always makes progress. Offsets can shift while new builds
   arrive, so this is not a snapshot.
 
 **When a later request fails.** The command exits 1 with the `list.incomplete` code. The items
-already read are still printed, with `hasMore: null`. A later request stopped by Ctrl+C reports
+already read are still printed, with `hasMore: null`; the original failure remains in the cause chain. A later request stopped by Ctrl+C reports
 `interrupted` instead.
 
 Human views print `More results: --start 20` only when a selection can continue.
@@ -140,7 +140,8 @@ still deletes exactly one requested page. Run a branch without a leaf, such as
 
 Paging defaults remain `--limit 100 --start 0`. These options accept decimal digits with an optional
 minus and leading zeros, but reject whitespace, plus signs, fractions and exponents. The start must
-be a nonnegative safe integer (`-0` remains valid); limit accepts any nonnegative safe integer. Invalid options fail before
+be a nonnegative safe integer (`-0` remains valid); limit accepts any nonnegative safe integer.
+Their sum must remain safe. Invalid options fail before
 profile onboarding or credential access. Each option now reports one static error for syntax, unsafe
 integers and range failures. The existing strict numeric build/queue-cancel/agent-show ID parsers
 use safe-integer validation without an invented positive-ID rule and use the same decimal grammar; other numeric service

@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -35,8 +36,8 @@ const rows = [
     run: () => countIssues(connection, query), argv: ["issues", "count", "--query", query], update: false },
   { path: "savedQueries", method: "GET", body: undefined, fields: savedFields,
     result: [{ id: "fixture-query", name: "Fixture saved query", query: null, owner: null }],
-    run: () => listSavedQueries(connection, { top: 3, skip: 2 }),
-    argv: ["saved-queries", "list", "--top", "3", "--skip", "2"], update: false },
+    run: () => listSavedQueries(connection, { pageSize: 3, start: 2 }),
+    argv: ["saved-queries", "list", "--page-size", "3", "--start", "2"], update: false },
   { path: `savedQueries/${encodeURIComponent("fixture /?#%é")}`, method: "GET", body: undefined, fields: savedFields,
     result: { id: "fixture-query", name: "Fixture saved query", query: null, owner: null },
     run: () => getSavedQuery(connection, "fixture /?#%é"),
@@ -68,7 +69,7 @@ test("six query endpoints send exact bounded native requests and preserve docume
   for (const row of rows) {
     const count = { calls: 0 };
     server.use(respond(row, count));
-    assert.deepEqual(await row.run(), row.result);
+    assert.deepEqual(await row.run(), pageResult(row.result, 2));
     assert.equal(count.calls, 1);
   }
 });
@@ -82,8 +83,8 @@ test("command selections are explicit and have no local count ceiling, and rejec
     () => assistCommands(connection, { query: "State", caret: 2_147_483_648 }),
     () => assistSearch(connection, { query: "tag", caret: -2_147_483_649 }),
     () => assistSearch(connection, { query: "tag", caret: 1.5 }),
-    () => listSavedQueries(connection, { top: Number.MAX_SAFE_INTEGER + 1 }),
-    () => listSavedQueries(connection, { skip: -1 }),
+    () => listSavedQueries(connection, { pageSize: Number.MAX_SAFE_INTEGER + 1 }),
+    () => listSavedQueries(connection, { start: -1 }),
     () => getSavedQuery(connection, ".."),
   ]) await assert.rejects(run(), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   assert.equal(calls, 0);
@@ -146,7 +147,7 @@ test("saved query pagination/projection and nested suggestion output use shared 
     assert.equal(url.searchParams.get("$skip"), "0");
     return HttpResponse.json([]);
   }));
-  assert.deepEqual(await listSavedQueries(connection, { fields: "query,owner" }), []);
+  assert.deepEqual(await listSavedQueries(connection, { fields: "query,owner" }), pageResult([]));
   server.use(http.post("*", () => HttpResponse.json({ suggestions: [{
     option: "synthetic-token", icon: "/files/fixture?sign=synthetic-signature",
   }] })));
@@ -163,7 +164,7 @@ test("all six leaves share human/JSON declarations; ReadOnly POSTs work with Upd
       const count = { calls: 0 };
       server.use(respond(row, count));
       assert.equal(await f.cli.run([...row.argv, "--profile", "dev", ...(json ? ["--json"] : [])]), 0);
-      if (json) assert.deepEqual(JSON.parse(f.stdout()), row.result);
+      if (json) assert.deepEqual(JSON.parse(f.stdout()), pageResult(row.result, 2));
       else assert.ok(f.stdout().trim());
       assert.equal(f.stderr(), "");
       assert.equal(count.calls, 1);

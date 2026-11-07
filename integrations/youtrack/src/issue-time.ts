@@ -6,7 +6,7 @@ import {
   mutationBody,
   nullableText,
   page,
-  readCollection,
+  readPage,
   readCollectionAt,
   readObjectAt,
   requiredText,
@@ -34,7 +34,7 @@ export const getIssueWorkItem = readObjectAt(
 );
 
 export async function listWorkItems(connection: Connection, options: IssueSearchOptions = {}) {
-  return readCollection(connection, "api/workItems", {
+  return readPage(connection, "api/workItems", {
     ...page(options, workItemFields),
     ...(options.query === undefined ? {} : { query: requiredText(options.query, "query") }),
   });

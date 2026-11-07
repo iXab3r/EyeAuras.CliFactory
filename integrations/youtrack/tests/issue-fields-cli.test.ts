@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { after, afterEach, before, test } from "node:test";
@@ -40,9 +41,9 @@ for (const row of reads) test(`field CLI ${row.argv.slice(0, 3).join(" ")} uses 
       });
       return HttpResponse.json(result);
     }));
-    const argv = [...row.argv, "--fields", "id", ...(row.collection ? ["--top", "3", "--skip", "7"] : []), "--profile", "dev"];
+    const argv = [...row.argv, "--fields", "id", ...(row.collection ? ["--page-size", "3", "--start", "7"] : []), "--profile", "dev"];
     assert.equal(await f.cli.run([...argv, ...(json ? ["--json"] : [])]), 0);
-    if (json) assert.deepEqual(JSON.parse(f.stdout()), result);
+    if (json) assert.deepEqual(JSON.parse(f.stdout()), pageResult(result, 7));
     else assert.match(f.stdout(), /fixture-id/);
     assert.equal(f.stderr(), "");
     assert.equal(calls, 1);
@@ -115,7 +116,7 @@ test("field RPC survives a profile denial and remote rejection with isolated URL
   assert.equal(replies[1].result, null);
   assert.equal(replies[2].error.code, -32000);
   assert.equal(replies[2].error.message, "YouTrack answered HTTP 403.");
-  assert.deepEqual(replies[3].result, []);
+  assert.deepEqual(replies[3].result, pageResult([]));
   assert.deepEqual(calls, ["POST dev.example.com", "GET production.example.com", "GET dev.example.com"]);
   // Readiness and handler contexts follow admission; denied requests create neither.
   assert.deepEqual(f.paths, ["dev", "production", "dev"].map((name) => join(f.appArguments.RoamingAppDataDirectory, name)).flatMap((path) => [path, path]));

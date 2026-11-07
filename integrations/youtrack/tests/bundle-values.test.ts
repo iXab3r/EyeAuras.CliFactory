@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -32,15 +33,15 @@ for (const row of bundleCases) test(`bundle GET ${row.path} binds finite default
     return HttpResponse.json(row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" });
   }));
   const expected = row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" };
-  assert.deepEqual(await row.run(connection), expected);
-  assert.deepEqual(await row.run(connection, { fields: "id,$type", top: 2, skip: 3 }), expected);
+  assert.deepEqual(await row.run(connection), pageResult(expected));
+  assert.deepEqual(await row.run(connection, { fields: "id,$type", pageSize: 2, start: 3 }), pageResult(expected, 3));
   assert.equal(calls, 2);
 });
 
 test("all bundle routes preserve empty/sparse data and reject malformed responses or remote denial safely", async () => {
   for (const row of bundleCases) {
     server.use(http.get("*", () => HttpResponse.json(row.collection ? [] : {})));
-    assert.deepEqual(await row.run(connection), row.collection ? [] : {});
+    assert.deepEqual(await row.run(connection), pageResult(row.collection ? [] : {}));
     for (const body of ["null", row.collection ? "{}" : "[]", "malformed-private-response"]) {
       server.use(http.get("*", () => new HttpResponse(body)));
       await assert.rejects(row.run(connection), /Invalid .*response/);
@@ -61,13 +62,13 @@ test("bundle dates, nullable owners and archive/release flags retain their servi
     { id: "fixture-build-two", assembleDate: null, archived: false },
   ];
   server.use(http.get("*", () => HttpResponse.json(buildValues)));
-  assert.deepEqual(await listBuildValues(connection, "fixture-bundle"), buildValues);
+  assert.deepEqual(await listBuildValues(connection, "fixture-bundle"), pageResult(buildValues));
   const ownedValues = [{ id: "fixture-owned", owner: null }, { id: "fixture-owned-two", owner: { id: "fixture-user", login: "fixture-login" } }];
   server.use(http.get("*", () => HttpResponse.json(ownedValues)));
-  assert.deepEqual(await listOwnedValues(connection, "fixture-bundle"), ownedValues);
+  assert.deepEqual(await listOwnedValues(connection, "fixture-bundle"), pageResult(ownedValues));
   const versionValues = [{ id: "fixture-version", released: false, archived: true, releaseDate: 0, startDate: null, description: null }];
   server.use(http.get("*", () => HttpResponse.json(versionValues)));
-  assert.deepEqual(await listVersionValues(connection, "fixture-bundle"), versionValues);
+  assert.deepEqual(await listVersionValues(connection, "fixture-bundle"), pageResult(versionValues));
 });
 
 test("explicit nested bundle projections cannot expose bearer tokens or signed URLs", async () => {
@@ -102,14 +103,14 @@ test("bundle lists reject invalid paging/projections before fetch and detect ove
   for (const row of bundleCases) {
     await assert.rejects(row.run(connection, { fields: null as unknown as string }), /fields must be text/);
     if (row.collection) {
-      for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
+      for (const options of [{ pageSize: -1 }, { pageSize: Number.MAX_SAFE_INTEGER + 1 }, { pageSize: 1.5 }, { start: -1 }, { start: Number.MAX_SAFE_INTEGER + 1 }]) {
         await assert.rejects(row.run(connection, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
       }
     }
   }
   assert.equal(calls, 0);
   for (const row of bundleCases.filter((item) => item.collection)) {
-    await assert.rejects(row.run(connection, { top: 1 }), /More items than the requested page size/);
+    await assert.rejects(row.run(connection, { pageSize: 1 }), /More items than the requested page size/);
   }
   assert.equal(calls, 6);
 });

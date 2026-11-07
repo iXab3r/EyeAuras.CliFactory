@@ -40,21 +40,22 @@ Examples use synthetic `DEMO` identifiers. Substitute the existing issue/project
 profile, keeping each read bounded to its question:
 
 ```text
-youtrack-cli issues list --query "project: DEMO" --fields "id,idReadable,summary" --top 10 --skip 0 --profile <name> --json
+youtrack-cli issues list --query "project: DEMO" --fields "id,idReadable,summary" --page-size 10 --start 0 --profile <name> --json
 youtrack-cli issues get DEMO-1 --fields "id,idReadable,summary,description" --profile <name> --json
-youtrack-cli issues comments list DEMO-1 --fields "id,text,author(login),created" --top 5 --skip 0 --profile <name> --json
-youtrack-cli issues fields list DEMO-1 --fields 'id,name,$type,value(id,name,login,isResolved)' --top 20 --skip 0 --profile <name> --json
-youtrack-cli project field list DEMO --top 20 --skip 0 --profile <name> --json
+youtrack-cli issues comments list DEMO-1 --fields "id,text,author(login),created" --page-size 5 --start 0 --profile <name> --json
+youtrack-cli issues fields list DEMO-1 --fields 'id,name,$type,value(id,name,login,isResolved)' --page-size 20 --start 0 --profile <name> --json
+youtrack-cli project field list DEMO --page-size 20 --start 0 --profile <name> --json
 ```
 
 In PowerShell put a projection containing `$type` in **single quotes** so it remains
-literal. Lists use `--top`/`--skip`; `--json` is our machine-output flag. Avoid full
+literal. Lists use `--page-size`/`--start`; `--json` is our machine-output flag. Avoid full
 descriptions, comments, attachments and nested objects in a status/inventory query.
 Fetch a selected issue or comment when its full text is needed. Retain full fields
 for diagnosis through an explicit projection; do not hide required evidence with
 shell line cuts or serialize a whole document before filtering it.
 
-A single list is one page. Increase skip using the actual returned count. A full
+A single offset list returns `{count,items,hasMore,nextStart}` for one page. Consume `items`
+and continue at `nextStart`. A nonempty page has unknown completeness, even when short. A full
 census explicitly uses `issues list --all --max-results <n>` and may add an aggregate
 `--max-bytes <n>`; exceeding either fails without a partial successful result. Offset
 paging is not a server snapshot: concurrent issue updates can change the selection.
@@ -95,6 +96,6 @@ yt.exe issues list --help
 yt.exe issues list --query "DEMO-1" --fields "id,idReadable,summary" --page-size 10 --max-results 10 --format json
 ```
 
-These Python flags are not interchangeable with our `--top`/`--skip`/`--json`.
+These Python flags are not interchangeable with our `--page-size`/`--start`/`--json`.
 Keep fallback writes explicit and verify their actual syntax and read-back state;
 do not translate a primary write mechanically or retry an ambiguous one.

@@ -1,13 +1,12 @@
 import {
   listView,
-  offsetFooter,
   recordView,
   tableView,
   type CommandDefinition,
   type HumanView,
   type ViewContext,
 } from "@eyeauras/cli-factory";
-import type { YouTrackObject } from "./client.js";
+import type { YouTrackObject, YouTrackPage } from "./client.js";
 
 type Item = YouTrackObject;
 
@@ -43,10 +42,11 @@ const joined = (...parts: (string | undefined)[]): string | undefined => {
   return present.length ? present.join(" · ") : undefined;
 };
 
-/** An offset page continues with `--skip` when it came back full; `--all` already read everything. */
-function pageFooter(rows: unknown, context: ViewContext): string | undefined {
-  if (!Array.isArray(rows) || context.input?.options.all === true) return undefined;
-  return offsetFooter("--skip", rows.length, count(context.input?.options.top), count(context.input?.options.skip));
+/** Show unknown completeness even on short nonempty pages; no lookahead is performed. */
+function pageFooter(page: YouTrackPage): string | undefined {
+  if (page.hasMore === false) return undefined;
+  return page.nextStart === null ? "More results may exist."
+    : `More results may exist: --start ${page.nextStart}`;
 }
 
 const id = { header: "ID", value: (item: Item) => text(item.id) };
@@ -56,7 +56,8 @@ const state = (issue: Item): string | undefined =>
 
 /** A plain ID + NAME table for reference lists such as bundles and groups. */
 export function namedTable(header: string, empty: string): HumanView {
-  return tableView<Item>({
+  return tableView<Item, YouTrackPage>({
+    rows: page => page.items,
     columns: [id, { header, value: (item) => text(item.name) }],
     empty,
     footer: pageFooter,
@@ -68,7 +69,8 @@ export function done(describe: (context: ViewContext) => string): HumanView {
   return recordView<unknown>({ title: (_value, context) => describe(context), fields: [] });
 }
 
-export const issueTable = tableView<Item>({
+export const issueTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     { header: "ISSUE", value: key },
     { header: "SUMMARY", value: (issue) => text(issue.summary), shrink: true },
@@ -123,7 +125,8 @@ export const countRecord = recordView<Item>({
   fields: [],
 });
 
-export const commentTable = tableView<Item>({
+export const commentTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     { header: "COMMENT", value: (comment) => text(comment.id) },
     { header: "AUTHOR", value: (comment) => login(comment) },
@@ -152,7 +155,8 @@ export const commentAdded = (owner: string): HumanView =>
 export const commentUpdated = (owner: string, comment: string): HumanView =>
   commentRecord((_value, context) => `Updated comment ${arg(context, comment)} on ${arg(context, owner)}`);
 
-export const projectTable = tableView<Item>({
+export const projectTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "KEY", value: (project) => text(project.shortName) },
@@ -171,7 +175,8 @@ export const projectRecord = recordView<Item>({
   ],
 });
 
-export const userTable = tableView<Item>({
+export const userTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "LOGIN", value: (user) => text(user.login) },
@@ -189,7 +194,8 @@ export const userRecord = recordView<Item>({
   ],
 });
 
-export const agileTable = tableView<Item>({
+export const agileTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "BOARD", value: (agile) => text(agile.name), shrink: true },
@@ -220,7 +226,8 @@ const sprintFields = [
   { label: "Default", value: (sprint: Item | null) => yes(sprint?.isDefault) },
 ];
 
-export const sprintTable = tableView<Item>({
+export const sprintTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "SPRINT", value: (sprint) => text(sprint.name), shrink: true },
@@ -239,7 +246,8 @@ export const sprintWritten = (verb: string): HumanView =>
     fields: sprintFields,
   });
 
-export const articleTable = tableView<Item>({
+export const articleTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     { header: "ARTICLE", value: key },
     { header: "SUMMARY", value: (article) => text(article.summary), shrink: true },
@@ -276,7 +284,8 @@ export const updatedArticle = writtenArticle("Updated");
 
 export const tagTable = namedTable("TAG", "No tags.");
 export const tagRecord = recordView<Item>({ title: (tag) => text(tag.name), fields: [{ label: "ID", value: (tag) => text(tag.id) }] });
-export const issueTagList = listView<Item>({
+export const issueTagList = listView<Item, YouTrackPage>({
+  items: page => page.items,
   line: (tag) => `${text(tag.name) ?? ""} (${text(tag.id) ?? ""})`,
   empty: "No tags.",
   footer: pageFooter,
@@ -286,7 +295,8 @@ export const tagAdded = recordView<Item | null>({
   fields: [],
 });
 
-export const linkTypeTable = tableView<Item>({
+export const linkTypeTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "TYPE", value: (type) => text(type.name) },
@@ -307,7 +317,12 @@ function linkLabel(group: Item): string {
       : text(type?.name);
   return `${label ?? text(type?.name) ?? "link"} (${text(group.id) ?? ""})`;
 }
-export const linkGroupList = listView<Item>({ line: linkLabel, empty: "No links.", footer: pageFooter });
+export const linkGroupList = listView<Item, YouTrackPage>({
+  items: page => page.items,
+  line: linkLabel,
+  empty: "No links.",
+  footer: pageFooter,
+});
 export const linkGroupRecord = recordView<Item>({
   title: linkLabel,
   fields: [
@@ -324,7 +339,8 @@ export const linkTypeRecord = recordView<Item>({
     { label: "Directed", value: (type) => yes(type.directed) },
   ],
 });
-export const linkedIssueList = listView<Item>({
+export const linkedIssueList = listView<Item, YouTrackPage>({
+  items: page => page.items,
   line: (issue) => [key(issue), text(issue.summary)].filter(Boolean).join("  "),
   empty: "No linked issues.",
   footer: pageFooter,
@@ -335,7 +351,8 @@ export const issueLinked = recordView<Item | null>({
   fields: [],
 });
 
-export const attachmentTable = tableView<Item>({
+export const attachmentTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "NAME", value: (attachment) => text(attachment.name) },
@@ -376,7 +393,8 @@ export const exportedArticle = recordView<Item>({
   next: () => [["downloads", "list"]],
 });
 
-export const groupTable = tableView<Item>({
+export const groupTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "GROUP", value: (group) => text(group.name), shrink: true },
@@ -396,7 +414,8 @@ export const groupRecord = recordView<Item>({
 });
 
 /** A project's custom-field settings wrap the global field under `field`. */
-export const projectFieldTable = tableView<Item>({
+export const projectFieldTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "FIELD", value: (setting) => text(nested(setting.field)?.name) },
@@ -417,7 +436,8 @@ export const commandApplied = recordView<Item | null>({
   fields: [],
 });
 
-export const fieldTable = tableView<Item>({
+export const fieldTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "FIELD", value: (field) => text(field.name) },
@@ -437,7 +457,8 @@ function fieldValue(value: unknown, type?: string): string | undefined {
   if (item) return text(item.name) ?? text(item.login) ?? text(item.presentation) ?? firstLine(item.text);
   return String(value);
 }
-export const issueFieldTable = tableView<Item>({
+export const issueFieldTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     { header: "FIELD", value: (field) => text(field.name) },
     { header: "VALUE", value: (field) => fieldValue(field.value, text(field.$type)), shrink: true },
@@ -453,7 +474,8 @@ export const issueFieldRecord = recordView<Item | null>({
   fields: [{ label: "ID", value: (field) => text(field?.id) }],
 });
 
-export const workItemTable = tableView<Item>({
+export const workItemTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "DATE", value: (item) => day(item.date) },
@@ -467,7 +489,8 @@ export const workItemTable = tableView<Item>({
   footer: pageFooter,
 });
 
-export const savedQueryTable = tableView<Item>({
+export const savedQueryTable = tableView<Item, YouTrackPage>({
+  rows: page => page.items,
   columns: [
     id,
     { header: "NAME", value: (query) => text(query.name) },

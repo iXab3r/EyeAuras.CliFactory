@@ -436,7 +436,9 @@ names and identifiers one per line. Use `treeView` for a flat selection with `id
 `line` accessors; missing parents become roots without extra requests. Tables can also declare
 `next` for follow-up commands. A view's title, footer and `next` callbacks receive the
 context with the command's `input`, so a `null` result can still say `Removed tag 7 from DEMO-12`
-and a full page can end with `offsetFooter("--skip", rows.length, top, skip)`. A view's `when`
+and an offset adapter can express its service evidence in a footer. YouTrack uses
+`More results may exist` for nonempty pages; TeamCity uses its lookahead/continuation metadata.
+A view's `when`
 guard declines an invocation, for example one with an explicit field projection, and Core then
 prints the generic shape. Service date formats stay in the integration: convert them to `Date`
 in the accessor. Group a branch's children for help with `helpLayout`. See
@@ -578,6 +580,39 @@ request and result. Omit `profiles` to test unconfigured onboarding, and declare
 explicitly. The fixture does not assume token authentication; credential names belong to the
 integration. Every created app is disposed before the fixture deletes its temporary AppData.
 See [the testing guide](testing.md#shared-offline-cli-fixture) for invocation and cleanup details.
+## Finite page traversal
+
+Keep the endpoint, query encoding, DTOs and proof of completion in the integration.
+Use one local collection adapter so each command author declares only its path, projection and
+service options. TeamCity's `#list` and YouTrack's `readCollectionAt` are the two working examples.
+For a finite multi-request operation, reuse Core's sequential traversal and checked offset addition:
+
+```ts
+const items: Release[] = [];
+await traversePages(start, async offset => {
+  const rows = await readReleasePage(connection, { start: offset, pageSize });
+  if (rows.length === 0) return; // Only if this service documents empty-page termination.
+  for (const row of rows) items.push(row);
+  if (items.length > maxResults) throw new Error("The selection exceeds --max-results.");
+  return advanceOffset(offset, rows.length);
+}, connection.signal);
+```
+
+Import `traversePages` and `advanceOffset` from Core. Validate caller options before acquiring a
+connection where possible, and inside direct-library clients too. The callback must advance its
+service position or stop. For link/cursor services prove progress using their actual continuation
+contract; never dispatch an arbitrary credential-bearing link or split opaque cursor pages.
+Do not infer end from a short page without evidence, add default ceilings/retries, or make list
+commands discover write targets. Give complete selection an explicit caller result budget and
+fail without partial success on overflow, unknown end or page failure. Keep native cursor commands
+specialized when no finite traversal consumer exists.
+
+Prove one page, two pages, exact budget plus end probe, server caps, empty continuation,
+duplicate/no-ID policy, malformed/no-progress continuation, safe arithmetic, cancellation and later
+failure through the HTTP boundary. Exercise human/JSON/execute/RPC, two profiles and denial before
+credentials/network. Report source totals across Core and integrations separately from tests;
+shared safety code is not automatically an endpoint-authoring reduction.
+
 ## Response consumption
 
 Use Core's owning byte reader after service status handling:

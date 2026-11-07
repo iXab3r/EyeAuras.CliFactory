@@ -74,7 +74,7 @@ const rootLayout = [
 ] as const;
 
 const issueExamples = [
-  'issues list --query "project: DEMO #Unresolved" --top 20',
+  'issues list --query "project: DEMO #Unresolved" --page-size 20',
   "issues get DEMO-12",
   `issues create --body '{"project":{"shortName":"DEMO"},"summary":"Login page crashes on Safari"}'`,
   `issues update DEMO-12 --body '{"summary":"Login page crashes on Safari 18"}'`,
@@ -161,9 +161,6 @@ export function createYouTrackCli(runtime?: CliRuntime): CliApplication {
           "list",
           "Search issues",
           (client, { options }, context) => {
-            if ((options.all === true) !== (options.maxResults !== undefined)) {
-              throw new Error("--all and --max-results go together.");
-            }
             return listIssues(client, { ...readOptions(options), progress: context.progress });
           },
           [

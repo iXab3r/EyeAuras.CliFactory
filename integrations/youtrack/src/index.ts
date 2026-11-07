@@ -12,6 +12,7 @@ export {
   type PageOptions,
   type ProjectionOptions,
   type YouTrackObject,
+  type YouTrackPage,
   type YouTrackUser,
   type YouTrackValue,
 } from "./client.js";

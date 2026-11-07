@@ -1,4 +1,4 @@
-import { CliError, HttpError, diagnosticCause, fetchWithRedirects, readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
+import { advanceOffset, traversePages, CliError, HttpError, diagnosticCause, fetchWithRedirects, readResponseBody, parseServerUrl, normalizeBearerToken } from "@eyeauras/cli-factory";
 
 export interface YouTrackUser {
   id: string;
@@ -28,8 +28,15 @@ export interface ProjectionOptions {
   fields?: string;
 }
 export interface PageOptions extends ProjectionOptions {
-  top?: number;
-  skip?: number;
+  pageSize?: number;
+  start?: number;
+}
+/** One offset selection; null completeness means the server supplied no end evidence. */
+export interface YouTrackPage<T = YouTrackObject> {
+  count: number;
+  items: T[];
+  hasMore: boolean | null;
+  nextStart: number | null;
 }
 export interface IssueSearchOptions extends PageOptions {
   query?: string;
@@ -63,15 +70,16 @@ export function fields(options: ProjectionOptions, defaults: string): string {
 }
 
 export function page(options: PageOptions, defaults: string): Record<string, string> {
-  const top = options.top === undefined ? 50 : options.top;
-  const skip = options.skip === undefined ? 0 : options.skip;
-  if (!Number.isSafeInteger(top) || top < 0) {
-    throw new Error("--top must be a nonnegative safe integer.");
+  const pageSize = options.pageSize === undefined ? 50 : options.pageSize;
+  const start = options.start === undefined ? 0 : options.start;
+  if (!Number.isSafeInteger(pageSize) || pageSize < 0) {
+    throw new Error("--page-size must be a nonnegative safe integer.");
   }
-  if (!Number.isSafeInteger(skip) || skip < 0) {
-    throw new Error("--skip must be a nonnegative integer.");
+  if (!Number.isSafeInteger(start) || start < 0) {
+    throw new Error("--start must be a nonnegative safe integer.");
   }
-  return { fields: fields(options, defaults), $top: String(top), $skip: String(skip) };
+  advanceOffset(start, pageSize);
+  return { fields: fields(options, defaults), $top: String(pageSize), $skip: String(start) };
 }
 
 export function encodedID(id: string, label = "ID"): string {
@@ -283,39 +291,59 @@ export async function readCollection(
   return value.map(object);
 }
 
-/**
- * Read an offset collection in server order until a short page proves the selection complete.
+/** One request, without lookahead. A zero-size request supplies no end evidence. */
+export async function readPage(
+  connection: Connection,
+  path: string,
+  query: Record<string, string>,
+  budget?: ByteBudget,
+): Promise<YouTrackPage> {
+  const items = await readCollection(connection, path, query, budget);
+  const ended = Number(query.$top) > 0 && items.length === 0;
+  return {
+    count: items.length, items, hasMore: ended ? false : null,
+    nextStart: items.length === 0 ? null : advanceOffset(Number(query.$skip), items.length),
+  };
+}
+
+/** Read a complete issue selection; only an empty offset page establishes its end.
  * Repeated string IDs are dropped; offset paging is not a snapshot of a changing dataset.
  */
 export async function readPages(
   connection: Connection,
   path: string,
   query: Record<string, string>,
-  { top, skip, maxResults = Infinity, budget, progress }: {
-    top: number; skip: number; maxResults?: number; budget?: ByteBudget | undefined;
+  { pageSize, start, maxResults, budget, progress }: {
+    pageSize: number; start: number; maxResults: number; budget?: ByteBudget | undefined;
     progress?: ((message: string) => void) | undefined;
   },
 ): Promise<YouTrackObject[]> {
+  positiveBudget(pageSize, "page-size");
+  positiveBudget(maxResults, "max-results");
+  advanceOffset(start, 0);
   const items: YouTrackObject[] = [];
   const ids = new Set<string>();
-  for (let offset = skip; ;) {
-    const size = Math.min(top, maxResults + 1 - items.length);
-    const page = await readCollection(connection, path, { ...query, $top: String(size), $skip: String(offset) }, budget);
+  await traversePages(start, async (offset) => {
+    // Add a proof row only when representable; at MAX_SAFE_INTEGER probe separately.
+    const remaining = maxResults - items.length;
+    const size = Math.min(pageSize, remaining === Number.MAX_SAFE_INTEGER ? remaining : remaining + 1);
+    const rows = await readCollection(connection, path, { ...query, $top: String(size), $skip: String(offset) }, budget);
+    if (rows.length === 0) return;
     const before = items.length;
-    for (const item of page) {
+    for (const item of rows) {
       if (typeof item.id !== "string" || !ids.has(item.id)) items.push(item);
       if (typeof item.id === "string") ids.add(item.id);
     }
     if (items.length > maxResults) {
       throw new Error("The selection exceeds --max-results; narrow the query or raise the limit.");
     }
-    if (page.length < size) return items;
     if (items.length === before) {
-      throw new Error("A full page repeated; paging stopped without a complete selection.");
+      throw new Error("A page repeated; paging stopped without a complete selection.");
     }
     progress?.(`Read ${items.length} so far; reading the next page.`);
-    offset += size;
-  }
+    return advanceOffset(offset, rows.length);
+  }, connection.signal);
+  return items;
 }
 
 type ResourcePath = string | ((...arguments_: never[]) => string);
@@ -355,10 +383,10 @@ export function readCollectionAt<const Path extends ResourcePath>(
 ): (
   connection: Connection,
   ...arguments_: [...ResourcePathArguments<Path>, options?: PageOptions]
-) => Promise<YouTrackObject[]> {
+) => Promise<YouTrackPage> {
   return async (connection, ...values) => {
     const { pathArguments, options } = resourceArguments<PageOptions>(values);
-    return readCollection(
+    return readPage(
       connection,
       resourcePath(path, pathArguments),
       page(options, defaultFields),
@@ -417,7 +445,7 @@ function positiveBudget(value: number, label: string): number {
 export async function listIssues(
   connection: Connection,
   options: IssueSearchOptions = {},
-): Promise<YouTrackObject[]> {
+): Promise<YouTrackPage> {
   const query: Record<string, string> = {
     ...page(options, issueListFields),
     ...(options.query === undefined ? {} : { query: requiredText(options.query, "query") }),
@@ -425,15 +453,15 @@ export async function listIssues(
   const budget = options.maxBytes === undefined
     ? undefined
     : { remaining: positiveBudget(options.maxBytes, "max-bytes") };
-  return options.maxResults === undefined
-    ? readCollection(connection, "api/issues", query, budget)
-    : readPages(connection, "api/issues", query, {
-      top: Number(query.$top),
-      skip: Number(query.$skip),
-      maxResults: positiveBudget(options.maxResults, "max-results"),
-      budget,
-      progress: options.progress,
-    });
+  if (options.maxResults === undefined) return readPage(connection, "api/issues", query, budget);
+  const items = await readPages(connection, "api/issues", query, {
+    pageSize: Number(query.$top),
+    start: Number(query.$skip),
+    maxResults: positiveBudget(options.maxResults, "max-results"),
+    budget,
+    progress: options.progress,
+  });
+  return { count: items.length, items, hasMore: false, nextStart: null };
 }
 
 export const getIssue = readObjectAt(issuePath, `${issueListFields},description,created`);

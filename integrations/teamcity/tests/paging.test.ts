@@ -131,6 +131,9 @@ test("a failed later page keeps the items read so far; a failed first page is th
   await assert.rejects(readPages(3, 0, later.read), (error: unknown) => {
     assert.ok(error instanceof CliError);
     assert.equal(error.code, "list.incomplete");
+    assert.ok(error.cause instanceof Error);
+    assert.equal(error.cause.message, failure.message);
+    assert.equal(error.cause.stack, failure.stack);
     assert.deepEqual(error.result, { count: 2, items: [1, 2], hasMore: null, nextStart: 2 });
     return true;
   });
@@ -140,8 +143,9 @@ test("a failed later page keeps the items read so far; a failed first page is th
   const stopped = scripted([{ items: [1, 2], next: "start:2,count:4" }, failure]);
   await assert.rejects(
     readPages(3, 0, stopped.read, AbortSignal.abort()),
-    (error: unknown) => error === failure,
+    (error: unknown) => error instanceof Error && error.name === "AbortError",
   );
+  assert.equal(stopped.requests.length, 0);
 });
 
 test("builds list reads across a lookup-limit continuation and reports completeness", async (t) => {
@@ -182,4 +186,35 @@ test("a failed later builds page still prints what was read and exits non-zero",
     count: 1, items: [{ id: 1, state: "finished", status: "SUCCESS" }], hasMore: null, nextStart: 1,
   });
   assert.equal(JSON.parse(result.stderr).error.code, "list.incomplete");
+});
+
+test("malformed continuations stay unknown and oversized pages are rejected", async () => {
+  for (const nextHref of [42, "/no-locator", href("start:1,lookupLimit:invalid"), href("start:9007199254740992")]) {
+    assert.deepEqual(await readPages(2, 0, async () => ({ items: [1], nextHref })), {
+      count: 1, items: [1], hasMore: null, nextStart: 1,
+    });
+  }
+  await assert.rejects(readPages(1, 0, async () => ({ items: [1, 2, 3], nextHref: undefined })), /requested page size/);
+  await assert.rejects(readPages(1, Number.MAX_SAFE_INTEGER, async () => assert.fail("read")), /safe integer/);
+});
+
+test("foreign continuation text only supplies dimensions; it cannot redirect credentials", async t => {
+  let calls = 0;
+  server.use(http.get("https://teamcity.test/app/rest/builds", ({ request }) => {
+    assert.match(request.headers.get("authorization") ?? "", /^Bearer /);
+    return ++calls === 1 ? HttpResponse.json({ build: [],
+      nextHref: "https://foreign.example.test/private?locator=start:0,lookupLimit:10000" })
+      : HttpResponse.json({ build: [] });
+  }));
+  const runtime = await createTestRuntime(t);
+  const result = await runtime.createCli().execute(["builds", "list"]);
+  assert.deepEqual(result, { count: 0, items: [], hasMore: false, nextStart: null });
+  assert.equal(calls, 2);
+});
+
+test("unsafe offset windows reject before credentials or service work", async t => {
+  const runtime = await createTestRuntime(t, { profiles: [{ name: "default" }], tokens: {} });
+  runtime.secretStore.get = async () => assert.fail("credentials");
+  const cli = runtime.createCli();
+  await assert.rejects(cli.execute(["projects", "list", "--start", String(Number.MAX_SAFE_INTEGER), "--limit", "1"]), /safe integer/);
 });

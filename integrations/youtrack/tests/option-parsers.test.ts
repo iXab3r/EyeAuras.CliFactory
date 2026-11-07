@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { http, HttpResponse } from "msw";
@@ -11,17 +12,17 @@ test.after(() => server.close());
 
 test("YouTrack paging preserves defaults, leading zeros and inclusive bounds at native fetch", async t => {
   const f = await configuredFixture(t, { url: "https://youtrack.example.com" });
-  const pages = [["50", "0"], ["1", "0"], ["1000", "9007199254740991"]];
+  const pages = [["50", "0"], ["1", "0"], ["1000", "9007199254739991"]];
   let calls = 0;
   server.use(http.get("https://youtrack.example.com/api/admin/projects", ({ request }) => {
-    const [top, skip] = pages[calls++] ?? [];
+    const [pageSize, start] = pages[calls++] ?? [];
     assert.deepEqual(Object.fromEntries(new URL(request.url).searchParams), {
-      fields: "id,name,shortName", $top: top, $skip: skip,
+      fields: "id,name,shortName", $top: pageSize, $skip: start,
     });
     return HttpResponse.json([]);
   }));
-  for (const options of [[], ["--top", "001", "--skip", "000"], ["--top", "1000", "--skip", "9007199254740991"]]) {
-    assert.deepEqual(await f.cli.execute(["project", "list", ...options, "--profile", "dev"]), []);
+  for (const options of [[], ["--page-size", "001", "--start", "000"], ["--page-size", "1000", "--start", "9007199254739991"]]) {
+    assert.deepEqual(await f.cli.execute(["project", "list", ...options, "--profile", "dev"]), pageResult([]));
   }
   assert.equal(calls, 3);
 });
@@ -36,12 +37,12 @@ test("YouTrack invalid paging fails before TTY onboarding and auth on CLI, execu
   server.use(http.all("*", () => { calls++; return HttpResponse.json([]); }));
   const cases = [
     ...["-1", "9007199254740992", "-0", "+1", "1.0", "1e2", "0x10", " 1", "1\n", "synthetic-secret\u0000value"].map(value => ({
-      argv: ["project", "list", "--top", value],
-      message: "--top must be a nonnegative safe decimal integer.",
+      argv: ["project", "list", "--page-size", value],
+      message: "--page-size must be a nonnegative safe decimal integer.",
     })),
     ...["-0", "-1", "9007199254740992"].map(value => ({
-      argv: ["project", "list", "--skip", value],
-      message: "--skip must be a nonnegative integer.",
+      argv: ["project", "list", "--start", value],
+      message: "--start must be a nonnegative integer.",
     })),
     { argv: ["issues", "create", "--body", '{"synthetic-secret":"unterminated'],
       message: "The body must be valid JSON." },

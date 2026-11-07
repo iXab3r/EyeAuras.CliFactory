@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { Readable } from "node:stream";
 import { after, afterEach, before, test, type TestContext } from "node:test";
@@ -55,7 +56,7 @@ test("all five article reads use documented paths, finite defaults and bounded c
       assert.equal(request.headers.get("authorization"), "Bearer " + connection.token);
       return HttpResponse.json(item.list ? [result] : result);
     }));
-    assert.deepEqual(await item.run(), item.list ? [result] : result);
+    assert.deepEqual(await item.run(), pageResult(item.list ? [result] : result));
   }
   assert.equal(calls, 5);
 });
@@ -65,9 +66,9 @@ test("article reads encode opaque IDs once and honor sparse fields/page options"
   const cases = [
     { path: "/articles/" + encodeURIComponent(id), list: false, run: () => getArticle(connection, id, { fields: "id" }) },
     { path: "/articles/" + encodeURIComponent(id) + "/comments/" + encodeURIComponent(id), list: false, run: () => getArticleComment(connection, id, id, { fields: "id" }) },
-    { path: "/articles/" + encodeURIComponent(id) + "/comments", list: true, run: () => listArticleComments(connection, id, { fields: "id", top: 2, skip: 4 }) },
-    { path: "/admin/projects/" + encodeURIComponent(id) + "/articles", list: true, run: () => listProjectArticles(connection, id, { fields: "id", top: 2, skip: 4 }) },
-    { path: "/articles", list: true, run: () => listArticles(connection, { fields: "id", top: 2, skip: 4 }) },
+    { path: "/articles/" + encodeURIComponent(id) + "/comments", list: true, run: () => listArticleComments(connection, id, { fields: "id", pageSize: 2, start: 4 }) },
+    { path: "/admin/projects/" + encodeURIComponent(id) + "/articles", list: true, run: () => listProjectArticles(connection, id, { fields: "id", pageSize: 2, start: 4 }) },
+    { path: "/articles", list: true, run: () => listArticles(connection, { fields: "id", pageSize: 2, start: 4 }) },
   ];
   for (const item of cases) {
     server.use(http.get("*", ({ request }) => {
@@ -78,7 +79,7 @@ test("article reads encode opaque IDs once and honor sparse fields/page options"
       assert.equal(url.searchParams.get("$skip"), item.list ? "4" : null);
       return HttpResponse.json(item.list ? [{}] : {});
     }));
-    assert.deepEqual(await item.run(), item.list ? [{}] : {});
+    assert.deepEqual(await item.run(), pageResult(item.list ? [{}] : {}, 4));
   }
 });
 
@@ -191,8 +192,8 @@ test("article validation rejects missing, empty, mistyped and unsupported write 
 test("article reads reject invalid pages and dot IDs before HTTP", async () => {
   let calls = 0;
   server.use(http.get("*", () => { calls++; return HttpResponse.json([]); }));
-  await assert.rejects(listArticles(connection, { top: Number.MAX_SAFE_INTEGER + 1 }), /top/);
-  await assert.rejects(listArticleComments(connection, "fixture-article", { skip: -1 }), /skip/);
+  await assert.rejects(listArticles(connection, { pageSize: Number.MAX_SAFE_INTEGER + 1 }), /page-size/);
+  await assert.rejects(listArticleComments(connection, "fixture-article", { start: -1 }), /start/);
   await assert.rejects(listProjectArticles(connection, ".."), /dot path/);
   await assert.rejects(getArticle(connection, "."), /dot path/);
   await assert.rejects(getArticleComment(connection, "fixture-article", ".."), /dot path/);
@@ -202,12 +203,12 @@ test("article reads reject invalid pages and dot IDs before HTTP", async () => {
 
 test("article reads reject malformed shapes and oversized pages while preserving empty arrays", async () => {
   server.use(http.get("*", () => HttpResponse.json([])));
-  assert.deepEqual(await listArticles(connection), []);
+  assert.deepEqual(await listArticles(connection), pageResult([]));
   await assert.rejects(getArticle(connection, "fixture-article"), /Invalid object/);
   server.use(http.get("*", () => HttpResponse.json({})));
   await assert.rejects(listArticleComments(connection, "fixture-article"), /Invalid collection/);
   server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-  await assert.rejects(listProjectArticles(connection, "fixture-project", { top: 1 }), /page size/);
+  await assert.rejects(listProjectArticles(connection, "fixture-project", { pageSize: 1 }), /page size/);
   server.use(http.get("*", () => new HttpResponse("synthetic-invalid-json")));
   await assert.rejects(getArticleComment(connection, "fixture-article", "fixture-comment"), /Invalid JSON response/);
 });
@@ -289,9 +290,9 @@ test("actual CLI mounts all nine article commands with fields/paging and exact s
     return HttpResponse.json(list ? [{ id: "fixture" }] : { id: "fixture" });
   }));
   for (const [index, command] of [...readCommands, ...writeCommands].entries()) {
-    const paging = [0, 2, 4].includes(index) ? ["--top", "2", "--skip", "3"] : [];
+    const paging = [0, 2, 4].includes(index) ? ["--page-size", "2", "--start", "3"] : [];
     const result = await f.cli.execute([...command, ...paging, "--fields", "id", "--profile", "dev"]);
-    assert.deepEqual(result, [0, 2, 4].includes(index) ? [{ id: "fixture" }] : { id: "fixture" });
+    assert.deepEqual(result, pageResult([0, 2, 4].includes(index) ? [{ id: "fixture" }] : { id: "fixture" }, 3));
   }
   assert.equal(calls, 9);
 });
@@ -368,7 +369,7 @@ test("persistent article RPC isolates profiles and mutation gates while retainin
   }));
   const commands = [
     ["article", "get", "fixture-article", "--fields", "content", "--profile", "dev"],
-    ["project", "article", "list", "fixture-project", "--top", "1", "--profile", "production"],
+    ["project", "article", "list", "fixture-project", "--page-size", "1", "--profile", "production"],
     [...writeCommands[0]!, "--fields", "content", "--profile", "dev"],
     [...writeCommands[3]!, "--profile", "production"],
   ];
@@ -380,7 +381,7 @@ test("persistent article RPC isolates profiles and mutation gates while retainin
   const rows = f.stdout().trim().split("\n").map((line) => JSON.parse(line));
   assert.equal(rows.length, 4);
   assert.deepEqual(rows[0].result, { content: "[redacted]" });
-  assert.deepEqual(rows[1].result, [{ id: "fixture" }]);
+  assert.deepEqual(rows[1].result, pageResult([{ id: "fixture" }]));
   assert.deepEqual(rows[2].result, { content: "[redacted]" });
   assert.equal(rows[3].error.code, -32000);
   assert.match(rows[3].error.message, /Permission 'Update' is disabled/);

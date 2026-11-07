@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -37,15 +38,15 @@ for (const row of catalogCases) test(`catalog GET ${row.path} sends its finite p
     return HttpResponse.json(row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" });
   }));
   const expected = row.collection ? [{ id: "fixture-result" }] : { id: "fixture-result" };
-  assert.deepEqual(await row.run(connection), expected);
-  assert.deepEqual(await row.run(connection, { fields: "id,$type", top: 2, skip: 3 }), expected);
+  assert.deepEqual(await row.run(connection), pageResult(expected));
+  assert.deepEqual(await row.run(connection, { fields: "id,$type", pageSize: 2, start: 3 }), pageResult(expected, 3));
   assert.equal(calls, 2);
 });
 
 test("all catalog routes retain empty/sparse data and reject malformed responses without leaking diagnostics", async () => {
   for (const row of catalogCases) {
     server.use(http.get("*", () => HttpResponse.json(row.collection ? [] : {})));
-    assert.deepEqual(await row.run(connection), row.collection ? [] : {});
+    assert.deepEqual(await row.run(connection), pageResult(row.collection ? [] : {}));
     for (const body of ["null", row.collection ? "{}" : "[]", "malformed-synthetic-private"]) {
       server.use(http.get("*", () => new HttpResponse(body)));
       await assert.rejects(row.run(connection), /Invalid .*response/);
@@ -63,7 +64,7 @@ test("all catalog routes retain empty/sparse data and reject malformed responses
 test("catalog nullable metadata, archived values and state resolution flags remain source-shaped", async () => {
   const choice = { id: "fixture-choice", localizedName: null, description: null, archived: true, isResolved: false };
   server.use(http.get("*", () => HttpResponse.json([choice])));
-  assert.deepEqual(await listStateValues(connection, "fixture-bundle"), [choice]);
+  assert.deepEqual(await listStateValues(connection, "fixture-bundle"), pageResult([choice]));
   const detail = { id: "fixture-field", aliases: null, localizedName: null, fieldType: { id: "enum[*]", isMultiValue: true } };
   server.use(http.get("*", () => HttpResponse.json(detail)));
   assert.deepEqual(await getCustomField(connection, "fixture-field"), detail);
@@ -81,14 +82,14 @@ test("catalog rejects invalid paging and projection before fetch and detects ove
   for (const row of catalogCases) {
     await assert.rejects(row.run(connection, { fields: null as unknown as string }), /fields must be text/);
     if (row.collection) {
-      for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }]) {
+      for (const options of [{ pageSize: -1 }, { pageSize: Number.MAX_SAFE_INTEGER + 1 }, { pageSize: 1.5 }, { start: -1 }, { start: Number.MAX_SAFE_INTEGER + 1 }]) {
         await assert.rejects(row.run(connection, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
       }
     }
   }
   assert.equal(calls, 0);
   for (const row of catalogCases.filter((item) => item.collection)) {
-    await assert.rejects(row.run(connection, { top: 1 }), /More items than the requested page size/);
+    await assert.rejects(row.run(connection, { pageSize: 1 }), /More items than the requested page size/);
   }
   assert.equal(calls, catalogCases.filter((item) => item.collection).length);
 });

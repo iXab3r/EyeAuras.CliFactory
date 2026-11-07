@@ -17,12 +17,12 @@ test("a list prints one line per item, its empty text, and a footer only when it
 });
 
 test("offset pages continue only when they came back full", () => {
-  assert.equal(moreResults("--skip", 50), "More results: --skip 50");
-  assert.equal(offsetFooter("--skip", 50, 50), "More results: --skip 50");
-  assert.equal(offsetFooter("--skip", 50, 50, 100), "More results: --skip 150");
-  assert.equal(offsetFooter("--skip", 12, 50), undefined);
-  assert.equal(offsetFooter("--skip", 12, undefined), undefined);
-  assert.equal(offsetFooter("--skip", 0, 0), undefined);
+  assert.equal(moreResults("--start", 50), "More results: --start 50");
+  assert.equal(offsetFooter("--start", 50, 50), "More results: --start 50");
+  assert.equal(offsetFooter("--start", 50, 50, 100), "More results: --start 150");
+  assert.equal(offsetFooter("--start", 12, 50), undefined);
+  assert.equal(offsetFooter("--start", 12, undefined), undefined);
+  assert.equal(offsetFooter("--start", 0, 0), undefined);
 });
 
 test("views read the command's arguments and options through the context", async (t) => {
@@ -37,18 +37,18 @@ test("views read the command's arguments and options through the context", async
         view: recordView<null>({ title: (_value, ctx) => `Removed tag ${ctx.input?.args.tagID}.`, fields: [] }),
       }),
       command("page", "Page", () => ["a", "b"], {
-        options: [{ flags: "--top <count>", description: "Page size", defaultValue: 2, parse: Number }],
+        options: [{ flags: "--page-size <count>", description: "Page size", defaultValue: 2, parse: Number }],
         view: tableView<string>({
           columns: [{ header: "NAME", value: (item) => item }],
-          footer: (rows, ctx) => offsetFooter("--skip", rows.length, Number(ctx.input?.options.top)),
+          footer: (rows, ctx) => offsetFooter("--start", rows.length, Number(ctx.input?.options.pageSize)),
         }),
       }),
     ],
   }));
   assert.equal((await fixture.run(app, ["metadata", "fixture"])).stdout, "Metadata fixture.\n");
   assert.equal((await fixture.run(app, ["remove", "7"])).stdout, "Removed tag 7.\n");
-  assert.equal((await fixture.run(app, ["page"])).stdout, "NAME\na\nb\n\nMore results: --skip 2\n");
-  assert.equal((await fixture.run(app, ["page", "--top", "5"])).stdout, "NAME\na\nb\n");
+  assert.equal((await fixture.run(app, ["page"])).stdout, "NAME\na\nb\n\nMore results: --start 2\n");
+  assert.equal((await fixture.run(app, ["page", "--page-size", "5"])).stdout, "NAME\na\nb\n");
   assert.equal((await fixture.run(app, ["remove", "7", "--json"])).stdout, "null\n");
 });
 

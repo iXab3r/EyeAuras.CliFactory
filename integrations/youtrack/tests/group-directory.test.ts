@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test, type TestContext } from "node:test";
 import { http, HttpResponse } from "msw";
@@ -91,18 +92,18 @@ for (const row of rows) {
       assert.equal(request.headers.get("authorization"), "Bearer synthetic-token");
       return HttpResponse.json(row.list ? [object] : object);
     }));
-    assert.deepEqual(await row.run({}), row.list ? [object] : object);
+    assert.deepEqual(await row.run({}), pageResult(row.list ? [object] : object));
     assert.equal(calls, 1);
     expectedFields = "id,ringId";
     expectedTop = "2";
     expectedSkip = "3";
-    assert.deepEqual(await row.run({ fields: expectedFields, top: 2, skip: 3 }), row.list ? [object] : object);
+    assert.deepEqual(await row.run({ fields: expectedFields, pageSize: 2, start: 3 }), pageResult(row.list ? [object] : object, 3));
     assert.equal(calls, 2);
     if (row.list) {
       server.use(http.get("*", () => HttpResponse.json([])));
-      assert.deepEqual(await row.run({}), []);
+      assert.deepEqual(await row.run({}), pageResult([]));
       server.use(http.get("*", () => HttpResponse.json([{}, {}])));
-      await assert.rejects(row.run({ top: 1 }), /page size/);
+      await assert.rejects(row.run({ pageSize: 1 }), /page size/);
     }
   });
 }
@@ -120,7 +121,7 @@ test("directory selectors and collection bounds fail locally before fetch", asyn
     await assert.rejects(listProjectTeamGroups(local, invalid), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(listProjectTeamUsers(local, invalid, { direct: true }), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
   }
-  for (const options of [{ top: -1 }, { top: Number.MAX_SAFE_INTEGER + 1 }, { top: 1.5 }, { skip: -1 }, { skip: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
+  for (const options of [{ pageSize: -1 }, { pageSize: Number.MAX_SAFE_INTEGER + 1 }, { pageSize: 1.5 }, { start: -1 }, { start: Number.MAX_SAFE_INTEGER + 1 }, { fields: "" }]) {
     await assert.rejects(listGroups(local, options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(listGroupMembers(local, "fixture", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
     await assert.rejects(listSubgroups(local, "fixture", options), /must|requires?|supports only|takes|is not|change only|Invalid|YouTrack/);
@@ -151,7 +152,7 @@ test("directory projections scrub nested credentials for all nine routes", async
     const value = { id: "fixture", nested: { url: "/files?sign=synthetic", text: "synthetic-token" } };
     server.use(http.get("*", () => HttpResponse.json(row.list ? [value] : value)));
     const scrubbed = { id: "fixture", nested: { url: "[redacted]", text: "[redacted]" } };
-    assert.deepEqual(await row.run({ fields: "id,nested(url,text)" }), row.list ? [scrubbed] : scrubbed);
+    assert.deepEqual(await row.run({ fields: "id,nested(url,text)" }), pageResult(row.list ? [scrubbed] : scrubbed));
   }
 });
 
@@ -170,10 +171,10 @@ test("real CLI reaches all nine directory routes and denies ReadOnly before fetc
       assert.equal(request.headers.get("authorization"), "Bearer synthetic-dev");
       return HttpResponse.json(row.list ? [{ id: "fixture" }] : { id: "fixture" });
     }));
-    const paging = row.list ? ["--top", "2", "--skip", "3"] : [];
+    const paging = row.list ? ["--page-size", "2", "--start", "3"] : [];
     assert.deepEqual(
       await f.cli.execute([...row.argv, "--fields", "id", ...paging, "--profile", "dev"]),
-      row.list ? [{ id: "fixture" }] : { id: "fixture" },
+      pageResult(row.list ? [{ id: "fixture" }] : { id: "fixture" }, 3),
     );
   }
   assert.equal(calls, 9);
@@ -194,7 +195,7 @@ test("direct is a boolean selector, malformed flags and unsupported query fail b
     }
   }
   await assert.rejects(f.cli.execute(["group", "list", "--query", "fixture", "--profile", "dev"]));
-  await assert.rejects(f.cli.execute(["project", "team", "get", "fixture", "--top", "2", "--profile", "dev"]));
+  await assert.rejects(f.cli.execute(["project", "team", "get", "fixture", "--page-size", "2", "--profile", "dev"]));
   assert.equal(calls, 0);
 });
 
@@ -212,7 +213,7 @@ test("directory JSON/human and persistent RPC distinguish direct members and iso
   }));
   const json = await fixture(t);
   assert.equal(await json.cli.run(["group", "member", "list", "fixture", "--direct", "--profile", "dev", "--json"]), 0);
-  assert.deepEqual(JSON.parse(json.stdout()), [{ id: "fixture-direct", login: "fixture-user" }]);
+  assert.deepEqual(JSON.parse(json.stdout()), pageResult([{ id: "fixture-direct", login: "fixture-user" }]));
   const human = await fixture(t);
   assert.equal(await human.cli.run(["project", "team", "user", "list", "fixture", "--profile", "other"]), 0);
   assert.match(human.stdout(), /inherited-user/);
@@ -224,9 +225,9 @@ test("directory JSON/human and persistent RPC distinguish direct members and iso
   const rpc = await fixture(t, input);
   assert.equal(await rpc.cli.run(["--json-rpc"]), 0);
   const responses = rpc.stdout().trim().split("\n").map((line) => JSON.parse(line));
-  assert.equal(responses[0].result.length, 1);
-  assert.equal(responses[1].result.length, 2);
-  assert.equal(responses[2].result.length, 1);
+  assert.equal(responses[0].result.items.length, 1);
+  assert.equal(responses[1].result.items.length, 2);
+  assert.equal(responses[2].result.items.length, 1);
   assert.deepEqual(seen.slice(-3), [
     "dev:/context/api/groups/%252e/ownUsers",
     "other:/context/api/admin/projects/%252e/team/users",

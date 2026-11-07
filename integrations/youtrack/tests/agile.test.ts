@@ -1,3 +1,4 @@
+import { pageResult } from "./page-result.js";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { after, afterEach, before, test, type TestContext } from "node:test";
@@ -47,7 +48,7 @@ for (const row of reads) test(`${row.argv.join(" ")} uses bounded documented req
     return HttpResponse.json(row.result);
   }));
   assert.equal(await f.cli.run([...row.argv, "--profile", "dev", "--json"]), 0);
-  assert.deepEqual(JSON.parse(f.stdout()), row.result);
+  assert.deepEqual(JSON.parse(f.stdout()), pageResult(row.result, 0));
   assert.equal(calls, 1);
   await f.cli.execute(["permissions", "revoke", "ReadOnly", "--profile", "dev"]);
   await assert.rejects(f.cli.execute([...row.argv, "--profile", "dev"]), /Permission 'ReadOnly' is disabled/);
@@ -70,13 +71,13 @@ test("agile/sprint projections, empty pages, offset controls and opaque IDs pres
     return HttpResponse.json({ id: "fixture" });
   }));
   for (const argv of [["agile", "list"], ["sprint", "list", "fixture/board?"]]) {
-    assert.deepEqual(await f.cli.execute([...argv, "--top", "2", "--skip", "3", "--fields", "id", "--profile", "dev"]), []);
+    assert.deepEqual(await f.cli.execute([...argv, "--page-size", "2", "--start", "3", "--fields", "id", "--profile", "dev"]), pageResult([]));
   }
   for (const argv of [["agile", "get", "fixture/board?"], ["sprint", "get", "fixture/board?", "%2e/#"]]) {
     assert.deepEqual(await f.cli.execute([...argv, "--fields", "id", "--profile", "dev"]), { id: "fixture" });
   }
   assert.deepEqual(seen, ["/track/api/agiles", "/track/api/agiles/fixture%2Fboard%3F/sprints", "/track/api/agiles/fixture%2Fboard%3F", "/track/api/agiles/fixture%2Fboard%3F/sprints/%252e%2F%23"]);
-  for (const argv of [["agile", "get", ".."], ["sprint", "get", "fixture-board", "."], ["agile", "list", "--top", "9007199254740992"], ["sprint", "list", "fixture-board", "--skip", "-1"]]) {
+  for (const argv of [["agile", "get", ".."], ["sprint", "get", "fixture-board", "."], ["agile", "list", "--page-size", "9007199254740992"], ["sprint", "list", "fixture-board", "--start", "-1"]]) {
     await assert.rejects(f.cli.execute([...argv, "--profile", "dev"]));
   }
   await assert.rejects(f.cli.execute(["agile", "list", "--query", "test", "--profile", "dev"]), /unknown option/);

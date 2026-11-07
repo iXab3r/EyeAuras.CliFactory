@@ -9,7 +9,7 @@ import {
   type HumanView,
   type OptionDefinition,
 } from "@eyeauras/cli-factory";
-import { inputFilePath, youTrackUrl, type Connection, type IssueSearchOptions } from "./client.js";
+import { inputFilePath, page, youTrackUrl, type Connection, type IssueSearchOptions } from "./client.js";
 import { withView } from "./presentation.js";
 
 export const bodyOptions: readonly OptionDefinition[] = [
@@ -66,17 +66,17 @@ export const projectionOptions: readonly OptionDefinition[] = [
 export const pageOptions: readonly OptionDefinition[] = [
   ...projectionOptions,
   {
-    flags: "--top <count>", description: "Maximum results", defaultValue: 50,
+    flags: "--page-size <count>", description: "Requested rows per page", defaultValue: 50,
     parse: integerParser({
       min: 0, max: Number.MAX_SAFE_INTEGER, signed: false,
-      errorMessage: "--top must be a nonnegative safe decimal integer.",
+      errorMessage: "--page-size must be a nonnegative safe decimal integer.",
     }),
   },
   {
-    flags: "--skip <offset>", description: "Results to skip", defaultValue: 0,
+    flags: "--start <offset>", description: "Zero-based result offset", defaultValue: 0,
     parse: integerParser({
       min: 0, max: Number.MAX_SAFE_INTEGER, signed: false,
-      errorMessage: "--skip must be a nonnegative integer.",
+      errorMessage: "--start must be a nonnegative integer.",
     }),
   },
 ];
@@ -92,9 +92,25 @@ export async function connection(context: CommandContext): Promise<Connection> {
 }
 
 export const {
-  read: readCommand,
+  read: readTarget,
   update: updateCommand,
 } = targetCommands(connection);
+
+/** Existing local admission hook validates paging before connection/auth resolution. */
+export const readCommand: GatedTargetCommand<Connection> = (syntax, description, run, options) => {
+  const definition = readTarget(syntax, description, run, options);
+  if (!options?.some(option => option.flags.startsWith("--page-size "))) return definition;
+  return { ...definition, additionalPermissions: ({ options }) => {
+    page(readOptions(options), "");
+    if ((options.all === true) !== (options.maxResults !== undefined)) {
+      throw new Error("--all and --max-results go together.");
+    }
+    if (options.all === true && options.pageSize === 0) {
+      throw new Error("--page-size must be positive with --all.");
+    }
+    return [];
+  } };
+};
 
 type PositionalValues<Text extends string> =
   Text extends `<${string}> ${infer Rest}` ? [string, ...PositionalValues<Rest>]
@@ -216,8 +232,8 @@ export function projectedBodyUpdate<const Syntax extends string>(
 export function readOptions(options: Record<string, unknown>): IssueSearchOptions {
   return {
     ...(typeof options.fields === "string" ? { fields: options.fields } : {}),
-    ...(typeof options.top === "number" ? { top: options.top } : {}),
-    ...(typeof options.skip === "number" ? { skip: options.skip } : {}),
+    ...(typeof options.pageSize === "number" ? { pageSize: options.pageSize } : {}),
+    ...(typeof options.start === "number" ? { start: options.start } : {}),
     ...(typeof options.query === "string" ? { query: options.query } : {}),
     ...(typeof options.maxResults === "number" ? { maxResults: options.maxResults } : {}),
     ...(typeof options.maxBytes === "number" ? { maxBytes: options.maxBytes } : {}),
