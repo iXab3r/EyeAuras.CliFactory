@@ -3,7 +3,7 @@ import { AppArguments } from "./app-arguments.js";
 import { canPrompt } from "./auth.js";
 import { runJsonRpc } from "./json-rpc.js";
 import { writeResult } from "./output.js";
-import { failedCommandOutput, writeOutput } from "./output-write.js";
+import { failedCommandOutput, waitForOutput, writeOutput } from "./output-write.js";
 import { consumeStreamResult, isStreamResult } from "./stream-result.js";
 import {
   resolvePermissionCategories,
@@ -246,7 +246,10 @@ export function createCli(definition: CliDefinition): CliApplication {
     execution.signal.throwIfAborted();
     const { input, output, error } = execution.io;
     const renderFailedResult = async (failure: CliError, json: boolean, presentation?: Parameters<typeof writeResult>[3]) => {
-      try { await writeResult(output, failure.result, json, presentation); }
+      try {
+        if (!await waitForOutput(writeResult(output, failure.result, json, presentation), execution.signal))
+          execution.failedResultOutput = true;
+      }
       catch (writeError) {
         execution.failedResultOutput = true;
         throw failedCommandOutput(failure, writeError);
@@ -628,14 +631,14 @@ export function createCli(definition: CliDefinition): CliApplication {
    * The one place a CLI failure is reported: a JSON envelope, or the explanation with one line of
    * technical cause and follow-ups. `--verbose` adds the complete chain with frames.
    */
-  const report = async (error: unknown, argv: readonly string[], stream: CliIo["error"], resultOnStderr = false): Promise<number> => {
+  const report = async (error: unknown, argv: readonly string[], stream: CliIo["error"], signal: AbortSignal, resultOnStderr = false): Promise<number> => {
     const verbose = globalFlagRequested(argv, "--verbose");
     const failure = machineError(error, { verbose });
     if (globalFlagRequested(argv, "--json")) {
-      await writeOutput(stream, `${JSON.stringify({ error: {
+      await waitForOutput(writeOutput(stream, `${JSON.stringify({ error: {
         ...failure,
         ...(resultOnStderr && error instanceof CliError && error.result !== undefined ? { result: error.result } : {}),
-      } })}\n`);
+      } })}\n`), signal);
       return failure.exitCode;
     }
     const lines = [failure.message];
@@ -648,7 +651,7 @@ export function createCli(definition: CliDefinition): CliApplication {
       if (next.length) lines.push("Next:", ...next.map((line) => `  ${line}`));
     }
     if (!verbose && failure.code === "error") lines.push("Re-run with --verbose for the full diagnostic.");
-    await writeOutput(stream, `${lines.join("\n")}\n${verbose && failure.code !== "usage" ? diagnosticText(failure) : ""}`);
+    await waitForOutput(writeOutput(stream, `${lines.join("\n")}\n${verbose && failure.code !== "usage" ? diagnosticText(failure) : ""}`), signal);
     return failure.exitCode;
   };
 
@@ -711,7 +714,8 @@ export function createCli(definition: CliDefinition): CliApplication {
       } catch (error) {
         const failure = afterInterrupt(error, invocation.signal);
         if (failure instanceof CliError && failure.code === "output.brokenPipe" && failure.exitCode === 141) return 141;
-        return report(failure, argv, execution.io.error, execution.streamedJson || execution.failedResultOutput);
+        const status = await report(failure, argv, execution.io.error, execution.signal, execution.streamedJson || execution.failedResultOutput);
+        return invocation.signal?.aborted ? 130 : status;
       }
     },
     execute(argv, signal): Promise<unknown> {

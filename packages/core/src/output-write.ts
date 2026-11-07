@@ -21,6 +21,18 @@ export function failedCommandOutput(error: unknown, writeError: unknown): Error 
   return failure;
 }
 
+/** Start a failure response even after interruption, but do not block cancellation on its sink. */
+export async function waitForOutput(write: Promise<void>, signal: AbortSignal): Promise<boolean> {
+  // Prefer an already-completed write to an already-aborted signal, retaining interrupted data.
+  const completed = write.then(() => true);
+  let listener: Disposable | undefined;
+  const cancelled = new Promise<boolean>(resolve => {
+    listener = addAbortListener(signal, () => resolve(false));
+  });
+  try { return await Promise.race([completed, cancelled]); }
+  finally { listener?.[Symbol.dispose](); }
+}
+
 /** Await the callback even below the high-water mark; retain ownership of late write errors. */
 export function writeOutput(output: Writable, text: string, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {

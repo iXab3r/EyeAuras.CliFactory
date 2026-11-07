@@ -178,3 +178,36 @@ for (const code of ["EPIPE", "EIO"]) {
     });
   });
 }
+
+for (const diagnostic of [false, true]) {
+  test(`cancellation releases a stalled ${diagnostic ? "diagnostic" : "failed-result"} write and owns its late error`, { timeout: 5000 }, async t => {
+    const f = await createCliFixture(t, { applicationId: "output-cli" });
+    const callback = deferred<(error?: Error | null) => void>();
+    const stalled = new Writable({ write(_chunk, _encoding, done) { callback.resolve(done); } });
+    const abort = new AbortController();
+    const app = f.createApplication(runtime => createCli({ name: "output-cli", description: "Fixture", runtime,
+      commands: [localCommand("fail", "Fail the command", () => {
+        throw new CliError("Synthetic handler failed.", { code: "handler.failure", result: { outcome: "failed" } });
+      })],
+    }));
+    const running = f.run(app, ["fail", "--json"], {
+      signal: abort.signal, ...(diagnostic ? { error: stalled } : { output: stalled }),
+    });
+    const done = await callback.promise;
+    abort.abort();
+    const result = await running;
+    assert.equal(result.exitCode, 130);
+    if (!diagnostic) {
+      const failure = JSON.parse(result.stderr).error;
+      assert.equal(failure.code, "handler.failure");
+      assert.deepEqual(failure.result, { outcome: "failed" });
+    }
+    assert.equal(stalled.destroyed, false);
+    assert.ok(stalled.listenerCount("error") > 0);
+    const closed = new Promise<void>(resolve => stalled.once("close", resolve));
+    done(nativeError(diagnostic ? "EIO" : "EPIPE"));
+    await closed;
+    assert.equal(stalled.listenerCount("error"), 0);
+    assert.equal(stalled.listenerCount("close"), 0);
+  });
+}
