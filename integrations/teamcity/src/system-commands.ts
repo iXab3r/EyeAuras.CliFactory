@@ -18,22 +18,22 @@ export function createSystemCommands(
   const optional = (o: Record<string, unknown>, k: string) =>
     typeof o[k] === "string" ? o[k] : undefined;
   const page = (o: Record<string, unknown>) => ({ limit: Number(o.limit), start: Number(o.start) });
-  const confirm = option("--confirm", "Confirm destructive/replacement operation", true);
-  const item = jsonOption("--item <json>", "Strict typed fields; no raw HTTP or credential values");
-  const project = option("--project <id>", "One project scope");
+  const confirm = option("--confirm", "Confirm the operation", true);
+  const item = jsonOption("--item <json>", "Supply a configuration object");
+  const project = option("--project <id>", "Select a project scope");
   const stateOptions = [
-    option("--state <state>", "IN_PROGRESS/SUCCESSFUL/FAILED/CANCELLED/UNKNOWN", true),
-    option("--date <timestamp>", "TeamCity YYYYMMDDTHHmmss+ZZZZ timestamp", true),
-    option("--build <id>", "Related build ID"),
+    option("--state <state>", "Set IN_PROGRESS, SUCCESSFUL, FAILED, CANCELLED or UNKNOWN", true),
+    option("--date <timestamp>", "Set a YYYYMMDDTHHmmss+ZZZZ timestamp", true),
+    option("--build <id>", "Select a related build"),
   ];
-  const healthOptions = [project, option("--global", "Server-wide health scope")];
+  const healthOptions = [project, option("--global", "Select server-wide health scope")];
   const healthScope = (o: Record<string, unknown>) => ({
     ...(optional(o, "project") ? { project: text(o, "project") } : {}),
     ...(o.global === true ? { global: true } : {}),
   });
   const deployments = command(
     "deployments",
-    "Deployment dashboards and explicit instance history",
+    "Manage deployment dashboards and instance history",
     [
       leaf(
         "list",
@@ -48,7 +48,7 @@ export function createSystemCommands(
         U,
         (c, { args, options }) =>
           c.createDashboard(args.id, text(options, "name"), text(options, "project")),
-        [option("--name <text>", "Name", true), { ...project, required: true }],
+        [option("--name <text>", "Set the name", true), { ...project, required: true }],
       ),
       leaf("show <id>", "Read one dashboard", R, (c, { args }) => c.getDashboard(args.id)),
       leaf(
@@ -58,7 +58,7 @@ export function createSystemCommands(
         (c, { args }) => c.deleteDashboard(args.id),
         [confirm],
       ),
-      command("instances", "One parent dashboard; no implicit traversal", [
+      command("instances", "Manage dashboard instances", [
         leaf(
           "list <dashboard>",
           "Read one instance page",
@@ -69,7 +69,7 @@ export function createSystemCommands(
         ),
         leaf(
           "upsert <dashboard> <id>",
-          "Add/update instance with submitted history",
+          "Add or update an instance",
           U,
           (c, { args, options }) =>
             c.upsertDeploymentInstance(
@@ -108,11 +108,11 @@ export function createSystemCommands(
       ]),
     ],
   );
-  const roles = command("roles", "Server role definitions, distinct from role assignments", [
+  const roles = command("roles", "Manage server role definitions", [
     leaf("list", "Read role definitions", R, (c) => c.listRoleDefinitions()),
     leaf(
       "create",
-      "Create role; server generates its ID",
+      "Create a role definition",
       "Admin",
       (c, { options }) =>
         c.createRoleDefinition(
@@ -121,7 +121,7 @@ export function createSystemCommands(
           (options.include ?? []) as string[],
         ),
       [
-        option("--name <text>", "Role name", true),
+        option("--name <text>", "Set the role name", true),
         repeatOption("--permission <id>", "Repeat permission IDs"),
         repeatOption("--include <id>", "Repeat included role IDs"),
       ],
@@ -141,7 +141,7 @@ export function createSystemCommands(
         kind,
         "Edit selected role relation",
         (["add", "remove"] as const).map((action) =>
-          leaf(`${action} <id> <child>`, `${action} one ${kind} entry`, "Admin", (c, { args }) =>
+          leaf(`${action} <id> <child>`, `${action === "add" ? "Add" : "Remove"} one ${kind} entry`, "Admin", (c, { args }) =>
             c.editRoleDefinition(text(args, "id"), kind, text(args, "child"), action === "remove"),
           ),
         ),
@@ -149,53 +149,53 @@ export function createSystemCommands(
     ),
   ]);
   const server = [
-    leaf("rest-info", "Read relative REST landing metadata", R, (c) => c.getRestInfo()),
-    leaf("rest-plugin", "Read XML-only REST plugin metadata", R, (c) => c.getRestPlugin()),
-    command("authentication", "Replacing modules can lock out users", [
-      leaf("show", "Read booleans and module names only", R, (c) => c.getAuthenticationSettings()),
+    leaf("rest-info", "Read REST landing metadata", R, (c) => c.getRestInfo()),
+    leaf("rest-plugin", "Read REST plugin metadata", R, (c) => c.getRestPlugin()),
+    command("authentication", "Manage authentication modules", [
+      leaf("show", "Read authentication module settings", R, (c) => c.getAuthenticationSettings()),
       command(
         "replace",
-        "Replace COMPLETE module list; no hidden GET/merge; possible lockout",
+        "Replace authentication modules",
         async ({ options }, context) =>
           (await clientFor(context)).replaceAuthenticationSettings(options.item, context.secrets),
         { permission: "Admin", options: [item, confirm] },
       ),
     ]),
-    command("backup", "Backup may contain all server data; no automatic download", [
-      leaf("status", "Current progress; Idle does not prove last success", R, (c) =>
+    command("backup", "Inspect and schedule server backups", [
+      leaf("status", "Read backup progress", R, (c) =>
         c.getBackupStatus(),
       ),
       leaf(
         "start <name>",
-        "Schedule config/database backup with timestamp, no logs/personal/running/supplementary data",
+        "Schedule a configuration and database backup",
         "Admin",
         (c, { args }) => c.startBackup(args.name),
         [confirm],
       ),
     ]),
-    command("cleanup", "Configure future cleanup, not immediate execution", [
+    command("cleanup", "Configure scheduled cleanup", [
       leaf("show", "Read cleanup schedule", R, (c) => c.getCleanup()),
       leaf(
         "configure",
-        "Typed partial schedule/settings update",
+        "Update cleanup settings",
         "Admin",
         (c, { options }) => c.configureCleanup(options.item),
         [item],
       ),
     ]),
-    command("settings", "Safe numeric/boolean global settings; no encryption-key changes", [
+    command("settings", "Manage global settings", [
       leaf("show", "Read safe settings", R, (c) => c.getGlobalSettings()),
       leaf(
         "set",
-        "Typed partial update; omitted fields preserved",
+        "Update selected global settings",
         "Admin",
         (c, { options }) => c.setGlobalSettings(options.item),
         [item],
       ),
     ]),
-    command("licenses", "License metadata; keys only from current-profile input-secret aliases", [
+    command("licenses", "Inspect and manage licenses", [
       leaf("summary", "Read licensed capacities", R, (c) => c.getLicenseSummary()),
-      leaf("list", "Read metadata without key bytes", R, (c) => c.listLicenses()),
+      leaf("list", "Read license metadata", R, (c) => c.listLicenses()),
       command(
         "add",
         "Add key from alias",
@@ -203,7 +203,7 @@ export function createSystemCommands(
           (await clientFor(context)).addLicense(text(options, "secret"), context.secrets),
         {
           permission: "Admin",
-          options: [option("--secret <alias>", "Input-secret alias, not key value", true)],
+          options: [option("--secret <alias>", "Select an input-secret alias", true)],
         },
       ),
       command(
@@ -215,14 +215,14 @@ export function createSystemCommands(
       ),
       command(
         "delete <alias>",
-        "Remove remote license; retain local alias",
+        "Remove a license",
         async ({ args }, context) =>
           (await clientFor(context)).deleteLicense(args.alias, context.secrets),
         { permission: "Admin", options: [confirm] },
       ),
     ]),
-    leaf("metrics", "Read numeric metric series without tag dimensions", R, (c) => c.getMetrics()),
-    leaf("plugins", "Read plugin metadata without server paths/properties", R, (c) =>
+    leaf("metrics", "Read numeric metric series", R, (c) => c.getMetrics()),
+    leaf("plugins", "Read plugin metadata", R, (c) =>
       c.getPlugins(),
     ),
     leaf(
@@ -233,11 +233,11 @@ export function createSystemCommands(
     ),
   ];
   const projects = [
-    leaf("default-value-sets <id>", "Read named value-set types, not values", R, (c, { args }) =>
+    leaf("default-value-sets <id>", "List named value-set types", R, (c, { args }) =>
       c.getDefaultValueSets(args.id),
     ),
-    command("deployments", "Dashboards within the explicit parent project", [
-      leaf("list <id>", "Read native project dashboard list", R, (c, { args }) =>
+    command("deployments", "Inspect project dashboards", [
+      leaf("list <id>", "List project dashboards", R, (c, { args }) =>
         c.listProjectDashboards(args.id),
       ),
       leaf("show <project> <id>", "Read one child dashboard", R, (c, { args }) =>
@@ -254,23 +254,23 @@ export function createSystemCommands(
     ),
   ];
   const users = [
-    command("avatar", "Explicit image upload/download", [
+    command("avatar", "Manage avatar images", [
       ...avatarCommands,
       leaf(
         "replace <id>",
         "Upload a selected avatar file",
         U,
         (c, { args, options }) => c.replaceAvatar(args.id, text(options, "file")),
-        [option("--file <path>", "Explicit local image path", true)],
+        [option("--file <path>", "Select a local image path", true)],
       ),
       leaf("delete <id>", "Remove avatar", U, (c, { args }) => c.deleteAvatar(args.id)),
     ]),
   ];
   const pools = [
-    command("tokens", "One-time agent-registration credentials, never printed", [
+    command("tokens", "Create agent-registration credentials", [
       command(
         "create <id>",
-        "Mint and store each token under an unused profile input-secret alias",
+        "Create and store agent-registration tokens",
         async ({ args, options }, context) =>
           (await clientFor(context)).createPoolTokens(
             args.id,
@@ -281,10 +281,10 @@ export function createSystemCommands(
         {
           permission: "Credentials",
           options: [
-            { ...option("--ttl <seconds>", "Token lifetime in seconds", true), parse: integerValue },
+            { ...option("--ttl <seconds>", "Set token lifetime in seconds", true), parse: integerValue },
             repeatOption(
               "--store-as <alias>",
-              "One new alias per requested token",
+              "Choose new token aliases; repeat for more",
               true,
             ),
           ],
@@ -295,40 +295,40 @@ export function createSystemCommands(
   const mutes = [
     leaf(
       "delete-many",
-      "Native bulk action after exact-ID preflights; postcondition not verified",
+      "Delete selected mutes",
       U,
       (c, { options }) => c.deleteMutes(options.id as string[]),
-      [repeatOption("--id <id>", "Repeat explicit mute IDs", true), confirm],
+      [repeatOption("--id <id>", "Select mute IDs; repeat for more", true), confirm],
     ),
   ];
   const roots = [
     deployments,
     roles,
-    command("audit", "Metadata only, without comments/users/related payloads", [
+    command("audit", "Inspect audit events", [
       leaf(
         "list",
-        "Read one page",
+        "List results",
         R,
         (c, { options }) => c.listAudit(page(options), optional(options, "project")),
         [...pageOptions, project],
       ),
       leaf("show <id>", "Read one audit event", R, (c, { args }) => c.getAudit(args.id)),
     ]),
-    command("health", "Typed scope and category, no invented identity locator", [
+    command("health", "Inspect server health items", [
       leaf(
         "list",
-        "Read one explicit health scope",
+        "Read health items within a scope",
         R,
         (c, { options }) => c.listHealth(healthScope(options), page(options)),
         [...healthOptions, ...pageOptions],
       ),
       leaf(
         "show",
-        "Read unique scoped category match; ambiguity is an error",
+        "Read a scoped health category match",
         R,
         (c, { options }) =>
           c.getHealth({ ...healthScope(options), category: text(options, "category") }),
-        [...healthOptions, option("--category <id>", "Health category", true)],
+        [...healthOptions, option("--category <id>", "Select a health category", true)],
       ),
       command("categories", "Discover native health categories", [
         leaf("list", "Read category metadata", R, (c) => c.listHealthCategories()),

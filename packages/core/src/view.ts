@@ -33,6 +33,8 @@ export interface TableViewSpec<Row, Value> extends ViewGuard {
   /** Selects the rows; an array result is used directly when omitted. */
   rows?: (value: Value) => readonly Row[];
   columns: readonly ViewColumn<Row>[];
+  /** Follow-up argv, rendered with the CLI name and selected profile. */
+  next?: (value: Value, context: ViewContext) => readonly (readonly string[])[];
   /** Printed instead of an empty table. */
   empty?: string;
   /** One line after the rows, only when there is something to say, such as how to continue. */
@@ -45,6 +47,16 @@ export interface ListViewSpec<Item, Value> extends ViewGuard {
   items?: (value: Value) => readonly Item[];
   line: (item: Item) => string;
   /** Printed instead of an empty list. */
+  empty?: string;
+  footer?: (value: Value, context: ViewContext) => string | undefined;
+}
+
+/** A flat hierarchy. Missing parents become roots; cycles still print each item once. */
+export interface TreeViewSpec<Item, Value> extends ViewGuard {
+  items?: (value: Value) => readonly Item[];
+  id: (item: Item) => string;
+  parent: (item: Item) => string | undefined;
+  line: (item: Item) => string;
   empty?: string;
   footer?: (value: Value, context: ViewContext) => string | undefined;
 }
@@ -71,6 +83,7 @@ export interface RecordViewSpec<Value> extends ViewGuard {
 export type HumanView =
   | ({ kind: "table" } & TableViewSpec<unknown, unknown>)
   | ({ kind: "list" } & ListViewSpec<unknown, unknown>)
+  | ({ kind: "tree" } & TreeViewSpec<unknown, unknown>)
   | ({ kind: "record" } & RecordViewSpec<unknown>);
 
 export interface ViewContext {
@@ -92,6 +105,10 @@ export function tableView<Row, Value = readonly Row[]>(spec: TableViewSpec<Row, 
 
 export function listView<Item, Value = readonly Item[]>(spec: ListViewSpec<Item, Value>): HumanView {
   return { kind: "list", ...(spec as ListViewSpec<unknown, unknown>) };
+}
+
+export function treeView<Item, Value = readonly Item[]>(spec: TreeViewSpec<Item, Value>): HumanView {
+  return { kind: "tree", ...(spec as TreeViewSpec<unknown, unknown>) };
 }
 
 export function recordView<Value>(spec: RecordViewSpec<Value>): HumanView {
@@ -204,7 +221,9 @@ function renderTable(
         .join("  ").trimEnd();
     lines.splice(0, 1, line(view.columns.map((column) => column.header)), ...cells.map(line));
   }
-  return [...lines, ...(footer ? ["", footer] : [])].join("\n");
+  const commands = nextCommands(view.next?.(value, context) ?? [], context.cliName, context.profile, context.defaultProfile);
+  return [...lines, ...(footer ? ["", footer] : []),
+    ...(commands.length ? ["", "Next:", ...commands.map(line => `  ${line}`)] : [])].join("\n");
 }
 
 function renderList(view: ListViewSpec<unknown, unknown>, value: unknown, context: ViewContext): string | undefined {
@@ -212,6 +231,42 @@ function renderList(view: ListViewSpec<unknown, unknown>, value: unknown, contex
   if (!Array.isArray(items)) return undefined;
   const footer = view.footer?.(value, context);
   const lines = items.length > 0 ? items.map((item) => view.line(item)) : [view.empty ?? "No results."];
+  return [...lines, ...(footer ? ["", footer] : [])].join("\n");
+}
+
+function renderTree(view: TreeViewSpec<unknown, unknown>, value: unknown, context: ViewContext): string | undefined {
+  const items: unknown = view.items ? view.items(value) : value;
+  if (!Array.isArray(items)) return undefined;
+  const ids = new Set(items.map(item => view.id(item)));
+  const children = new Map<string, number[]>();
+  const roots: number[] = [];
+  items.forEach((item, index) => {
+    const parent = view.parent(item);
+    if (parent === undefined || !ids.has(parent)) roots.push(index);
+    else {
+      const siblings = children.get(parent) ?? [];
+      siblings.push(index);
+      children.set(parent, siblings);
+    }
+  });
+  const seen = new Set<number>();
+  const lines: string[] = [];
+  // Iterative traversal also supports deep service hierarchies without a call-stack limit.
+  const visit = (root: number) => {
+    const pending = [{ index: root, depth: 0 }];
+    while (pending.length) {
+      const { index, depth } = pending.pop()!;
+      if (seen.has(index)) continue;
+      seen.add(index);
+      lines.push(`${"  ".repeat(depth)}${view.line(items[index])}`);
+      for (const child of [...(children.get(view.id(items[index])) ?? [])].reverse())
+        pending.push({ index: child, depth: depth + 1 });
+    }
+  };
+  roots.forEach(visit);
+  items.forEach((_, index) => { if (!seen.has(index)) visit(index); });
+  if (!lines.length) lines.push(view.empty ?? "No results.");
+  const footer = view.footer?.(value, context);
   return [...lines, ...(footer ? ["", footer] : [])].join("\n");
 }
 
@@ -263,5 +318,6 @@ export function renderView(view: HumanView, value: unknown, context: ViewContext
   if (view.when?.(context) === false) return undefined;
   if (view.kind === "table") return renderTable(view, value, context);
   if (view.kind === "list") return renderList(view, value, context);
+  if (view.kind === "tree") return renderTree(view, value, context);
   return renderRecord(view, value, context);
 }

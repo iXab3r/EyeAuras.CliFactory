@@ -102,7 +102,7 @@ test("an interrupted read reports interrupted; an interrupted write keeps its un
   assert.partialDeepStrictEqual(JSON.parse(write.stderr), {
     error: {
       code: "run.unknownOutcome",
-      message: "The queue request's outcome is unknown; check for a new build before running it again.",
+      message: "The queue request's outcome is unknown.",
       exitCode: 130, profile: "default",
       next: [["builds", "list", "--job", "Demo_Tests", "--state", "any", "--profile", "default"]],
     },

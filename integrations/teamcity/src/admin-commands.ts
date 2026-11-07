@@ -1,3 +1,4 @@
+import { stringList, withView } from "./presentation.js";
 import {
   command,
   Permission,
@@ -24,10 +25,10 @@ export function createAdminCommands(
   const leaf = clientLeaf(clientFor);
   const optional = (options: Record<string, unknown>, key: string) =>
     typeof options[key] === "string" ? options[key] : undefined;
-  const groupOption = repeatOption("--group <key>", "Repeat direct group keys; absent means clear");
+  const groupOption = repeatOption("--group <key>", "Select direct group keys; repeat for more");
   const scopeOptions = [
-    option("--global", "Global role scope"),
-    option("--project <id>", "One project scope"),
+    option("--global", "Select global role scope"),
+    option("--project <id>", "Select a project scope"),
   ];
   const roleInput = (
     args: Record<string, unknown>,
@@ -40,20 +41,20 @@ export function createAdminCommands(
   function properties(kind: AccountKind) {
     return command(
       "properties",
-      "Manage non-secret properties; reads return names/existence only",
+      "Manage property names and assignments",
       [
-        leaf("list <id>", "List property names", Permission.ReadOnly, (c, { args }) =>
+        withView(stringList, leaf("list <id>", "List property names", Permission.ReadOnly, (c, { args }) =>
           c.listAccountPropertyNames(kind, args.id),
-        ),
+        )),
         leaf(
           "exists <id> <name>",
-          "Probe without returning value; 404 stays an error",
+          "Check property existence",
           Permission.ReadOnly,
           (c, { args }) => c.checkAccountProperty(kind, args.id, args.name),
         ),
         leaf(
           "set <id> <name> <value>",
-          "Set a non-secret property; discard server echo",
+          "Set a property",
           "Admin",
           (c, { args }) =>
             c.setAccountProperty(kind, args.id, args.name, args.value),
@@ -65,13 +66,13 @@ export function createAdminCommands(
     );
   }
   function roles(kind: AccountKind) {
-    return command("roles", "Inspect/add/replace explicit direct role assignments", [
+    return command("roles", "Manage direct role assignments", [
       leaf("list <id>", "List direct roles", Permission.ReadOnly, (c, { args }) =>
         c.listAccountRoles(kind, args.id),
       ),
       leaf(
         "add <id> <role-id>",
-        "Add a role via collection POST",
+        "Add a role assignment",
         "Admin",
         (c, { args, options }) =>
           c.addAccountRole(kind, args.id, roleInput(args, options)),
@@ -79,13 +80,13 @@ export function createAdminCommands(
       ),
       leaf(
         "replace <id>",
-        "Replace all direct roles; not atomic, no retry; no items clears",
+        "Replace direct role assignments",
         "Admin",
         (c, { args, options }) =>
           c.replaceAccountRoles(kind, args.id, (options.item ?? []) as unknown[]),
         [
           {
-            ...jsonOption("--item <json>", "Repeat {roleId,global:true} or {roleId,project}", true),
+            ...jsonOption("--item <json>", "Supply roleId and global or project; repeat", true),
             required: false,
           },
         ],
@@ -100,7 +101,7 @@ export function createAdminCommands(
       ),
       leaf(
         "grant <id> <role-id>",
-        "Grant using the named role/scope endpoint",
+        "Grant a scoped role",
         "Admin",
         (c, { args, options }) =>
           c.grantAccountRole(kind, args.id, roleInput(args, options)),
@@ -124,8 +125,8 @@ export function createAdminCommands(
       leaf(
         "replace <id>",
         kind === "users"
-          ? "Replace direct assignments; server retains All Users membership"
-          : "Replace direct parents; no groups clears",
+          ? "Replace direct group memberships"
+          : "Replace direct parent groups",
         "Admin",
         (c, { args, options }) =>
           c.replaceAccountGroups(kind, args.id, (options.group ?? []) as string[]),
@@ -133,8 +134,8 @@ export function createAdminCommands(
       ),
     ];
   }
-  const tokens = command("tokens", "Current-user tokens only; secret values never rendered", [
-    leaf("list", "List token metadata, never values", Permission.ReadOnly, (c) =>
+  const tokens = command("tokens", "Manage current-user tokens", [
+    leaf("list", "List token metadata", Permission.ReadOnly, (c) =>
       c.listCurrentUserTokens(),
     ),
     command(
@@ -155,14 +156,14 @@ export function createAdminCommands(
       {
         permission: "Credentials",
         options: [
-          option("--alias <name>", "New issued-token credential alias, never the auth token", true),
+          option("--alias <name>", "Choose a new issued-token alias", true),
           option("--expires <timestamp>", "Set the token expiration timestamp"),
-          option("--no-expiration", "Explicitly request a permanent token"),
-          option("--same-permissions", "Explicitly inherit all current-user permissions"),
+          option("--no-expiration", "Request a permanent token"),
+          option("--same-permissions", "Inherit current-user permissions"),
           {
             ...jsonOption(
               "--restriction <json>",
-              "Repeat {permission,global:true} or {permission,project}",
+              "Supply permission and global or project; repeat",
               true,
             ),
             required: false,
@@ -172,7 +173,7 @@ export function createAdminCommands(
     ),
     command(
       "delete <name>",
-      "Revoke remote name; optionally remove matching issued alias",
+      "Revoke a token",
       async ({ args, options }, context) =>
         (await clientFor(context)).deleteCurrentUserToken(
           args.name,
@@ -182,25 +183,25 @@ export function createAdminCommands(
       {
         permission: "Credentials",
         options: [
-          option("--alias <name>", "Require matching owned alias and remove after revocation"),
+          option("--alias <name>", "Remove the matching alias after revocation"),
         ],
       },
     ),
     command(
       "forget",
-      "Remove only a local issued-token record; does not revoke remotely",
+      "Forget a local issued-token record",
       ({ options }, context) => forgetIssuedToken(context.secrets, text(options, "alias")),
       {
         permission: "Credentials",
-        options: [option("--alias <name>", "Owned issued-token alias", true)],
+        options: [option("--alias <name>", "Select an issued-token alias", true)],
       },
     ),
   ]);
-  const users = command("users", "Inspect accounts and explicitly administer access", [
+  const users = command("users", "Inspect accounts and administer access", [
     ...userCommands,
     leaf(
       "list",
-      "Read one bounded identity page",
+      "List account identities",
       Permission.ReadOnly,
       (c, { options }) =>
         c.listAccountUsers({ limit: Number(options.limit), start: Number(options.start) }),
@@ -208,30 +209,30 @@ export function createAdminCommands(
     ),
     leaf(
       "create <username>",
-      "Create identity only; does not promise working authentication",
+      "Create an account identity",
       "Admin",
       (c, { args, options }) =>
         c.createAccountUser(args.username, optional(options, "name")),
-      [option("--name <text>", "Display name")],
+      [option("--name <text>", "Set the display name")],
     ),
     leaf(
       "update <id>",
-      "Update specified identity fields; preserve omitted collections",
+      "Update account identity fields",
       "Admin",
       (c, { args, options }) =>
         c.updateAccountUser(args.id, {
           ...optionalText(options, "username"),
           ...optionalText(options, "name"),
         }),
-      [option("--username <text>", "Username"), option("--name <text>", "Display name")],
+      [option("--username <text>", "Set the username"), option("--name <text>", "Set the display name")],
     ),
     leaf("delete <id>", "Delete the remote account", "Admin", (c, { args }) =>
       c.deleteAccountUser(args.id),
     ),
-    command("sessions", "Remote sessions, not local CLI authentication", [
+    command("sessions", "Manage remote sessions", [
       leaf(
         "forget-remembered <id>",
-        "Clear remembered logins, not access tokens",
+        "Clear remembered logins",
         "Admin",
         (c, { args }) => c.forgetRememberedSessions(args.id),
       ),
@@ -246,7 +247,7 @@ export function createAdminCommands(
       ...memberships("users"),
       leaf(
         "show <id> <key>",
-        "Read one membership; absent membership is 404",
+        "Read one group membership",
         Permission.ReadOnly,
         (c, { args }) => c.getAccountUserGroup(args.id, args.key),
       ),
@@ -280,12 +281,12 @@ export function createAdminCommands(
     ]),
   ]);
   const groups = command("groups", "Inspect and administer user groups", [
-    leaf("list", "Read native unpaged group identities", Permission.ReadOnly, (c) =>
+    leaf("list", "List group identities", Permission.ReadOnly, (c) =>
       c.listAccountGroupsAll(),
     ),
     leaf(
       "create <key>",
-      "Create identity only, not combined permissions",
+      "Create a group identity",
       "Admin",
       (c, { args, options }) =>
         c.createAccountGroup(
@@ -293,7 +294,7 @@ export function createAdminCommands(
           text(options, "name"),
           optional(options, "description"),
         ),
-      [option("--name <text>", "Name", true), option("--description <text>", "Description")],
+      [option("--name <text>", "Set the name", true), option("--description <text>", "Set the description")],
     ),
     leaf("show <key>", "Read one group identity", Permission.ReadOnly, (c, { args }) =>
       c.getAccountGroup(args.key),
@@ -303,7 +304,7 @@ export function createAdminCommands(
     ),
     command(
       "parents",
-      "Replace direct parent groups; server checks longer cycles",
+      "Replace direct parent groups",
       memberships("groups"),
     ),
     properties("groups"),
@@ -313,22 +314,22 @@ export function createAdminCommands(
     leaf("api-version", "Read REST API version text", Permission.ReadOnly, (c) =>
       c.getApiVersion(),
     ),
-    command("nodes", "Inspect cluster nodes without internal URLs", [
+    command("nodes", "Inspect cluster nodes", [
       leaf(
         "list",
-        "Read nodes filtered by role/state",
+        "List nodes by role and state",
         Permission.ReadOnly,
         (c, { options }) =>
           c.listServerNodes(optional(options, "role"), optional(options, "state")),
         [
-          option("--role <role>", "main_node or secondary_node"),
-          option("--state <state>", "online/offline/stopping/starting"),
+          option("--role <role>", "Select main_node or secondary_node"),
+          option("--state <state>", "Select online, offline, stopping or starting"),
         ],
       ),
       leaf("show <id>", "Read node identity/state", Permission.ReadOnly, (c, { args }) =>
         c.getServerNode(args.id),
       ),
-      command("responsibilities", "Distinguish enabled configuration from effective state", [
+      command("responsibilities", "Inspect node responsibility", [
         ...(["disabled", "effective", "enabled"] as const).map((kind) =>
           leaf(kind + " <id>", "Read responsibility metadata", Permission.ReadOnly, (c, { args }) =>
             c.getNodeResponsibilities(text(args, "id"), kind),
@@ -336,7 +337,7 @@ export function createAdminCommands(
         ),
         leaf(
           "set <id> <name> <enabled>",
-          "Set CAN_PROCESS_BUILD_MESSAGES true/false; returns enabled, not effective",
+          "Set build-message processing",
           "Admin",
           (c, { args }) =>
             c.setNodeResponsibility(args.id, args.name, args.enabled),

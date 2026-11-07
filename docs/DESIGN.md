@@ -237,7 +237,9 @@ contract below. Nonstreaming JSON failures also keep their existing stdout resul
 
 A leaf may declare an optional human `view` next to its handler. `tableView` lists rows, taken
 from an array result or from the view's `rows` accessor, under column headers, or prints its
-`empty` message; it may add one `footer` line. `recordView` prints an optional title, then
+`empty` message; it may add one `footer` line. `tableView` may add `next` follow-ups through
+the same CLI/profile-aware rendering as records.
+`recordView` prints an optional title, then
 aligned `Label: value` fields, omitting empty values. Accessors return values; they never print.
 Core owns the layout and the `age`, `duration` and `bytes` formats. There is no template language.
 Without a view, or when a table's rows are not an array, the generic fallback renders the value,
@@ -271,25 +273,25 @@ runs automatically.
 
 #### Human output formats
 
-Every human-mode result is one of the Core-rendered shapes below (three today; the tree arrives
-with its first consumer); integrations choose the shape and the words, never the layout. `--json`
-and JSON-RPC return the unchanged domain value.
+Every human-mode result is one of the four Core-rendered shapes below; integrations choose the
+shape and the words, never the layout. `--json` and JSON-RPC return the unchanged domain value.
 
 - **Table** (`tableView`): short upper-case headers, one row per item, `shrink` only on descriptive
   text, identifiers never cut. An empty table prints its `empty` sentence.
 - **Record** (`recordView`): an optional title line naming the object and what happened to it
   (`Created DEMO-99: Login page crashes`), aligned `Label:  value` fields with empty values omitted,
   titled sections, then `Next:`.
+- **Tree** (`treeView`): a flat selection with IDs, parent IDs and a line per item. Selected
+  parents indent their children; missing parents become roots, and cycles still print each item
+  once. It never fetches missing ancestors or changes the result.
 - **List** (`listView`): one line per item, never cut, for names, identifiers and short phrases;
   an empty list prints its `empty` sentence.
-- **Tree**: nested items with two-space indentation; it arrives with its first consumer, a
-  hierarchy such as TeamCity projects.
 
 Every view receives the command's parsed `input` (arguments and options) in its context, so a
 title can say `Removed tag 7 from DEMO-12` for a `null` result and a footer can name the option
 that continues a page. A view may decline an invocation through `when(context)`: an explicit
 field projection such as YouTrack's `--fields` then prints the generic shape, so a person sees
-exactly what they asked for. A table or list prints one footer line only when there is more to
+exactly what they asked for. A table, list or tree prints one footer line only when there is more to
 read (`More results: --skip 50`, from `offsetFooter` for offset pages) and nothing when the
 selection is complete. Timestamps print as `age` in tables and as ISO instants in records;
 calendar dates such as a sprint's start print as `YYYY-MM-DD`; sizes use binary units; service

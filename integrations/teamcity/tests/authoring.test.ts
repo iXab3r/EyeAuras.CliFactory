@@ -463,7 +463,7 @@ test("JSON-RPC survives nested help and errors and isolates new Update commands 
     .split("\n")
     .map((line) => JSON.parse(line));
   assert.equal(frames.length, 5);
-  assert.match(frames[0].result.help, /NOT preserved/);
+  assert.match(frames[0].result.help, /Replace a build step/);
   assert.match(frames[0].result.help, /Required permission: Update/);
   assert.match(frames[1].error.message, /required option.*--name/);
   assert.match(frames[2].error.message, /Permission 'Update'/);

@@ -131,9 +131,10 @@ Every collection command with `--limit <count>` and `--start <offset>` returns a
 already read are still printed, with `hasMore: null`. A later request stopped by Ctrl+C reports
 `interrupted` instead.
 
-Human output shows the items as a table. `builds list`, `builds tests` and `builds problems` add a
-line such as `Shown: 20. More results: yes; continue with --start 20.` Other lists end with their
-fields, such as `count: 100  hasMore: null  nextStart: 100`. `queue delete-page` is a mutation and
+Human views print `More results: --start 20` only when a selection can continue.
+An uncertain selection without a continuation says `More results may exist.` Complete selections
+have no footer. Build, queue, job and agent lists use tables; project lists use a tree of the
+selected projects, with missing parents at the top level. Other lists retain their result fields. `queue delete-page` is a mutation and
 still deletes exactly one requested page. Run a branch without a leaf, such as
 `teamcity-cli builds`, to see its generated help and options.
 
@@ -224,6 +225,11 @@ teamcity-cli builds diagnose 101
 - `--latest` reads once and returns the first finished, non-personal build in TeamCity's order
   (newest start first), whatever its result, including failed and canceled builds. Without
   `--branch` it searches all branches; in human mode stderr names the scope.
+- Without `--state`, `builds list` includes queued, running and finished builds across all branches.
+  It sends `defaultFilter:false` without a state dimension. JetBrains'
+  [BuildPromotionFinder source](https://github.com/JetBrains/teamcity-rest/blob/fc730e618ccd4b57dbbaf03425bb79a9580d19d2/rest-api/src/jetbrains/buildServer/server/rest/data/finder/impl/BuildPromotionFinder.java#L936)
+  defaults the missing state to `any`; `setLocatorDefaults` returns early for `defaultFilter:false`.
+  The locator remains unchanged: an explicit default would add no selection guarantee.
 - Queued and running builds are listed with `builds list --state queued|running`. TeamCity lists
   queued builds in queue order, not newest first, so "latest" never means "next in queue".
 - Latest is resolved per call. To keep working on one build, reuse the returned ID.
@@ -233,6 +239,12 @@ teamcity-cli builds diagnose 101
   `{ "accepted": true, "build": {...} }`: the build was queued, which does not mean it will succeed.
 - Each `--param name=value` applies to that one build only and never changes the job
   configuration. Repeat the option for more parameters; repeated names are passed to TeamCity in order.
+  With parameters, the queue response requests `properties(property(name))`. The result's
+  `build.parameterNames` contains only submitted names confirmed by that response, deduplicated;
+  inherited names and all values are discarded. An empty array means no names were confirmed.
+  The names remain in the final result with `--wait`, including a failed wait. This uses the
+  [Build properties contract](https://github.com/JetBrains/teamcity-rest/blob/fc730e618ccd4b57dbbaf03425bb79a9580d19d2/rest-api/src/jetbrains/buildServer/server/rest/model/build/Build.java#L632),
+  which includes custom-build parameters.
 - Parameter values are not echoed in output or errors. Never pass secrets in argv; secret
   parameters are not supported here.
 - If the queue response is lost or unreadable, or TeamCity or a proxy answers with a 5xx status,
@@ -270,7 +282,8 @@ Failed outcomes follow Core's contract:
 - **Programmatic `execute`:** rejects with a `CliError` that carries `.result`.
 
 `builds show` still succeeds for a failed build: it is only a read. In human mode, state changes
-appear on stderr, for example `Build 101: running`. JSON output is one final value.
+appear on stderr while waiting, for example `Build 101: running`. The terminal result appears
+only in the record, with one stderr explanation for a failed outcome. JSON output is one final value.
 
 **Diagnosing.** `builds diagnose <id>` reads the build with its test and problem counters. It adds
 up to 10 problem occurrences and up to 20 failed test identities, never stack traces or build
@@ -591,9 +604,24 @@ The four trees are `jobs files`, `builds artifacts`, `vcs instances files` and `
 Each has list/children/metadata/download/archive. Server areas, including configured `custom.*`
 areas, are validated by TeamCity. Remote path segments are encoded once; literal percent signs,
 colons, backslashes and Unicode are preserved. Empty/dot segments and leading separators are
-rejected because they would change URL route composition. Lists/ZIP selection are bounded, nonrecursive, exclude hidden files and do
-not browse archives. No automatic href traversal. Artifact reads disable usage recording and
+rejected because they would change URL route composition. Lists/ZIP selection are nonrecursive and exclude hidden files. ZIP selection does not
+browse archives. Artifact lists recognize archives without enumerating their contents. No automatic href traversal. Artifact reads disable usage recording and
 parameter resolution; job VCS reads disable parameter resolution.
+
+Artifact lists add `directory` and `archive` booleans. NAME marks directories with `/` and archives
+with `(archive)`. These indicators come from the presence of `children` and `content` in the
+[File model](https://www.jetbrains.com/help/teamcity/rest/file.html): directories have children;
+archives have both children and content. The request selects `children($none),content($none)`
+and enables archive recognition (`browseArchives:true`) while keeping `recursive:false`; it
+returns no nested children or hrefs. See JetBrains'
+[archive projection](https://github.com/JetBrains/teamcity-rest/blob/fc730e618ccd4b57dbbaf03425bb79a9580d19d2/rest-api/src/jetbrains/buildServer/server/rest/data/finder/impl/BuildArtifactsFinder.java#L464).
+Each listing reads one extra entry to establish `hasMore` without another request; only the
+requested number is returned. A complete list has `hasMore:false` and no footer; when more exist,
+the shared footer suggests a larger selection, such as `More results: --limit 21`. At the safe-integer boundary completeness can
+remain unknown (`hasMore:null`). `Next:` suggests `children` for each directory and `download`
+for each file or archive. These commands retain the selected profile and current directory path;
+unsafe shell tokens are omitted by Core's shared follow-up policy. An empty listing prints
+`No files found.`. No implicit recursion, pagination or href following occurs.
 
 ```text
 teamcity-cli builds artifacts list 12345 --limit 20 --profile uat --json
@@ -707,18 +735,37 @@ A typo such as `teamcity-cli bulds` is reported as an unknown command with a sug
 error shows one usage line, not the full help. Commander's `help <name>` with an unknown name still
 prints the root help.
 
+Help describes actions briefly. Operational caveats live with the command groups above:
+
+- Triage batches target the supplied IDs; inspect item failures even after an HTTP success.
+  Investigations are replaced by removal followed by creation, so replacement is not atomic.
+  Finish requests, cache resets and VCS labels require reading their returned status.
+- Configuration replacement removes omitted settings or entries; an empty replacement clears the
+  named collection. Detaching a template or VCS root removes the attachment. Server paths refer
+  to the server filesystem. A local `forget` removes only the stored alias, leaving remote state.
+- Administration can change access immediately. Replacing authentication modules can lock users
+  out. Current-user tokens, project secure references, agent-registration credentials and license
+  aliases are separate credential kinds. Values stay in profile secret storage; use name/existence
+  commands to inspect them. Backups can contain server data and are not downloaded automatically.
+- Cloud lifecycle actions can incur cost; forced termination can interrupt running work. An
+  acknowledgement confirms the request, not the final provider state. VCS settings changes can
+  update attached projects or external repositories. No mutation is retried automatically.
+
 Some commands print a compact view instead of every field:
 - `builds list` prints a table: BUILD, JOB, BRANCH, STATE, RESULT, AGE. RESULT is shown only for
   finished builds; a running build's intermediate status is not a result.
 - `builds show` prints a summary with `Next:` suggestions: `builds wait` for a queued or running
   build, `builds diagnose` for a failed one, and the artifact list for a finished one.
-- `jobs run` and `builds wait` print the same summary with the outcome. The title says `Queued:`
-  only while a new build still waits in the queue.
+- `builds cancel` and `queue cancel` print the build record; `queue list`, `jobs list` and
+  `agents list` print compact tables. `projects list` indents the selected project hierarchy.
+- `jobs run` and `builds wait` print the build title, state and result fields, with no duplicate
+  outcome field. A newly queued build says `State: queued` once.
 - `builds tests` prints STATUS, FLAGS (new, muted, ignored, investigated), DURATION and TEST.
   Test details and stack traces appear only in `--json`.
 - `builds problems` prints TYPE, FLAGS and a one-line DESCRIPTION, worded as `builds diagnose`
   words it.
-- File listings print NAME, SIZE and MODIFIED.
+- String lists (tags, attribute names and parameter names) print one item per line.
+- File listings print NAME, SIZE and MODIFIED; artifact listings add directory and archive markers.
 - Downloads print the full local path, byte count and SHA-256 of the saved file.
 
 In a terminal, `builds list` fits its width by shortening only BRANCH, `builds problems` only

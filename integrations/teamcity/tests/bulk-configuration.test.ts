@@ -295,7 +295,7 @@ test("S5 JSON-RPC isolates replacement permissions and credentials across two pr
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
-  assert.match(frames[0].result.help, /omitted items/);
+  assert.match(frames[0].result.help, /Replace the collection/);
   assert.match(frames[1].error.message, /Permission 'Update'/);
   assert.deepEqual(frames[2].result, []);
   assert.deepEqual(frames[3].result, { id: 7 });

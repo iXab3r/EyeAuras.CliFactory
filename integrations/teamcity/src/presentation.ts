@@ -1,5 +1,8 @@
 import {
   recordView,
+  listView,
+  treeView,
+  moreResults,
   tableView,
   type CommandDefinition,
   type HumanView,
@@ -7,6 +10,9 @@ import {
 } from "@eyeauras/cli-factory";
 import type {
   TeamCityBuild,
+  TeamCityProject,
+  TeamCityJob,
+  TeamCityAgent,
   TeamCityBuildSummary,
   TeamCityProblemOccurrence,
   TeamCityTestOccurrence,
@@ -85,11 +91,43 @@ function nextFor(build: TeamCityBuild): string[][] {
 }
 
 /** Whether a selection is complete, and how to continue it. */
-function completeness(page: TeamCityPage<unknown>): string {
-  const more = page.hasMore === true ? "yes" : page.hasMore === false ? "no" : "unknown";
-  const next = page.nextStart === null ? "" : `; continue with --start ${page.nextStart}`;
-  return `Shown: ${page.count}. More results: ${more}${next}.`;
+function completeness(page: TeamCityPage<unknown>): string | undefined {
+  if (page.hasMore === false) return undefined;
+  return page.nextStart === null ? "More results may exist."
+    : moreResults("--start", page.nextStart);
 }
+
+export const projectTree = treeView<TeamCityProject, TeamCityPage<TeamCityProject>>({
+  items: page => page.items,
+  id: project => project.id,
+  parent: project => project.parentProjectId,
+  line: project => `${project.id} · ${project.name}${project.archived ? " (archived)" : ""}`,
+  empty: "No projects found.",
+  footer: completeness,
+});
+
+export const jobTable = tableView<TeamCityJob, TeamCityPage<TeamCityJob>>({
+  rows: page => page.items, footer: completeness, empty: "No jobs found.",
+  columns: [
+    { header: "JOB", value: job => job.id },
+    { header: "NAME", value: job => job.name, shrink: true },
+    { header: "PROJECT", value: job => job.projectId },
+    { header: "PAUSED", value: job => job.paused },
+  ],
+});
+
+export const agentTable = tableView<TeamCityAgent, TeamCityPage<TeamCityAgent>>({
+  rows: page => page.items, footer: completeness, empty: "No agents found.",
+  columns: [
+    { header: "AGENT", value: agent => agent.id },
+    { header: "NAME", value: agent => agent.name, shrink: true },
+    { header: "CONNECTED", value: agent => agent.connected },
+    { header: "ENABLED", value: agent => agent.enabled },
+    { header: "AUTHORIZED", value: agent => agent.authorized },
+  ],
+});
+
+export const stringList = listView<string>({ line: value => value, empty: "No names found." });
 
 export const buildTable = tableView<TeamCityBuild, TeamCityPage<TeamCityBuild>>({
   rows: (page) => page.items,
@@ -117,13 +155,10 @@ export const buildRecord = recordView<TeamCityBuild>({
 
 /** `jobs run` and `builds wait`: the build, plus its outcome once it has one. */
 export const followedRecord = recordView<FollowedBuild>({
-  // "Queued" only while the new build still waits; a followed build shows its state instead.
-  title: (value) => (value.accepted && value.build.state === "queued"
-    ? `Queued: ${title(value.build)}`
-    : title(value.build)),
+  title: value => title(value.build),
   fields: [
-    { label: "Outcome", value: (value) => value.outcome },
     ...buildFields<FollowedBuild>((value) => value.build),
+    { label: "Parameters", value: value => value.build.parameterNames?.join(", ") },
   ],
   // A build that disappeared cannot be waited for or read again.
   next: (value) => (value.outcome === "missing" ? [] : nextFor(value.build)),
@@ -163,7 +198,6 @@ export const diagnosisRecord = recordView<Diagnosis>({
     ...buildFields<Diagnosis>((diagnosis) => diagnosis.build).filter((field) =>
       ["State", "Result", "Status", "Duration", "Web"].includes(field.label)),
     { label: "Tests", value: (diagnosis) => testCounts(diagnosis.build) },
-    { label: "Partial", value: (diagnosis) => (diagnosis.partial ? "yes, see unavailable sections" : undefined) },
   ],
   sections: [
     {
@@ -245,12 +279,28 @@ interface RemoteFile {
   name: string;
   size?: number;
   modificationTime?: string;
+  directory?: boolean;
+  archive?: boolean;
 }
 
-export const fileTable = tableView<RemoteFile, { items: readonly RemoteFile[] }>({
+export const fileTable = tableView<RemoteFile, { items: readonly RemoteFile[]; hasMore?: boolean | null }>({
   rows: (listing) => listing.items,
+  footer: listing => listing.hasMore === true ? moreResults("--limit", listing.items.length + 1)
+    : listing.hasMore === null ? "More results may exist." : undefined,
+  next: (listing, context) => {
+    const input = context.input;
+    if (!input || listing.items.every(file => file.directory === undefined)) return [];
+    const base = input.args.path ? `${input.args.path}/` : "";
+    return listing.items.flatMap(file => {
+      const path = base + file.name;
+      if (file.directory) return [["builds", "artifacts", "children", String(input.args.id), path]];
+      return [
+        ["builds", "artifacts", "download", String(input.args.id), path, "--output", file.name],
+      ];
+    });
+  },
   columns: [
-    { header: "NAME", value: (file) => file.name },
+    { header: "NAME", value: (file) => `${file.name}${file.directory ? "/" : file.archive ? " (archive)" : ""}` },
     { header: "SIZE", value: (file) => file.size, format: "bytes" },
     { header: "MODIFIED", value: (file) => teamCityDate(file.modificationTime), format: "age" },
   ],

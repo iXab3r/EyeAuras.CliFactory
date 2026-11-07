@@ -32,16 +32,16 @@ export function createAuthoringCommands(
   const leaf = clientLeaf(clientFor);
   const advanced = createAdvancedAuthoringCommands(leaf, pageOptions, bulk);
 
-  const nameOption = option("--name <name>", "Non-empty display name", true);
-  const descriptionOption = option("--description <text>", "Description");
-  const parentOption = option("--parent <id>", "Parent project ID", true);
-  const projectOption = option("--project <id>", "Project ID", true);
+  const nameOption = option("--name <name>", "Set the display name", true);
+  const descriptionOption = option("--description <text>", "Set the description");
+  const parentOption = option("--parent <id>", "Select the parent project", true);
+  const projectOption = option("--project <id>", "Select a project", true);
 
   function parameters(owner: ParameterOwner): CommandDefinition {
     const ownerArg = owner === "projects" ? "project-id" : "job-id";
     const valueOption = option(
       "--value <value>",
-      "Plain non-secret value (never credentials)",
+      "Set the parameter value",
       true,
     );
     return command(
@@ -56,7 +56,7 @@ export function createAuthoringCommands(
             (await clientFor(context)).setPasswordParameter(
               args["job-id"], args.name, text(options, "valueSecret"), context.secrets,
             ),
-          { permission: "Credentials", options: [option("--value-secret <alias>", "Input-secret alias", true)] },
+          { permission: "Credentials", options: [option("--value-secret <alias>", "Select an input-secret alias", true)] },
         )] : []),
         leaf(
           `list <${ownerArg}>`,
@@ -72,7 +72,7 @@ export function createAuthoringCommands(
         ),
         leaf(
           `create <${ownerArg}> <name>`,
-          "Create a plain parameter (TeamCity POST semantics)",
+          "Create a plain parameter",
           Permission.Update,
           (c, { args, options }) =>
             c.createParameter(
@@ -103,11 +103,11 @@ export function createAuthoringCommands(
 
   const stepOptions = [
     nameOption,
-    option("--type <runner-type>", "TeamCity runner type", true),
+    option("--type <runner-type>", "Set the runner type", true),
     propertyOption,
   ];
   const extensionOptions = [
-    option("--type <type>", "TeamCity extension type", true),
+    option("--type <type>", "Set the extension type", true),
     option("--enabled", "Enable the extension"),
     propertyOption,
   ];
@@ -149,7 +149,7 @@ export function createAuthoringCommands(
     ]);
   }
   const snapshotOptions = [
-    option("--source <upstream-job-id>", "Upstream build configuration ID", true),
+    option("--source <upstream-job-id>", "Select an upstream job", true),
     propertyOption,
   ];
   const snapshotInput = (options: Record<string, unknown>) => ({
@@ -158,7 +158,7 @@ export function createAuthoringCommands(
   });
   const snapshots = command(
     "snapshot-dependencies",
-    "Manage upstream build dependencies; dependency ID is the upstream job ID",
+    "Manage upstream build dependencies",
     [
       bulk.replaceAll("snapshot-dependencies"),
       leaf(
@@ -169,7 +169,7 @@ export function createAuthoringCommands(
       ),
       leaf(
         "show <job-id> <dependency-id>",
-        "Show a dependency without property values",
+        "Show a dependency summary",
         Permission.ReadOnly,
         (c, { args }) => c.getSnapshotDependency(args["job-id"], args["dependency-id"]),
       ),
@@ -183,7 +183,7 @@ export function createAuthoringCommands(
       ),
       leaf(
         "replace <job-id> <dependency-id>",
-        "Fully replace a dependency; omitted properties are NOT preserved",
+        "Replace an upstream dependency",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceSnapshotDependency(
@@ -195,7 +195,7 @@ export function createAuthoringCommands(
       ),
       leaf(
         "delete <job-id> <dependency-id>",
-        "Remove a dependency, not its upstream job",
+        "Remove an upstream dependency",
         Permission.Update,
         (c, { args }) =>
           c.deleteSnapshotDependency(args["job-id"], args["dependency-id"]),
@@ -218,7 +218,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "attach <job-id>",
-      "Attach a template without detaching other templates",
+      "Attach a template",
       Permission.Update,
       (c, { args, options }) =>
         c.attachTemplate(
@@ -227,16 +227,16 @@ export function createAuthoringCommands(
           options.optimizeSettings === true,
         ),
       [
-        option("--template <template-id>", "Existing template ID", true),
+        option("--template <template-id>", "Select an existing template", true),
         option(
           "--optimize-settings",
-          "Remove local settings duplicated by templates (default: false)",
+          "Remove duplicated local settings",
         ),
       ],
     ),
     leaf(
       "detach <job-id> <template-id>",
-      "Detach without deleting the template; inherited settings are not copied by default",
+      "Detach a template",
       Permission.Update,
       (c, { args, options }) =>
         c.detachTemplate(
@@ -247,7 +247,7 @@ export function createAuthoringCommands(
       [
         option(
           "--inline-settings",
-          "Copy inherited settings locally when detaching (default: false)",
+          "Copy inherited settings before detaching",
         ),
       ],
     ),
@@ -274,7 +274,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "replace <job-id> <step-id>",
-      "Fully replace a step; omitted properties are NOT preserved",
+      "Replace a build step",
       Permission.Update,
       (c, { args, options }) =>
         c.replaceStep(args["job-id"], args["step-id"], stepInput(options)),
@@ -287,14 +287,14 @@ export function createAuthoringCommands(
 
   const checkoutOption = option(
     "--checkout-rules <rules>",
-    "Checkout rules (an empty string clears them)",
+    "Set checkout rules",
     true,
   );
   const vcs = command("vcs", "Manage existing VCS root attachments", [
     bulk.replaceAll("vcs-root-entries"),
     leaf(
       "list <job-id>",
-      "List attached roots without connection properties",
+      "List attached roots",
       Permission.ReadOnly,
       (c, { args }) => c.listVcsEntries(args["job-id"]),
     ),
@@ -306,7 +306,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "attach <job-id>",
-      "Attach an existing root; does not create a root",
+      "Attach an existing VCS root",
       Permission.Update,
       (c, { args, options }) =>
         c.attachVcsRoot(
@@ -315,13 +315,13 @@ export function createAuthoringCommands(
           typeof options.checkoutRules === "string" ? options.checkoutRules : "",
         ),
       [
-        option("--root <root-id>", "Existing root ID", true),
+        option("--root <root-id>", "Select an existing VCS root", true),
         { ...checkoutOption, required: false },
       ],
     ),
     leaf(
       "replace <job-id> <root-id>",
-      "Replace an attachment, retaining its named root",
+      "Replace a VCS root attachment",
       Permission.Update,
       (c, { args, options }) =>
         c.replaceVcsEntry(
@@ -333,7 +333,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "detach <job-id> <root-id>",
-      "Detach from this job; never delete the shared root",
+      "Detach a VCS root",
       Permission.Update,
       (c, { args }) => c.detachVcsRoot(args["job-id"], args["root-id"]),
     ),
@@ -347,14 +347,14 @@ export function createAuthoringCommands(
         Permission.Update,
         (c, { args, options }) =>
           c.setCheckoutRules(args["job-id"], args["root-id"], text(options, "rules")),
-        [option("--rules <rules>", "Checkout rules (an empty string clears them)", true)],
+        [option("--rules <rules>", "Set checkout rules", true)],
       ),
     ]),
   ]);
   const roots = [
     leaf(
       "list",
-      "List a bounded page of VCS roots",
+      "List VCS roots",
       Permission.ReadOnly,
       (c, { options }) =>
         c.listVcsRoots({
@@ -366,7 +366,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "show <id>",
-      "Show a root identity without connection properties",
+      "Show a VCS root identity",
       Permission.ReadOnly,
       (c, { args }) => c.getVcsRoot(args.id),
     ),
@@ -390,7 +390,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "set <id> <field> <value>",
-      "Set name, description or archived (true/false)",
+      "Set project identity fields",
       Permission.Update,
       (c, { args }) =>
         c.setProjectField(args.id, args.field, args.value),
@@ -404,7 +404,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "delete <id>",
-      "Delete a project and its server-owned contents; never the root",
+      "Delete a project and its contents",
       Permission.Update,
       (c, { args }) => c.deleteProject(args.id),
     ),
@@ -438,7 +438,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "set <id> <field> <value>",
-      "Set name, description or paused (true/false)",
+      "Set job identity fields",
       Permission.Update,
       (c, { args }) => c.setJobField(args.id, args.field, args.value),
     ),
@@ -451,7 +451,7 @@ export function createAuthoringCommands(
     ),
     leaf(
       "delete <id>",
-      "Delete a job and server-owned configuration/history",
+      "Delete a job and its history",
       Permission.Update,
       (c, { args }) => c.deleteJob(args.id),
     ),

@@ -17,7 +17,7 @@ import { booleanText } from "./advanced-authoring-models.js";
 import type { ParameterOwner, PlainProperty } from "./authoring-models.js";
 import type { ParameterPart, SettingsCollection } from "./bulk-configuration-models.js";
 
-const confirm = option("--confirm", "Confirm clearing this named collection", true);
+const confirm = option("--confirm", "Confirm clearing this collection", true);
 const strings = (values: Record<string, unknown>, key: string) => (values[key] ?? []) as string[];
 const number = (values: Record<string, unknown>, key: string) => Number(text(values, key));
 const itemOption: OptionDefinition = {
@@ -40,7 +40,7 @@ export function createBulkConfigurationCommands(
     return [
       leaf(
         "replace-all <owner-id>",
-        "Replace all plain parameters; no properties clears; protected metadata blocks replacement",
+        "Replace all plain parameters",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceAllParameters(
@@ -52,7 +52,7 @@ export function createBulkConfigurationCommands(
       ),
       leaf(
         "clear <owner-id>",
-        "Delete all own parameters, including protected ones, without reading values",
+        "Delete all own parameters",
         Permission.Update,
         (c, { args }) => c.clearParameters(owner, args["owner-id"]),
         [confirm],
@@ -60,18 +60,18 @@ export function createBulkConfigurationCommands(
       ...parts.map((part) =>
         command(
           part === "type/rawValue" ? "raw-type" : part,
-          "Inspect safe metadata or change a plain parameter",
+          "Inspect and change parameter metadata",
           [
             leaf(
               "show <owner-id> <name>",
-              "Read through protected-metadata checks; no raw secret/type text",
+              "Read parameter metadata",
               Permission.ReadOnly,
               (c, { args }) =>
                 c.getParameterPart(owner, args["owner-id"], args.name, part),
             ),
             leaf(
               "set <owner-id> <name> <value>",
-              "Set a plain value or visible type name; never downgrade a password",
+              "Set a parameter value or type",
               Permission.Update,
               (c, { args }) =>
                 c.setParameterPart(
@@ -90,7 +90,7 @@ export function createBulkConfigurationCommands(
   function replaceAll(kind: SettingsCollection) {
     return leaf(
       "replace-all <owner-id>",
-      "Replace the entire collection; omitted items/settings are removed",
+      "Replace the collection",
       Permission.Update,
       (c, { args, options }) =>
         c.replaceAllSettings(kind, args["owner-id"], (options.item ?? []) as unknown[]),
@@ -100,7 +100,7 @@ export function createBulkConfigurationCommands(
   const templates = [
     leaf(
       "replace-all <job-id>",
-      "Replace template attachments, preserving order; no templates clears",
+      "Replace template attachments in order",
       Permission.Update,
       (c, { args, options }) =>
         c.replaceTemplates(
@@ -115,7 +115,7 @@ export function createBulkConfigurationCommands(
     ),
     leaf(
       "clear <job-id>",
-      "Detach all templates, not delete them",
+      "Detach all templates",
       Permission.Update,
       (c, { args, options }) =>
         c.clearTemplates(args["job-id"], options.inlineSettings === true),
@@ -140,7 +140,7 @@ export function createBulkConfigurationCommands(
       ),
       leaf(
         "replace-all <project-id>",
-        "Replace all pool assignments; no IDs clears",
+        "Replace all pool assignments",
         Permission.Update,
         (c, { args, options }) =>
           c.replaceProjectPools(args["project-id"], strings(options, "pool").map(Number)),
@@ -155,7 +155,7 @@ export function createBulkConfigurationCommands(
     ]),
     leaf(
       "branches <project-id>",
-      "List one bounded page of branches",
+      "List branches",
       Permission.ReadOnly,
       (c, { args, options }) =>
         c.listProjectBranches(args["project-id"], {
@@ -171,23 +171,23 @@ export function createBulkConfigurationCommands(
         Permission.Update,
         (c, { args, options }) =>
           c.createProjectJob(args["project-id"], args["job-id"], text(options, "name")),
-        [option("--name <name>", "Job name", true)],
+        [option("--name <name>", "Set the job name", true)],
       ),
     ]),
     command(
       "order",
       "Inspect or replace custom project ordering",
       (["jobs", "projects"] as const).map((kind) =>
-        command(kind, "Ordering of own children", [
+        command(kind, "Manage child ordering", [
           leaf(
             "show <project-id>",
-            "Read custom order; empty means no custom order",
+            "Read custom child order",
             Permission.ReadOnly,
             (c, { args }) => c.getProjectOrder(args["project-id"], kind),
           ),
           leaf(
             "set <project-id>",
-            "Replace custom order; no IDs restores default ordering",
+            "Replace custom child order",
             Permission.Update,
             (c, { args, options }) =>
               c.setProjectOrder(args["project-id"], kind, strings(options, "id")),
@@ -200,7 +200,7 @@ export function createBulkConfigurationCommands(
   const poolProjects = [
     leaf(
       "replace-all <pool-id>",
-      "Replace all assigned projects; no IDs clears",
+      "Replace all assigned projects",
       Permission.Update,
       (c, { args, options }) =>
         c.replacePoolProjects(number(args, "pool-id"), strings(options, "project")),
@@ -208,7 +208,7 @@ export function createBulkConfigurationCommands(
     ),
     leaf(
       "clear <pool-id>",
-      "Remove all project assignments, not the projects",
+      "Remove all project assignments",
       Permission.Update,
       (c, { args }) => c.clearPoolProjects(number(args, "pool-id")),
       [confirm],
@@ -217,45 +217,45 @@ export function createBulkConfigurationCommands(
   const queue = [
     leaf(
       "delete-page",
-      "Delete at most one bounded page of one job's queued builds/history",
+      "Delete one page of queued builds",
       Permission.Update,
       (c, { options }) =>
         c.deleteQueuePage(text(options, "job"), {
           limit: Number(options.limit),
           start: Number(options.start),
         }),
-      [option("--job <job-id>", "Required single job scope", true), ...pageOptions, confirm],
+      [option("--job <job-id>", "Select one job", true), ...pageOptions, confirm],
     ),
     leaf(
       "reorder",
-      "Move specified queued builds into order; not a launch",
+      "Reorder selected queued builds",
       Permission.Update,
       (c, { options }) => c.reorderQueue(strings(options, "build").map(Number)),
       [repeatOption("--build <id>", "Repeat build IDs in order", true)],
     ),
     leaf(
       "delete <build-id>",
-      "Delete one queued build and associated cancellation history",
+      "Delete a queued build and cancellation history",
       Permission.Update,
       (c, { args }) => c.deleteQueuedBuild(number(args, "build-id")),
     ),
     command("paused", "Change global queue pause state", [
       leaf(
         "set <status>",
-        "Pause/resume with true/false and an explicit reason",
+        "Set queue pause status",
         Permission.Update,
         (c, { args, options }) =>
           c.setQueuePaused(booleanText(args.status) === "true", text(options, "reason")),
-        [option("--reason <text>", "Non-secret reason", true)],
+        [option("--reason <text>", "Set the pause reason", true)],
       ),
     ]),
-    command("approval", "Inspect or approve one queued build as the current user", [
+    command("approval", "Inspect and approve queued builds", [
       leaf("show <build-id>", "Show minimal approval status", Permission.ReadOnly, (c, { args }) =>
         c.getQueueApproval(number(args, "build-id")),
       ),
       leaf(
         "approve <build-id>",
-        "Approve only this build, not its whole chain",
+        "Approve one queued build",
         Permission.Update,
         (c, { args }) => c.approveQueuedBuild(number(args, "build-id")),
       ),
@@ -264,7 +264,7 @@ export function createBulkConfigurationCommands(
   const agentTypes = command("types", "Inspect agent type identity", [
     leaf(
       "show <type-id>",
-      "Show identity/cloud flag without environment or parameters",
+      "Show agent type identity",
       Permission.ReadOnly,
       (c, { args }) => c.getAgentType(number(args, "type-id")),
     ),

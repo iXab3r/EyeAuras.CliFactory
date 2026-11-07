@@ -120,7 +120,9 @@ test("jobs run sends one-off parameters in the single queue request and never ec
   server.use(http.post(`${base}/buildQueue`, async ({ request }) => {
     posts++;
     body = await request.json();
-    return HttpResponse.json(queued);
+    const names = (body as { properties: { property: { name: string }[] } }).properties.property;
+    assert.match(new URL(request.url).searchParams.get("fields") ?? "", /properties\(property\(name\)\)/);
+    return HttpResponse.json({ ...queued, properties: { property: names.map(({ name }) => ({ name, value: "synthetic-server-value" })) } });
   }));
   const runtime = await updater(t);
   const cli = runtime.createCli();
@@ -129,7 +131,7 @@ test("jobs run sends one-off parameters in the single queue request and never ec
     "jobs", "run", "Demo_Tests", "--branch", "main",
     "--param", "env.MODE=synthetic-mode-value", "--param", "empty.value=",
   ]);
-  assert.deepEqual(result, { accepted: true, build: queued });
+  assert.deepEqual(result, { accepted: true, build: { ...queued, parameterNames: ["env.MODE", "empty.value"] } });
   assert.deepEqual(body, {
     buildType: { id: "Demo_Tests" },
     branchName: "main",
@@ -142,9 +144,10 @@ test("jobs run sends one-off parameters in the single queue request and never ec
   });
   const human = await runtime.run(cli, ["jobs", "run", "Demo_Tests", "--param", "env.MODE=synthetic-mode-value"]);
   assert.equal(human.exitCode, 0, human.stderr);
-  assert.match(human.stdout, /^Queued: Build 201 · Demo_Tests\n/);
+  assert.match(human.stdout, /^Build 201 · Demo_Tests\nState: +queued\n/);
   assert.match(human.stdout, /Next:\n {2}teamcity-cli builds wait 201\n$/);
-  assert.doesNotMatch(human.stdout + human.stderr, /synthetic-mode-value/);
+  assert.match(human.stdout, /Parameters: +env.MODE/);
+  assert.doesNotMatch(human.stdout + human.stderr, /synthetic-mode-value|synthetic-server-value|properties/);
   assert.equal(posts, 2);
 
   for (const argv of [
@@ -174,10 +177,10 @@ test("jobs run --wait keeps Update, queues once and follows only by reads to suc
   assert.equal(result.exitCode, 0, result.stderr);
   assert.equal(
     result.stderr,
-    "Build 201: queued (position 1)\nBuild 201: running\nBuild 201: finished: succeeded\n",
+    "Build 201: queued (position 1)\nBuild 201: running\n",
   );
-  // "Queued" titles only a build still in the queue, not the finished result of the wait.
-  assert.match(result.stdout, /^Build 201 · Demo_Tests\nOutcome: +succeeded\nState: +finished\n/);
+  // The final state/result are in the record only, with no separate outcome field.
+  assert.match(result.stdout, /^Build 201 · Demo_Tests\nState: +finished\nResult: +SUCCESS\n/);
   assert.deepEqual(seen, { posts: 1, reads: 3, other: 0 });
 });
 
@@ -267,7 +270,7 @@ test("a deadline stops only local waiting: exit 124 with the last state and no c
   assert.equal(result.exitCode, 124);
   assert.ok(Date.now() - started < 5_000, "The deadline bounds the whole wait.");
   assert.deepEqual(JSON.parse(result.stdout), { build: running, outcome: "timedOut" });
-  assert.match(result.stderr, /did not finish in time; it continues on the server and was not canceled/);
+  assert.match(result.stderr, /did not finish in time; it continues on the server/);
   assert.equal(seen.posts + seen.other, 0);
 });
 
@@ -339,8 +342,8 @@ test("a lost queue response is reported as unknown and never retried", async (t)
   // The explanation, one line of technical cause, the follow-ups; frames only with --verbose.
   assert.equal(
     result.stderr,
-    "The queue request's outcome is unknown; check for a new build before running it again.\n" +
-      "Cause: TeamCity network request failed; remote outcome is unknown. (synthetic connection reset)\n" +
+    "The queue request's outcome is unknown.\n" +
+      "Cause: TeamCity network request failed. (synthetic connection reset)\n" +
       "Next:\n  teamcity-cli builds list --job Demo_Tests --state any\n",
   );
   assert.equal(posts, 1);
@@ -369,7 +372,7 @@ test("a 5xx or unreadable queue response is unknown too, and a refusal stays a p
   const runtime = await updater(t);
   const cli = runtime.createCli();
   const unknown =
-    "The queue request's outcome is unknown; check for a new build before running it again.\n";
+    "The queue request's outcome is unknown.\n";
   for (const _ of responses) {
     const result = await runtime.run(cli, [
       "jobs", "run", "Demo_Tests", "--branch", "release/1.0", "--wait",
@@ -499,5 +502,58 @@ test("diagnose is bounded, marks truncation and never turns missing data into no
   assert.match(partial.stderr, /summary is partial/);
   const partialHuman = await runtime.run(cli, ["builds", "diagnose", "101"]);
   assert.match(partialHuman.stdout, /Problems:\n {2}unavailable: access denied\n/);
-  assert.doesNotMatch(partialHuman.stdout, /Problems:\n {2}none/);
+  assert.doesNotMatch(partialHuman.stdout, /Problems:\n {2}none|Partial:/);
+  assert.equal(partialHuman.stderr, "Some diagnostics could not be read; the summary is partial.\n");
+});
+
+test("run parameter confirmation uses only names returned by TeamCity across human, JSON, RPC and wait", async t => {
+  let posts = 0;
+  server.use(http.post(`${base}/buildQueue`, ({ request }) => {
+    posts++;
+    assert.match(new URL(request.url).searchParams.get("fields") ?? "", /properties\(property\(name\)\)/);
+    return HttpResponse.json({ ...queued, properties: { property: [
+      { name: "a", value: "synthetic-first-value" }, { name: "b", value: "synthetic-second-value" },
+      { name: "inherited", value: "synthetic-inherited-value" },
+    ] } });
+  }), http.get(`${base}/builds/id:201`, () => HttpResponse.json(finished("SUCCESS"))));
+  const argv = ["jobs", "run", "Demo_Tests", "--param", "a=synthetic-first-value", "--param", "b=synthetic-second-value"];
+  const denied = await createTestRuntime(t);
+  assert.equal((await denied.run(denied.createCli(), argv)).exitCode, 1);
+  assert.equal(posts, 0);
+  const runtime = await updater(t);
+  const cli = runtime.createCli();
+  const human = await runtime.run(cli, argv);
+  assert.equal(human.exitCode, 0, human.stderr);
+  assert.match(human.stdout, /Parameters: +a, b/);
+  const json = await runtime.json(cli, argv) as { build: { parameterNames: string[] } };
+  assert.deepEqual(json.build.parameterNames, ["a", "b"]);
+  const rpc = await runtime.rpc(cli, [argv]);
+  const waited = await runtime.json(cli, [...argv, "--wait"]) as { build: { parameterNames: string[] } };
+  assert.deepEqual(waited.build.parameterNames, ["a", "b"]);
+  for (const output of [human.stdout + human.stderr, JSON.stringify(json), JSON.stringify(rpc), JSON.stringify(waited)])
+    assert.doesNotMatch(output, /synthetic-first-value|synthetic-second-value|synthetic-inherited-value|properties|inherited/);
+  assert.match(JSON.stringify(rpc), /"parameterNames":\["a","b"\]/);
+
+  server.use(http.get(`${base}/builds/id:201`, () => HttpResponse.json(finished("FAILURE"))));
+  const failedWait = await runtime.run(cli, [...argv, "--wait", "--json"]);
+  assert.equal(failedWait.exitCode, 1);
+  assert.deepEqual(JSON.parse(failedWait.stdout).build.parameterNames, ["a", "b"]);
+  assert.doesNotMatch(failedWait.stdout + failedWait.stderr, /synthetic-first-value|synthetic-second-value/);
+
+  // Missing server confirmation must not echo locally submitted names as if confirmed.
+  server.use(http.post(`${base}/buildQueue`, () => HttpResponse.json(queued)));
+  const absent = await runtime.json(cli, argv) as { build: { parameterNames: string[] } };
+  assert.deepEqual(absent.build.parameterNames, []);
+});
+
+test("human failed wait and partial diagnosis each state their outcome once per surface", async t => {
+  buildStates([finished("FAILURE")]);
+  const runtime = await createTestRuntime(t);
+  const cli = runtime.createCli();
+  const failed = await runtime.run(cli, ["builds", "wait", "201"]);
+  assert.equal(failed.exitCode, 1);
+  assert.equal(failed.stderr, "Build 201 finished with FAILURE.\n");
+  assert.equal((failed.stdout.match(/FAILURE/g) ?? []).length, 1);
+  assert.doesNotMatch(failed.stdout, /Outcome:/);
+  assert.doesNotMatch(failed.stderr, /Build 201: finished/);
 });

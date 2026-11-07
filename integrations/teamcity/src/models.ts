@@ -49,6 +49,8 @@ export interface TeamCityBuildAgent {
 }
 
 export interface TeamCityBuild {
+  /** Requested one-off names confirmed by the queue response; values are never retained. */
+  parameterNames?: string[];
   id: number;
   buildTypeId?: string;
   number?: string;

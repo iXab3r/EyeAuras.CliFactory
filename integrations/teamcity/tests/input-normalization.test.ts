@@ -67,7 +67,7 @@ for (const endpoint of ["http://example.test", "https://example.test", "http://e
         Object.assign(h.runtime.error, { isTTY: true });
         // Root onboarding takes the URL from a TTY and the token from the invocation environment.
         assert.equal(await app.run([], { environment }), 0, h.stderr());
-        assert.match(h.stderr(), /TeamCity server URL, such as/);
+        assert.match(h.stderr(), /Set URL: http\(s\):\/\/host/);
       } else await invoke(["profile", "configure", "--url", padded]);
       assert.equal((await h.profileStore.get()).values.url, canonical);
       await invoke(["auth", "login"]);

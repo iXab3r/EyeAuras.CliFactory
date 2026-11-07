@@ -6,6 +6,7 @@ import { pathSegment } from "./authoring-models.js";
 export type FileTree = "jobs" | "builds" | "instances" | "server";
 export type DownloadFormat = "bytes" | "zip" | "png" | "svg";
 export const fileFields = "name,size,modificationTime";
+export const artifactFileFields = `${fileFields},children($none),content($none)`;
 export function remotePath(value: string) {
   if (
     !value ||
@@ -35,14 +36,20 @@ export function fileQuery(kind: FileTree): Record<string, string> {
       ? { resolveParameters: "false" }
       : {};
 }
-export const fileLocator = (count: number) =>
-  `count:${integer(count, 0, Number.MAX_SAFE_INTEGER)},recursive:false,hidden:false,browseArchives:false`;
+export const fileLocator = (count: number, browseArchives = false) =>
+  `count:${integer(count, 0, Number.MAX_SAFE_INTEGER)},recursive:false,hidden:false,browseArchives:${browseArchives}`;
 export function safeFile(value: unknown) {
   const v = object(value);
   if (typeof v.name !== "string")
     throw new Error("Invalid file metadata.");
   if (v.size !== undefined) integer(v.size, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
   return safeScalars(v, ["name", "size", "modificationTime"]);
+}
+export function safeArtifactFile(value: unknown) {
+  const v = object(value);
+  const hasChildren = v.children !== undefined && v.children !== null;
+  const hasContent = v.content !== undefined && v.content !== null;
+  return { ...safeFile(value), directory: hasChildren && !hasContent, archive: hasChildren && hasContent };
 }
 export const safeFiles = (v: unknown) => collection(v, "file", safeFile);
 export function serverPath(value: string) {

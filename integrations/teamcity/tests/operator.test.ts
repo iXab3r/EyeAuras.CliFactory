@@ -281,7 +281,7 @@ test("S4 JSON-RPC isolates profiles, credentials and permission failures and con
     .split("\n")
     .map((line) => JSON.parse(line));
   assert.equal(frames.length, 5);
-  assert.match(frames[0].result.help, /empty selected/);
+  assert.match(frames[0].result.help, /Replace the allowed-job policy/);
   assert.ok(frames[1].error);
   assert.match(frames[2].error.message, /Permission 'Update'/);
   assert.deepEqual(frames[3].result, { status: false });

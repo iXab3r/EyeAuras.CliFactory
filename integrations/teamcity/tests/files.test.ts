@@ -721,3 +721,50 @@ test("download resource kinds choose known filenames without an output option", 
     } finally { await f.cleanup(); }
   }
 });
+
+test("artifact browsing projects directory/archive flags, completeness and profile-safe next commands", async t => {
+  let entries: unknown[] = [
+    { name: "dist", children: { href: "synthetic-children-href", file: [{ name: "must-not-recurse" }] } },
+    { name: "app.zip", children: { href: "synthetic-archive-href" }, content: { href: "synthetic-content-href" }, size: 8 },
+    { name: "readme.txt", content: { href: "synthetic-file-href" }, size: 3 },
+  ];
+  const queries: URL[] = [];
+  server.use(http.get(`${base}/builds/id:7/artifacts*`, ({ request }) => {
+    const url = new URL(request.url);
+    queries.push(url);
+    assert.equal(url.searchParams.get("resolveParameters"), "false");
+    assert.equal(url.searchParams.get("logBuildUsage"), "false");
+    assert.equal(url.searchParams.get("fields"), "count,file(name,size,modificationTime,children($none),content($none))");
+    return HttpResponse.json({ count: entries.length, file: entries });
+  }));
+  const runtime = await createTestRuntime(t, { profiles: [
+    { name: "default", url: "https://teamcity.test" }, { name: "uat", url: "https://teamcity.test" },
+  ], tokens: { uat: "fixture-token" } });
+  const cli = runtime.createCli();
+  const listed = await runtime.run(cli, ["builds", "artifacts", "list", "7", "--limit", "2", "--profile", "uat"]);
+  assert.equal(listed.exitCode, 0, listed.stderr);
+  assert.match(listed.stdout, /dist\//);
+  assert.match(listed.stdout, /app.zip \(archive\)/);
+  assert.match(listed.stdout, /More results: --limit 3/);
+  assert.match(listed.stdout, /teamcity-cli builds artifacts children 7 dist --profile uat/);
+  assert.match(listed.stdout, /teamcity-cli builds artifacts download 7 app.zip --output app.zip --profile uat/);
+  assert.equal(queries[0]?.searchParams.get("locator"), "count:3,recursive:false,hidden:false,browseArchives:true");
+  assert.doesNotMatch(listed.stdout, /href|synthetic-|must-not-recurse|readme.txt/);
+  const json = await runtime.json(cli, ["builds", "artifacts", "list", "7", "--profile", "uat"]);
+  assert.deepEqual(json, { count: 3, hasMore: false, items: [
+    { name: "dist", directory: true, archive: false },
+    { name: "app.zip", directory: false, archive: true, size: 8 },
+    { name: "readme.txt", directory: false, archive: false, size: 3 },
+  ] });
+  assert.doesNotMatch(JSON.stringify(json), /href|synthetic-|must-not-recurse/);
+  const child = await runtime.run(cli, ["builds", "artifacts", "children", "7", "dist", "--profile", "uat"]);
+  assert.match(child.stdout, /teamcity-cli builds artifacts download 7 dist\/readme.txt --output readme.txt --profile uat/);
+  const rpc = await runtime.rpc(cli, [["builds", "artifacts", "list", "7", "--profile", "uat"]]);
+  assert.doesNotMatch(JSON.stringify(rpc), /href|synthetic-|must-not-recurse/);
+  entries = [];
+  const empty = await runtime.run(cli, ["builds", "artifacts", "list", "7", "--profile", "uat"]);
+  assert.equal(empty.stdout, "No files found.\n");
+  assert.deepEqual(await runtime.json(cli, ["builds", "artifacts", "list", "7", "--profile", "uat"]),
+    { count: 0, items: [], hasMore: false });
+  assert.equal(queries.length, 6, "Each listing makes one nonrecursive request.");
+});

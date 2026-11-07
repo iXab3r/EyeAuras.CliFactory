@@ -1,3 +1,4 @@
+import { stringList, withView } from "./presentation.js";
 import {
   command,
   Permission,
@@ -31,12 +32,12 @@ export function createOperatorCommands(
     limit: Number(options.limit),
     start: Number(options.start),
   });
-  const commentOption = option("--comment <text>", "Non-secret action comment");
+  const commentOption = option("--comment <text>", "Attach an action comment");
   const pools = command("pools", "Inspect and manage agent pools", [
     ...poolCommands,
     leaf(
       "list",
-      "List a bounded page of pools",
+      "List agent pools",
       Permission.ReadOnly,
       (c, { options }) => c.listPools(paging(options)),
       pageOptions,
@@ -49,15 +50,15 @@ export function createOperatorCommands(
       "Create a pool",
       Permission.Update,
       (c, { options }) => c.createPool(text(options, "name")),
-      [option("--name <name>", "Pool name", true)],
+      [option("--name <name>", "Set the pool name", true)],
     ),
     leaf(
       "delete <pool-id>",
-      "Delete one pool; never default pool 0",
+      "Delete an agent pool",
       Permission.Update,
       (c, { args }) => c.deletePool(number(args, "pool-id")),
     ),
-    command("fields", "Read/set pool name", [
+    command("fields", "Manage the pool name", [
       leaf("show <pool-id> <field>", "Read name", Permission.ReadOnly, (c, { args }) =>
         c.getPoolField(number(args, "pool-id"), args.field),
       ),
@@ -68,7 +69,7 @@ export function createOperatorCommands(
     command("agents", "Manage agents assigned to a pool", [
       leaf(
         "list <pool-id>",
-        "List a bounded page of assigned agents",
+        "List assigned agents",
         Permission.ReadOnly,
         (c, { args, options }) => c.listPoolAgents(number(args, "pool-id"), paging(options)),
         pageOptions,
@@ -96,7 +97,7 @@ export function createOperatorCommands(
       ),
       leaf(
         "unassign <pool-id> <project-id>",
-        "Remove membership; never delete the project",
+        "Remove a project membership",
         Permission.Update,
         (c, { args }) => c.unassignPoolProject(number(args, "pool-id"), args["project-id"]),
       ),
@@ -106,13 +107,13 @@ export function createOperatorCommands(
     return command(kind, `Manage agent ${kind} status`, [
       leaf(
         "show <agent-id>",
-        "Show status and safe comment metadata",
+        "Show status and comment metadata",
         Permission.ReadOnly,
         (c, { args }) => c.getAgentStatus(number(args, "agent-id"), kind),
       ),
       leaf(
         "set <agent-id> <status>",
-        "Set true/false; changes remote agent eligibility",
+        "Set agent eligibility",
         Permission.Update,
         (c, { args, options }) =>
           c.setAgentStatus(
@@ -131,7 +132,7 @@ export function createOperatorCommands(
     agentStatus("authorized"),
     leaf(
       "delete <agent-id>",
-      "Delete one inactive agent; server validates inactivity",
+      "Delete an inactive agent",
       Permission.Update,
       (c, { args }) => c.deleteAgent(number(args, "agent-id")),
     ),
@@ -143,7 +144,7 @@ export function createOperatorCommands(
     ),
     leaf(
       "incompatible-jobs <agent-id>",
-      "List incompatible jobs without raw requirement data",
+      "List incompatible jobs",
       Permission.ReadOnly,
       (c, { args }) => c.listAgentIncompatibleJobs(number(args, "agent-id")),
     ),
@@ -153,7 +154,7 @@ export function createOperatorCommands(
       ),
       leaf(
         "set <agent-id> <policy>",
-        "Replace policy: any or selected; empty selected allows no jobs",
+        "Replace the allowed-job policy",
         Permission.Update,
         (c, { args, options }) =>
           c.setAgentPolicy(
@@ -161,13 +162,13 @@ export function createOperatorCommands(
             args.policy,
             (options.job ?? []) as string[],
           ),
-        [repeatOption("--job <job-id>", "Repeat for selected jobs; forbidden with any")],
+        [repeatOption("--job <job-id>", "Select allowed jobs; repeat for more")],
       ),
     ]),
     command("pool", "Inspect or move pool membership", [
       leaf(
         "show <agent-id>",
-        "Show pool identity, or null if absent",
+        "Show the assigned pool",
         Permission.ReadOnly,
         (c, { args }) => c.getAgentPool(number(args, "agent-id")),
       ),
@@ -178,7 +179,7 @@ export function createOperatorCommands(
         (c, { args }) => c.setAgentPool(number(args, "agent-id"), number(args, "pool-id")),
       ),
     ]),
-    command("fields", "Read safe agent fields; set enabled/authorized only", [
+    command("fields", "Manage agent fields", [
       leaf(
         "show <agent-id> <field>",
         "Read id, name, connected, enabled or authorized",
@@ -195,11 +196,11 @@ export function createOperatorCommands(
     ]),
   ];
   function tags(owner: "builds" | "queue") {
-    const tagOption = repeatOption("--tag <tag>", "Repeat for each public, non-secret tag", true);
+    const tagOption = repeatOption("--tag <tag>", "Select public tags; repeat for more", true);
     return command("tags", "Inspect or change public tags", [
-      leaf("list <build-id>", "List public tags", Permission.ReadOnly, (c, { args }) =>
+      withView(stringList, leaf("list <build-id>", "List public tags", Permission.ReadOnly, (c, { args }) =>
         c.listTags(owner, number(args, "build-id")),
-      ),
+      )),
       leaf(
         "add <build-id>",
         "Add tags without removing others",
@@ -212,7 +213,7 @@ export function createOperatorCommands(
         ? [
             leaf(
               "replace <build-id>",
-              "Replace public tags; no --tag clears all public tags",
+              "Replace public tags",
               Permission.Update,
               (c, { args, options }) =>
                 c.replaceBuildTags(number(args, "build-id"), (options.tag ?? []) as string[]),
@@ -247,7 +248,7 @@ export function createOperatorCommands(
         Permission.Update,
         (c, { args, options }) =>
           c.setQueuePosition(args.position, number(options, "build")),
-        [option("--build <build-id>", "Queued build ID", true)],
+        [option("--build <build-id>", "Select a queued build", true)],
       ),
     ]),
   ];
@@ -258,7 +259,7 @@ export function createOperatorCommands(
       ),
       leaf(
         "set <build-id> <value>",
-        "Set the value; server requires a running build",
+        "Set the running build value",
         Permission.Update,
         (c, { args }) => c.setBuildScalar(number(args, "build-id"), field, args.value),
       ),
@@ -271,7 +272,7 @@ export function createOperatorCommands(
     buildScalar("statusText", "status-text"),
     leaf(
       "delete <build-id>",
-      "Delete one build including server-owned history/artifacts",
+      "Delete a build and its history",
       Permission.Update,
       (c, { args }) => c.deleteBuild(number(args, "build-id")),
     ),
@@ -283,18 +284,18 @@ export function createOperatorCommands(
     ),
     leaf(
       "canceled-info <build-id>",
-      "Read cancellation comment, or null if absent",
+      "Read the cancellation comment",
       Permission.ReadOnly,
       (c, { args }) => c.getBuildCanceledInfo(number(args, "build-id")),
     ),
     command("comment", "Change a build comment", [
       leaf(
         "set <build-id>",
-        "Replace the non-secret comment",
+        "Replace the build comment",
         Permission.Update,
         (c, { args, options }) =>
           c.setBuildComment(number(args, "build-id"), text(options, "text")),
-        [option("--text <text>", "Comment text", true)],
+        [option("--text <text>", "Set the comment text", true)],
       ),
       leaf("clear <build-id>", "Remove the comment", Permission.Update, (c, { args }) =>
         c.clearBuildComment(number(args, "build-id")),
@@ -309,7 +310,7 @@ export function createOperatorCommands(
       ),
       leaf(
         "set <build-id> <status>",
-        "Pin/unpin with true/false",
+        "Set pinned status",
         Permission.Update,
         (c, { args, options }) =>
           c.setBuildPin(
@@ -320,7 +321,7 @@ export function createOperatorCommands(
         [commentOption],
       ),
     ]),
-    command("statistics", "Read statistics without losing numeric precision", [
+    command("statistics", "Read build statistics", [
       leaf(
         "list <build-id>",
         "List named numeric text values",
@@ -347,7 +348,7 @@ export function createOperatorCommands(
       ),
     ]),
   ];
-  const changes = command("changes", "Inspect VCS change metadata without source files", [
+  const changes = command("changes", "Inspect VCS change metadata", [
     ...triage.changes,
     leaf("show <change-id>", "Show a change", Permission.ReadOnly, (c, { args }) =>
       c.getChange(number(args, "change-id")),

@@ -64,7 +64,7 @@ export function pairOption(flag: string, description: string): OptionDefinition 
 }
 export const propertyOption = pairOption(
   "--property",
-  "Repeat for each non-secret property; never credentials",
+  "Set a property; repeat for more",
 );
 
 export type ClientLeaf = TargetCommand<TeamCityClient>;
