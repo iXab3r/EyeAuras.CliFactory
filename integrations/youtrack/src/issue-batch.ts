@@ -1,4 +1,4 @@
-import { saveFile } from "@eyeauras/cli-factory";
+import { CliError, saveFile } from "@eyeauras/cli-factory";
 import { parse } from "csv-parse/sync";
 import { encodedID, mutate, mutationBody, type Connection, type YouTrackObject, type YouTrackValue } from "./client.js";
 import { issueRequest, issueWrite, issueWriteFields, type IssueWrite } from "./issue-fields.js";
@@ -137,7 +137,7 @@ export async function applyIssueBatch(
       failedRows = { error: (error as Error).message };
     }
   }
-  return {
+  const result = {
     status: count("completed") === rows.length ? "completed" : "incomplete",
     completed: count("completed"),
     failed: count("failed"),
@@ -146,4 +146,11 @@ export async function applyIssueBatch(
     rows: results,
     ...(options.failedRows === undefined ? {} : { failedRows }),
   };
+  if (result.status === "incomplete") {
+    throw new CliError(
+      `Not every row completed.${result.uncertain ? " Check uncertain rows in YouTrack before resubmitting." : ""}`,
+      { code: "batch.incomplete", result },
+    );
+  }
+  return result;
 }
