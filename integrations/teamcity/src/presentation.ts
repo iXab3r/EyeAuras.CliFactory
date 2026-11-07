@@ -293,6 +293,7 @@ export const fileTable = tableView<RemoteFile, { items: readonly RemoteFile[]; h
     const base = input.args.path ? `${input.args.path}/` : "";
     return listing.items.flatMap(file => {
       const path = base + file.name;
+      if (path.startsWith("-") || (!file.directory && file.name.startsWith("-"))) return [];
       if (file.directory) return [["builds", "artifacts", "children", String(input.args.id), path]];
       return [
         ["builds", "artifacts", "download", String(input.args.id), path, "--output", file.name],

@@ -620,7 +620,8 @@ requested number is returned. A complete list has `hasMore:false` and no footer;
 the shared footer suggests a larger selection, such as `More results: --limit 21`. At the safe-integer boundary completeness can
 remain unknown (`hasMore:null`). `Next:` suggests `children` for each directory and `download`
 for each file or archive. These commands retain the selected profile and current directory path;
-unsafe shell tokens are omitted by Core's shared follow-up policy. An empty listing prints
+unsafe shell tokens are omitted by Core's shared follow-up policy. Artifact hints also omit
+option-like paths or output names beginning with `-`. An empty listing prints
 `No files found.`. No implicit recursion, pagination or href following occurs.
 
 ```text

@@ -346,3 +346,34 @@ test("string collections use one line per item and readable empty output", async
   names = [];
   for (const argv of commands) assert.equal((await runtime.run(cli, argv)).stdout, "No names found.\n");
 });
+
+
+test("artifact hints omit option-like paths and output names while retaining listed data", async (t) => {
+  const file = [
+    { name: "-directory", children: {} },
+    { name: "--help", content: {} },
+    { name: "-report.txt", content: {} },
+    { name: "safe.txt", content: {} },
+  ];
+  server.use(http.get("https://teamcity.test/app/rest/builds/id:101/artifacts", () =>
+    HttpResponse.json({ count: file.length, file })));
+  const runtime = await createTestRuntime(t);
+  const cli = runtime.createCli();
+  const listed = await runtime.run(cli, ["builds", "artifacts", "list", "101"]);
+  assert.equal(listed.exitCode, 0, listed.stderr);
+  assert.match(listed.stdout, /-directory\//);
+  assert.match(listed.stdout, /--help/);
+  assert.match(listed.stdout, /-report\.txt/);
+  const hints = listed.stdout.split("Next:")[1] ?? "";
+  assert.match(hints, /download 101 safe.txt --output safe.txt/);
+  assert.doesNotMatch(hints, /-directory|--help|-report/);
+  server.use(http.get("https://teamcity.test/app/rest/builds/id:101/artifacts/dir", () =>
+    HttpResponse.json({ count: file.length, file })));
+  const nested = await runtime.run(cli, ["builds", "artifacts", "children", "101", "dir"]);
+  assert.equal(nested.exitCode, 0, nested.stderr);
+  const nestedHints = nested.stdout.split("Next:")[1] ?? "";
+  assert.match(nestedHints, /children 101 dir\/-directory/);
+  assert.doesNotMatch(nestedHints, /--output -(?:-help|report)/);
+  const json = await runtime.json(cli, ["builds", "artifacts", "list", "101"]) as { items: { name: string }[] };
+  assert.deepEqual(json.items.map(item => item.name), file.map(item => item.name));
+});
