@@ -41,7 +41,7 @@ The driver isolates npm user/global configs and child environments; NPM_TOKEN is
 to npm stage operations, and GITHUB_TOKEN only via a private temporary header file for the
 GitHub Release. It never reads or changes token rights, approves stages or bypasses 2FA.
 
-## TeamCity ownership and cutover
+## TeamCity configuration
 
 | Object | ID / setting |
 |---|---|
@@ -51,12 +51,15 @@ GitHub Release. It never reads or changes token rights, approves stages or bypas
 | Manual Core staging | `EyeAuras_CliFactory_Release`, `--dry-run` by default |
 | Exclusive release resource | `cli-factory-release writeLock` |
 
-Both jobs run `bash build/teamcity.sh` in Linux Docker. The release job is paused during the
-migration, preventing the old coupled direct-publish entry point from running. After review and
-merge, set its plain `env.RELEASE_REVISION` default empty and retain protected `npm.token`,
-`env.NPM_TOKEN=%npm.token%` and inherited protected `env.GITHUB_TOKEN`; do not resolve them.
-Prove exact-head Verify and DryRun, then enable manual Core staging. Product jobs must use their
-own repository roots, exclusive resources and entry points; no shared root is rewritten.
+Both jobs are active and run `bash build/teamcity.sh` in Linux Docker. Verify follows main;
+Core staging is manual and defaults to dry-run. The plain `env.RELEASE_REVISION` default is
+empty, requiring the caller to select the exact checkout SHA. Protected `npm.token`,
+`env.NPM_TOKEN=%npm.token%` and inherited protected `env.GITHUB_TOKEN` remain server-side;
+do not resolve them. Product jobs use their own repository roots, exclusive resources and
+entry points. Factory releases only Core.
+
+The old `EyeAuras_CliFactory_NpmRelease` configuration is retained only for migration build
+history. It is paused and has no triggers; use `EyeAuras_CliFactory_Release` for releases.
 TeamCity is CI; there are no GitHub Actions workflows. The obsolete create-only PowerShell
 setup that described coupled direct publication is removed; use the installed teamcity-cli
 for scoped native configuration. Bootstrap never changes CI configuration.
