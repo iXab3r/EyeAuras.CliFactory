@@ -4,7 +4,7 @@ Role: **factory-core maintainer**.
 
 Read the root `AGENTS.md` and `docs/DESIGN.md` first.
 
-- Keep this package unaware of TeamCity or any other service.
+- Keep this package unaware of any service domain.
 - Preserve the recursive command model and automatic output formatting. A handler returns domain
   data; it must not branch on `--json`.
 - Treat stdout as a protocol surface. In JSON-RPC mode only JSON-RPC frames may reach stdout.

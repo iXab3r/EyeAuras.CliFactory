@@ -30,32 +30,21 @@ of `maxBytes` means no local byte ceiling. An explicitly selected budget must be
 integer. Core continues to own response chunks, validate Content-Length syntax and identity-body
 completeness, cancel/release readers, and avoid exposing raw failure causes.
 
-`publishFile` likewise accepts an optional byte budget. YouTrack and TeamCity downloads
-have no default budget; `--max-bytes` opts into a caller-selected budget without a fixed upper cap.
+`publishFile` likewise accepts an optional caller-selected byte budget without a fixed upper cap.
 Identity Content-Length must match completed bytes. Encoded wire length is not decoded size.
 No-clobber publication, private staging, hashes, path/device checks and cleanup ownership remain.
 Local basename length caps/truncation have been removed; filesystem name/path limits apply.
 
-TeamCity avatar uploads and text/XML projections, ordinary YouTrack/TeamCity responses and
-RANDOM results have no fixed local byte ceiling. Playwright auth snapshots have no local size cap.
+Playwright auth snapshots have no local size cap.
 Browser action/navigation and RANDOM operation deadlines are not imposed by default. Explicit
 caller timeouts/cancellation and startup/shutdown recovery deadlines remain supported.
 
 ## Selection, paging and validation
 
-YouTrack no longer limits explicit issue selection to 20 IDs or page size to 100. TeamCity no longer
-caps typed/bulk items, roles, restrictions, tags, keys, mutes, backup modules, decoded collections
-or page sizes. Default page sizes remain convenient defaults and do not limit an explicit request.
-Pagination happens only when a command asks for it explicitly, and there is no recursive
-discovery or command replay. The YouTrack `issues list --all` requires a caller-selected
-`--max-results` budget (optional `--max-bytes`) and fails rather than truncating. It advances by
-actual raw rows to an empty page; short pages alone do not establish completion. All 47 offset
-lists use `--page-size`/`--start` and a local page envelope; native activity cursors remain separate.
-YouTrack writes send field `name`, `project.shortName` and ID selectors directly to the service
-without catalog scans or selector-discovery requests. Batch manifests have no row-count ceiling.
-
-TeamCity's extra text/path/XML/cron/identifier lengths, avatar pixel maximum and debug-token TTL
-maximum have been removed. Profile, category and AppData-name length checks are removed while
+Service paging, complete-selection budgets, cursor semantics and end evidence belong in the
+integration. Defaults are convenient defaults, not a cap on explicit requests. Do not add
+recursive discovery or automatic list-to-write selection. The service validates native values.
+Profile, category and AppData-name length checks are removed while
 allowed characters, reserved names, exact profile lookup and case-collision rules remain intact.
 RANDOM no longer imposes 100 results or a 254-character contact maximum. Its documented remote
 numeric range of ±1 billion remains a service-domain check. The service can still reject requests;
@@ -71,13 +60,11 @@ its published result-count limit is not copied as a new local ceiling.
 - Startup, shutdown and stale-owner recovery deadlines, and caller-selected timeouts/budgets.
 - Fixed-size hashes/protocol markers and stream chunk sizes used for transfer efficiency.
 - The local-only proof harness's deliberately fixed ReadOnly inventory, capture budgets and timeout.
-  Proof limits do not constrain ordinary CLI operations. TeamCity's short discard loop only disposes
-  unwanted response content; it does not reject an operation or truncate returned data.
+  Proof limits do not constrain ordinary CLI operations.
 
 ## Upgrading
 
-Use Core, YouTrack CLI and TeamCity CLI from the same release (0.2.0 or later) together; each
-integration package depends on the matching Core version.
+Independent products pin a compatible published Core exactly and own their upgrade/release cadence.
 Library consumers replace the removed `readBoundedResponseBody` import with `readResponseBody`;
 pass `maxBytes` only when an explicit caller budget is intended. No credentials or profile data
 are migrated or deleted. A running IPC host must be stopped after the workspace build changes.

@@ -44,7 +44,7 @@ The [role index](docs/roles/README.md) explains how domain and function roles co
 7. **Mock the network boundary.** Default tests are offline and deterministic. Real-service proof
    is an explicit local-only packaged-CLI run through a real profile/secret store, uses a fixed bounded
    `ReadOnly` inventory, and never runs in CI. Sanitize evidence before it becomes a fixture.
-8. **Keep service concepts in integrations.** Core must not know TeamCity terminology. Extract a
+8. **Keep service concepts in integrations.** Core must not know service terminology. Extract a
    shared mechanism only when another real integration proves it.
 9. **Verify in proportion to risk.** Run the narrow affected tests during work and `npm test`
    before declaring a repository-wide change complete.
@@ -102,16 +102,13 @@ is service-agnostic; consuming repositories add only their service specifics.
 ## Function role: GH issue dev
 
 **GitHub Issues is the primary tracker**: unspecified requests to file a bug/task go there,
-including work on the YouTrack integration. Adopt
+including framework tooling and integration examples. Adopt
 [`GH issue dev`](docs/roles/gh-issue-dev.md) for issue delivery and compose with the owning domain
 role. The role owns intake, visible status, implementation, review, merge and verified closure.
 A request to install these rules alone does not authorize remote issue writes. Follow the
 [delivery lifecycle](docs/practices/github-issues.md) and honor explicit direct-to-main requests.
 New branches default to `bugfix/`; honor explicitly requested names or prefixes.
 
-For tasks that use YouTrack, follow the [shared tool workflow](docs/practices/youtrack-agent-workflow.md):
-our `youtrack-cli` is primary; the separate Python `yt.exe` remains an explicit fallback.
-The consuming repository owns tracker/project choice; this repository keeps GitHub Issues primary.
 
 ## Function role: Reviewer
 
@@ -134,14 +131,16 @@ at review. Core owns rendering; the role owns the words.
 packages/core/           shared factory primitives
 packages/ipc/            CLI worker transport and build/runtime discovery
 packages/playwright/     browser-backed integration infrastructure
-integrations/teamcity/   TeamCity CLI
-integrations/youtrack/   YouTrack CLI
 integrations/random-*/  REST/browser examples and their shared service contract
 docs/                    canonical design and practices
 scripts/                 .NET 10 bootstrap and repository tools
 build/                   C# (Cake Frosting) release driver used locally and by TeamCity
 .workspace/workstreams/  local Git-ignored coordination notes
 ```
+
+TeamCity CLI and YouTrack CLI are independently owned in their product repositories.
+Factory retains no product runtime, build or test dependency. Core, optional IPC/Playwright and
+the RANDOM trio remain here; RANDOM provides concrete HTTP/browser/hosted runtime coverage.
 
 Submodules are initialized through `dotnet run --file scripts/bootstrap.cs`. Add a submodule only
 with a working, independently versioned consumer—not as an empty architectural placeholder.

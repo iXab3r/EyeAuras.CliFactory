@@ -48,8 +48,8 @@ Read each changed string as the person who will see it, once, without the source
 | Before | After |
 |---|---|
 | `health — Typed scope and category, no invented identity locator` | `health — Inspect server health items` |
-| `TeamCity URL must be an HTTP or HTTPS base server URL without credentials, query or fragment. TeamCity base URL including any context path, without /app/rest … Outer whitespace and trailing slashes are normalized` | `TeamCity URL must be http(s)://host[:port][/context], without /app/rest, a page path, credentials or a query.` |
-| `Profile 'x': authentication is missing. No token was provided. Run 'profile configure x --token-stdin' or use the documented environment variable.` | `No token was provided; set TEAMCITY_TOKEN or use --token-stdin.` + `Next: teamcity-cli profile configure x --token-stdin` |
+| `Service URL must be an HTTP or HTTPS base server URL without credentials, query or fragment. Service base URL including any context path, without credentials … Outer whitespace and trailing slashes are normalized` | `Service URL must be http(s)://host[:port][/context], without credentials, a query or a fragment.` |
+| `Profile 'x': authentication is missing. No token was provided. Run 'profile configure x --token-stdin' or use the documented environment variable.` | `No token was provided; set SERVICE_TOKEN or use --token-stdin.` + `Next: acme-cli profile configure x --token-stdin` |
 | message, 31 frames, `Caused by:` ×3 | message + `Cause: The server refused the connection; check the address and port. (connect ECONNREFUSED 127.0.0.1:59999)` |
 | `Shown: 2. More results: no.` | nothing when the selection is complete |
 

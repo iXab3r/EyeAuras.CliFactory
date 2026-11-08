@@ -1,274 +1,89 @@
-// An explicit registry-install check, separate from the offline service test suite.
+// Checks the actual Core archive in an isolated install; no product source or credentials.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { delimiter, join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const npmCli = process.env.npm_execpath;
 assert.ok(npmCli, "Run this check through npm run test:packages.");
-// `--registry <version>` (npm run test:registry) installs that published version instead of this checkout.
-const registryVersion = process.argv.includes("--registry") ? process.argv[process.argv.indexOf("--registry") + 1] : undefined;
-assert.ok(!process.argv.includes("--registry") || /^\d+\.\d+\.\d+/.test(registryVersion ?? ""), "Pass --registry <version>.");
-const packages = [
-  { directory: "packages/core", name: "@eyeauras/cli-factory" },
-  { directory: "integrations/teamcity", name: "@eyeauras/teamcity-cli", bin: "teamcity-cli", factory: "createTeamCityCli" },
-  { directory: "integrations/youtrack", name: "@eyeauras/youtrack-cli", bin: "youtrack-cli", factory: "createYouTrackCli" },
-];
-const temporary = await realpath(await mkdtemp(join(tmpdir(), "cli-factory-packages-")));
-const prefix = join(temporary, "global");
-const working = join(temporary, "working");
-const archives = join(temporary, "archives");
-const windows = process.platform === "win32";
-const modules = join(prefix, ...(windows ? [] : ["lib"]), "node_modules");
-const bins = windows ? prefix : join(prefix, "bin");
+const registry = process.argv.includes("--registry");
+const version = registry ? process.argv[process.argv.indexOf("--registry") + 1] : undefined;
+assert.ok(!registry || /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version ?? ""), "Pass --registry <version>.");
+const supplied = process.argv.includes("--tarball") ? process.argv[process.argv.indexOf("--tarball") + 1] : undefined;
+assert.ok(!process.argv.includes("--tarball") || supplied, "Pass --tarball <archive>.");
+const temp = await realpath(await mkdtemp(join(tmpdir(), "factory-package-")));
+const prefix = join(temp, "install");
+const archives = join(temp, "archives");
 const environment = { ...process.env };
-// Never pass npm credentials or caller-controlled Node loaders into the smoke commands.
 for (const key of Object.keys(environment)) {
-  if (/^(?:npm_config_|npm_token$|node_auth_token$|node_options$|node_path$|teamcity_token$|youtrack_token$)/i.test(key)) {
-    delete environment[key];
-  }
+  if (/token|secret|password|^npm_config_|^node_options$|^node_path$/i.test(key)) delete environment[key];
 }
-const pathKey = Object.keys(environment).find((key) => key.toLowerCase() === "path") ?? "PATH";
-environment[pathKey] = bins + delimiter + (environment[pathKey] ?? "");
-
-function run(executable, argv, { cwd = working, input, timeout = 30_000 } = {}) {
-  const result = spawnSync(executable, argv, {
-    cwd, input, env: environment, encoding: "utf8", timeout,
-    maxBuffer: 4 * 1024 * 1024, windowsHide: true,
-  });
-  // npm failures may contain registry/user configuration; do not echo captured streams.
-  const npmError = /npm error code ([A-Z0-9]+)/.exec(result.stderr ?? "")?.[1];
-  assert.ok(!result.error && result.status === 0,
-    `Package check failed (${executable === process.execPath ? "node/npm" : "installed command"}, status ${result.status}, ${result.error?.code ?? npmError ?? "no process error"}).`);
+function run(tool, argv, { cwd = prefix, input } = {}) {
+  const result = spawnSync(tool, argv, { cwd, input, env: environment, encoding: "utf8", timeout: 180_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true });
+  assert.ok(!result.error && result.status === 0, `Package check failed: status ${result.status}, ${result.error?.code ?? "process failure"}.`);
   return result.stdout;
 }
-
 function npm(argv, options) {
-  return run(process.execPath, [npmCli, ...argv,
-    "--cache", join(temporary, "cache"),
-    "--userconfig", join(temporary, "npmrc"),
-    "--globalconfig", join(temporary, "npmrc-global"),
-    "--registry", "https://registry.npmjs.org/",
-  ], options);
+  return run(process.execPath, [npmCli, ...argv, "--cache", join(temp, "cache"), "--userconfig", join(temp, "npmrc"),
+    "--globalconfig", join(temp, "global-npmrc"), "--registry", "https://registry.npmjs.org/"], options);
 }
-
-function command(name, argv, input) {
-  // Fixed command names/arguments only. Windows must execute npm's actual .cmd shim.
-  return windows
-    ? run(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", `${name}.cmd ${argv.join(" ")}`], { input })
-    : run(join(bins, name), argv, { input });
-}
-
-async function closedReader(name, argv, input = "") {
-  const child = windows
-    ? spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", `${name}.cmd ${argv.join(" ")}`], { cwd: working, env: environment })
-    : spawn(join(bins, name), argv, { cwd: working, env: environment });
+async function closedReader(argv, input = "") {
+  const child = spawn(process.execPath, [join(prefix, "fixture.mjs"), ...argv], { cwd: prefix, env: environment });
   let stderr = "";
   child.stderr.setEncoding("utf8").on("data", chunk => { stderr += chunk; });
   const timer = setTimeout(() => child.kill(), 10_000);
   try {
-    const completed = new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.once("close", (code, signal) => resolve({ code, signal }));
-    });
-    // Close before the installed executable starts writing, independently of help size.
+    const done = new Promise((resolve, reject) => { child.once("error", reject); child.once("close", (code, signal) => resolve({ code, signal })); });
     child.stdout.destroy();
     child.stdin.end(input);
-    assert.deepEqual(await completed, { code: 141, signal: null }, `${name}: closed-reader exit`);
-    assert.equal(stderr, "", `${name}: closed-reader diagnostics`);
+    assert.deepEqual(await done, { code: 141, signal: null });
+    assert.equal(stderr, "");
   } finally { clearTimeout(timer); }
 }
-
 try {
-  await Promise.all([mkdir(working), mkdir(archives),
-    writeFile(join(temporary, "npmrc"), ""), writeFile(join(temporary, "npmrc-global"), "")]);
-  const license = await readFile(join(root, "LICENSE"), "utf8");
-  const tarballs = [];
-  for (const entry of registryVersion === undefined ? packages : []) {
-    const manifest = JSON.parse(await readFile(join(root, entry.directory, "package.json"), "utf8"));
-    assert.equal(manifest.name, entry.name);
-    assert.notEqual(manifest.private, true);
-    assert.equal(manifest.license, "MIT");
-    assert.equal(manifest.publishConfig.access, "public");
-    assert.equal(await readFile(join(root, entry.directory, "LICENSE"), "utf8"), license);
-    if (entry.bin) assert.deepEqual(manifest.bin, { [entry.bin]: "dist/src/bin.js" });
-    const [packed] = JSON.parse(npm([
-      "pack", "--json", "--ignore-scripts", "--workspace", entry.name,
-      "--pack-destination", archives,
-    ], { cwd: root }));
-    const files = new Set(packed.files.map((file) => file.path));
-    for (const file of ["package.json", "README.md", "LICENSE", "dist/src/index.js", "dist/src/index.d.ts"]) {
-      assert.ok(files.has(file), `${entry.name}: missing ${file}`);
-    }
-    for (const file of files) {
-      assert.ok(["package.json", "README.md", "LICENSE"].includes(file) ||
-        /^dist\/src\/[\w-]+\.(?:js|d\.ts)(?:\.map)?$/.test(file),
-      `${entry.name}: unexpected archive member ${file}`);
-    }
-    if (entry.bin) assert.ok(files.has("dist/src/bin.js"));
-    tarballs.push(join(archives, packed.filename));
-    console.log(`${entry.name}: ${files.size} package files checked`);
+  await Promise.all([mkdir(prefix), mkdir(archives), writeFile(join(temp, "npmrc"), ""), writeFile(join(temp, "global-npmrc"), "")]);
+  let archive;
+  if (registry) {
+    const [packed] = JSON.parse(npm(["pack", `@eyeauras/cli-factory@${version}`, "--json", "--ignore-scripts", "--pack-destination", archives]));
+    archive = join(archives, packed.filename);
+  } else if (supplied) archive = resolve(root, supplied);
+  else {
+    const [packed] = JSON.parse(npm(["pack", "--json", "--ignore-scripts", "--workspace", "@eyeauras/cli-factory", "--pack-destination", archives], { cwd: root }));
+    archive = join(archives, packed.filename);
   }
-
-  // Install all three exact tarballs together; npm must satisfy the Core dependency from
-  // the tarball, even before the first Core version exists on the public registry.
-  const install = registryVersion === undefined ? tarballs : packages.map((entry) => `${entry.name}@${registryVersion}`);
-  npm(["install", "--global", "--prefix", prefix, "--no-audit", "--no-fund", ...install], { timeout: 180_000 });
-  for (const entry of packages) {
-    const installed = join(modules, ...entry.name.split("/"));
-    assert.equal(await realpath(installed), installed, "Installed package must not be a workspace symlink.");
-    const manifest = JSON.parse(await readFile(join(installed, "package.json"), "utf8"));
-    assert.equal(manifest.name, entry.name);
-    if (registryVersion !== undefined) assert.equal(manifest.version, registryVersion);
-    const coreUrl = JSON.parse(run(process.execPath, ["--input-type=module", "--eval", `
-      for (const suffix of ["", "/testing", "/proof"]) await import("@eyeauras/cli-factory" + suffix);
-      console.log(JSON.stringify(import.meta.resolve("@eyeauras/cli-factory")));
-    `], { cwd: installed }));
-    const core = await realpath(fileURLToPath(coreUrl));
-    assert.ok(!relative(await realpath(prefix), core).startsWith(".."), "Core must resolve inside the isolated prefix.");
-    if (!entry.bin) {
-      run(process.execPath, ["--input-type=module", "--eval", `
-        import test from "node:test";
-        import assert from "node:assert/strict";
-        import { command, createCli, streamResult } from "@eyeauras/cli-factory";
-        import { createCliFixture } from "@eyeauras/cli-factory/testing";
-        test("installed finite streaming result", async t => {
-          const fixture = await createCliFixture(t, { applicationId: "stream-package-fixture", profiles: [{ name: "default" }] });
-          const app = fixture.createApplication(runtime => createCli({
-            name: "stream-package-fixture", description: "Fixture", runtime,
-            commands: [command("items", "List items", () => streamResult(async function* () { yield { id: 1 }; yield { id: 2 }; }))],
-          }));
-          const expected = [{ id: 1 }, { id: 2 }];
-          assert.deepEqual(await fixture.run(app, ["items", "--json"]), {
-            exitCode: 0, stdout: expected.map(item => JSON.stringify(item)).join("\\n") + "\\n", stderr: "",
-          });
-          assert.deepEqual(await app.execute(["items"]), expected);
-          assert.deepEqual(await fixture.rpc(app, [["items", "--json"], ["items"]]), [
-            { jsonrpc: "2.0", id: 0, result: expected }, { jsonrpc: "2.0", id: 1, result: expected },
-          ]);
-        });
-      `], { cwd: installed });
-      console.log("Core: installed NDJSON, execute and persistent RPC streaming passed");
-    }
-    if (windows && !entry.bin) {
-      // Exercise the shipped native DPAPI dependency, not a workspace/in-memory substitute.
-      run(process.execPath, ["--input-type=module", "--eval", `
-        import assert from "node:assert/strict";
-        import { join } from "node:path";
-        import { AppArguments, PlatformSecretStore, ProfileSecrets } from "@eyeauras/cli-factory";
-        const root = ${JSON.stringify(join(working, "dpapi-fixture"))};
-        const app = new AppArguments({ AppName: "package-fixture", Environment: {
-          AppDomainDirectory: root, ApplicationExecutablePath: join(root, "fixture.js"),
-          EnvironmentAppData: root, EnvironmentLocalAppData: root, ProcessId: process.pid,
-        }});
-        const secrets = () => new ProfileSecrets(new PlatformSecretStore(app), app.AppName, "default");
-        await secrets().set("token", "synthetic-packaged-dpapi");
-        assert.equal(await secrets().require("token"), "synthetic-packaged-dpapi");
-        await secrets().delete("token");
-        assert.equal(await secrets().get("token"), undefined);
-      `], { cwd: installed });
-      console.log("Core: installed native DPAPI persistence passed");
-    }
-    if (!entry.bin) continue;
-    const help = command(entry.bin, ["--help"]);
-    assert.ok(help.includes(`Usage: ${entry.bin}`));
-    assert.equal(command(entry.bin, ["--version"]).trim(), manifest.version);
-    if (registryVersion === undefined) {
-      await closedReader(entry.bin, ["--help"]);
-      await closedReader(entry.bin, ["--json-rpc"], JSON.stringify({
-        jsonrpc: "2.0", id: 1, method: "cli.execute", params: { argv: ["--help"] },
-      }) + "\n");
-      if (!windows) {
-        const pipeline = spawnSync("bash", ["-o", "pipefail", "-c", `${entry.bin} --help | head -n 1`], {
-          cwd: working, env: environment, encoding: "utf8", timeout: 10_000,
-        });
-        assert.equal(pipeline.error, undefined);
-        assert.equal(pipeline.signal, null);
-        assert.ok([0, 141].includes(pipeline.status));
-        assert.match(pipeline.stdout, new RegExp(`^Usage: ${entry.bin}`));
-        assert.equal(pipeline.stderr, "");
-      }
-      console.log(`${entry.bin}: installed closed-reader help/RPC and shell pipeline passed`);
-    }
-    // Root/help output is intentionally human text even with --json. Exercise a real
-    // JSON leaf through installed exports with synthetic AppData, never the user's profile.
-    run(process.execPath, ["--input-type=module", "--eval", `
-      import test from "node:test";
-      import assert from "node:assert/strict";
-      import { createCliFixture } from "@eyeauras/cli-factory/testing";
-      import { ${entry.factory} as createApp } from ${JSON.stringify(entry.name)};
-      test("installed JSON command with synthetic profile", async t => {
-        const fixture = await createCliFixture(t, { applicationId: ${JSON.stringify(entry.bin)} });
-        const app = fixture.createApplication(runtime => createApp(runtime));
-        const profiles = await fixture.json(app, ["profile", "list"]);
-        assert.equal(profiles.length, 1);
-        assert.equal(profiles[0].name, "default");
-        assert.equal(profiles[0].default, true);
-      });
-    `], { cwd: installed });
-    if (registryVersion === undefined) {
-      run(process.execPath, ["--input-type=module", "--eval", `
-        import test from "node:test";
-        import assert from "node:assert/strict";
-        import { mkdir, readFile, access, writeFile } from "node:fs/promises";
-        import { join } from "node:path";
-        import { createCliFixture } from "@eyeauras/cli-factory/testing";
-        import { ${entry.factory} as createApp } from ${JSON.stringify(entry.name)};
-        test("installed downloads use invocation cwd in CLI and RPC", async t => {
-          const teamcity = ${entry.bin === "teamcity-cli"};
-          const fixture = await createCliFixture(t, {
-            applicationId: ${JSON.stringify(entry.bin)},
-            profiles: ["default", "other"].map(name => ({ name, values: { url: "https://service.example.test" }, secrets: { token: "synthetic-package-token" } })),
-          });
-          fixture.runtime.fetch = async (url, init) => {
-            const path = new URL(String(url)).pathname;
-            if (teamcity && path === "/app/rest/builds/id:7/sources/files/fixture.txt") return new Response("synthetic-package-bytes");
-            if (!teamcity && path === "/api/issues/DEMO-1/attachments/7-1") return Response.json({ id: "7-1", name: "fixture.txt", mimeType: "text/plain", url: "/api/files/7-1" });
-            if (!teamcity && path === "/api/files/7-1") {
-              assert.equal(new Headers(init.headers).has("authorization"), false);
-              return new Response("synthetic-package-bytes");
-            }
-            throw new Error("Unexpected offline package request: " + path);
-          };
-          const app = fixture.createApplication(createApp);
-          const argv = teamcity ? ["builds", "source", "7", "fixture.txt"] : ["issues", "attachments", "download", "DEMO-1", "7-1"];
-          const legacy = join(fixture.appArguments.AppDataDirectory, "downloads");
-          await mkdir(legacy, { recursive: true });
-          await writeFile(join(legacy, "old.txt"), "retained");
-          await mkdir(join(fixture.root, "nested"));
-          for (const output of [undefined, "nested/relative.txt", join(fixture.root, "absolute.txt")]) {
-            const result = await fixture.json(app, [...argv, "--profile", "other", ...(output ? ["--output", output] : [])]);
-            assert.equal(result.path, output ? (output.startsWith("/") || /^[A-Za-z]:/.test(output) ? output : join(fixture.root, output)) : join(fixture.root, "fixture.txt"));
-            assert.equal(await readFile(result.path, "utf8"), "synthetic-package-bytes");
-          }
-          const replies = await fixture.rpc(app, [[...argv, "--profile", "default"], [...argv, "--profile", "other", "--output", "rpc.txt"]]);
-          assert.match(replies[0].error.message, /exists/);
-          assert.equal(replies[1].result.path, join(fixture.root, "rpc.txt"));
-          assert.equal(await readFile(join(legacy, "old.txt"), "utf8"), "retained");
-          const missing = await fixture.run(app, [...argv, "--output", "missing/file.txt"]);
-          assert.equal(missing.exitCode, 1);
-          await assert.rejects(access(join(fixture.root, "missing")));
-          const removed = await fixture.run(app, ["downloads", "clean"]);
-          assert.equal(removed.exitCode, 1);
-        });
-      `], { cwd: installed });
-      console.log(`${entry.bin}: installed offline cwd, paths, profile/RPC and legacy retention passed`);
-    }
-    const requests = [1, 2].map((id) => JSON.stringify({
-      jsonrpc: "2.0", id, method: "cli.execute", params: { argv: ["--help"] },
-    })).join("\n") + "\n";
-    const frames = command(entry.bin, ["--json-rpc"], requests).trim().split("\n").map((line) => JSON.parse(line));
-    assert.equal(frames.length, 2);
-    for (const [index, frame] of frames.entries()) {
-      assert.equal(frame.jsonrpc, "2.0");
-      assert.equal(frame.id, index + 1);
-      assert.ok(frame.result.help.includes(`Usage: ${entry.bin}`));
-    }
-    console.log(`${entry.bin}: installed executable, version, JSON and persistent RPC passed`);
+  const [packed] = JSON.parse(npm(["pack", archive, "--dry-run", "--ignore-scripts", "--json"]));
+  const files = new Set(packed.files.map(file => file.path));
+  for (const file of ["package.json", "README.md", "LICENSE", "dist/src/index.js", "dist/src/index.d.ts", "dist/src/testing.js", "dist/src/proof.js"]) assert.ok(files.has(file), `Missing ${file}`);
+  for (const file of files) assert.ok(["package.json", "README.md", "LICENSE"].includes(file) || /^dist\/src\/[\w-]+\.(?:js|d\.ts)(?:\.map)?$/.test(file), `Unexpected archive member ${file}`);
+  npm(["install", "--prefix", prefix, "--no-audit", "--no-fund", archive]);
+  const installed = join(prefix, "node_modules/@eyeauras/cli-factory");
+  assert.equal(await realpath(installed), installed, "Core must not be a workspace symlink.");
+  const manifest = JSON.parse(await readFile(join(installed, "package.json"), "utf8"));
+  assert.equal(manifest.name, "@eyeauras/cli-factory");
+  assert.equal(manifest.version, registry ? version : JSON.parse(await readFile(join(root, "packages/core/package.json"), "utf8")).version);
+  assert.equal(await readFile(join(installed, "LICENSE"), "utf8"), await readFile(join(root, "LICENSE"), "utf8"));
+  await writeFile(join(prefix, "fixture.mjs"), await readFile(join(root, "scripts/package-fixture.mjs")));
+  const resolved = JSON.parse(run(process.execPath, ["--input-type=module", "--eval", 'for (const suffix of ["", "/testing", "/proof"]) await import("@eyeauras/cli-factory" + suffix); console.log(JSON.stringify(import.meta.resolve("@eyeauras/cli-factory")));']));
+  assert.ok(!relative(prefix, await realpath(fileURLToPath(resolved))).startsWith(".."));
+  assert.match(run(process.execPath, ["fixture.mjs", "--help"]), /Usage: package-fixture/);
+  assert.equal(run(process.execPath, ["fixture.mjs", "--version"]).trim(), manifest.version);
+  assert.deepEqual(run(process.execPath, ["fixture.mjs", "items", "--json"]).trim().split("\n").map(JSON.parse), [{ id: 1 }, { id: 2 }]);
+  const input = [["items"], ["profile", "list"], ["--help"]].map((argv, id) => JSON.stringify({ jsonrpc: "2.0", id, method: "cli.execute", params: { argv } })).join("\n") + "\n";
+  const frames = run(process.execPath, ["fixture.mjs", "--json-rpc"], { input }).trim().split("\n").map(JSON.parse);
+  assert.equal(frames.length, 3);
+  assert.deepEqual(frames[0].result, [{ id: 1 }, { id: 2 }]);
+  assert.equal(frames[1].result[0].name, "default");
+  assert.match(frames[2].result.help, /Usage: package-fixture/);
+  await closedReader(["--help"]);
+  await closedReader(["--json-rpc"], input);
+  await closedReader(["items", "--json"]);
+  if (process.platform !== "win32") {
+    const pipe = spawnSync("bash", ["-o", "pipefail", "-c", '"$1" fixture.mjs --help | head -n 1', "fixture", process.execPath], { cwd: prefix, env: environment, encoding: "utf8", timeout: 10000 });
+    assert.ok([0, 141].includes(pipe.status)); assert.equal(pipe.stderr, ""); assert.match(pipe.stdout, /^Usage: package-fixture/);
   }
-} finally {
-  await rm(temporary, { recursive: true, force: true });
-}
+  if (process.platform === "win32") run(process.execPath, ["fixture.mjs", "--dpapi-check"]);
+  console.log(`Core ${manifest.version}: ${files.size} archive files, isolated exports, NDJSON, profiles, persistent RPC and closed pipes passed (${process.version}/${process.platform}/${process.arch}).`);
+} finally { await rm(temp, { recursive: true, force: true }); }
