@@ -41,7 +41,6 @@ public sealed class BuildContext(ICakeContext context) : FrostingContext(context
         start.Environment["GIT_CONFIG_KEY_0"] = "safe.directory";
         start.Environment["GIT_CONFIG_VALUE_0"] = Root;
         string? npmDirectory = null;
-        if (tool == "npm")
         {
             npmDirectory = Path.Combine(Path.GetTempPath(), "factory-npm-" + Guid.NewGuid());
             if (OperatingSystem.IsWindows()) Directory.CreateDirectory(npmDirectory);
@@ -50,8 +49,11 @@ public sealed class BuildContext(ICakeContext context) : FrostingContext(context
             start.Environment["NPM_CONFIG_USERCONFIG"] = Path.Combine(npmDirectory, "npmrc");
             start.Environment["NPM_CONFIG_GLOBALCONFIG"] = Path.Combine(npmDirectory, "global-npmrc");
             start.Environment["NPM_CONFIG_REGISTRY"] = "https://registry.npmjs.org/";
-            if (arguments.FirstOrDefault() != "--registry") arguments = ["--registry", "https://registry.npmjs.org/", .. arguments];
-            else if (arguments.Length < 2 || arguments[1] != "https://registry.npmjs.org/") throw new CakeException("Use the public npm registry.");
+            if (tool == "npm")
+            {
+                if (arguments.FirstOrDefault() != "--registry") arguments = ["--registry", "https://registry.npmjs.org/", .. arguments];
+                else if (arguments.Length < 2 || arguments[1] != "https://registry.npmjs.org/") throw new CakeException("Use the public npm registry.");
+            }
         }
         try
         {
