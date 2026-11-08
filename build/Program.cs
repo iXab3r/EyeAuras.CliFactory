@@ -6,139 +6,100 @@ using Cake.Frosting;
 
 return new CakeHost().UseContext<BuildContext>().Run(args);
 
-public sealed record ReleasePackage(string Name, string File, string Shasum, string Integrity);
-public sealed record ReleaseManifest(string Version, string Commit, List<ReleasePackage> Packages);
-
-/// <summary>Arguments and process helpers shared by the release tasks; local and CI runs are identical.</summary>
-public sealed class BuildContext : FrostingContext
+/// <summary>Repository-local process and version context for the single public package.</summary>
+public sealed class BuildContext(ICakeContext context) : FrostingContext(context)
 {
-    /// <summary>The public packages in dependency order.</summary>
-    public static readonly string[] Packages = ["@eyeauras/cli-factory", "@eyeauras/youtrack-cli", "@eyeauras/teamcity-cli"];
-    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
-
+    public const string PackageName = "@eyeauras/cli-factory";
+    public const string PackageDirectory = "packages/core";
     public string Root { get; } = FindRoot();
-    public string? Version { get; }
-    public bool DryRun { get; }
     public string ReleaseDirectory => Path.Combine(Root, "output", "release");
-    public string ManifestPath => Path.Combine(ReleaseDirectory, "release-manifest.json");
-
-    public BuildContext(ICakeContext context) : base(context)
+    public bool DryRun => Arguments.HasArgument("dry-run");
+    public string RequireVersion()
     {
-        // Cake reserves --version for itself, hence --release-version.
-        Version = context.Arguments.HasArgument("release-version") ? context.Arguments.GetArgument("release-version") : null;
-        DryRun = context.Arguments.HasArgument("dry-run");
+        var version = Arguments.HasArgument("release-version") ? Arguments.GetArgument("release-version") : "";
+        return Regex.IsMatch(version, @"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$") ? version
+            : throw new CakeException("Pass --release-version <major.minor.patch>.");
     }
 
-    public string RequireVersion() => Version is { } version && Regex.IsMatch(version, @"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$")
-        ? version
-        : throw new CakeException("Pass --release-version <major.minor.patch>.");
+    public Task<string> Run(string tool, params string[] arguments) => RunAt(Root, tool, arguments);
 
-    public ReleaseManifest ReadManifest()
+    public async Task<string> RunAt(string directory, string tool, string[] arguments, IReadOnlyDictionary<string, string>? credentials = null)
     {
-        var manifest = JsonSerializer.Deserialize<ReleaseManifest>(File.ReadAllText(ManifestPath), Json)!;
-        return manifest.Version == RequireVersion()
-            ? manifest
-            : throw new CakeException("output/release belongs to another version; run the Pack target.");
-    }
-
-    /// <summary>Runs a tool from the repository root. Without capture the console stays attached, so npm can
-    /// ask for local 2FA; with capture only stdout is collected.</summary>
-    public async Task<(int ExitCode, string Output)> Exec(
-        string tool, IEnumerable<string> arguments, bool capture = false, bool check = true)
-    {
-        var info = new ProcessStartInfo(Resolve(tool))
-        {
-            WorkingDirectory = Root,
-            UseShellExecute = false,
-            RedirectStandardOutput = capture,
-        };
-        foreach (var argument in arguments) info.ArgumentList.Add(argument);
-        Console.WriteLine($"> {tool} {string.Join(' ', info.ArgumentList)}");
-        using var process = Process.Start(info) ?? throw new CakeException($"Could not start {tool}.");
-        var output = capture ? await process.StandardOutput.ReadToEndAsync() : "";
-        await process.WaitForExitAsync();
-        if (check && process.ExitCode != 0) throw new CakeException($"{tool} exited with code {process.ExitCode}.");
-        return (process.ExitCode, output.Trim());
-    }
-
-    public Task Run(string tool, params string[] arguments) => Exec(tool, arguments);
-
-    public async Task<string> Read(string tool, params string[] arguments) =>
-        (await Exec(tool, arguments, capture: true)).Output;
-
-    // Windows starts a bare "npm.cmd" in a way that makes the shim resolve %~dp0 to the working
-    // directory, so pass the full path of the first PATH match, as the shell would.
-    private static string Resolve(string tool) => !OperatingSystem.IsWindows() ? tool
-        : (System.Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator)
-            .Where(directory => directory.Trim().Length > 0)
-            .SelectMany(directory => new[] { ".cmd", ".exe" }.Select(extension => Path.Combine(directory.Trim(), tool + extension)))
+        var executable = !OperatingSystem.IsWindows() ? tool : (Environment.GetEnvironmentVariable("PATH") ?? "")
+            .Split(Path.PathSeparator).Where(path => path.Trim().Length > 0)
+            .SelectMany(path => new[] { ".cmd", ".exe" }.Select(ext => Path.Combine(path.Trim(), tool + ext)))
             .FirstOrDefault(File.Exists) ?? tool;
+        var start = new ProcessStartInfo(executable) { WorkingDirectory = directory, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        var safe = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            "PATH", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "SystemRoot", "WINDIR", "COMSPEC", "PATHEXT",
+            "TEMP", "TMP", "TMPDIR", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_RUNTIME_DIR",
+            "DOTNET_ROOT", "DOTNET_ROOT_X64", "DOTNET_CLI_HOME", "DOTNET_NOLOGO", "DOTNET_CLI_TELEMETRY_OPTOUT",
+            "NUGET_PACKAGES", "CI", "LANG", "LC_ALL", "DISPLAY", "XAUTHORITY", "PLAYWRIGHT_BROWSERS_PATH"
+        };
+        foreach (var key in start.Environment.Keys.Where(key => !safe.Contains(key)).ToArray()) start.Environment.Remove(key);
+        start.Environment["GIT_CONFIG_COUNT"] = "1";
+        start.Environment["GIT_CONFIG_KEY_0"] = "safe.directory";
+        start.Environment["GIT_CONFIG_VALUE_0"] = Root;
+        string? npmDirectory = null;
+        {
+            npmDirectory = Path.Combine(Path.GetTempPath(), "factory-npm-" + Guid.NewGuid());
+            if (OperatingSystem.IsWindows()) Directory.CreateDirectory(npmDirectory);
+            else Directory.CreateDirectory(npmDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            foreach (var name in new[] { "npmrc", "global-npmrc" }) File.WriteAllText(Path.Combine(npmDirectory, name), "");
+            start.Environment["NPM_CONFIG_USERCONFIG"] = Path.Combine(npmDirectory, "npmrc");
+            start.Environment["NPM_CONFIG_GLOBALCONFIG"] = Path.Combine(npmDirectory, "global-npmrc");
+            start.Environment["NPM_CONFIG_REGISTRY"] = "https://registry.npmjs.org/";
+            if (tool == "npm")
+            {
+                if (arguments.FirstOrDefault() != "--registry") arguments = ["--registry", "https://registry.npmjs.org/", .. arguments];
+                else if (arguments.Length < 2 || arguments[1] != "https://registry.npmjs.org/") throw new CakeException("Use the public npm registry.");
+            }
+        }
+        try
+        {
+            if (credentials is not null)
+                foreach (var pair in credentials) start.Environment[pair.Key] = pair.Value;
+            foreach (var argument in arguments) start.ArgumentList.Add(argument);
+            Console.WriteLine($"> {tool} {string.Join(' ', arguments)}");
+            using var process = Process.Start(start) ?? throw new CakeException($"Could not start {tool}.");
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            var output = await stdout;
+            var diagnostic = await stderr;
+            await process.WaitForExitAsync();
+            if (process.ExitCode == 0 && (tool != "npm" || !arguments.Contains("stage")))
+                Console.Write(diagnostic);
+            if (process.ExitCode != 0)
+            {
+                // npm may include credentials or registry responses in its diagnostics.
+                var code = Regex.Match(diagnostic + output, @"\bE(?:403|404)\b").Value;
+                throw new CakeException($"{tool} exited with code {process.ExitCode}{(code.Length > 0 ? $" ({code}); ask the owner before retrying" : "")}.");
+            }
+            return output.Trim();
+        }
+        finally { if (npmDirectory is not null) Directory.Delete(npmDirectory, recursive: true); }
+    }
+
+    public void CheckVersions()
+    {
+        var version = RequireVersion();
+        using var package = JsonDocument.Parse(File.ReadAllText(Path.Combine(Root, PackageDirectory, "package.json")));
+        using var lockfile = JsonDocument.Parse(File.ReadAllText(Path.Combine(Root, "package-lock.json")));
+        var locked = lockfile.RootElement.GetProperty("packages");
+        if (package.RootElement.GetProperty("name").GetString() != PackageName
+            || package.RootElement.GetProperty("version").GetString() != version
+            || locked.GetProperty(PackageDirectory).GetProperty("version").GetString() != version)
+            throw new CakeException("Core package and lockfile must match --release-version.");
+        foreach (var entry in locked.EnumerateObject().Where(entry => !entry.Name.Contains("node_modules")))
+            if (entry.Value.TryGetProperty("dependencies", out var dependencies)
+                && dependencies.TryGetProperty(PackageName, out var pin) && pin.GetString() != version)
+                throw new CakeException("Workspace Core pins must match --release-version.");
+    }
 
     private static string FindRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
             if (File.Exists(Path.Combine(directory.FullName, "build", "Build.csproj"))) return directory.FullName;
-        }
-        throw new CakeException("The release driver must run from a CLI Factory checkout.");
-    }
-}
-
-/// <summary>Every place that carries the release version: public manifests, CLI versions, Core pins, lockfile.</summary>
-public static class Versions
-{
-    private static readonly (string File, string Pattern)[] Sites =
-    [
-        ("packages/core/package.json", "^  \"version\": \"([^\"]+)\""),
-        ("integrations/youtrack/package.json", "^  \"version\": \"([^\"]+)\""),
-        ("integrations/teamcity/package.json", "^  \"version\": \"([^\"]+)\""),
-        ("integrations/youtrack/src/cli.ts", "^    version: \"([^\"]+)\","),
-        ("integrations/teamcity/src/cli.ts", "^    version: \"([^\"]+)\","),
-    ];
-    private static readonly Regex CorePin = new("\"@eyeauras/cli-factory\": \"([^\"]+)\"");
-
-    private static IEnumerable<(string File, Regex Pattern, bool Required)> All(string root) =>
-        Sites.Select(site => (site.File, new Regex(site.Pattern, RegexOptions.Multiline), true))
-            .Concat(new[] { "packages", "integrations" }
-                .SelectMany(folder => Directory.GetDirectories(Path.Combine(root, folder)))
-                .Select(directory => Path.GetRelativePath(root, Path.Combine(directory, "package.json")).Replace('\\', '/'))
-                .Where(file => File.Exists(Path.Combine(root, file)))
-                .Select(file => (file, CorePin, false)));
-
-    public static void Set(string root, string version)
-    {
-        foreach (var (file, pattern, _) in All(root))
-        {
-            var path = Path.Combine(root, file);
-            File.WriteAllText(path, pattern.Replace(File.ReadAllText(path),
-                match => match.Value.Replace(match.Groups[1].Value, version)));
-        }
-    }
-
-    /// <summary>Throws with every site that does not carry the version, including stale lockfile entries.</summary>
-    public static void Check(string root, string version)
-    {
-        var problems = new List<string>();
-        foreach (var (file, pattern, required) in All(root))
-        {
-            var matches = pattern.Matches(File.ReadAllText(Path.Combine(root, file)));
-            if (required && matches.Count != 1) problems.Add($"{file}: version not found");
-            problems.AddRange(matches.Where(match => match.Groups[1].Value != version)
-                .Select(match => $"{file}: {match.Groups[1].Value}"));
-        }
-        using var lockfile = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "package-lock.json")));
-        foreach (var entry in lockfile.RootElement.GetProperty("packages").EnumerateObject()
-                     .Where(entry => entry.Name.Length > 0 && !entry.Name.Contains("node_modules")))
-        {
-            if (Sites.Any(site => site.File == entry.Name + "/package.json")
-                && entry.Value.GetProperty("version").GetString() != version)
-                problems.Add($"package-lock.json {entry.Name}: {entry.Value.GetProperty("version").GetString()}");
-            if (entry.Value.TryGetProperty("dependencies", out var dependencies)
-                && dependencies.TryGetProperty("@eyeauras/cli-factory", out var pin) && pin.GetString() != version)
-                problems.Add($"package-lock.json {entry.Name} Core pin: {pin.GetString()}");
-        }
-        if (problems.Count > 0)
-            throw new CakeException($"Release version {version} does not match:{Environment.NewLine}  " +
-                string.Join(Environment.NewLine + "  ", problems));
+        throw new CakeException("Run from a cli-factory checkout.");
     }
 }

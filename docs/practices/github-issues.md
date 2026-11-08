@@ -67,9 +67,9 @@ Labels help filtering but are not a source of truth. The default `enhancement`, 
 
 ### Tracker selection
 
-GitHub Issues is the primary tracker for this repository, including work on the YouTrack integration.
+GitHub Issues is the primary tracker for this repository.
 An unspecified request to file a bug/task means GitHub; do not ask the user to choose a tracker.
-YouTrack integration development does not make YouTrack a second project tracker. Honor an explicit
+A service integration does not select that service as the project tracker. Honor an explicit
 tracker choice and continue existing work in its owning issue; never migrate or duplicate it merely
 to satisfy the default. If both trackers already contain related issues, identify the authoritative
 one and cross-link within the authorized task scope. A local CLI failure does not authorize switching

@@ -15,8 +15,6 @@
     "typecheck": "npm run build",
     "test": "npm run build && npm run test:compiled --workspaces --if-present",
     "check": "npm run test",
-    "teamcity": "npm run start --workspace @eyeauras/teamcity-cli --",
-    "youtrack": "npm run start --workspace @eyeauras/youtrack-cli --",
     "random-rest": "npm run start --workspace @eyeauras/random-rest-cli --",
     "random-pw": "npm run start --workspace @eyeauras/random-pw-cli --",
     "browser:install": "playwright install chromium",

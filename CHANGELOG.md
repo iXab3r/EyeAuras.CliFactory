@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Core 0.7.1 preserves quiet exit 141 at observed stdout EPIPE boundaries across CLI and RPC,
+  while retaining command/cleanup failures and disposing resources.
+- Factory releases Core through verified npm stages and owner approval. TeamCity and YouTrack
+  products have independent source and release ownership.
+
 ## 0.7.0
 
 ### Breaking changes
@@ -10,7 +15,7 @@
   Library options likewise use `pageSize`/`start`. Lists now return
   `{ count, items, hasMore, nextStart }`; read rows from `items` rather than the result itself.
   `hasMore: null` means completeness is unknown. Native activity cursor commands retain their
-  existing flags and result objects. See the [migration guide](integrations/youtrack/README.md).
+  existing flags and result objects. See the [migration guide](https://github.com/iXab3r/youtrack-cli/blob/71d67275a9c4cf6ed91de01ac751d6553e997ee3/README.md).
 
 ### Fixed
 

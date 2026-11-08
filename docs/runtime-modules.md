@@ -286,7 +286,7 @@ enable auth persistence.
 
 Core's `AuthDefinition` delegates `login`, `status`, `logout` and optional login options to
 the application; Core supplies common commands, profile selection and scoped secret persistence.
-`tokenAuth` is one helper of this contract, still used by TeamCity. Standalone secrets stay in
+`tokenAuth` is one helper of this contract. Standalone secrets stay in
 the platform secret store. A browser-auth integration calls the browser owner from those callbacks and registers
 `resources: [browser]` for automatic profile invalidation/disposal. Server-side logout/revocation semantics
 remain application-specific.
@@ -357,7 +357,7 @@ owning Issue/PR and CI, not in links to local notes.
 ## IPC command-name migration
 
 The management root is now `ipc-server`, not `server`; there is no compatibility alias. A service
-may independently expose `server` commands (for example TeamCity's `server status`). Update shell
+may independently expose `server` commands (for example `server status`). Update shell
 scripts and JSON-RPC argv to `ipc-server status/stop`. Newly built management calls use the control
 protocol and can stop a protocol-compatible previous build without a valid build manifest.
 An already-open old JSON-RPC session still has its old command tree: close it and reconnect after

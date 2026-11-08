@@ -15,9 +15,10 @@ their service, not factory internals. Common lifecycle, scheduling, persistence 
 must work by default, not through boilerplate each author must remember. Count required concepts
 and total Core-plus-consumer implementation cost, not only shorter handlers.
 
-The first proving consumer is TeamCity. In-house integrations
-live beside the framework under `integrations/`; they are products, executable examples, and the
-source of evidence for extracting reusable features.
+Real products consume exact published Core dependencies in independent repositories.
+[TeamCity CLI](https://github.com/iXab3r/teamcity-cli) and
+[YouTrack CLI](https://github.com/iXab3r/youtrack-cli) own their service contracts and releases.
+The small RANDOM examples remain in `integrations/` as concrete HTTP/browser/IPC consumers.
 
 ## Core invariants
 
@@ -172,10 +173,6 @@ fractions, signs and values outside the inclusive millisecond bounds reject with
 normalizes a null callback result to an empty string; this helper does not change that behavior.
 Null fields inside objects and null items inside returned arrays are unaffected.
 
-TeamCity's strict numeric parsers remain signed, including `-0` for nonnegative paging start;
-YouTrack paging remains unsigned. Each configured parser now uses one static diagnostic for syntax,
-safety and range failures. Invalid YouTrack paging ranges and unsafe integers now reject during
-option parsing before onboarding/authentication, consistently on CLI, execute and JSON-RPC.
 
 Literal leaf declarations infer required positional strings in their inline callback from the
 existing command name. The small inferred grammar uses ASCII letters, digits, underscores and
@@ -193,7 +190,7 @@ inference guarantee.
 
 Thin integration wrappers preserve this inference by keeping the command name generic and using
 the exported `InferredCommandHandler<Syntax>` callback type (or its input parameter type).
-The same complete-declaration fallbacks and broad stored definitions apply. TeamCity's client
+The same complete-declaration fallbacks and broad stored definitions apply. A service client
 binding uses this type without changing runtime parsing, options or domain validation.
 
 `targetCommands(resolve)` is the shared form of that binding for profile-scoped clients and other
@@ -309,7 +306,7 @@ shape and the words, never the layout. `--json` and JSON-RPC return the unchange
 Every view receives the command's parsed `input` (arguments and options) in its context, so a
 title can say `Removed tag 7 from DEMO-12` for a `null` result and a footer can name the option
 that continues a page. A view may decline an invocation through `when(context)`: an explicit
-field projection such as YouTrack's `--fields` then prints the generic shape, so a person sees
+field projection such as an explicit `--fields` then prints the generic shape, so a person sees
 exactly what they asked for. A table, list or tree prints one footer line only when there is more to
 read (`More results: --start 50`, from `offsetFooter` for offset pages) and nothing when the
 selection is complete. Timestamps print as `age` in tables and as ISO instants in records;
@@ -348,9 +345,8 @@ Core records the selected `profile`. Each caller receives the same failure in it
 A result is never printed as success next to a contradicting error, and it is never discarded.
 Reading a failed build with `show` is still a successful read. Only commands whose contract is the
 outcome itself throw, such as waiting for a build. A write over several items should also throw
-when any item did not complete, with every item's result. TeamCity's batch writes and YouTrack's
-`issues batch apply` follow this rule. YouTrack uses `batch.incomplete` for `failed`, `uncertain`
-or `unattempted` rows, preserving its full summary and any `failedRows` save metadata in `result`.
+when any item did not complete, with every item's result preserved.
+
 Only a completed batch succeeds. Exit codes are:
 - 0 — success;
 - 1 — errors and failed outcomes;
@@ -416,9 +412,9 @@ remains a storage API: callers using it directly own their field normalization/v
 `parseServerUrl(value, message)` trims outer whitespace, parses an absolute HTTP(S) base address,
 rejects credentials, query/fragment, backslashes, embedded whitespace/controls and invalid path
 encoding, and returns a readonly `{ href, pathname }` configuration record with one trailing slash.
-Its `href` preserves an explicitly written port; it is not a WHATWG `URL` instance. TeamCity and YouTrack preserve any supported reverse-proxy context, including segments named
-admin, issues, api or app/rest; they do not guess deployment roots from path names. TeamCity allows HTTP(S) and stores no trailing slash;
-YouTrack allows HTTP(S) and stores one trailing slash for relative resolution.
+Its `href` preserves an explicitly written port; it is not a WHATWG `URL` instance.
+Integrations own supported deployment contexts and trailing-slash policy; never guess roots
+from resource-like path segment names.
 
 **Every CLI preserves the supported user-selected scheme, host, context path and explicit port
 presence/value in stored and displayed profile URLs**, including HTTP :80 and HTTPS :443.
@@ -586,14 +582,14 @@ notifications and long-running subscriptions are **planned** and will build on t
 
 ### Service boundaries stay visible
 
-The core package knows nothing about TeamCity resources. Integrations own endpoint paths, DTOs,
+The core package knows nothing about service resources. Integrations own endpoint paths, DTOs,
 pagination rules, browser selectors, and service terminology. HTTP clients depend on `fetch`;
 browser clients use the optional Playwright owner. Tests replace the actual HTTP/browser boundary.
 
 ### Finite page traversal
 
 Core exports `advanceOffset(start, count)` for nonnegative safe-integer addition without a local
-content ceiling. Both integrations use it to validate caller windows, generated request windows
+content ceiling. Consumers use it to validate caller windows, generated request windows
 before dispatch (including later pages), and offset advancement. This removes duplicate arithmetic
 validation from their collection adapters without introducing a traversal callback convention.
 There is no shared traversal API, page DTO, mode registry or HTTP adapter.
@@ -605,40 +601,10 @@ must make progress under the service's continuation contract. No retry or defaul
 content ceiling is imposed. Command authors reuse their integration's collection adapter instead
 of copying its loop or safety checks into each endpoint declaration.
 
-TeamCity retains `--limit 100 --start 0`: limit bounds retained rows across wire requests.
-Its adapter requests one lookahead row, retains `lookupLimit` across sparse continuations, and
-reads only numeric dimensions from `nextHref`; it never dispatches that URL. Missing continuation
-after a short wire page proves the end. Malformed/nonprogressing continuation means unknown.
-A later read failure throws `list.incomplete` with the previously read page and preserved cause;
-cancellation remains cancellation. File lists, native scoped collections, diagnosis and scoped
-page mutations retain their specialized contracts. No unpaged response implies a complete target set.
-
-All 47 YouTrack offset lists use `--page-size 50 --start 0` and return the integration-local
-`{count,items,hasMore,nextStart}` in library, CLI, execute and RPC calls. Ordinary reads make one
-request without lookahead. A nonempty page, even a short one, has `hasMore:null`; `nextStart`
-advances by raw rows. A positive-size empty page confirms the end. A zero-size request supplies
-no end evidence and has no continuation. Do not infer a total or completeness from fullness.
-`issues list --all` requires `--max-results`, a positive page size and optionally `--max-bytes`;
-there is no default ceiling. It advances by raw rows to an empty page, deduplicates present string
-IDs and preserves rows without IDs. Duplicate-only nonempty pages fail for lack of progress.
-Budget overflow, unsafe arithmetic or any page failure rejects the entire complete selection
-without a partial result. Offset paging supplies no snapshot guarantee under concurrent changes.
-The two native activity cursor commands preserve direction, opaque cursors and projected native
-metadata; no automatic feed traversal or conversion to offsets is provided.
-
-Paging validation composes the existing local admission hook before connection/auth resolution;
-direct clients retain validation. Profile endpoint and credentials stay invocation-local across
-requests. Pagination performs only reads. Explicit batch writers gain no discovery requests or
-automatic list-to-write pipeline. A future complete-query target producer must reject unknown,
-continued or failed selections before writing.
-
-Evidence: [YouTrack pagination](https://www.jetbrains.com/help/youtrack/devportal/api-concept-pagination.html)
-(4 November 2026) documents offsets and activity direction but no short-page end guarantee.
-Continuing to an empty page is the local conservative offset rule.
-[TeamCity locators](https://www.jetbrains.com/help/teamcity/rest/locators.html) (2026.2 reference)
-and JetBrains' [PagerDataImpl](https://github.com/JetBrains/teamcity-rest/blob/fc730e618ccd4b57dbbaf03425bb79a9580d19d2/rest-api/src/jetbrains/buildServer/server/rest/model/PagerDataImpl.java)
-establish short-page termination and same-start lookup-limit expansion when no rows were served.
-These references do not certify every native collection or a deployed server version.
+Service-specific collection envelopes, defaults, continuation syntax, deduplication, completeness,
+caller budgets and native cursors belong in the independently versioned products. Core only owns
+checked offset arithmetic. See each product's command guide and offline paging tests for its
+contract; Factory does not maintain a second service paging specification.
 
 Core's `readResponseBody(response, { signal, maxBytes? })` consumes one response into owned bytes
 without choosing HTTP status, media, UTF-8 decoding or JSON semantics. There is no default byte
@@ -649,10 +615,7 @@ owns copied chunks, observes cancellation and releases its lock without awaiting
 Errors contain no response bytes; underlying causes follow the shared diagnostic policy.
 No retries occur.
 
-TeamCity text/JSON/XML and YouTrack JSON have no fixed response-size caps. TeamCity's specialized
-64 KiB discard loop only optimizes disposal of unwanted content and never rejects or truncates
-returned data. TeamCity retains Buffer UTF-8 decoding including BOM; YouTrack removes the initial
-BOM with TextDecoder. Downloads use `publishFile({ cwd, name, output?, ... })` with the
+Downloads use `publishFile({ cwd, name, output?, ... })` with the
 absolute working directory captured once per invocation (also shared by commands in an RPC session).
 Without `output`, the integration supplies the actual metadata filename or known command resource
 name. Core rejects unsafe or ambiguous basenames, including traversal, reserved devices and controls;
@@ -828,7 +791,7 @@ The profile document has a versioned shape:
   "version": 1,
   "active": "default",
   "profiles": {
-    "default": { "url": "https://teamcity.example.com", "guest": false }
+    "default": { "url": "https://service.example.test" }
   },
   "permissions": {
     "default": ["ReadOnly"]
@@ -887,7 +850,7 @@ All new bearer token candidates pass through `normalizeBearerToken` before valid
 storage: stdin, the declared environment variable, and interactive input. It trims only outer
 whitespace, rejects empty values, copied Bearer/Authorization headers, enclosing quotes and internal
 control characters, and preserves internal symbols. Explicit empty input fails without falling back
-to another source. The same helper protects directly callable TeamCity/YouTrack HTTP clients.
+to another source. Directly callable bearer HTTP clients should use the same helper.
 This is a bearer-input contract, not a transformation of arbitrary secrets or existing stored credentials.
 `tokenAuth.tokenSource` supplies the integration's token-settings location; the `--token-stdin`
 help names it, and the interactive prompt adds one sentence about pasting the bare value. A
@@ -924,7 +887,7 @@ No-auth integrations and profiles that opt out of token authentication configure
 credentials. `auth login` rejects such profiles.
 
 The token is validated by the integration before it is persisted. An integration may declare
-that a configured profile does not require a token, for example TeamCity guest access; the
+that a configured profile does not require a token, for example anonymous guest access; the
 service-specific switch and HTTP behavior stay in that integration. Explicit authentication status
 uses the supplied validator for the stored token, but must never print it. Logout deletes only the active
 profile's credential.
@@ -1004,7 +967,7 @@ inventory of `ReadOnly` commands. It is a separate explicit script, refuses CI e
 networking, never prints or persists raw responses, and is never included in `npm test`. Mocked tests
 remain the only service-contract tests required in CI.
 
-TeamCity and YouTrack share `@eyeauras/cli-factory/proof`, separate from both the runtime and
+External integrations consume `@eyeauras/cli-factory/proof`, separate from both the runtime and
 offline-fixture exports. `parseProofProfile` performs strict profile/CI preflight before the
 inventory runs. `createProofInvoker` launches the packaged Node entry point with code-owned argv
 and optional stdin, refusing known CI variables case-insensitively before every spawn and removing
@@ -1032,10 +995,9 @@ does not exist.
 
 ## Package boundaries
 
-The initial npm release set is `@eyeauras/cli-factory`, `@eyeauras/teamcity-cli`
-and `@eyeauras/youtrack-cli`, licensed under MIT. The two CLI packages install the
-unscoped `teamcity-cli` and `youtrack-cli` executable names through npm's `bin` mapping.
-Package scope does not alter CLI syntax, application IDs, profile paths or credentials.
+The Factory npm release set is **@eyeauras/cli-factory**, licensed under MIT.
+Independent product repositories own their npm packages, executable identities and releases.
+Exact Core dependencies keep their runtime independent of this source checkout.
 Optional IPC can also be prepared as an external package artifact using the package-scoped
 build contract in [runtime modules](runtime-modules.md#build-compatibility); publishing it is a
 separate release decision. Factory owns stable host identity, election, readiness, compatibility,
@@ -1043,7 +1005,7 @@ profiles and disposal; external products retain their domain state and queues.
 Runtime JavaScript/types are built before packing; consumers need no TypeScript compiler
 or repository checkout. Root, browser and example packages remain private; IPC has explicit public-package metadata.
 Registry publication is separate from package preparation; the [release guide](npm-release.md)
-defines artifact verification and dependency-ordered publication.
+defines exact artifact verification, npm staging and owner approval before publication.
 
 ### `packages/core`
 
@@ -1058,10 +1020,12 @@ never on an integration or on each other. Protobuf generation is official transp
 not a service/code-generation framework. `integrations/random-common` shares only the two proven
 RANDOM.ORG consumers' service contract and proof inventory.
 
-### `integrations/<service>`
+### `integrations/random-*`
 
-Owns service DTOs, client calls, auth validation, command vocabulary, and executable packaging.
-An integration may depend on core; core must never depend on an integration.
+Factory owns these small reference consumers and their shared RANDOM service contract. Their
+HTTP/browser/IPC fixtures prove optional-runtime behavior without either extracted product.
+New independently released service products own their DTOs, clients, auth, commands, tests and
+packaging in their own repositories. Core never depends on an integration.
 
 ### `CliWrap.ts` submodule (planned)
 

@@ -7,7 +7,7 @@ simple, readable code. Neither endpoint count nor a smaller integration file pro
 
 For a broad API expansion, declare the baseline and a review interval in the workstream before
 implementation. The default interval is **50 newly accepted REST operations** unless the owner
-chooses another interval. TeamCity v2 explicitly uses 50.
+chooses another interval.
 
 Count unique method/path identities newly exposed, tested and accepted since that workstream's
 baseline. Existing routes, aliases, additional flags, commits, helper refactors and test cases do
@@ -53,7 +53,7 @@ binding and shared contract-test setup. They are candidates, not a prescribed ab
 Reuse the command tree, profiles, secret store, permission gate and output/JSON-RPC machinery.
 
 Service locators, paths, DTOs, property semantics and endpoint-specific safety remain local.
-A repeated TeamCity property pattern does not by itself justify a universal CRUD or HTTP layer.
+A repeated service property pattern does not by itself justify a universal CRUD or HTTP layer.
 The repository's promotion rule still applies: a genuinely new extracted shared mechanism needs
 evidence from another real integration. A synthetic service-neutral example can check an existing
 Core API's coupling, but is not a substitute real product or permission to invent one.

@@ -71,8 +71,10 @@ handlers and their declaration remain unchanged.
 
 ### Inside this repository
 
-Put an in-house integration at `integrations/<service>/`. This is the preferred location while
-the service is also proving or improving factory features.
+Independent products normally own their repositories and exact published Core dependencies.
+The existing `integrations/random-*` consumers remain small Factory-owned reference examples.
+An in-repository proving example may live at `integrations/<service>/` when it exercises a
+concrete framework mechanism; product extraction does not require deleting those consumers.
 
 ```text
 integrations/acme/
@@ -111,8 +113,8 @@ A minimal package starts like this (replace `acme` and the executable name):
 }
 ```
 
-Reuse the TypeScript compiler wiring from `integrations/teamcity/tsconfig.json`; do not duplicate
-TeamCity command/client code. Run `npm install` to register the workspace, then the root
+Reuse the TypeScript compiler wiring from `integrations/random-rest/tsconfig.json`; do not duplicate
+service command/client code. Run `npm install` to register the workspace, then the root
 `npm run build`: the build script discovers workspaces and orders local dependencies automatically.
 No root build-command edit or application hash list is needed.
 
@@ -436,8 +438,7 @@ names and identifiers one per line. Use `treeView` for a flat selection with `id
 `line` accessors; missing parents become roots without extra requests. Tables can also declare
 `next` for follow-up commands. A view's title, footer and `next` callbacks receive the
 context with the command's `input`, so a `null` result can still say `Removed tag 7 from DEMO-12`
-and an offset adapter can express its service evidence in a footer. YouTrack uses
-`More results may exist` for nonempty pages; TeamCity uses its lookahead/continuation metadata.
+and an offset adapter can express its service evidence in a footer. Each integration owns its end-evidence wording and continuation metadata.
 A view's `when`
 guard declines an invocation, for example one with an explicit field projection, and Core then
 prints the generic shape. Service date formats stay in the integration: convert them to `Date`
@@ -488,8 +489,8 @@ A typical REST sequence is:
 4. narrowly selected `Update` operations with explicit tests;
 5. streaming, bulk work, or administrative surfaces only when consumers need them.
 
-The [TeamCity guide](../integrations/teamcity/README.md) documents the shipped surface and
-permission boundaries. Keep acceptance and checkpoint evidence in its GitHub Issue/PR.
+Product command guides document their shipped surface and permission boundaries.
+Keep acceptance and checkpoint evidence in the owning product Issue/PR.
 
 ## Test the declaration, not a parallel implementation
 
@@ -506,7 +507,7 @@ The parser owns missing-option validation and the generated `(required)` help hi
 behavior applies in JSON-RPC. A declared default satisfies the requirement. Service-specific
 validation (non-empty names, allowed fields, safe properties) remains in the integration.
 Use `targetCommands` for profile-scoped target binding and small local functions for proven service
-repetition, such as TeamCity's project/job parameter tree. Do not promote HTTP or property
+repetition, such as a repeated resource-property tree. Do not promote HTTP or property
 semantics into Core.
 For expansion work, follow the [50-operation authoring review practice](practices/integration-authoring-reviews.md).
 
@@ -534,8 +535,7 @@ Pass these options through the existing command settings. Keep defaults, bounds 
 service-owned; `signed: true` permits a minus, never a plus. Neither parser trims input, and numeric
 parsing rejects decimals, exponents and unsafe values. Choose valid defaults: Commander does not
 parse them. Use literal, non-secret error messages rather than interpolated input. JSON values are
-`unknown`, so the service still validates objects, fields and null/omitted semantics. Repeat handling
-also remains local, as in TeamCity's `jsonOption`. Keep validation in directly callable clients.
+`unknown`, so the service still validates objects, fields and null/omitted semantics. Repeat handling also remains local. Keep validation in directly callable clients.
 The JSON parser returns `null` for the JSON literal `null`, but Commander's existing required-value
 option handling converts a null callback result to `""`. Nested null fields and array items survive;
 do not treat a top-level option value as proof of a validated JSON body.
@@ -584,7 +584,7 @@ See [the testing guide](testing.md#shared-offline-cli-fixture) for invocation an
 
 Keep the endpoint, query encoding, DTOs and proof of completion in the integration.
 Use one local collection adapter so each command author declares only its path, projection and
-service options. TeamCity's `#list` and YouTrack's `readCollectionAt` are the two working examples.
+service options. Use the service's own wire continuation contract.
 For a finite multi-request operation, use an ordinary service loop and Core's checked offset addition:
 
 ```ts
@@ -696,9 +696,7 @@ identity-checked path cleanup; a close failure retains staging for inspection.
 
 The integration still validates its own basename convention. Optional byte budgets are caller-selected. Core also rejects path,
 device and unsafe cross-platform basename forms. Staging is in a private fresh directory beside the output file. The parent must exist. Never call `privateDirectory` on
-user-selected or AppData ancestor directories. TeamCity and YouTrack are the two consumers;
-TeamCity retains PNG/ZIP/SVG validation and hashes in its DTO, while YouTrack retains signed-URL,
-no-bearer download and sanitized metadata rules. Credentials remain in Core's platform secret store; Windows stores only DPAPI ciphertext files.
+user-selected or AppData ancestor directories. Integrations retain their own format signatures, signed-URL, bearer-scoping and sanitized metadata rules. Credentials remain in Core's platform secret store; Windows stores only DPAPI ciphertext files.
 Measure helper/security costs at every authoring checkpoint.
 
 For text your command generates (an export, a result manifest), call

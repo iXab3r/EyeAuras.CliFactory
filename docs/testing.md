@@ -65,7 +65,7 @@ Tests should fail when required fields drift, not snapshot every byte returned b
 | Local profile-backed proof | Never | Explicit development/debug evidence through a real CLI profile |
 
 `npm run test:packages` is a separate distribution check in CI. It may download public
-npm dependencies, but never contacts TeamCity or YouTrack. It checks actual archives and
+npm dependencies, but never contacts a service. It checks actual archives and
 installs them into a temporary global prefix outside the repository, then exercises npm's
 real command links/shims with help, version and persistent RPC. JSON profile listing uses
 the installed integration exports and Core's temporary fixture. It never accesses real
@@ -97,7 +97,7 @@ Safety comes from construction:
 Mocked tests remain the durable regression suite because they are deterministic and safe. The local
 proof answers a different question: “Does the real built product work with this real profile now?”
 
-TeamCity and YouTrack import the separate `@eyeauras/cli-factory/proof` entry. Their runners call
+Integrations import the separate `@eyeauras/cli-factory/proof` entry. Their runners call
 `parseProofProfile(argv, environment)` before invoking even an injected test invoker. It accepts
 only `--profile <name>` using Core's profile-name rules. CI preflight recognizes nonempty `CI`,
 `GITHUB_ACTIONS`, `TF_BUILD`, `BUILD_BUILDID`, `TEAMCITY_VERSION`, `JENKINS_URL` and `BUILDKITE`
@@ -117,36 +117,11 @@ keyrings or a network. Integration tests still assert their complete fixed inven
 shapes. Success requires the expected number of rows, at least one passed row, and no failed rows;
 dependent skips cannot hide a failed source read. There is no shared endpoint registry or report DSL.
 
-### TeamCity
+### Independent products
 
-Configure a local profile through `profile configure`, then run:
-
-```text
-npm run test:integration --workspace @eyeauras/teamcity-cli -- --profile <name>
-```
-
-The command builds Core and TeamCity first, then invokes the compiled CLI through that profile. Its
-19 proof rows cover local permission inspection, authentication, bounded collection/detail reads,
-build diagnostics, the latest finished build of a listed job, VCS root discovery and a two-request
-JSON-RPC session. The latest lookup uses a job that the build list showed with a finished build, so
-an empty history skips it instead of failing. Paged rows accept only a consistent page:
-`count` must equal the number of items, `hasMore` must be a boolean or `null`, and `nextStart` a
-number or `null`. `builds wait`, `diagnose` and `jobs run` are proven offline only. Unpaged scoped
-authoring lists are not included; their behavior and all mutations are proven with MSW. It accepts
-no endpoint or token override, removes `TEAMCITY_TOKEN` regardless of casing, and uses the shared
-CI preflight. The 64 KiB per-stream bound replaces TeamCity's formerly unbounded capture; oversized
-responses now fail the affected row instead of accumulating indefinitely. The two RPC requests
-still share one child process and both response envelopes and service results must validate.
-
-### YouTrack
-
-`npm run test:integration --workspace @eyeauras/youtrack-cli -- --profile <name>` runs the existing
-24 fixed ReadOnly rows. Service projections, ID validation, bounded pages and dependent skips stay
-in the integration. Offset proof reads use `--page-size`/`--start` and validate page envelopes,
-including count/items agreement and continuation types; selected IDs come from `items`.
-It uses the same 30-second/64-KiB process bounds and removes `YOUTRACK_TOKEN`
-regardless of casing. Failed/denied reads remain failures; empty prerequisite lists skip only their
-dependent reads. The proof neither prints service payloads nor expands its inventory dynamically.
+Each product repository owns its fixed local proof inventory, synthetic HTTP contracts and
+installed-package acceptance. Factory release checks use a small service-neutral Core fixture;
+there is no dependency on product source, service DTOs or a real service.
 
 ### RANDOM.ORG examples
 
@@ -179,7 +154,7 @@ Core's deterministic output subprocess fixture waits for its parent to close the
 writing help/version, human/JSON results, NDJSON and RPC. It asserts exit 141, quiet stderr and
 resource/iterator cleanup. Write-boundary tests cover small asynchronous EIO failures, handler EPIPE,
 cleanup failures and cancellation followed by late EPIPE without process-global listeners.
-Installed-package checks close the stdout reader of both sibling executables for help and RPC;
+Installed Core checks close the stdout reader of a synthetic executable for help, NDJSON and RPC;
 on Unix they also exercise `--help | head -n 1` with `pipefail`.
 
 The [shared policy](DESIGN.md#cross-tool-redirect-and-diagnostic-policy) is exercised offline.
@@ -190,8 +165,8 @@ destroyed causes:
   same-host HTTP-to-HTTPS with successful authentication, and supported method/body semantics.
   Exercise cross-origin transitions without leaking credentials, loops/redirect limits, and
   non-replayable request bodies. No implicit application retry of an uncertain mutation.
-- At least TeamCity, YouTrack and RANDOM.ORG exercise the common behavior through their actual
-  HTTP boundary. Use native fetch against synthetic local servers when mocks cannot establish
+- Core and the in-repository HTTP example exercise the common behavior through their actual
+  HTTP boundary; external products own their corresponding regression evidence. Use native fetch against synthetic local servers when mocks cannot establish
   real redirect/header semantics; external network access is not required.
 - Contextual English errors retain native type/code, stack and nested causes for DNS, TLS,
   connection, timeout, HTTP, decoding and storage failures. An authentication GET never claims
@@ -240,10 +215,8 @@ profile files.
 Shared option-parser regressions cover signed/unsigned decimal spelling, leading zeros, safe bounds,
 invalid JSON and non-echoing errors. The diagnostic contract above requires redacted causes
 to remain useful. Core exercises required options and declared defaults through CLI, execute and
-persistent RPC. TeamCity and YouTrack exercise real native-fetch
-paging plus invalid input in unconfigured TTY, JSON, execute and RPC calls before credentials or HTTP.
-TeamCity also retains repeated JSON order and strict numeric-ID validation. YouTrack range/overflow
-rejection now occurs before onboarding; direct-client domain validation stays covered separately.
+persistent RPC. Consumers exercise native-fetch paging and invalid input before authentication
+in their own tests; Factory retains the generic parser and admission contract.
 
 Changes to application-data behavior use an injected `AppArgumentsEnvironment`; tests never redirect
 the real user's folders. Cover the exact `RoamingAppDataDirectory/Profile` composition, separation of
@@ -294,18 +267,10 @@ Both require a successful transport/CLI exit; RPC command errors remain response
 The raw application's `execute` and `run` retain their normal environment semantics; auth tests
 must explicitly provide synthetic environment inputs when those inputs are under test.
 
-TeamCity's support adapter retains its declared synthetic URL/token and existing independent
-ProfileStore/AppArguments overrides; `createCli()` registers each application with the fixture.
-Its profile-isolation suite uses the unconfigured shared fixture directly. YouTrack's adapter is
-unconfigured and retains only profile-path observation plus its actual application factory.
-Both integrations' ordinary, authentication and persistent RPC suites use these adapters.
+Integration support adapters may retain service defaults around this shared fixture. Hostile
+file-root and browser/process fixtures remain specialized where their purposes differ; do not
+make those service-aware fixture options in Core.
 
-Specialized fixtures remain where their purpose differs: TeamCity's hostile download roots and
-YouTrack's direct download roots exercise path replacement and filesystem publication; upload
-tests create separate synthetic input files; TeamCity packaged-process tests require process-owned
-AppData. These do not become service-aware options on the shared fixture. TeamCity's separate
-download-root cleanup disposes its applications before removing the root. Existing Core lifecycle
-and optional runtime fixtures remain focused on their own lower-level/process/browser contracts.
 ### Shared command-contract assertions
 
 The testing entry point also exports small independent assertions. `assertHttpRequest` checks
@@ -326,11 +291,8 @@ including the per-mode request count. Multi-request workflows retain their direc
 `assertSafeCliFailure` checks exit status, empty stdout, expected stderr and caller-supplied forbidden
 patterns. No automatic redaction or broad snapshot comparison is implied.
 
-Current samples cover TeamCity's explicit Update JSON/text/204 authoring workflow and operator
-list/detail/create, RPC and sanitized failures, plus YouTrack catalog and work-time reads/mutations,
-disabled ReadOnly/Update and multi-profile RPC recovery. The larger pre-existing TeamCity case loops
-and specialized endpoint/security tests remain direct tests; their legacy method-based permission
-selection is not a feature or guarantee of these helpers.
+Consumers own equivalent read/write/RPC/failure examples. These helpers do not infer permission
+categories from HTTP methods or replace independent service expectations.
 
 
 ## Browser observation regressions
