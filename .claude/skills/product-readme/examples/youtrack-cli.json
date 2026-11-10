@@ -6,21 +6,31 @@
         "subtitle": "this package"
       },
       {
+        "title": "JetBrains CLI 0.8.1",
+        "subtitle": "official youtrack, Go"
+      },
+      {
         "title": "yt 0.22.2",
         "subtitle": "Python youtrack-cli"
+      },
+      {
+        "title": "shanehofstetter 0.5.0",
+        "subtitle": "Node.js youtrack-cli"
       }
     ],
     "rowHeader": "API area",
     "countHeader": "operations",
     "legend": "Share of official REST operations reachable",
-    "ariaLabel": "REST API coverage matrix: youtrack-cli 0.9 reaches 282 of 282 operations, yt 0.22.2 reaches 61",
+    "ariaLabel": "REST API coverage matrix: youtrack-cli 0.9 reaches 282 of 282 operations, the official JetBrains youtrack CLI 0.8.1 reaches 146, yt 0.22.2 reaches 61, the Node.js youtrack-cli 0.5.0 by shanehofstetter reaches 0",
     "rows": [
       {
         "name": "Issues",
         "total": 49,
         "values": [
           49,
-          21
+          39,
+          21,
+          0
         ]
       },
       {
@@ -28,6 +38,8 @@
         "total": 8,
         "values": [
           8,
+          7,
+          0,
           0
         ]
       },
@@ -36,7 +48,9 @@
         "total": 11,
         "values": [
           11,
-          3
+          6,
+          3,
+          0
         ]
       },
       {
@@ -44,7 +58,9 @@
         "total": 5,
         "values": [
           5,
-          1
+          0,
+          1,
+          0
         ]
       },
       {
@@ -52,7 +68,9 @@
         "total": 31,
         "values": [
           31,
-          8
+          12,
+          8,
+          0
         ]
       },
       {
@@ -60,7 +78,9 @@
         "total": 29,
         "values": [
           29,
-          13
+          18,
+          13,
+          0
         ]
       },
       {
@@ -68,7 +88,9 @@
         "total": 10,
         "values": [
           10,
-          3
+          10,
+          3,
+          0
         ]
       },
       {
@@ -76,7 +98,9 @@
         "total": 9,
         "values": [
           9,
-          1
+          5,
+          1,
+          0
         ]
       },
       {
@@ -84,6 +108,8 @@
         "total": 64,
         "values": [
           64,
+          17,
+          0,
           0
         ]
       },
@@ -92,7 +118,9 @@
         "total": 22,
         "values": [
           22,
-          4
+          15,
+          4,
+          0
         ]
       },
       {
@@ -100,6 +128,8 @@
         "total": 15,
         "values": [
           15,
+          12,
+          0,
           0
         ]
       },
@@ -108,7 +138,9 @@
         "total": 8,
         "values": [
           8,
-          1
+          4,
+          1,
+          0
         ]
       },
       {
@@ -116,7 +148,9 @@
         "total": 21,
         "values": [
           21,
-          6
+          1,
+          6,
+          0
         ]
       }
     ],
@@ -125,7 +159,9 @@
       "total": 282,
       "values": [
         282,
-        61
+        146,
+        61,
+        0
       ]
     }
   },
