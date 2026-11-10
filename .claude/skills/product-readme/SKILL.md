@@ -71,9 +71,19 @@ and at least one column.
 - **This product's column** comes from that inventory, not from counting commands.
 - **Rows** group the inventory's resource groups into 8 to 14 areas a user would recognise. Every
   group belongs to exactly one area; the generator rejects sums that do not add up.
-- **Other columns** are one or two competing tools, when credible ones exist. Never add an
-  earlier version of this product as a column: comparing the tool with itself tells the reader
-  nothing about whether to choose it. A competing tool gets a column only after you measure it on the same
+- **Other columns** are up to three competing tools, chosen by a rule and not by how they
+  score. A hand-picked comparison reads as "we chose the one we beat". Search the registries and
+  GitHub for the real field (npm, PyPI, crates.io, Go modules, GitHub; include the vendor's own
+  tool), and record every candidate with its latest version, date and a popularity signal you
+  can read (stars, downloads). A candidate qualifies when it is a CLI for this service's REST
+  API (not a library, MCP server, plugin or raw-request wrapper) and is published at a version
+  you can pin. Measure the qualifying three with the strongest popularity signal. Do not drop
+  one because it scores zero or because it scores better than this product. The comparison doc
+  gets a `## Tools considered` section listing all candidates and why each was or was not
+  measured, with the rule in one sentence.
+- Never add an earlier version of this product as a column: comparing the tool with itself
+  tells the reader nothing about whether to choose it.
+- A competing tool gets a column only after you measure it on the same
   denominator: download the published package at a named version, read its source without
   running it, list every HTTP call reachable from a shipped command, normalise method and path,
   and match against the inventory. Credit an operation only on an exact match. Record separately
