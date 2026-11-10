@@ -1,45 +1,176 @@
 {
   "matrix": {
     "columns": [
-      { "title": "youtrack-cli 0.9", "subtitle": "this package" },
-      { "title": "youtrack-cli 0.7.1", "subtitle": "before the expansion" },
-      { "title": "yt 0.22.2", "subtitle": "Python youtrack-cli" }
+      {
+        "title": "youtrack-cli 0.9",
+        "subtitle": "this package"
+      },
+      {
+        "title": "yt 0.22.2",
+        "subtitle": "Python youtrack-cli"
+      }
     ],
     "rowHeader": "API area",
     "countHeader": "operations",
     "legend": "Share of official REST operations reachable",
-    "ariaLabel": "REST API coverage matrix: youtrack-cli 0.9 reaches 282 of 282 operations, youtrack-cli 0.7.1 reached 118, yt 0.22.2 reaches 61",
+    "ariaLabel": "REST API coverage matrix: youtrack-cli 0.9 reaches 282 of 282 operations, yt 0.22.2 reaches 61",
     "rows": [
-      { "name": "Issues", "total": 49, "values": [49, 32, 21] },
-      { "name": "Search, commands, saved queries", "total": 8, "values": [8, 5, 0] },
-      { "name": "Tags and link types", "total": 11, "values": [11, 4, 3] },
-      { "name": "Activity and work items", "total": 5, "values": [5, 3, 1] },
-      { "name": "Projects", "total": 31, "values": [31, 12, 8] },
-      { "name": "Knowledge base articles", "total": 29, "values": [29, 14, 13] },
-      { "name": "Agile boards and sprints", "total": 10, "values": [10, 6, 3] },
-      { "name": "Custom fields", "total": 9, "values": [9, 3, 1] },
-      { "name": "Field value bundles", "total": 64, "values": [64, 27, 0] },
-      { "name": "Users and groups", "total": 22, "values": [22, 8, 4] },
-      { "name": "Roles, permissions, organizations", "total": 15, "values": [15, 0, 0] },
-      { "name": "Time tracking settings", "total": 8, "values": [8, 4, 1] },
-      { "name": "Server settings, backups, telemetry", "total": 21, "values": [21, 0, 6] }
+      {
+        "name": "Issues",
+        "total": 49,
+        "values": [
+          49,
+          21
+        ]
+      },
+      {
+        "name": "Search, commands, saved queries",
+        "total": 8,
+        "values": [
+          8,
+          0
+        ]
+      },
+      {
+        "name": "Tags and link types",
+        "total": 11,
+        "values": [
+          11,
+          3
+        ]
+      },
+      {
+        "name": "Activity and work items",
+        "total": 5,
+        "values": [
+          5,
+          1
+        ]
+      },
+      {
+        "name": "Projects",
+        "total": 31,
+        "values": [
+          31,
+          8
+        ]
+      },
+      {
+        "name": "Knowledge base articles",
+        "total": 29,
+        "values": [
+          29,
+          13
+        ]
+      },
+      {
+        "name": "Agile boards and sprints",
+        "total": 10,
+        "values": [
+          10,
+          3
+        ]
+      },
+      {
+        "name": "Custom fields",
+        "total": 9,
+        "values": [
+          9,
+          1
+        ]
+      },
+      {
+        "name": "Field value bundles",
+        "total": 64,
+        "values": [
+          64,
+          0
+        ]
+      },
+      {
+        "name": "Users and groups",
+        "total": 22,
+        "values": [
+          22,
+          4
+        ]
+      },
+      {
+        "name": "Roles, permissions, organizations",
+        "total": 15,
+        "values": [
+          15,
+          0
+        ]
+      },
+      {
+        "name": "Time tracking settings",
+        "total": 8,
+        "values": [
+          8,
+          1
+        ]
+      },
+      {
+        "name": "Server settings, backups, telemetry",
+        "total": 21,
+        "values": [
+          21,
+          6
+        ]
+      }
     ],
-    "total": { "name": "All operations", "total": 282, "values": [282, 118, 61] }
+    "total": {
+      "name": "All operations",
+      "total": 282,
+      "values": [
+        282,
+        61
+      ]
+    }
   },
   "flow": {
     "ariaLabel": "People, AI agents and Node.js code use one youtrack-cli command tree, which applies profiles, the secret store, a permission gate and output scrubbing before calling the YouTrack REST API",
     "callers": [
-      { "title": "People", "sub": "readable tables and records" },
-      { "title": "AI agents and scripts", "sub": "--json  ·  --json-rpc" },
-      { "title": "Node.js code", "sub": "import the same operations" }
+      {
+        "title": "People",
+        "sub": "readable tables and records"
+      },
+      {
+        "title": "AI agents and scripts",
+        "sub": "--json  ·  --json-rpc"
+      },
+      {
+        "title": "Node.js code",
+        "sub": "import the same operations"
+      }
     ],
-    "product": { "title": "youtrack-cli", "sub": "one command tree, 289 commands" },
+    "product": {
+      "title": "youtrack-cli",
+      "sub": "one command tree, 289 commands"
+    },
     "layers": [
-      { "title": "Profiles", "sub": "several servers, isolated settings" },
-      { "title": "Secret store", "sub": "tokens encrypted, never in arguments" },
-      { "title": "Permission gate", "sub": "ReadOnly on · Update off until granted", "accent": true },
-      { "title": "Output scrubbing", "sub": "tokens and signed URLs removed" }
+      {
+        "title": "Profiles",
+        "sub": "several servers, isolated settings"
+      },
+      {
+        "title": "Secret store",
+        "sub": "tokens encrypted, never in arguments"
+      },
+      {
+        "title": "Permission gate",
+        "sub": "ReadOnly on · Update off until granted",
+        "accent": true
+      },
+      {
+        "title": "Output scrubbing",
+        "sub": "tokens and signed URLs removed"
+      }
     ],
-    "service": { "title": "YouTrack REST API", "sub": "282 of 282 operations" }
+    "service": {
+      "title": "YouTrack REST API",
+      "sub": "282 of 282 operations"
+    }
   }
 }
