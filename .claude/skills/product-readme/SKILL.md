@@ -124,10 +124,8 @@ the script checks arithmetic and label length, not how the result reads.
 
 ## Repository rules that bite
 
-- Products with `scripts/check-agent-setup.mjs` validate every Markdown link reachable from
-  `AGENTS.md`. External links need a label starting `optional API reference:`, `optional source
-  reference:`, `optional provenance:` or `optional tracker reference:`; bare URLs fail. Keep the
-  new README free of external links where you can. Run the checker.
+- Products with `scripts/check-agent-setup.mjs` validate every local Markdown link and heading
+  anchor reachable from `AGENTS.md`. Run it after moving the text.
 - Find what points at README anchors before moving the text (`grep -rn "README.md#"`), and
   retarget each one. `AGENTS.md` is a reviewed instruction file: change only the links, and say so
   in the pull request.
@@ -138,6 +136,21 @@ the script checks arithmetic and label length, not how the result reads.
   the registry page through the repository field.
 - Follow the repository's own commit rules: inspect the staged diff for private addresses and
   credentials, branch from `main` with the default prefix, never push to `main`.
+
+## Leave the way back
+
+A product keeps its numbers; this skill keeps the format and the generator. So that the next
+person can refresh the pictures, each product gets:
+
+- an `## Updating` section at the end of `docs/coverage-comparison.md` (before the credited
+  list) that links this skill, says when to refresh (a column's version or the inventory
+  changed), gives the generator command, and says that another tool's column is a dated
+  measurement to redo deliberately;
+- one pointer to that section from the agent setup: `docs/agent-setup.md` where it exists,
+  otherwise the list of Factory links in `AGENTS.md`.
+
+Link the skill as
+`https://github.com/iXab3r/EyeAuras.CliFactory/tree/main/.claude/skills/product-readme`.
 
 ## Verify and report
 
