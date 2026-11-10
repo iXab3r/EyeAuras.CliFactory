@@ -75,10 +75,15 @@ and at least one column.
   score. A hand-picked comparison reads as "we chose the one we beat". Search the registries and
   GitHub for the real field (npm, PyPI, crates.io, Go modules, GitHub; include the vendor's own
   tool), and record every candidate with its latest version, date and a popularity signal you
-  can read (stars, downloads). A candidate qualifies when it is a CLI for this service's REST
-  API (not a library, MCP server, plugin or raw-request wrapper) and is published at a version
-  you can pin. Measure the qualifying three with the strongest popularity signal. Do not drop
-  one because it scores zero or because it scores better than this product. The comparison doc
+  can read (stars, downloads). A candidate qualifies when it is a CLI for the API in the
+  denominator (not a client of an earlier or different API of the same vendor, a library, MCP
+  server, plugin or raw-request wrapper) and is published at a version you can pin. Measure the
+  qualifying tools with the strongest popularity signal, three at most; two real competitors
+  are better than three with a filler. Do not drop a qualifying tool because it scores low or
+  because it scores better than this product. But a column that is zero in every row is a sign
+  the tool does not speak this API at all: check, and if so it fails qualification. It goes in
+  the considered list with that reason, never in the picture, where it would only make this
+  product look good against something nobody would choose. The comparison doc
   gets a `## Tools considered` section listing all candidates and why each was or was not
   measured, with the rule in one sentence.
 - Never add an earlier version of this product as a column: comparing the tool with itself
